@@ -1,7 +1,17 @@
 from collections import OrderedDict
 
 
-def lempel_ziv_decomposition(sequence):
+def lempel_ziv_decomposition(sequence:str):
+    """
+          an implementation of the LZ76 compression algorithm,
+          Given a string the function will return all unique sub-patterns derived from the input string
+
+                  Parameters:
+                          sequence (str): a string from which to derive sub-patterns
+
+                  Returns:
+                          list : a list of unique sub-patterns
+   """
     sub_strings = list()
     n = len(sequence)
 

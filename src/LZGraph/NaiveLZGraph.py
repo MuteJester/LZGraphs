@@ -7,18 +7,40 @@ from src.LZGraph.decomposition import lempel_ziv_decomposition
 
 
 def saturation_function(x, h, k):
+    """
+          a version of the hill saturation function used in the "random_walk_ber_shortest" random walk method
+          where based on the parameters the function controls the probability of choosing the shortest path action
+          at each step
+
+                  Parameters:
+                          x (float): the length of the input at time t divided by the target length
+                          h (float): the saturation constant
+                          k (int): the saturation factor degree
+
+                  Returns:
+                          float : value between 0 - 1 (used as probability for bernoulli trail)
+   """
     return 1 / (1 + ((h / x) ** k))
 
 
+
+# a lambda function for networkx proper weight usage
 wfs = lambda x, y, z: 1 - z['weight']
 
 
 def generate_dictionary(max_len):
     """
-    generates all a set of all k-mers for k values from 1 to max_len
-    :param max_len:
-    :return:
-    """
+        this function will generate all unique K-Mers for k starting at 1 up to max_len
+        this is a helper function used to derive the node dictionary for the naive LZ-Graph
+        where in general the length distribution of nucleotide sub-patterns are maxed at about 6
+
+                  Parameters:
+                          max_len (int): the length of maximal K-Mer family
+
+
+                  Returns:
+                          list : a list of all unique K-Mers for K =1 --> k = max_len
+   """
 
     N = max_len
     DICT = []
@@ -29,11 +51,62 @@ def generate_dictionary(max_len):
 
 
 class NaiveLZGraph:
+    """
+          This class implements the logic and infrastructure of the "Naive" version of the LZGraph
+          The nodes of this graph are LZ sub-patterns alone without any other additions,
+          This class best fits when the objective is extracting features from a repertoire.
+
+          ...
+
+          Methods
+          -------
+
+          walk_probability(walk,verbose=True):
+              returns the PGEN of the given walk (list of sub-patterns)
+
+          random_walk(steps):
+             given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+             to a random terminal state in the given number of steps
+
+          random_walk_ber_shortest(steps, sfunc_h=0.6, sfunc_k=12):
+              given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+             to a random terminal state, the closer the walk is to the number of selected steps, the higher the
+             probability that the next state will be selected using the shortest-path via dijkstra algorithm.
+             the saturation function which controls the probability of the selecting a node base on the shortest path
+             from the current state is given by the hill function that has 2 parameters, "h" and "h",
+             and can be changed by passing value for the "sfunc_h" parameter and the "sfunc_k"  parameter.
+
+          unsupervised_random_walk():
+            a random initial state and a random terminal state are selected and a random unsupervised walk is
+            carried out until the randomly selected terminal state is reached.
+
+          eigenvector_centrality():
+            return the eigen vector centrality value for each node (this function is used as the feature extractor
+            for the LZGraph)
+
+
+          sequence_variation_curve(cdr3_sample):
+            given a cdr3 sequence, the function will calculate the value of the variation curve and return
+            2 arrays, 1 of the sub-patterns and 1 for the number of out neighbours for each sub-pattern
+
+          graph_summary():
+            the function will return a pandas DataFrame containing the graphs
+            Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges
+
+           Attributres
+          -------
+                nodes:
+                    returns the nodes of the graph
+                edges:
+                    return the edges of the graph
+
+
+    """
     def __init__(self, cdr3_list, dictionary, verbose=False):
         """
-
+        in order to derive the dictionary you can use the heleper function "generate_dictionary"
         :param cdr3_list: a list of nucleotide sequence
-        :param dictionary: a list of all sub-patterns to manifest as nodes
+        :param dictionary: a list of strings, where each string is a sub-pattern that will be converted into a node
         :param verbose:
         """
 
@@ -96,9 +169,28 @@ class NaiveLZGraph:
         self.derive_final_state_data()
 
     def isolates(self):
+        """
+              A function that returns the list of all isolates in the graph.
+              an isolate is a node that is connected to 0 edges (unseen sub-pattern).
+
+                      Parameters:
+                              None
+
+                      Returns:
+                              list : a list of isolates
+       """
         return list(nx.isolates(self.graph))
 
     def drop_isolates(self):
+        """
+                 A function to drop all isolates from the graph.
+
+                         Parameters:
+                                 None
+
+                         Returns:
+                                 None
+          """
         self.graph.remove_nodes_from(self.isolates())
 
     @property
@@ -110,6 +202,10 @@ class NaiveLZGraph:
         return self.graph.edges
 
     def __derive_terminal_state_map(self):
+        """
+            This function derives a mapping between each terminal state and all terminal state that could
+            be reached from it
+          """
         terminal_state_map = np.zeros((len(self.final_state), len(self.final_state)))
         for pos_1, terminal_1 in enumerate(self.final_state.index):
             for pos_2, terminal_2 in enumerate(self.final_state.index):
@@ -124,6 +220,14 @@ class NaiveLZGraph:
                                             index=self.final_state.index)
 
     def derive_final_state_data(self):
+
+        """
+        This function derives a dataframe that contains all terminal state info used for probability normalization
+        of stopping at a terminal state,
+        the function mainly calculates all terminal state that colud be visited before reach any other terminal state
+        and all terminal state that could be visited from any given terminal state.
+        :return:
+        """
         def freq_normalize(target):
             # all possible alternative future terminal states from current state
             D = self.length_distribution_proba.loc[target].copy()
@@ -180,6 +284,19 @@ class NaiveLZGraph:
         self.terminal_state_data = es
 
     def walk_probability(self, walk, verbose=True):
+        """
+             given a walk (a sequence converted into LZ sub-pattern) return the probability of generation (PGEN)
+             of the walk.
+
+             you can use "lempel_ziv_decomposition" from this libraries decomposition module in order to convert a
+             sequence into LZ sub-patterns
+
+                      Parameters:
+                              walk (list): a list of LZ - sub-patterns
+
+                      Returns:
+                              float : the probability of generating such a walk (PGEN)
+       """
         if type(walk) == str:
             LZ = lempel_ziv_decomposition(walk)
             walk_ = LZ
@@ -197,13 +314,18 @@ class NaiveLZGraph:
         return proba
 
     def random_walk(self, steps):
-        """
 
-        :param steps: number of sub-patterns the output should contain
-        :param initial_state:
-        :param final_states:
-        :return:
         """
+           given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+             to a random terminal state in the given number of steps
+
+
+                      Parameters:
+                              steps (int): number of sub-patterns the resulting walk should contain
+                      Returns:
+                              (list,str) : a list of LZ sub-patterns representing the random walk and a string
+                              matching the walk only translated back into a sequence.
+       """
         current_state = self.__random_initial_state()
         value = [current_state]
         seq = ''
@@ -245,6 +367,24 @@ class NaiveLZGraph:
         return value, seq
 
     def random_walk_ber_shortest(self, steps, sfunc_h=0.6, sfunc_k=12):
+        """
+             given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+             to a random terminal state, the closer the walk is to the number of selected steps, the higher the
+             probability that the next state will be selected using the shortest-path via dijkstra algorithm.
+             the saturation function which controls the probability of the selecting a node base on the shortest path
+             from the current state is given by the hill function that has 2 parameters, "h" and "h",
+             and can be changed by passing value for the "sfunc_h" parameter and the "sfunc_k"  parameter.
+
+             The saturation function formally defined as : 1 / (1 + ((h / x) ** k))
+
+                      Parameters:
+                              steps (int): number of sub-patterns the resulting walk should contain
+                              sfunc_h (float): the h parameter of the saturation hill function
+                              sfunc_k (int): the k parameter of the saturation hill function
+                      Returns:
+                              (list,str) : a list of LZ sub-patterns representing the random walk and a string
+                              matching the walk only translated back into a sequence.
+       """
         current_state = self.__random_initial_state()
         istate = current_state
         value = [current_state]
@@ -296,6 +436,13 @@ class NaiveLZGraph:
         # return self.random_walk(steps, initial_state, final_states,tolorance+1)
 
     def __get_state_weights(self, node, v=None, j=None):
+        """
+        Given a node, return all the possible translation from that node and their respective weights
+        :param node:
+        :param v:
+        :param j:
+        :return:
+        """
         if v is None and j is None:
             node_data = self.graph[node]
             states = list(node_data.keys())
@@ -305,6 +452,13 @@ class NaiveLZGraph:
             return pd.DataFrame(dict(self.graph[node])).T
 
     def is_stop_condition(self, state, selected_gene_path_v=None, selected_gene_path_j=None):
+        """
+        give a state, return True if stop condition is met, else return False
+        :param state:
+        :param selected_gene_path_v:
+        :param selected_gene_path_j:
+        :return:
+        """
         if state not in self.final_state:
             return False
         if selected_gene_path_j is not None:
@@ -333,14 +487,34 @@ class NaiveLZGraph:
             return decision
 
     def __random_step(self, state):
+        """
+        Given the current state, pick and take a random step based on the translation probabilities
+        :param state:
+        :return:
+        """
         states, probabilities = self.__get_state_weights(state)
         return np.random.choice(states, size=1, p=probabilities).item()
 
     def __random_initial_state(self):
+        """
+        Select a random initial state based on the marginal distribution of initial states.
+        :return:
+        """
         first_states = self.initial_states / self.initial_states.sum()
         return np.random.choice(first_states.index, size=1, p=first_states.values)[0]
 
     def unsupervised_random_walk(self):
+        """
+             a random initial state and a random terminal state are selected and a random unsupervised walk is
+            carried out until the randomly selected terminal state is reached.
+
+                      Parameters:
+                              None
+
+                      Returns:
+                              (list,str) : a list of LZ sub-patterns representing the random walk and a string
+                              matching the walk only translated back into a sequence.
+       """
         random_initial_state = self.__random_initial_state()
 
         current_state = random_initial_state
@@ -356,9 +530,23 @@ class NaiveLZGraph:
         return walk, sequence
 
     def eigenvector_centrality(self):
+        """
+           return the eigen vector centrality value for each node (this function is used as the feature extractor
+            for the LZGraph)
+        :return:
+        """
         return nx.algorithms.eigenvector_centrality(self.graph, weight='weight')
 
     def voterank(self, n_nodes=25):
+        """
+         Uses the VoteRank algorithm to return the top N influential nodes in the graph, where N is equal to n_nodes
+
+                  Parameters:
+                          n_nodes (int): the number of most influential nodes to find
+
+                  Returns:
+                          list : a list of top influential nodes
+        """
         return nx.algorithms.voterank(self.graph, number_of_nodes=n_nodes)
 
     def sequence_variation_curve(self, cdr3_sample):
@@ -374,6 +562,10 @@ class NaiveLZGraph:
         return encoded, curve
 
     def graph_summary(self):
+        """
+          the function will return a pandas DataFrame containing the graphs
+            Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges
+        """
         R = pd.Series({
             'Chromatic Number': max(nx.greedy_color(self.graph).values()) + 1,
             'Number of Isolates': nx.number_of_isolates(self.graph),
