@@ -17,10 +17,7 @@ T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ','T
 T['V'] = T['chosen_v_family']+'-'+T['chosen_v_gene'].astype(int).astype(str)+'*0'+T['chosen_v_allele'].astype(int).astype(str)
 T['J'] = T['chosen_j_family']+'-'+T['chosen_j_gene'].astype(int).astype(str)+'*0'+T['chosen_j_allele'].astype(int).astype(str)
 
-
-
-from src.LZGraph.AAPLZGraph import AAPLZGraph
-from src.LZGraph.NDPLZGraph import NDPLZGraph, encode_sequence
+from LZGraphs.NDPLZGraph import NDPLZGraph, encode_sequence
 
 lzg = NDPLZGraph(T,verbose=True)
 

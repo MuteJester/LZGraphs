@@ -20,8 +20,8 @@ setuptools.setup(
         # 'Funding': '',
         # 'Say Thanks!': '',
     },
-    package_dir={'': 'src'},
-    packages=setuptools.find_packages(where='src'),
+    package_dir={'': 'LZGraphs'},
+    packages=setuptools.find_packages(where='LZGraphs'),
     classifiers=[
         # see https://pypi.org/classifiers/
         'Development Status :: 5 - Production/Stable',
@@ -47,7 +47,7 @@ setuptools.setup(
     # entry_points={
     #     'console_scripts': [  # This can provide executable scripts
     #         'run=LZGraph:main',
-    # You can execute `run` in bash to run `main()` in src/LZGraph/__init__.py
+    # You can execute `run` in bash to run `main()` in LZGraphs/LZGraph/__init__.py
     #     ],
     # },
 )

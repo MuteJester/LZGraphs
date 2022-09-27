@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from tqdm.auto import tqdm
 
-from src.LZGraph import lempel_ziv_decomposition
+from .decomposition import lempel_ziv_decomposition
 
 
 class BOWVectorizer:

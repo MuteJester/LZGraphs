@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from src.LZGraph.misc import chunkify, window
+from .misc import chunkify, window
 from tqdm.auto import tqdm
 import re
-from src.LZGraph.decomposition import lempel_ziv_decomposition
+from .decomposition import lempel_ziv_decomposition
 import seaborn as sns
 
 def get_lz_and_pos(cdr3):

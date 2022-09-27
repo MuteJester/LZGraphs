@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from src.LZGraph.decomposition import lempel_ziv_decomposition
+from .decomposition import lempel_ziv_decomposition
 from tqdm.auto import tqdm
 import seaborn as sns
-from src.LZGraph.misc import chunkify, window
+from .misc import chunkify, window
 
 
 def derive_lz_and_position(cdr3):

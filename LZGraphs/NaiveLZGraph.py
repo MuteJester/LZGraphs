@@ -2,8 +2,8 @@ from itertools import product
 import networkx as nx
 import numpy as np
 import pandas as pd
-from src.LZGraph.misc import chunkify, window
-from src.LZGraph.decomposition import lempel_ziv_decomposition
+from .misc import window
+from .decomposition import lempel_ziv_decomposition
 
 
 def saturation_function(x, h, k):
