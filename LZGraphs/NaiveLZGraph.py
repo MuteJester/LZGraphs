@@ -168,6 +168,32 @@ class NaiveLZGraph:
         self.__derive_terminal_state_map()
         self.derive_final_state_data()
 
+    def __eq__(self, other):
+        if nx.utils.graphs_equal(self.graph,other.graph):
+            aux = 0
+            aux += self.n_subpatterns != other.n_subpatterns
+            aux += self.terminal_states != other.terminal_states
+            aux += self.terminal_states != other.terminal_states
+            aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
+
+            # test final_state
+            aux += not other.final_state.round(3).equals(self.final_state.round(3))
+
+            #test length_distribution_proba
+            aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
+
+            # test subpattern_individual_probability
+            aux += not other.subpattern_individual_probability['proba'].round(3).equals(self.subpattern_individual_probability['proba'].round(3))
+
+
+            if aux == 0:
+                return True
+            else:
+                return False
+
+        else:
+            return False
+
     def isolates(self):
         """
               A function that returns the list of all isolates in the graph.

@@ -44,6 +44,8 @@ def path_to_sequence(lz_subpatterns):
     return ''.join([clean_node(i) for i in lz_subpatterns])
 
 
+# TO DO: SET AGG LIST (LIKE LENGTHS) TOO NONE TO FREE UP MEMORY
+
 class AAPLZGraph:
     """
               This class implements the logic and infrastructure of the "Amino Acid Positional" version of the LZGraph
@@ -207,11 +209,49 @@ class AAPLZGraph:
             # Normalized Gene Weights
             self.__batch_gene_weight_normalization(3, verbose)
 
-        self.edges_list = list(self.graph.edges(data=True))
+        self.edges_list = None
         self.__derive_terminal_state_map()
         self.derive_final_state_data()
         self.train_pgen = np.array(
             [self.walk_probability(encode_sequence(i), verbose=False) for i in data.cdr3_amino_acid])
+
+
+    def __eq__(self, other):
+        if nx.utils.graphs_equal(self.graph,other.graph):
+            aux = 0
+            aux += self.genetic_walks_black_list != other.genetic_walks_black_list
+            aux += self.n_subpatterns != other.n_subpatterns
+            aux += self.terminal_states != other.terminal_states
+            aux += self.terminal_states != other.terminal_states
+            aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
+
+
+            # test marginal_vgenes
+            aux += not other.marginal_vgenes.round(3).equals(self.marginal_vgenes.round(3))
+
+            #test vj_probabilities
+            aux += not other.vj_probabilities.round(3).equals(self.vj_probabilities.round(3))
+
+            #test length_distribution
+            aux += not other.length_distribution.round(3).equals(self.length_distribution.round(3))
+
+            # test final_state
+            aux += not other.final_state.round(3).equals(self.final_state.round(3))
+
+            #test length_distribution_proba
+            aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
+
+            # test subpattern_individual_probability
+            aux += not other.subpattern_individual_probability['proba'].round(3).equals(self.subpattern_individual_probability['proba'].round(3))
+
+
+            if aux == 0:
+                return True
+            else:
+                return False
+
+        else:
+            return False
 
     def __normalize_edge_weights(self, verbose=False):
         # normalize edges
@@ -939,6 +979,9 @@ class AAPLZGraph:
 
     def get_gene_graph(self, v, j):
         to_drop = []
+        if self.edges_list is None:
+            self.edges_list = list(self.graph.edges(data=True))
+
         for edge in self.edges_list:
             if v in edge[2] and j in edge[2]:
                 continue
