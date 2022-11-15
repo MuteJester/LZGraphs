@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 
+from .LZGraphBase import LZGraphBase
 from .decomposition import lempel_ziv_decomposition
 from tqdm.auto import tqdm
 import seaborn as sns
 from .misc import chunkify, window
-
-
+from time import time
 def derive_lz_and_position(cdr3):
     lzc = lempel_ziv_decomposition(cdr3)
     cumlen = np.cumsum([len(i) for i in lzc])
@@ -46,7 +46,7 @@ def path_to_sequence(lz_subpatterns):
 
 # TO DO: SET AGG LIST (LIKE LENGTHS) TOO NONE TO FREE UP MEMORY
 
-class AAPLZGraph:
+class AAPLZGraph(LZGraphBase):
     """
               This class implements the logic and infrastructure of the "Amino Acid Positional" version of the LZGraph
               The nodes of this graph are LZ sub-patterns based on amino acids with added start position
@@ -128,7 +128,7 @@ class AAPLZGraph:
 
 
         """
-    def __init__(self, data, verbose=False, dictionary=None):
+    def __init__(self, data, verbose=True,calculate_trainset_pgen=False):
         """
         data has to be a pandas dataframe, the cdr3 amino acid sequence has to be under a column named
         "cdr3_amino_acid"
@@ -138,92 +138,57 @@ class AAPLZGraph:
         :param verbose:
         :param dictionary:
         """
+        super().__init__()
 
-        cdr3_list = data['cdr3_amino_acid']
-        lz_components, lz_locations = [], []
-
+        # check for V and J gene data in input
         self.genetic = True if 'V' in data.columns and 'J' in data.columns else False
-        # a list of invalid genetic walks
-        self.genetic_walks_black_list = None
-        # total number of sub-patterns
-        self.n_subpatterns = 0
-        # init and term states sets
-        self.initial_states, self.terminal_states = [], []
-        self.lengths = []
-        self.cac_graphs = dict()
-        self.n_neighbours = dict()
-        dictionary_flag = True if dictionary is None else False
-        dictionary = set() if dictionary is None else dictionary
+
 
         if self.genetic:
-            self.__load_gene_data(data)
+            self._load_gene_data(data)
+            self.verbose_driver(0, verbose)
 
-        # extract lz components
-        for cdr3 in tqdm(cdr3_list, leave=False):
-            LZ, locations = derive_lz_and_position(cdr3)
-            dictionary = dictionary | set(map(lambda x, z: x + '_' + str(z), LZ, locations))
-            lz_components.append(LZ)
-            lz_locations.append(locations)
 
-            self.lengths.append(len(cdr3))
-            self.terminal_states.append(LZ[-1] + '_' + str(locations[-1]))
-            self.initial_states.append(LZ[0] + '_' + str(locations[0]))
-            self.n_subpatterns += len(lz_components[-1])
+        # construct the graph while iterating over the data
+        self.__simultaneous_graph_construction(data)
+        self.verbose_driver(1, verbose)
 
+        # convert to pandas series and  normalize
         self.length_distribution = pd.Series(self.lengths).value_counts()
-        self.final_state = pd.Series(self.terminal_states).value_counts()
-        self.initial_states = pd.Series(self.initial_states).value_counts()
-
-        self.length_distribution_proba = self.final_state / self.final_state.sum()
-
+        self.terminal_states = pd.Series(self.terminal_states)
+        self.initial_states = pd.Series(self.initial_states)
+        self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
         self.initial_states = self.initial_states[self.initial_states > 5]
+        self.verbose_driver(2, verbose)
 
-        if dictionary_flag:
-            self.dictionary = list(dictionary)
-
-        if verbose == True:
-            print('Extracted Positions and LZ Components...')
-
-        # create graph
-        self.graph = nx.DiGraph()
-        self.graph.add_nodes_from(self.dictionary)
-        # add node subpattern length
-
-        self.n_transitions = 0
-
-        if self.genetic:
-            # Encode Subpattern{ReadingFramePosition}_{SequencePosition} and gene at each node
-            for subpattern, location, Vgene, Jgene in zip(lz_components, lz_locations, data['V'],
-                                                          data['J']):
-                self.__process_edge_info_batch(subpattern, location, Vgene, Jgene)
-        else:
-            for subpattern, location in zip(lz_components, lz_locations):
-                self.__process_edge_info_batch_no_genes(subpattern, location)
-
-        if verbose == True:
-            print('Created Graph...')
-
-        self.__normalize_edge_weights(verbose)
+        self._normalize_edge_weights()
+        self.verbose_driver(3, verbose)
 
         if self.genetic:
             # Normalized Gene Weights
-            self.__batch_gene_weight_normalization(3, verbose)
+            self._batch_gene_weight_normalization(3, verbose)
+            self.verbose_driver(4, verbose)
 
         self.edges_list = None
         self.__derive_terminal_state_map()
         self.derive_final_state_data()
-        self.train_pgen = np.array(
-            [self.walk_probability(encode_sequence(i), verbose=False) for i in data.cdr3_amino_acid])
+        self.verbose_driver(5, verbose)
 
+        if calculate_trainset_pgen:
+            self.train_pgen = np.array(
+                [self.walk_probability(encode_sequence(i), verbose=False) for i in data.cdr3_amino_acid])
+
+        self.constructor_end_time = time()
+        self.verbose_driver(6, verbose)
+        self.verbose_driver(-2, verbose)
 
     def __eq__(self, other):
         if nx.utils.graphs_equal(self.graph,other.graph):
             aux = 0
             aux += self.genetic_walks_black_list != other.genetic_walks_black_list
             aux += self.n_subpatterns != other.n_subpatterns
-            aux += self.terminal_states != other.terminal_states
-            aux += self.terminal_states != other.terminal_states
             aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
+            aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
 
 
             # test marginal_vgenes
@@ -236,14 +201,10 @@ class AAPLZGraph:
             aux += not other.length_distribution.round(3).equals(self.length_distribution.round(3))
 
             # test final_state
-            aux += not other.final_state.round(3).equals(self.final_state.round(3))
+            aux += not other.terminal_states.round(3).equals(self.terminal_states.round(3))
 
             #test length_distribution_proba
             aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
-
-            # test subpattern_individual_probability
-            aux += not other.subpattern_individual_probability['proba'].round(3).equals(self.subpattern_individual_probability['proba'].round(3))
-
 
             if aux == 0:
                 return True
@@ -253,62 +214,87 @@ class AAPLZGraph:
         else:
             return False
 
-    def __normalize_edge_weights(self, verbose=False):
-        # normalize edges
-        weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
-        self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
-        self.subpattern_individual_probability /= self.subpattern_individual_probability.proba.sum()
+    def verbose_driver(self,message_number,verbose):
+        if not verbose:
+            return None
 
-        for idx, group in weight_df.groupby('level_0'):
-            weight_df.loc[group.index, 0] /= group[0].sum()
-        # weight_df.set_index(['level_0','level_1']).to_dict()[0]
-        nx.set_edge_attributes(self.graph, weight_df.set_index(['level_0', 'level_1']).to_dict()[0], 'weight')
+        if message_number == -2:
+            print("==="*10)
+            print('\n')
+        elif message_number == 0:
+            CT = round(time()-self.constructor_start_time,2)
+            print("Gene Information Loaded..",'| ',CT,' Seconds')
+        elif message_number == 1:
+            CT = round(time()-self.constructor_start_time,2)
+            print("Graph Constructed..",'| ',CT,' Seconds')
+        elif message_number == 2:
+            CT = round(time()-self.constructor_start_time,2)
+            print("Graph Metadata Derived..",'| ',CT,' Seconds')
+        elif message_number == 3:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Graph Edge Weight Normalized..", '| ', CT, ' Seconds')
+        elif message_number == 4:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Graph Edge Gene Weights Normalized..", '| ', CT, ' Seconds')
+        elif message_number == 5:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
+        elif message_number == 6:
+            CT = round(self.constructor_end_time - self.constructor_start_time, 2)
+            print("LZGraph Created Successfully..", '| ', CT, ' Seconds')
 
-        if verbose == True:
-            print('Normalized Weights...')
+    def __simultaneous_graph_construction(self,data):
+        if self.genetic:
+            for index,row in tqdm(data.iterrows(), leave=False):
+                cdr3 = row['cdr3_amino_acid']
+                v = row['V']
+                j = row['J']
+
+                LZ, locs = derive_lz_and_position(cdr3)
+
+                steps = (window(LZ, 2))
+                locations = (window(locs, 2))
+
+                for (A, B), (loc_a, loc_b) in zip(steps, locations):
+                    A_ = A + '_' + str(loc_a)
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                    B_ = B + '_' + str(loc_b)
+                    self.__insert_edge_and_information(A_, B_, v, j)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+
+                self.lengths.append(len(cdr3))
+                self._update_terminal_states(LZ[-1] + '_' + str(locs[-1]))
+                self._update_initial_states(LZ[0] + '_' + str(locs[0]))
+        else:
+            for cdr3 in tqdm(data['cdr3_amino_acid'], leave=False):
+                LZ, locations = derive_lz_and_position(cdr3)
+                steps = (window(LZ, 2))
+                locations = (window(locations, 2))
+
+                for (A, B), (loc_a, loc_b) in zip(steps, locations):
+                    A_ = A + '_' + str(loc_a)
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                    B_ = B + '_' + str(loc_b)
+                    self.__insert_edge_and_information_no_genes(A_, B_)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+
+                self.lengths.append(len(cdr3))
+                self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
+                self._update_initial_states(LZ[0] + '_' + str(locations[0]))
 
     def __derive_terminal_state_map(self):
-        terminal_state_map = np.zeros((len(self.final_state), len(self.final_state)))
-        for pos_1, terminal_1 in enumerate(self.final_state.index):
-            for pos_2, terminal_2 in enumerate(self.final_state.index):
+        terminal_state_map = np.zeros((len(self.terminal_states), len(self.terminal_states)))
+        for pos_1, terminal_1 in enumerate(self.terminal_states.index):
+            for pos_2, terminal_2 in enumerate(self.terminal_states.index):
                 terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
         terminal_state_map = pd.DataFrame(terminal_state_map,
-                                          columns=self.final_state.index,
-                                          index=self.final_state.index).apply(
+                                          columns=self.terminal_states.index,
+                                          index=self.terminal_states.index).apply(
             lambda x: x.apply(lambda y: x.name if y == 1 else np.nan), axis=0)
         # np.fill_diagonal(terminal_state_map.values, np.nan)
 
         self.terminal_state_map = pd.Series(terminal_state_map.apply(lambda x: (x.dropna().to_list()), axis=1),
-                                            index=self.final_state.index)
-
-    def __add_vgene_head_nodes(self, verbose=False):
-        for vgene in self.observed_vgenes:
-            self.graph.add_node(vgene)
-            for fs in self.initial_states.index:
-                self.graph.add_edge(vgene, fs, weight=self.marginal_vgenes[vgene])
-        if verbose == True:
-            print('Added V Gene States...')
-
-    def __batch_gene_weight_normalization(self, n_process=3, verbose=False):
-        batches = chunkify(list(self.graph.edges), len(self.graph.edges) // 3)
-        print('Starting MP...')
-        pool = ThreadPool(n_process)
-        pool.map(self.__normalize_gene_weights, list(batches))
-
-    def __normalize_gene_weights(self, edge_list):
-        for n_a, n_b in (edge_list):
-            e_data = dict(self.graph.get_edge_data(n_a, n_b))
-            genes = pd.Series(e_data).iloc[1:]
-            vsum = genes.pop('Vsum')
-            jsum = genes.pop('Jsum')
-
-            for key in genes.index:
-                if 'V' in key:
-                    self.graph[n_a][n_b][key] /= vsum
-                else:
-                    self.graph[n_a][n_b][key] /= jsum
-        # if verbose == True:
-        print('Normalized Gene Frequency...')
+                                            index=self.terminal_states.index)
 
     def __process_edge_info_batch(self, subpattern, location, Vgene, Jgene):
         steps = (window(subpattern, 2))
@@ -359,59 +345,6 @@ class AAPLZGraph:
         else:
             self.graph.add_edge(A_, B_, weight=1)
         self.n_transitions += 1
-
-    def __load_gene_data(self, data):
-        self.observed_vgenes = list(set(data['V']))
-        self.observed_jgenes = list(set(data['J']))
-
-        self.marginal_vgenes = data['V'].value_counts()
-        self.marginal_jgenes = data['J'].value_counts()
-        self.marginal_vgenes /= self.marginal_vgenes.sum()
-        self.marginal_jgenes /= self.marginal_jgenes.sum()
-
-        self.vj_probabilities = (data['V'] + '_' + data['J']).value_counts()
-        self.vj_probabilities /= self.vj_probabilities.sum()
-
-    def isolates(self):
-        """
-           A function that returns the list of all isolates in the graph.
-           an isolate is a node that is connected to 0 edges (unseen sub-pattern).
-
-                   Parameters:
-                           None
-
-                   Returns:
-                           list : a list of isolates
-                    """
-        return list(nx.isolates(self.graph))
-
-    def drop_isolates(self):
-        """
-         A function to drop all isolates from the graph.
-
-                 Parameters:
-                         None
-
-                 Returns:
-                         None
-                  """
-        self.graph.remove_nodes_from(self.isolates())
-
-    def is_dag(self):
-        """
-           the function checks whether the graph is a Directed acyclic graph
-
-               :return:
-               """
-        return nx.is_directed_acyclic_graph(self.graph)
-
-    @property
-    def nodes(self):
-        return self.graph.nodes
-
-    @property
-    def edges(self):
-        return self.graph.edges
 
     def walk_probability(self, walk, verbose=True, use_epsilon=False):
         """
@@ -509,8 +442,8 @@ class AAPLZGraph:
 
     def __length_specific_terminal_state(self, length):
 
-        return self.final_state[
-            self.final_state.index.to_series().str.split('_').apply(lambda x: int(x[-1])) == length].index.to_list()
+        return self.terminal_states[
+            self.terminal_states.index.to_series().str.split('_').apply(lambda x: int(x[-1])) == length].index.to_list()
 
     def __select_random_vj_genes(self, type='marginal'):
         if type == 'marginal':
@@ -645,9 +578,6 @@ class AAPLZGraph:
             current_state = initial_state
             walk = [initial_state]
 
-        # nodes not to consider due to invalidity
-        if self.genetic_walks_black_list is None:
-            self.genetic_walks_black_list = dict()
 
         # while the walk is not in a valid final state
         aux = 0
@@ -718,7 +648,7 @@ class AAPLZGraph:
         selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
 
         if seq_len == 'unsupervised':
-            final_states = self.final_state.index.to_list().copy()
+            final_states = self.terminal_states.index.to_list().copy()
         else:
             final_states = self.__length_specific_terminal_state(seq_len)
 
@@ -796,7 +726,7 @@ class AAPLZGraph:
         return results
 
     def is_stop_condition(self, state, selected_gene_path_v=None, selected_gene_path_j=None):
-        if state not in self.final_state:
+        if state not in self.terminal_states:
             return False
 
         if selected_gene_path_j is not None:
@@ -823,82 +753,6 @@ class AAPLZGraph:
             stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
             decision = np.random.binomial(1, stop_probability) == 1
             return decision
-
-    def multi_gene_random_walk_v2(self, N, seq_len, initial_state=None, vj_init='marginal'):
-
-        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
-
-        if seq_len == 'unsupervised':
-            final_states = self.final_state.index.to_list().copy()
-        else:
-            final_states = self.__length_specific_terminal_state(seq_len)
-
-        # nodes not to consider due to invalidity
-        if self.genetic_walks_black_list is None:
-            self.genetic_walks_black_list = dict()
-
-        results = []
-
-        lengths = pd.Series(self.terminal_states).value_counts()
-        max_length = lengths.idxmax()
-        for _ in tqdm(range(N)):
-            if initial_state is None:
-                current_state = self.__random_initial_state()
-                walk = [current_state]
-            else:
-                current_state = initial_state
-                walk = [initial_state]
-
-            # while the walk is not in a valid final state
-            while not self.is_stop_condition(current_state):
-                # print('Blacklist: ',blacklist)
-                # print('='*30)
-                # get the node_data for the current state
-                edge_info = pd.DataFrame(dict(self.graph[current_state]))
-
-                if (current_state, selected_gene_path_v, selected_gene_path_j) in self.genetic_walks_black_list:
-                    edge_info = edge_info.drop(columns=self.genetic_walks_black_list[
-                        (current_state, selected_gene_path_v, selected_gene_path_j)])
-                # check selected path has genes
-                if len(set(edge_info.index) & {selected_gene_path_v, selected_gene_path_j}) != 2:
-                    # TODO: add a visited node stack to not repeat the same calls and mistakes
-                    if len(walk) > 2:
-                        self.genetic_walks_black_list[(walk[-2], selected_gene_path_v, selected_gene_path_j)] \
-                            = self.genetic_walks_black_list.get((walk[-2], selected_gene_path_v, selected_gene_path_j),
-                                                                []) + [walk[-1]]
-                        current_state = walk[-2]
-                        walk = walk[:-1]
-                    else:
-                        walk = walk[:1]
-                        current_state = walk[0]
-                        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
-
-                    continue
-
-                # get paths containing selected_genes
-                idf = edge_info.T[[selected_gene_path_v, selected_gene_path_j]].dropna()
-                w = edge_info.loc['weight', idf.index]
-                w = w / w.sum()
-
-                if len(w) == 0:
-                    if len(walk) > 2:
-                        self.genetic_walks_black_list[(walk[-2], selected_gene_path_v, selected_gene_path_j)] = \
-                            self.genetic_walks_black_list.get((walk[-2], selected_gene_path_v, selected_gene_path_j),
-                                                              []) + [walk[-1]]
-                        current_state = walk[-2]
-                        walk = walk[:-1]
-                    else:
-                        walk = walk[:1]
-                        current_state = walk[0]
-                        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
-
-                    continue
-
-                current_state = np.random.choice(w.index, size=1, p=w.values).item()
-                walk.append(current_state)
-
-            results.append((walk, selected_gene_path_v, selected_gene_path_j))
-        return results
 
     def unsupervised_random_walk(self):
         """
@@ -1042,22 +896,6 @@ class AAPLZGraph:
             walk.append(current_state)
 
         return walk, selected_gene_path_v, selected_gene_path_j
-
-    def eigenvector_centrality(self):
-        return nx.algorithms.eigenvector_centrality(self.graph, weight='weight')
-
-    def voterank(self, n_nodes=25):
-        """
-                         Uses the VoteRank algorithm to return the top N influential nodes in the graph, where N is equal to n_nodes
-
-                                  Parameters:
-                                          n_nodes (int): the number of most influential nodes to find
-
-                                  Returns:
-                                          list : a list of top influential nodes
-                        """
-        return nx.algorithms.voterank(self.graph, number_of_nodes=n_nodes)
-
     def sequence_variation_curve(self, cdr3_sample):
         """
         given a sequence this function will return 2 list,
@@ -1167,16 +1005,3 @@ class AAPLZGraph:
         plt.legend()
         plt.show()
 
-    def graph_summary(self):
-        """
-                          the function will return a pandas DataFrame containing the graphs
-                            Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges
-                        """
-        R = pd.Series({
-            'Chromatic Number': max(nx.greedy_color(self.graph).values()) + 1,
-            'Number of Isolates': nx.number_of_isolates(self.graph),
-            'Max In Deg': max(dict(self.graph.in_degree).values()),
-            'Max Out Deg': max(dict(self.graph.out_degree).values()),
-            'Number of Edges': len(self.graph.edges),
-        })
-        return R

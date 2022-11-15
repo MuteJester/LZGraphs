@@ -67,6 +67,7 @@ def encode_sequence(cdr3):
     return list(map(lambda x, y, z: x + str(y) + '_' + str(z), lz, pos, loc))
 
 
+
 class NDPLZGraph:
     """
           This class implements the logic and infrastructure of the "Nucleotide Double Positional" version of the LZGraph
@@ -159,58 +160,25 @@ class NDPLZGraph:
         :param dictionary:
         """
 
-        cdr3_list = data['cdr3_rearrangement']
-        lz_components, lz_positions, lz_locations = [], [], []
         self.genetic = True if 'V' in data.columns and 'J' in data.columns else False
         self.genetic_walks_black_list = None
         self.n_subpatterns = 0
         self.initial_states, self.terminal_states = [], []
-
-        dictionary_flag = True if dictionary is None else False
-        dictionary = set() if dictionary is None else dictionary
-
+        self.n_transitions = 0
         self.__load_gene_data(data)
+        # per node observed frequency for unity operation
+        self.per_node_observed_frequency = dict()
 
-        # extract lz components
-        for cdr3 in tqdm(cdr3_list, leave=False):
-            LZ, POS, locations = get_lz_and_pos(cdr3)
-            dictionary = dictionary | set(map(lambda x, y, z: x + str(y) + '_' + str(z), LZ, POS, locations))
-            lz_components.append(LZ)
-            lz_positions.append(POS)
-            lz_locations.append(locations)
-            self.terminal_states.append(LZ[-1] + str(POS[-1]) + '_' + str(locations[-1]))
-            self.initial_states.append(LZ[0] + str(POS[0]) + '_' + str(locations[0]))
-            self.n_subpatterns += len(lz_components[-1])
+        self.graph = nx.DiGraph()
+        self.__simultaneous_graph_construction(data)
+        # create graph
+        if verbose == True:
+            print('Created Graph...')
 
         self.final_state = pd.Series(self.terminal_states).value_counts()
         self.initial_states = pd.Series(self.initial_states).value_counts()
-
-        if dictionary_flag:
-            self.dictionary = list(dictionary)
-
         if verbose == True:
             print('Extracted Positions and LZ Components...')
-
-        # create graph
-        self.graph = nx.DiGraph()
-        self.graph.add_nodes_from(self.dictionary)
-        # add node subpattern length
-
-        self.n_transitions = 0
-
-
-        if self.genetic:
-            # Encode Subpattern{ReadingFramePosition}_{SequencePosition} and gene at each node
-            for subpattern, positions, location, Vgene, Jgene in zip(lz_components, lz_positions, lz_locations, data['V'],
-                                                                     data['J']):
-
-                self.__process_edge_info_batch(subpattern,positions,location,Vgene,Jgene)
-        else:
-            for subpattern, positions, location in zip(lz_components, lz_positions, lz_locations):
-                self.__process_edge_info_batch_no_genes(subpattern, positions, location)
-
-        if verbose == True:
-            print('Created Graph...')
 
         self.__normalize_edge_weights(verbose)
         if self.genetic:
@@ -262,6 +230,44 @@ class NDPLZGraph:
 
         else:
             return False
+
+
+    def __simultaneous_graph_construction(self,data):
+        if self.genetic:
+            for index,row in tqdm(data.iterrows(), leave=False):
+                cdr3 = row['cdr3_rearrangement']
+                v = row['V']
+                j = row['J']
+                subpattern,positions,location = get_lz_and_pos(cdr3)
+                steps = (window(subpattern, 2))
+                reading_frames = (window(positions, 2))
+                locations = (window(location, 2))
+
+                for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
+                    A_ = A + str(pos_a) + '_' + str(loc_a)
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                    B_ = B + str(pos_b) + '_' + str(loc_b)
+                    self.__insert_edge_and_information(A_, B_, v, j)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0) + 1
+
+                self.terminal_states.append(subpattern[-1] + str(positions[-1]) + '_' + str(location[-1]))
+                self.initial_states.append(subpattern[0] + str(positions[0]) + '_' + str(location[0]))
+        else:
+            for cdr3 in tqdm(data['cdr3_rearrangement'], leave=False):
+                subpattern,positions,location = get_lz_and_pos(cdr3)
+                steps = (window(subpattern, 2))
+                reading_frames = (window(positions, 2))
+                locations = (window(location, 2))
+
+                for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
+                    A_ = A + str(pos_a) + '_' + str(loc_a)
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                    B_ = B + str(pos_b) + '_' + str(loc_b)
+                    self.__insert_edge_and_information(A_, B_)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0) + 1
+                self.terminal_states.append(subpattern[-1] + str(reading_frames[-1]) + '_' + str(location[-1]))
+                self.initial_states.append(subpattern[0] + str(reading_frames[0]) + '_' + str(location[0]))
+
     def __derive_terminal_state_map(self):
         """
             This function derives a mapping between each terminal state and all terminal state that could
