@@ -1,5 +1,4 @@
 import numpy as np
-
 from .AAPLZGraph import AAPLZGraph
 from .NaiveLZGraph import NaiveLZGraph
 from .NDPLZGraph import NDPLZGraph
@@ -146,4 +145,6 @@ def graph_union(graphA,graphB):
                         union_graph[node][column][key] = c[column][key]
 
         graphA.graph = union_graph
+
+
 

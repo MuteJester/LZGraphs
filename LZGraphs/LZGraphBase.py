@@ -18,7 +18,7 @@ class LZGraphBase:
         self.n_subpatterns = 0
 
         self.initial_states, self.terminal_states = dict(), dict()
-        self.lengths = []
+        self.lengths = dict()
         self.cac_graphs = dict()
         self.n_transitions = 0
         self.n_neighbours = dict()

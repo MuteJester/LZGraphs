@@ -14,7 +14,6 @@ def lempel_ziv_decomposition(sequence:str):
    """
     sub_strings = list()
     n = len(sequence)
-
     ind = 0
     inc = 1
     while True:

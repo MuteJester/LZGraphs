@@ -44,6 +44,7 @@ def path_to_sequence(lz_subpatterns):
     return ''.join([clean_node(i) for i in lz_subpatterns])
 
 
+
 # TO DO: SET AGG LIST (LIKE LENGTHS) TOO NONE TO FREE UP MEMORY
 
 class AAPLZGraph(LZGraphBase):
@@ -154,7 +155,7 @@ class AAPLZGraph(LZGraphBase):
         self.verbose_driver(1, verbose)
 
         # convert to pandas series and  normalize
-        self.length_distribution = pd.Series(self.lengths).value_counts()
+        self.length_distribution = pd.Series(self.lengths)#.value_counts()
         self.terminal_states = pd.Series(self.terminal_states)
         self.initial_states = pd.Series(self.initial_states)
         self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
@@ -171,7 +172,9 @@ class AAPLZGraph(LZGraphBase):
 
         self.edges_list = None
         self.__derive_terminal_state_map()
+        self.verbose_driver(7, verbose)
         self.derive_final_state_data()
+        self.verbose_driver(8, verbose)
         self.verbose_driver(5, verbose)
 
         if calculate_trainset_pgen:
@@ -242,6 +245,12 @@ class AAPLZGraph(LZGraphBase):
         elif message_number == 6:
             CT = round(self.constructor_end_time - self.constructor_start_time, 2)
             print("LZGraph Created Successfully..", '| ', CT, ' Seconds')
+        elif message_number == 7:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
+        elif message_number == 8:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Terminal State Conditional Probabilities Map Derived..", '| ', CT, ' Seconds')
 
     def __simultaneous_graph_construction(self,data):
         if self.genetic:
@@ -262,9 +271,10 @@ class AAPLZGraph(LZGraphBase):
                     self.__insert_edge_and_information(A_, B_, v, j)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-                self.lengths.append(len(cdr3))
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3),0)+1
+
                 self._update_terminal_states(LZ[-1] + '_' + str(locs[-1]))
-                self._update_initial_states(LZ[0] + '_' + str(locs[0]))
+                self._update_initial_states(LZ[0] + '_1')
         else:
             for cdr3 in tqdm(data['cdr3_amino_acid'], leave=False):
                 LZ, locations = derive_lz_and_position(cdr3)
@@ -280,13 +290,28 @@ class AAPLZGraph(LZGraphBase):
 
                 self.lengths.append(len(cdr3))
                 self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
-                self._update_initial_states(LZ[0] + '_' + str(locations[0]))
+                self._update_initial_states(LZ[0] + '_1')
 
     def __derive_terminal_state_map(self):
+        """
+        create a matrix map between all terminal state,
+        given that we have  K terminal states, the matrix will be of dim KxK
+        where at each row reachability will be denoted by 1, i.e
+        if I can reach e  state K_i from state k, the value at K[k][K_i] = 1
+        :return:
+        """
         terminal_state_map = np.zeros((len(self.terminal_states), len(self.terminal_states)))
+        ts_index = {i:ax for ax,i in enumerate(self.terminal_states.index)}
+
         for pos_1, terminal_1 in enumerate(self.terminal_states.index):
-            for pos_2, terminal_2 in enumerate(self.terminal_states.index):
-                terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
+            dfs_node = list(nx.dfs_preorder_nodes(self.graph,source=terminal_1))
+            # for pos_2, terminal_2 in enumerate(self.terminal_states.index):
+            #     terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
+            reachable_terminal_state = set(dfs_node)&set(self.terminal_states.index)
+            for node in reachable_terminal_state:
+                terminal_state_map[pos_1][ts_index[node]] = 1
+
+
         terminal_state_map = pd.DataFrame(terminal_state_map,
                                           columns=self.terminal_states.index,
                                           index=self.terminal_states.index).apply(
@@ -320,22 +345,21 @@ class AAPLZGraph(LZGraphBase):
 
             if Vgene in self.graph[A_][B_]:
                 self.graph[A_][B_][Vgene] += 1
-
             else:
                 self.graph[A_][B_][Vgene] = 1
-
             if Jgene in self.graph[A_][B_]:
                 self.graph[A_][B_][Jgene] += 1
             else:
                 self.graph[A_][B_][Jgene] = 1
+
             self.graph[A_][B_]['Vsum'] += 1
             self.graph[A_][B_]['Jsum'] += 1
         else:
-            self.graph.add_edge(A_, B_, weight=1)
+            self.graph.add_edge(A_, B_, weight=1,Vsum=1,Jsum=1)
             self.graph[A_][B_][Vgene] = 1
             self.graph[A_][B_][Jgene] = 1
-            self.graph[A_][B_]['Vsum'] = 1
-            self.graph[A_][B_]['Jsum'] = 1
+            # self.graph[A_][B_]['Vsum'] = 1
+            # self.graph[A_][B_]['Jsum'] = 1
 
         self.n_transitions += 1
 

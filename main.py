@@ -403,16 +403,45 @@ def AAPG_Test():
     T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
         'chosen_j_allele'].astype(int).astype(str)
 
+    single_sample = T.copy()
+    #
+    # for sample in samples[:5]:
+    #     table_test = pd.read_table(sample_path + sample, low_memory=False)
+    #
+    #     X = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+    #                                                            'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+    #                                                            'chosen_v_gene', 'chosen_j_allele',
+    #                                                            'chosen_v_allele']].dropna()
+    #
+    #     X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV0', 'XRBV'))
+    #     X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV', 'XRBV'))
+    #     X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ0', 'XRBJ'))
+    #     X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ', 'XRBJ'))
+    #
+    #     X['V'] = X['chosen_v_family'] + '-' + X['chosen_v_gene'].astype(int).astype(str) + '*0' + X[
+    #         'chosen_v_allele'].astype(int).astype(str)
+    #     X['J'] = X['chosen_j_family'] + '-' + X['chosen_j_gene'].astype(int).astype(str) + '*0' + X[
+    #         'chosen_j_allele'].astype(int).astype(str)
+    #
+    #     T = pd.concat([T,X])
+    #
+
+
+    #
+    #
+    #
+    # size_test_graph = AAPLZGraph(T)
+
+    print('============End Of Size Test================')
+    print('\n\n')
     with open('hivd1_s0_AAPG_graph_test.pkl', 'rb') as h:
         lzg = pickle.load(h)
+    new_graph = AAPLZGraph(single_sample)
+
 
     # with open('hivd1_s0_AAPG_graph_test.pkl', 'wb') as h:
     #     new_graph = AAPLZGraph(T)
     #     pickle.dump(new_graph,h)
-
-
-
-    new_graph = AAPLZGraph(T)
 
     print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
     print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
