@@ -38,7 +38,6 @@ def renormalize_edege_genes(column):
 
     return column
 
-
 def graph_union(graphA,graphB):
     """
     This function performs a union operation between two graphs, graphA will be updated to be the
@@ -58,7 +57,6 @@ def graph_union(graphA,graphB):
         #graphA.genetic_walks_black_list.merge(graphB.genetic_walks_black_list if type(graphB.genetic_walks_black_list) is not None else {})
         graphA.n_subpatterns += graphB.n_subpatterns
         graphA.initial_states = graphA.initial_states.combine(graphB.initial_states, lambda x, y: x + y, fill_value=0)
-        graphA.terminal_states = graphA.terminal_states + graphB.terminal_states
 
         # not necceseray
         # lengths
@@ -74,7 +72,7 @@ def graph_union(graphA,graphB):
                                                                  fill_value=0)) / 2
         graphA.length_distribution = (
             graphA.length_distribution.combine(graphB.length_distribution, lambda x, y: x + y, fill_value=0))
-        graphA.final_state = (graphA.final_state.combine(graphB.final_state, lambda x, y: x + y, fill_value=0))
+        graphA.terminal_states = (graphA.terminal_states.combine(graphB.terminal_states, lambda x, y: x + y, fill_value=0))
         graphA.length_distribution_proba = (graphA.length_distribution_proba.combine(graphB.length_distribution_proba,
                                                                                    lambda x, y: x + y,
                                                                                    fill_value=0)) / 2

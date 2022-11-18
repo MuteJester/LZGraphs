@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from .misc import window
 from .decomposition import lempel_ziv_decomposition
+from time import time
 
 
 def saturation_function(x, h, k):
@@ -21,7 +22,6 @@ def saturation_function(x, h, k):
                           float : value between 0 - 1 (used as probability for bernoulli trail)
    """
     return 1 / (1 + ((h / x) ** k))
-
 
 
 # a lambda function for networkx proper weight usage
@@ -102,89 +102,102 @@ class NaiveLZGraph:
 
 
     """
-    def __init__(self, cdr3_list, dictionary, verbose=False):
+
+    def __init__(self, cdr3_list, dictionary, verbose=True):
         """
         in order to derive the dictionary you can use the heleper function "generate_dictionary"
         :param cdr3_list: a list of nucleotide sequence
         :param dictionary: a list of strings, where each string is a sub-pattern that will be converted into a node
         :param verbose:
         """
+        self.constructor_start_time = time()
 
         self.dictionary = dictionary
         lz_components = []
-        self.n_subpatterns = 0
-        self.terminal_states = []
-        self.initial_states = []
-        # extract lz components
-        for cdr3 in (cdr3_list):
-            LZ = lempel_ziv_decomposition(cdr3)
-            lz_components.append(LZ)
-            self.terminal_states.append(LZ[-1])
-            self.initial_states.append(LZ[0])
-
-            self.n_subpatterns += len(lz_components[-1])
-
-        self.final_state = pd.Series(self.terminal_states).value_counts()
-        # self.final_state = self.final_state[self.final_state >= (self.final_state.mean())]
-        self.initial_states = pd.Series(self.initial_states).value_counts()
-
-        if verbose == True:
-            print('Extracted Positions and LZ Components...')
-
+        self.terminal_states = dict()
+        self.initial_states = dict()
+        self.per_node_observed_frequency = dict()
         # create graph
         self.graph = nx.DiGraph()
         self.graph.add_nodes_from(self.dictionary)
-        # add node subpattern length
+        # extract lz components
 
-        self.n_transitions = 0
-        for subpattern in (lz_components):
-            steps = (window(subpattern, 2))
-            for (A, B) in (steps):
-                A_ = A
-                B_ = B
-                if self.graph.has_edge(A_, B_):
-                    self.graph[A_][B_]["weight"] += 1
+        self.__simultaneous_graph_construction(cdr3_list)
+        self.verbose_driver(1, verbose)
 
-                else:
-                    self.graph.add_edge(A_, B_, weight=1)
-                self.n_transitions += 1
+        self.terminal_states = pd.Series(self.terminal_states)
+        self.initial_states = pd.Series(self.initial_states)
+        self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
+        self.verbose_driver(2, verbose)
 
-        if verbose == True:
-            print('Created Graph...')
-            # normalize edges
-        weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
-        self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
-        self.subpattern_individual_probability /= self.subpattern_individual_probability.proba.sum()
+        self._derive_subpattern_individual_probability()
+        self.verbose_driver(8, verbose)
+        self._normalize_edge_weights()
+        self.verbose_driver(3, verbose)
 
-        for idx, group in weight_df.groupby('level_0'):
-            weight_df.loc[group.index, 0] /= group[0].sum()
-        # weight_df.set_index(['level_0','level_1']).to_dict()[0]
-        nx.set_edge_attributes(self.graph, weight_df.set_index(['level_0', 'level_1']).to_dict()[0], 'weight')
-
-        if verbose == True:
-            print('Normalized Weights...')
-
-        self.length_distribution_proba = self.final_state / self.final_state.sum()
         self.__derive_terminal_state_map()
+        self.verbose_driver(7, verbose)
         self.derive_final_state_data()
+        self.verbose_driver(8, verbose)
+
+        self.constructor_end_time = time()
+        self.verbose_driver(6, verbose)
+        self.verbose_driver(-2, verbose)
+
+
+    def verbose_driver(self, message_number, verbose):
+        if not verbose:
+            return None
+
+        if message_number == -2:
+            print("===" * 10)
+            print('\n')
+        elif message_number == 0:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Gene Information Loaded..", '| ', CT, ' Seconds')
+        elif message_number == 1:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Graph Constructed..", '| ', CT, ' Seconds')
+        elif message_number == 2:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Graph Metadata Derived..", '| ', CT, ' Seconds')
+        elif message_number == 3:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Graph Edge Weight Normalized..", '| ', CT, ' Seconds')
+        elif message_number == 4:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Graph Edge Gene Weights Normalized..", '| ', CT, ' Seconds')
+        elif message_number == 5:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
+        elif message_number == 6:
+            CT = round(self.constructor_end_time - self.constructor_start_time, 2)
+            print("LZGraph Created Successfully..", '| ', CT, ' Seconds')
+        elif message_number == 7:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
+        elif message_number == 8:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Individual Subpattern Empirical Probability Derived..", '| ', CT, ' Seconds')
+        elif message_number == 9:
+            CT = round(time() - self.constructor_start_time, 2)
+            print("Terminal State Conditional Probabilities Map Derived..", '| ', CT, ' Seconds')
 
     def __eq__(self, other):
-        if nx.utils.graphs_equal(self.graph,other.graph):
+        if nx.utils.graphs_equal(self.graph, other.graph):
             aux = 0
-            aux += self.n_subpatterns != other.n_subpatterns
-            aux += self.terminal_states != other.terminal_states
-            aux += self.terminal_states != other.terminal_states
+            aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
             aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
 
             # test final_state
-            aux += not other.final_state.round(3).equals(self.final_state.round(3))
+            aux += not other.terminal_states.round(3).equals(self.terminal_states.round(3))
 
-            #test length_distribution_proba
+            # test length_distribution_proba
             aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
 
             # test subpattern_individual_probability
-            aux += not other.subpattern_individual_probability['proba'].round(3).equals(self.subpattern_individual_probability['proba'].round(3))
-
+            aux += not other.subpattern_individual_probability['proba'].round(3).equals(
+                self.subpattern_individual_probability['proba'].round(3))
 
             if aux == 0:
                 return True
@@ -193,6 +206,47 @@ class NaiveLZGraph:
 
         else:
             return False
+
+    def _derive_subpattern_individual_probability(self):
+        weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
+        self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
+        self.subpattern_individual_probability /= self.subpattern_individual_probability.proba.sum()
+
+    def __simultaneous_graph_construction(self, data):
+        for cdr3 in (data):
+            lz_components = lempel_ziv_decomposition(cdr3)
+            edges = (window(lz_components, 2))
+
+            for (A, B) in edges:
+                self.per_node_observed_frequency[A] = self.per_node_observed_frequency.get(A, 0) + 1
+                self._insert_edge_and_information(A, B)
+            self.per_node_observed_frequency[B] = self.per_node_observed_frequency.get(B, 0)
+
+            self._update_terminal_states(lz_components[-1])
+            self._update_initial_states(lz_components[0])
+
+    def _normalize_edge_weights(self):
+        # normalize edges
+        # weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
+        # for idx, group in weight_df.groupby('level_0'):
+        #     weight_df.loc[group.index, 0] /= group[0].sum()
+        # nx.set_edge_attributes(self.graph, weight_df.set_index(['level_0', 'level_1']).to_dict()[0], 'weight')
+
+        for edge_a, edge_b in self.graph.edges:
+            node_observed_total = self.per_node_observed_frequency[edge_a]
+            self.graph[edge_a][edge_b]['weight'] /= node_observed_total
+
+    def _insert_edge_and_information(self, A_, B_):
+        if self.graph.has_edge(A_, B_):
+            self.graph[A_][B_]["weight"] += 1
+        else:
+            self.graph.add_edge(A_, B_, weight=1)
+
+    def _update_terminal_states(self, terminal_state):
+        self.terminal_states[terminal_state] = self.terminal_states.get(terminal_state, 0) + 1
+
+    def _update_initial_states(self, initial_state):
+        self.initial_states[initial_state] = self.initial_states.get(initial_state, 0) + 1
 
     def isolates(self):
         """
@@ -232,18 +286,18 @@ class NaiveLZGraph:
             This function derives a mapping between each terminal state and all terminal state that could
             be reached from it
           """
-        terminal_state_map = np.zeros((len(self.final_state), len(self.final_state)))
-        for pos_1, terminal_1 in enumerate(self.final_state.index):
-            for pos_2, terminal_2 in enumerate(self.final_state.index):
+        terminal_state_map = np.zeros((len(self.terminal_states), len(self.terminal_states)))
+        for pos_1, terminal_1 in enumerate(self.terminal_states.index):
+            for pos_2, terminal_2 in enumerate(self.terminal_states.index):
                 terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
         terminal_state_map = pd.DataFrame(terminal_state_map,
-                                          columns=self.final_state.index,
-                                          index=self.final_state.index).apply(
+                                          columns=self.terminal_states.index,
+                                          index=self.terminal_states.index).apply(
             lambda x: x.apply(lambda y: x.name if y == 1 else np.nan), axis=0)
         # np.fill_diagonal(terminal_state_map.values, np.nan)
 
         self.terminal_state_map = pd.Series(terminal_state_map.apply(lambda x: (x.dropna().to_list()), axis=1),
-                                            index=self.final_state.index)
+                                            index=self.terminal_states.index)
 
     def derive_final_state_data(self):
 
@@ -254,6 +308,7 @@ class NaiveLZGraph:
         and all terminal state that could be visited from any given terminal state.
         :return:
         """
+
         def freq_normalize(target):
             # all possible alternative future terminal states from current state
             D = self.length_distribution_proba.loc[target].copy()
@@ -377,14 +432,14 @@ class NaiveLZGraph:
             value.append(current_state)
             seq += current_state
 
-            if current_state in self.final_state and len(value) == steps and len(seq) % 3 == 0:
+            if current_state in self.terminal_states and len(value) == steps and len(seq) % 3 == 0:
                 return value, seq
-            elif len(value) == steps and current_state not in self.final_state:
+            elif len(value) == steps and current_state not in self.terminal_states:
                 value = value[:np.random.randint(1, len(value), 1)[0]]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
-            elif len(value) == steps and current_state in self.final_state and len(seq) % 3 != 0:
+            elif len(value) == steps and current_state in self.terminal_states and len(seq) % 3 != 0:
                 value = value[:np.random.randint(1, len(value), 1)[0]]
                 tolorance += 1
                 current_state = value[-1]
@@ -444,14 +499,14 @@ class NaiveLZGraph:
                 value.append(current_state)
                 seq += current_state
 
-            if current_state in self.final_state and len(value) == steps and len(seq) % 3 == 0:
+            if current_state in self.terminal_states and len(value) == steps and len(seq) % 3 == 0:
                 return value, seq
-            elif len(value) == steps and current_state not in self.final_state:
+            elif len(value) == steps and current_state not in self.terminal_states:
                 value = value[:np.random.randint(1, len(value), 1)[0]]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
-            elif len(value) == steps and current_state in self.final_state and len(seq) % 3 != 0:
+            elif len(value) == steps and current_state in self.terminal_states and len(seq) % 3 != 0:
                 value = value[:np.random.randint(1, len(value), 1)[0]]
                 tolorance += 1
                 current_state = value[-1]
@@ -485,7 +540,7 @@ class NaiveLZGraph:
         :param selected_gene_path_j:
         :return:
         """
-        if state not in self.final_state:
+        if state not in self.terminal_states:
             return False
         if selected_gene_path_j is not None:
             edge_info = pd.DataFrame(dict(self.graph[state]))

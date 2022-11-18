@@ -13,6 +13,8 @@ from tqdm.auto import tqdm
 import seaborn as sns
 from .misc import chunkify, window
 from time import time
+
+
 def derive_lz_and_position(cdr3):
     lzc = lempel_ziv_decomposition(cdr3)
     cumlen = np.cumsum([len(i) for i in lzc])
@@ -42,7 +44,6 @@ def encode_sequence(amino_acid):
 
 def path_to_sequence(lz_subpatterns):
     return ''.join([clean_node(i) for i in lz_subpatterns])
-
 
 
 # TO DO: SET AGG LIST (LIKE LENGTHS) TOO NONE TO FREE UP MEMORY
@@ -129,7 +130,8 @@ class AAPLZGraph(LZGraphBase):
 
 
         """
-    def __init__(self, data, verbose=True,calculate_trainset_pgen=False):
+
+    def __init__(self, data, verbose=True, calculate_trainset_pgen=False):
         """
         data has to be a pandas dataframe, the cdr3 amino acid sequence has to be under a column named
         "cdr3_amino_acid"
@@ -144,24 +146,25 @@ class AAPLZGraph(LZGraphBase):
         # check for V and J gene data in input
         self.genetic = True if 'V' in data.columns and 'J' in data.columns else False
 
-
         if self.genetic:
             self._load_gene_data(data)
             self.verbose_driver(0, verbose)
-
 
         # construct the graph while iterating over the data
         self.__simultaneous_graph_construction(data)
         self.verbose_driver(1, verbose)
 
         # convert to pandas series and  normalize
-        self.length_distribution = pd.Series(self.lengths)#.value_counts()
+        self.length_distribution = pd.Series(self.lengths)
         self.terminal_states = pd.Series(self.terminal_states)
         self.initial_states = pd.Series(self.initial_states)
         self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
         self.initial_states = self.initial_states[self.initial_states > 5]
         self.verbose_driver(2, verbose)
 
+
+        self._derive_subpattern_individual_probability()
+        self.verbose_driver(8, verbose)
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
 
@@ -171,9 +174,9 @@ class AAPLZGraph(LZGraphBase):
             self.verbose_driver(4, verbose)
 
         self.edges_list = None
-        self.__derive_terminal_state_map()
+        self._derive_terminal_state_map()
         self.verbose_driver(7, verbose)
-        self.derive_final_state_data()
+        self._derive_final_state_data()
         self.verbose_driver(8, verbose)
         self.verbose_driver(5, verbose)
 
@@ -185,76 +188,9 @@ class AAPLZGraph(LZGraphBase):
         self.verbose_driver(6, verbose)
         self.verbose_driver(-2, verbose)
 
-    def __eq__(self, other):
-        if nx.utils.graphs_equal(self.graph,other.graph):
-            aux = 0
-            aux += self.genetic_walks_black_list != other.genetic_walks_black_list
-            aux += self.n_subpatterns != other.n_subpatterns
-            aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
-            aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
-
-
-            # test marginal_vgenes
-            aux += not other.marginal_vgenes.round(3).equals(self.marginal_vgenes.round(3))
-
-            #test vj_probabilities
-            aux += not other.vj_probabilities.round(3).equals(self.vj_probabilities.round(3))
-
-            #test length_distribution
-            aux += not other.length_distribution.round(3).equals(self.length_distribution.round(3))
-
-            # test final_state
-            aux += not other.terminal_states.round(3).equals(self.terminal_states.round(3))
-
-            #test length_distribution_proba
-            aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
-
-            if aux == 0:
-                return True
-            else:
-                return False
-
-        else:
-            return False
-
-    def verbose_driver(self,message_number,verbose):
-        if not verbose:
-            return None
-
-        if message_number == -2:
-            print("==="*10)
-            print('\n')
-        elif message_number == 0:
-            CT = round(time()-self.constructor_start_time,2)
-            print("Gene Information Loaded..",'| ',CT,' Seconds')
-        elif message_number == 1:
-            CT = round(time()-self.constructor_start_time,2)
-            print("Graph Constructed..",'| ',CT,' Seconds')
-        elif message_number == 2:
-            CT = round(time()-self.constructor_start_time,2)
-            print("Graph Metadata Derived..",'| ',CT,' Seconds')
-        elif message_number == 3:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Graph Edge Weight Normalized..", '| ', CT, ' Seconds')
-        elif message_number == 4:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Graph Edge Gene Weights Normalized..", '| ', CT, ' Seconds')
-        elif message_number == 5:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
-        elif message_number == 6:
-            CT = round(self.constructor_end_time - self.constructor_start_time, 2)
-            print("LZGraph Created Successfully..", '| ', CT, ' Seconds')
-        elif message_number == 7:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
-        elif message_number == 8:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Terminal State Conditional Probabilities Map Derived..", '| ', CT, ' Seconds')
-
-    def __simultaneous_graph_construction(self,data):
+    def __simultaneous_graph_construction(self, data):
         if self.genetic:
-            for index,row in tqdm(data.iterrows(), leave=False):
+            for index, row in tqdm(data.iterrows(), leave=False):
                 cdr3 = row['cdr3_amino_acid']
                 v = row['V']
                 j = row['J']
@@ -266,12 +202,12 @@ class AAPLZGraph(LZGraphBase):
 
                 for (A, B), (loc_a, loc_b) in zip(steps, locations):
                     A_ = A + '_' + str(loc_a)
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
                     B_ = B + '_' + str(loc_b)
-                    self.__insert_edge_and_information(A_, B_, v, j)
+                    self._insert_edge_and_information(A_, B_, v, j)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3),0)+1
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
 
                 self._update_terminal_states(LZ[-1] + '_' + str(locs[-1]))
                 self._update_initial_states(LZ[0] + '_1')
@@ -283,92 +219,14 @@ class AAPLZGraph(LZGraphBase):
 
                 for (A, B), (loc_a, loc_b) in zip(steps, locations):
                     A_ = A + '_' + str(loc_a)
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
                     B_ = B + '_' + str(loc_b)
-                    self.__insert_edge_and_information_no_genes(A_, B_)
+                    self._insert_edge_and_information_no_genes(A_, B_)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
                 self.lengths.append(len(cdr3))
                 self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
                 self._update_initial_states(LZ[0] + '_1')
-
-    def __derive_terminal_state_map(self):
-        """
-        create a matrix map between all terminal state,
-        given that we have  K terminal states, the matrix will be of dim KxK
-        where at each row reachability will be denoted by 1, i.e
-        if I can reach e  state K_i from state k, the value at K[k][K_i] = 1
-        :return:
-        """
-        terminal_state_map = np.zeros((len(self.terminal_states), len(self.terminal_states)))
-        ts_index = {i:ax for ax,i in enumerate(self.terminal_states.index)}
-
-        for pos_1, terminal_1 in enumerate(self.terminal_states.index):
-            dfs_node = list(nx.dfs_preorder_nodes(self.graph,source=terminal_1))
-            # for pos_2, terminal_2 in enumerate(self.terminal_states.index):
-            #     terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
-            reachable_terminal_state = set(dfs_node)&set(self.terminal_states.index)
-            for node in reachable_terminal_state:
-                terminal_state_map[pos_1][ts_index[node]] = 1
-
-
-        terminal_state_map = pd.DataFrame(terminal_state_map,
-                                          columns=self.terminal_states.index,
-                                          index=self.terminal_states.index).apply(
-            lambda x: x.apply(lambda y: x.name if y == 1 else np.nan), axis=0)
-        # np.fill_diagonal(terminal_state_map.values, np.nan)
-
-        self.terminal_state_map = pd.Series(terminal_state_map.apply(lambda x: (x.dropna().to_list()), axis=1),
-                                            index=self.terminal_states.index)
-
-    def __process_edge_info_batch(self, subpattern, location, Vgene, Jgene):
-        steps = (window(subpattern, 2))
-        locations = (window(location, 2))
-
-        for (A, B), (loc_a, loc_b) in zip(steps, locations):
-            A_ = A + '_' + str(loc_a)
-            B_ = B + '_' + str(loc_b)
-            self.__insert_edge_and_information(A_, B_, Vgene, Jgene)
-
-    def __process_edge_info_batch_no_genes(self, subpattern, location):
-        steps = (window(subpattern, 2))
-        locations = (window(location, 2))
-
-        for (A, B), (loc_a, loc_b) in zip(steps, locations):
-            A_ = A + '_' + str(loc_a)
-            B_ = B + '_' + str(loc_b)
-            self.__insert_edge_and_information_no_genes(A_, B_)
-
-    def __insert_edge_and_information(self, A_, B_, Vgene, Jgene):
-        if self.graph.has_edge(A_, B_):
-            self.graph[A_][B_]["weight"] += 1
-
-            if Vgene in self.graph[A_][B_]:
-                self.graph[A_][B_][Vgene] += 1
-            else:
-                self.graph[A_][B_][Vgene] = 1
-            if Jgene in self.graph[A_][B_]:
-                self.graph[A_][B_][Jgene] += 1
-            else:
-                self.graph[A_][B_][Jgene] = 1
-
-            self.graph[A_][B_]['Vsum'] += 1
-            self.graph[A_][B_]['Jsum'] += 1
-        else:
-            self.graph.add_edge(A_, B_, weight=1,Vsum=1,Jsum=1)
-            self.graph[A_][B_][Vgene] = 1
-            self.graph[A_][B_][Jgene] = 1
-            # self.graph[A_][B_]['Vsum'] = 1
-            # self.graph[A_][B_]['Jsum'] = 1
-
-        self.n_transitions += 1
-
-    def __insert_edge_and_information_no_genes(self, A_, B_):
-        if self.graph.has_edge(A_, B_):
-            self.graph[A_][B_]["weight"] += 1
-        else:
-            self.graph.add_edge(A_, B_, weight=1)
-        self.n_transitions += 1
 
     def walk_probability(self, walk, verbose=True, use_epsilon=False):
         """
@@ -431,110 +289,6 @@ class AAPLZGraph(LZGraphBase):
                     return 0
         return proba_v, proba_j
 
-    def __get_state_weights(self, node, v=None, j=None):
-        """
-        Given a node, return all the possible translation from that node and their respective weights
-        :param node:
-        :param v:
-        :param j:
-        :return:
-                    """
-        if v is None and j is None:
-            node_data = self.graph[node]
-            states = list(node_data.keys())
-            probabilities = [node_data[i]['weight'] for i in states]
-            return states, probabilities
-        else:
-            return pd.DataFrame(dict(self.graph[node])).T
-
-    def __random_step(self, state):
-        """
-           Given the current state, pick and take a random step based on the translation probabilities
-           :param state:
-           :return:
-                       """
-        states, probabilities = self.__get_state_weights(state)
-        return np.random.choice(states, size=1, p=probabilities).item()
-
-    def __random_initial_state(self):
-        """
-       Select a random initial state based on the marginal distribution of initial states.
-       :return:
-       """
-        first_states = self.initial_states / self.initial_states.sum()
-        return np.random.choice(first_states.index, size=1, p=first_states.values)[0]
-
-    def __length_specific_terminal_state(self, length):
-
-        return self.terminal_states[
-            self.terminal_states.index.to_series().str.split('_').apply(lambda x: int(x[-1])) == length].index.to_list()
-
-    def __select_random_vj_genes(self, type='marginal'):
-        if type == 'marginal':
-            V = np.random.choice(self.marginal_vgenes.index, size=1, p=self.marginal_vgenes.values)[0]
-            J = np.random.choice(self.marginal_jgenes.index, size=1, p=self.marginal_jgenes.values)[0]
-            return V, J
-        elif type == 'combined':
-            VJ = np.random.choice(self.vj_probabilities.index, size=1, p=self.vj_probabilities.values)[0]
-            V, J = VJ.split('_')
-            return V, J
-
-    def derive_final_state_data(self):
-        def freq_normalize(target):
-            # all possible alternative future terminal states from current state
-            D = self.length_distribution_proba.loc[target].copy()
-            # normalize observed frequencey
-            D /= D.sum()
-            return D
-
-        def wont_stop_at_future_states(state, es):
-            D = freq_normalize(es.decendent_end_states[state])
-            # remove current state
-            current_freq = D.pop(state)
-            if len(D) >= 1:
-                D = 1 - D
-                return D.product()
-            else:
-                return 1
-
-        def didnt_stop_at_past(state, es):
-            # all possible alternative future terminal states from current state
-            D = freq_normalize(es.ancestor_end_state[state])
-            # remove current state
-            if state in D:
-                D.pop(state)
-            if len(D) >= 1:
-                D = 1 - D
-                return D.product()
-            else:
-                return 1
-
-        es = self.terminal_state_map.to_frame().rename(columns={0: 'decendent_end_states'})
-        es['n_alternative'] = es['decendent_end_states'].apply(lambda x: len(x) - 1)
-        es['end_freq'] = self.length_distribution_proba
-        es['wont_stop_in_future'] = 0
-        es['wont_stop_in_future'] = es.index.to_series().apply(lambda x: wont_stop_at_future_states(x, es))
-
-        es['state_end_proba'] = es.index.to_series().apply(lambda x: freq_normalize(es.decendent_end_states[x])[x])
-        es['ancestor_end_state'] = es.index.to_series() \
-            .apply(
-            lambda x: list(set([ax for ax, i in zip(es.index, es['decendent_end_states']) if x in i])))
-
-        es['state_end_proba_ancestor'] = es.index.to_series().apply(
-            lambda x: freq_normalize(es.ancestor_end_state[x])[x])
-
-        es['didnt_stop_at_past'] = 1
-        es['didnt_stop_at_past'] = es.index.to_series().apply(lambda x: didnt_stop_at_past(x, es))
-        # state end freq normalized by wont stop in future
-
-        es['wsif/sep'] = es['state_end_proba'] / es['wont_stop_in_future']
-        es.loc[es['wsif/sep'] >= 1, 'wsif/sep'] = 1
-
-        # ancestor and decendent product
-        # es['normalized'] = (es['state_end_proba']*es['state_end_proba_ancestor']) / (es['wont_stop_in_future']*es['didnt_stop_at_past'])
-
-        self.terminal_state_data = es
-
     def random_walk(self, seq_len, initial_state):
         """
           given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
@@ -550,13 +304,13 @@ class AAPLZGraph(LZGraphBase):
         walk = [initial_state]
         sequence = clean_node(initial_state)
 
-        final_states = self.__length_specific_terminal_state(seq_len)
+        final_states = self._length_specific_terminal_state(seq_len)
 
         if len(final_states) < 1:
             raise Exception('Unfamiliar Seq Length')
 
         while current_state not in final_states:
-            states, probabilities = self.__get_state_weights(current_state)
+            states, probabilities = self._get_state_weights(current_state)
             # Try add dynamic dictionary of weight that will remove invalid paths
 
             # if went into a final path with mismatch length
@@ -588,20 +342,19 @@ class AAPLZGraph(LZGraphBase):
 
              if seq_len is equal to "unsupervised" than a random seq len will be returned
         """
-        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
         if seq_len == 'unsupervised':
             final_states = self.terminal_states.copy()
         else:
-            final_states = self.__length_specific_terminal_state(seq_len)
+            final_states = self._length_specific_terminal_state(seq_len)
 
         if initial_state is None:
-            current_state = self.__random_initial_state()
+            current_state = self._random_initial_state()
             walk = [current_state]
         else:
             current_state = initial_state
             walk = [initial_state]
-
 
         # while the walk is not in a valid final state
         aux = 0
@@ -626,7 +379,7 @@ class AAPLZGraph(LZGraphBase):
                 else:
                     walk = walk[:1]
                     current_state = walk[0]
-                    selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+                    selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
                 continue
 
@@ -645,7 +398,7 @@ class AAPLZGraph(LZGraphBase):
                 else:
                     walk = walk[:1]
                     current_state = walk[0]
-                    selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+                    selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
                 continue
 
@@ -669,12 +422,12 @@ class AAPLZGraph(LZGraphBase):
 
     def multi_gene_random_walk(self, N, seq_len, initial_state=None, vj_init='marginal'):
 
-        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
         if seq_len == 'unsupervised':
             final_states = self.terminal_states.index.to_list().copy()
         else:
-            final_states = self.__length_specific_terminal_state(seq_len)
+            final_states = self._length_specific_terminal_state(seq_len)
 
         # nodes not to consider due to invalidity
         if self.genetic_walks_black_list is None:
@@ -686,7 +439,7 @@ class AAPLZGraph(LZGraphBase):
         max_length = lengths.idxmax()
         for _ in tqdm(range(N)):
             if initial_state is None:
-                current_state = self.__random_initial_state()
+                current_state = self._random_initial_state()
                 walk = [current_state]
             else:
                 current_state = initial_state
@@ -714,7 +467,7 @@ class AAPLZGraph(LZGraphBase):
                     else:
                         walk = walk[:1]
                         current_state = walk[0]
-                        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+                        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
                     continue
 
@@ -733,7 +486,7 @@ class AAPLZGraph(LZGraphBase):
                     else:
                         walk = walk[:1]
                         current_state = walk[0]
-                        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+                        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
                     continue
 
@@ -790,7 +543,7 @@ class AAPLZGraph(LZGraphBase):
                       (list,str) : a list of LZ sub-patterns representing the random walk and a string
                       matching the walk only translated back into a sequence.
                        """
-        random_initial_state = self.__random_initial_state()
+        random_initial_state = self._random_initial_state()
 
         current_state = random_initial_state
         walk = [random_initial_state]
@@ -798,7 +551,7 @@ class AAPLZGraph(LZGraphBase):
 
         while not self.is_stop_condition(current_state):
             # take a random step
-            current_state = self.__random_step(current_state)
+            current_state = self.random_step(current_state)
 
             walk.append(current_state)
             sequence += clean_node(current_state)
@@ -872,7 +625,7 @@ class AAPLZGraph(LZGraphBase):
         return G
 
     def cac_random_gene_walk(self, initial_state=None, vj_init='combined'):
-        selected_gene_path_v, selected_gene_path_j = self.__select_random_vj_genes(vj_init)
+        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
 
         if (selected_gene_path_v, selected_gene_path_j) not in self.cac_graphs:
             G = self.get_gene_graph(selected_gene_path_v, selected_gene_path_j)
@@ -920,6 +673,7 @@ class AAPLZGraph(LZGraphBase):
             walk.append(current_state)
 
         return walk, selected_gene_path_v, selected_gene_path_j
+
     def sequence_variation_curve(self, cdr3_sample):
         """
         given a sequence this function will return 2 list,
@@ -1028,4 +782,3 @@ class AAPLZGraph(LZGraphBase):
         plt.ylabel('Unqiue Gene Possibilities')
         plt.legend()
         plt.show()
-
