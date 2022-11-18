@@ -13,7 +13,7 @@
 <br />
 <p align="center">
   <a href="https://github.com/MuteJester/LZGraphs">
-    <img src="LZGraphs/Repo%20Misc/LZGraphs_logo.png" alt="Logo" width="480" height="230">
+    <img src="/LZGraphs/blob/master/misc/lzglogo2.png" alt="Logo" width="480" height="230">
   </a>
 
   <h2 align="center">LZGraphs</h2>
