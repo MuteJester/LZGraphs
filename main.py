@@ -392,7 +392,7 @@ def proc6():
     print('Test 3 : # Mismatched Nodes: ', len(bad_nodes), '   T: ', (t / len(lzg.nodes)) * 100, ' %')
     print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
     test_score += new_graph == lzg
-    print('Test 5 : Gen Test: ', new_graph.gene_random_walk('unsupervised'))
+    print('Test 5 : Gen Test: ', new_graph.genomic_random_walk('unsupervised'))
 
     print('Total Test Score: ', test_score)
 
@@ -505,7 +505,7 @@ def AAPG_Test():
     print('Test 3 : # Mismatched Nodes: ', len(bad_nodes), '   T: ', (t / len(lzg.nodes)) * 100, ' %')
     print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
     test_score += new_graph == lzg
-    print('Test 5 : Gen Test: ', new_graph.gene_random_walk('unsupervised'))
+    print('Test 5 : Gen Test: ', new_graph.genomic_random_walk('unsupervised'))
 
     print('Total Test Score: ', test_score)
 
@@ -676,7 +676,97 @@ def NaiveG_Test():
 
     print('Total Test Score: ',test_score)
 
+def GenTest_Optimize():
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path + samples[0], low_memory=False)
+
+    T = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                           'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                           'chosen_v_gene', 'chosen_j_allele',
+                                                           'chosen_v_allele']].dropna()
+
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV0', 'TRBV'))
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV', 'TRBV'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0', 'TRBJ'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ', 'TRBJ'))
+
+    T['V'] = T['chosen_v_family'] + '-' + T['chosen_v_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_v_allele'].astype(int).astype(str)
+    T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_j_allele'].astype(int).astype(str)
+
+    single_sample = T.copy()
+
+
+    lzg = AAPLZGraph(T)
+    from time import time
+
+    def jensen_shannon_distance(p, q):
+        import scipy
+        """
+        method to compute the Jenson-Shannon Distance
+        between two probability distributions
+        """
+
+        # convert the vectors into numpy arrays in case that they aren't
+        p = np.array(p)
+        q = np.array(q)
+
+        # calculate m
+        m = (p + q) / 2
+
+        # compute Jensen Shannon Divergence
+        divergence = (scipy.stats.entropy(p, m) + scipy.stats.entropy(q, m)) / 2
+
+        # compute the Jensen Shannon Distance
+        distance = np.sqrt(divergence)
+
+        return distance
+    generated = []
+    times = []
+    ITR = tqdm(range(19_549))
+    for i in ITR:
+        st = time()
+        generated.append(lzg.genomic_random_walk(vj_init='combined'))
+        et = time()
+        times.append(et-st)
+        ITR.set_postfix({'Mean Generation Time:':np.mean(times)})
+
+    import seaborn as sns
+    from LZGraphs.AAPLZGraph import clean_node,encode_sequence
+    import matplotlib.pyplot as plt
+    concat_genereated = [''.join([clean_node(i) for i in j]) for j,gv,gj in generated]
+
+    with open('C:/Users/Tomas/Downloads/hiv1_s1_genereated_and_pgen.pkl', 'rb') as h:
+        V1_random_gene_walks, V1_pgens = pickle.load(h)
+    concat_genereated1 = [''.join([clean_node(i) for i in j]) for j,gv,gj in V1_random_gene_walks]
+
+    lzg_pgen_of_true_data = [lzg.walk_probability(encode_sequence(i)) for i in T.cdr3_amino_acid]
+    lzg_pgen_of_V1 = [lzg.walk_probability(i) for i,PV,PJ in V1_random_gene_walks]
+    lzg_pgen_of_V2 = [lzg.walk_probability(i) for i,PV,PJ in generated]
+
+    sns.set_context('poster')
+    plt.figure(figsize=(15,10))
+    plt.subplot(2,1,1)
+    sns.kdeplot([len(i) for i in concat_genereated], label='V2')
+    sns.kdeplot([len(i) for i in concat_genereated1], label='V1')
+    sns.kdeplot([len(i) for i in T.cdr3_amino_acid], label='True Data')
+    plt.legend()
+    plt.subplot(2,1,2)
+    sns.kdeplot(-np.log10(lzg_pgen_of_true_data), label='Source Repertoire')
+    sns.kdeplot(-np.log10(lzg_pgen_of_V2), label='V2')
+    sns.kdeplot(-np.log10(lzg_pgen_of_V1), label='V1')
+    plt.legend()
+    plt.show()
+
+    print('JS Between Generated In T and V1: ' , jensen_shannon_distance(lzg_pgen_of_true_data,lzg_pgen_of_V1))
+    print('JS Between Generated In T and V2: ' , jensen_shannon_distance(lzg_pgen_of_true_data,lzg_pgen_of_V2))
+    print('JS Between Generated In V1 and V2: ' , jensen_shannon_distance(lzg_pgen_of_V1,lzg_pgen_of_V2))
+    print('SSR of Pgens: ',np.sum( (np.array(V1_pgens)  - np.array(lzg_pgen_of_V2))**2  ))
+
 
 # NDPL_Test()
 # AAPG_Test()
-NaiveG_Test()
+#NaiveG_Test()
+GenTest_Optimize()
