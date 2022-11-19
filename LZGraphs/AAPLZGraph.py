@@ -162,7 +162,6 @@ class AAPLZGraph(LZGraphBase):
         self.initial_states = self.initial_states[self.initial_states > 5]
         self.verbose_driver(2, verbose)
 
-
         self._derive_subpattern_individual_probability()
         self.verbose_driver(8, verbose)
         self._normalize_edge_weights()
@@ -333,7 +332,7 @@ class AAPLZGraph(LZGraphBase):
 
         return walk
 
-    def gene_random_walk(self, seq_len, initial_state=None, vj_init='marginal'):
+    def genomic_random_walk(self,initial_state=None, vj_init='marginal'):
         """
              given a target sequence length and an initial state, the function will select a random
              V and a random J genes from the observed gene frequency in the graph's "Training data" and
@@ -342,12 +341,7 @@ class AAPLZGraph(LZGraphBase):
 
              if seq_len is equal to "unsupervised" than a random seq len will be returned
         """
-        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
-
-        if seq_len == 'unsupervised':
-            final_states = self.terminal_states.copy()
-        else:
-            final_states = self._length_specific_terminal_state(seq_len)
+        selected_v, selected_j = self._select_random_vj_genes(vj_init)
 
         if initial_state is None:
             current_state = self._random_initial_state()
@@ -357,68 +351,35 @@ class AAPLZGraph(LZGraphBase):
             walk = [initial_state]
 
         # while the walk is not in a valid final state
-        aux = 0
-        while not self.is_stop_condition(current_state, selected_gene_path_v, selected_gene_path_j):
-            # print('Blacklist: ',blacklist)
-            # print('='*30)
+        while not self.is_stop_condition(current_state, selected_v, selected_j):
             # get the node_data for the current state
-            edge_info = pd.DataFrame(dict(self.graph[current_state]))
+            edge_info = self._get_node_feature_info_df(current_state,'weight',selected_v,selected_j)
 
-            if (current_state, selected_gene_path_v, selected_gene_path_j) in self.genetic_walks_black_list:
+            if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
                 edge_info = edge_info.drop(
-                    columns=self.genetic_walks_black_list[(current_state, selected_gene_path_v, selected_gene_path_j)])
+                    columns=self.genetic_walks_black_list[(current_state, selected_v, selected_j)])
             # check selected path has genes
-            if len(set(edge_info.index) & {selected_gene_path_v, selected_gene_path_j}) != 2:
+            if len(edge_info.columns) == 0:
                 # TODO: add a visited node stack to not repeat the same calls and mistakes
                 if len(walk) > 2:
-                    self.genetic_walks_black_list[(walk[-2], selected_gene_path_v, selected_gene_path_j)] \
-                        = self.genetic_walks_black_list.get((walk[-2], selected_gene_path_v, selected_gene_path_j),
+                    self.genetic_walks_black_list[(walk[-2], selected_v, selected_j)] \
+                        = self.genetic_walks_black_list.get((walk[-2], selected_v, selected_j),
                                                             []) + [walk[-1]]
                     current_state = walk[-2]
                     walk = walk[:-1]
                 else:
                     walk = walk[:1]
                     current_state = walk[0]
-                    selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
+                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
 
                 continue
 
-            # get paths containing selected_genes
-            idf = edge_info.T[[selected_gene_path_v, selected_gene_path_j]].dropna()
-            w = edge_info.loc['weight', idf.index]
+            w = edge_info.loc['weight']
             w = w / w.sum()
-
-            if len(w) == 0:
-                if len(walk) > 2:
-                    self.genetic_walks_black_list[(walk[-2], selected_gene_path_v, selected_gene_path_j)] = \
-                        self.genetic_walks_black_list.get((walk[-2], selected_gene_path_v, selected_gene_path_j),
-                                                          []) + [walk[-1]]
-                    current_state = walk[-2]
-                    walk = walk[:-1]
-                else:
-                    walk = walk[:1]
-                    current_state = walk[0]
-                    selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
-
-                continue
-
-            # if len(w) == 0:  # no options we can take from here
-            #     # go back to the last junction where a different choice can be made
-            #     for ax in range(len(walk) - 1, 1, -1):
-            #         for final_s in final_states:
-            #             try:
-            #                 SP = nx.dijkstra_path(lzg.graph, source=walk[ax], target=final_s,
-            #                                       weight=lambda x, y, z: 1 - z['weight'])
-            #                 walk = walk[:ax] + SP
-            #                 sequence = ''.join([clean_node(i) for i in walk])
-            #                 raise Exception(f' Ended After Selecting SP '+str(walk))
-            #             except nx.NetworkXNoPath:
-            #                 continue
-
             current_state = np.random.choice(w.index, size=1, p=w.values).item()
             walk.append(current_state)
 
-        return walk, selected_gene_path_v, selected_gene_path_j
+        return walk, selected_v, selected_j
 
     def multi_gene_random_walk(self, N, seq_len, initial_state=None, vj_init='marginal'):
 
@@ -502,13 +463,15 @@ class AAPLZGraph(LZGraphBase):
 
         return results
 
-    def is_stop_condition(self, state, selected_gene_path_v=None, selected_gene_path_j=None):
+    def is_stop_condition(self, state, selected_v=None, selected_j=None):
         if state not in self.terminal_states:
             return False
 
-        if selected_gene_path_j is not None:
+        if selected_j is not None:
+            #edge_info = self._get_node_info_df(state, selected_v, selected_j)
             edge_info = pd.DataFrame(dict(self.graph[state]))
-            if len(set(edge_info.index) & {selected_gene_path_v, selected_gene_path_j}) != 2:
+            if len(set(edge_info.index) & {selected_v, selected_j}) != 2:
+            #if len(edge_info.columns) == 0:
                 neighbours = 0
             else:
                 neighbours = 2
@@ -517,16 +480,6 @@ class AAPLZGraph(LZGraphBase):
         if (neighbours) == 0:
             return True
         else:
-            #             D = self.length_distribution_proba.loc[self.terminal_state_map[state]].copy()
-            #             D /=D.sum()
-            #             end_porba = D[state]
-
-            #             D.pop(state)
-            #             if len(D) >= 1:
-            #                 D=1-D
-            #                 end_porba /= D.product()
-
-            #             decision = np.random.binomial(1,end_porba)==1
             stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
             decision = np.random.binomial(1, stop_probability) == 1
             return decision

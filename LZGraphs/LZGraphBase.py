@@ -71,6 +71,22 @@ class LZGraphBase:
         for edge_a,edge_b in self.graph.edges:
             node_observed_total = self.per_node_observed_frequency[edge_a]
             self.graph[edge_a][edge_b]['weight']/=node_observed_total
+
+    def _get_node_info_df(self,node_a,V=None,J=None):
+        if V is None or J is None:
+            return pd.DataFrame(dict(self.graph[node_a]))
+        else:
+            node_data = self.graph[node_a]
+            partial_dict = {pk:node_data[pk] for pk in node_data if V in node_data[pk] and J in node_data[pk]}
+            return pd.DataFrame(partial_dict)
+    def _get_node_feature_info_df(self,node_a,feature,V=None,J=None):
+        if V is None or J is None:
+            return pd.DataFrame(dict(self.graph[node_a]))
+        else:
+            node_data = self.graph[node_a]
+            partial_dict = {pk:{feature:node_data[pk][feature]} for pk in node_data \
+                            if V in node_data[pk] and J in node_data[pk]}
+            return pd.DataFrame(partial_dict)
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
         self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
