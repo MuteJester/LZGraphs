@@ -3,8 +3,11 @@ from multiprocessing.pool import ThreadPool
 import networkx as nx
 import numpy as np
 import pandas as pd
+from pandas.io.json import json_normalize
 
-from .misc import chunkify, window
+from .misc import chunkify, window, choice
+
+
 class LZGraphBase:
     def __init__(self):
         # start time of constructor
@@ -19,10 +22,12 @@ class LZGraphBase:
         self.n_subpatterns = 0
 
         self.initial_states, self.terminal_states = dict(), dict()
+        self.initial_states_probability = pd.Series()
         self.lengths = dict()
         self.cac_graphs = dict()
         self.n_transitions = 0
         self.n_neighbours = dict()
+        self.length_distribution_proba = pd.Series()
         self.subpattern_individual_probability = pd.Series()
         # per node observed frequency for unity operation
         self.per_node_observed_frequency = dict()
@@ -72,21 +77,27 @@ class LZGraphBase:
             node_observed_total = self.per_node_observed_frequency[edge_a]
             self.graph[edge_a][edge_b]['weight']/=node_observed_total
 
-    def _get_node_info_df(self,node_a,V=None,J=None):
+    def _get_node_info_df(self,node_a,V=None,J=None,condition='and'):
         if V is None or J is None:
             return pd.DataFrame(dict(self.graph[node_a]))
         else:
             node_data = self.graph[node_a]
-            partial_dict = {pk:node_data[pk] for pk in node_data if V in node_data[pk] and J in node_data[pk]}
+            if condition == 'and':
+              partial_dict = {pk:node_data[pk] for pk in node_data if V in node_data[pk] and J in node_data[pk]}
+            else:
+                partial_dict = {pk: node_data[pk] for pk in node_data if V in node_data[pk] or J in node_data[pk]}
             return pd.DataFrame(partial_dict)
-    def _get_node_feature_info_df(self,node_a,feature,V=None,J=None):
+    def _get_node_feature_info_df(self,node_a,feature,V=None,J=None,asdict=False):
         if V is None or J is None:
             return pd.DataFrame(dict(self.graph[node_a]))
         else:
             node_data = self.graph[node_a]
             partial_dict = {pk:{feature:node_data[pk][feature]} for pk in node_data \
                             if V in node_data[pk] and J in node_data[pk]}
-            return pd.DataFrame(partial_dict)
+            if asdict:
+                return partial_dict
+            else:
+                return pd.DataFrame(partial_dict)
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
         self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
@@ -135,21 +146,20 @@ class LZGraphBase:
            :return:
                        """
         states, probabilities = self._get_state_weights(state)
-        return np.random.choice(states, size=1, p=probabilities).item()
+        return choice(states,probabilities)
     def _random_initial_state(self):
         """
        Select a random initial state based on the marginal distribution of initial states.
        :return:
        """
-        first_states = self.initial_states / self.initial_states.sum()
-        return np.random.choice(first_states.index, size=1, p=first_states.values)[0]
+        return choice(self.initial_states_probability.index,self.initial_states_probability.values)
     def _select_random_vj_genes(self, type='marginal'):
         if type == 'marginal':
-            V = np.random.choice(self.marginal_vgenes.index, size=1, p=self.marginal_vgenes.values)[0]
-            J = np.random.choice(self.marginal_jgenes.index, size=1, p=self.marginal_jgenes.values)[0]
+            V = choice(self.marginal_vgenes.index, self.marginal_vgenes.values)
+            J = choice(self.marginal_jgenes.index, self.marginal_jgenes.values)
             return V, J
         elif type == 'combined':
-            VJ = np.random.choice(self.vj_probabilities.index, size=1, p=self.vj_probabilities.values)[0]
+            VJ = choice(self.vj_probabilities.index,self.vj_probabilities.values)
             V, J = VJ.split('_')
             return V, J
     def _insert_edge_and_information(self, A_, B_, Vgene, Jgene):
@@ -256,7 +266,7 @@ class LZGraphBase:
 
         self.terminal_state_map = pd.Series(terminal_state_map.apply(lambda x: (x.dropna().to_list()), axis=1),
                                             index=self.terminal_states.index)
-    def _derive_final_state_data(self):
+    def _derive_stop_probability_data(self):
         def freq_normalize(target):
             # all possible alternative future terminal states from current state
             D = self.length_distribution_proba.loc[target].copy()
