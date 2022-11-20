@@ -11,16 +11,24 @@ from .LZGraphBase import LZGraphBase
 from .decomposition import lempel_ziv_decomposition
 from tqdm.auto import tqdm
 import seaborn as sns
-from .misc import chunkify, window
+from .misc import chunkify, window, choice
 from time import time
+from functools import reduce
+from operator import getitem
 
 
 def derive_lz_and_position(cdr3):
     lzc = lempel_ziv_decomposition(cdr3)
     cumlen = np.cumsum([len(i) for i in lzc])
     return lzc, cumlen
+def getitem_reduce(d, key):
+    return reduce(getitem, key, d)
 
-
+def get_dictionary_subkeys(target):
+    subkeys = []
+    for key in target:
+        subkeys +=[*target[key]]
+    return subkeys
 def clean_node(base):
     """
     This Function will take in a sub-pattern that has position added to it and clean
@@ -160,6 +168,8 @@ class AAPLZGraph(LZGraphBase):
         self.initial_states = pd.Series(self.initial_states)
         self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
         self.initial_states = self.initial_states[self.initial_states > 5]
+        self.initial_states_probability = self.initial_states/self.initial_states.sum()
+
         self.verbose_driver(2, verbose)
 
         self._derive_subpattern_individual_probability()
@@ -175,7 +185,7 @@ class AAPLZGraph(LZGraphBase):
         self.edges_list = None
         self._derive_terminal_state_map()
         self.verbose_driver(7, verbose)
-        self._derive_final_state_data()
+        self._derive_stop_probability_data()
         self.verbose_driver(8, verbose)
         self.verbose_driver(5, verbose)
 
@@ -353,14 +363,15 @@ class AAPLZGraph(LZGraphBase):
         # while the walk is not in a valid final state
         while not self.is_stop_condition(current_state, selected_v, selected_j):
             # get the node_data for the current state
-            edge_info = self._get_node_feature_info_df(current_state,'weight',selected_v,selected_j)
+            edge_info = self._get_node_feature_info_df(current_state,'weight',selected_v,selected_j,asdict=True)
 
             if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
-                edge_info = edge_info.drop(
-                    columns=self.genetic_walks_black_list[(current_state, selected_v, selected_j)])
+                for col in self.genetic_walks_black_list[(current_state, selected_v, selected_j)]:
+                    edge_info.pop(col)
+                # edge_info = edge_info.drop(
+                #     columns=self.genetic_walks_black_list[(current_state, selected_v, selected_j)])
             # check selected path has genes
-            if len(edge_info.columns) == 0:
-                # TODO: add a visited node stack to not repeat the same calls and mistakes
+            if len(edge_info) == 0:
                 if len(walk) > 2:
                     self.genetic_walks_black_list[(walk[-2], selected_v, selected_j)] \
                         = self.genetic_walks_black_list.get((walk[-2], selected_v, selected_j),
@@ -374,9 +385,10 @@ class AAPLZGraph(LZGraphBase):
 
                 continue
 
-            w = edge_info.loc['weight']
+            w = np.array([edge_info[i]['weight'] for i in edge_info])
             w = w / w.sum()
-            current_state = np.random.choice(w.index, size=1, p=w.values).item()
+            #current_state = np.random.choice([*edge_info], size=1, p=w).item()
+            current_state = choice([*edge_info],w)
             walk.append(current_state)
 
         return walk, selected_v, selected_j
@@ -468,10 +480,10 @@ class AAPLZGraph(LZGraphBase):
             return False
 
         if selected_j is not None:
-            #edge_info = self._get_node_info_df(state, selected_v, selected_j)
-            edge_info = pd.DataFrame(dict(self.graph[state]))
-            if len(set(edge_info.index) & {selected_v, selected_j}) != 2:
-            #if len(edge_info.columns) == 0:
+            #edge_info = self._get_node_info_df(state, selected_v, selected_j,condition='or')
+            edge_info = dict(self.graph[state]) #pd.DataFrame()
+            observed_gene_paths = set(get_dictionary_subkeys(edge_info))
+            if len(set(observed_gene_paths) & {selected_v, selected_j}) != 2:
                 neighbours = 0
             else:
                 neighbours = 2
@@ -510,7 +522,7 @@ class AAPLZGraph(LZGraphBase):
             sequence += clean_node(current_state)
         return walk, sequence
 
-    def walk_genes(self, walk, dropna=True):
+    def walk_genes(self, walk, dropna=True,raise_error=True):
         """
                give a walk on the graph (a list of nodes) the function will return a table
                    representing the possible genes and their probabilities at each edge of the walk.
@@ -518,28 +530,26 @@ class AAPLZGraph(LZGraphBase):
                :param dropna:
                :return:
                """
-        trans_genes = []
-        columns = []
+        trans_genes = dict()
         for i in range(0, len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i + 1]):
                 ls = self.graph.get_edge_data(walk[i], walk[i + 1]).copy()
-                columns.append(walk[i] + '->' + walk[i + 1])
                 ls.pop('weight')
                 ls.pop('Vsum')
                 ls.pop('Jsum')
 
-                trans_genes.append(pd.Series(ls))
+                trans_genes[walk[i] + '->' + walk[i + 1]] = ls
 
-        cc = pd.concat(trans_genes, axis=1)
+        cc = pd.DataFrame(trans_genes)
+
         if dropna:
             cc = cc.dropna()
-        if cc.shape[0] == 0:
+        if cc.shape[0] == 0 and raise_error:
             raise Exception('No Constant Gene Flow F')
 
-        cc.columns = columns
         cc['type'] = ['v' if 'v' in x.lower() else 'j' for x in cc.index]
         cc['sum'] = cc.sum(axis=1, numeric_only=True)
-        cc = cc.sort_values(by='sum', ascending=False)
+        #cc = cc.sort_values(by='sum', ascending=False)
 
         return cc
 

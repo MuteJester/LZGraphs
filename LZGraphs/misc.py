@@ -1,6 +1,6 @@
 import networkx as nx
 from itertools import tee
-
+import numpy as np
 
 def has_path(G, source, target):
     try:
@@ -9,7 +9,15 @@ def has_path(G, source, target):
         return False
     return True
 
-
+def choice(options,probs):
+    x = np.random.rand()
+    cum = 0
+    i = None
+    for i,p in enumerate(probs):
+        cum += p
+        if x < cum:
+            break
+    return options[i]
 def window(iterable, size):
     iters = tee(iterable, size)
     for i in range(1, size):

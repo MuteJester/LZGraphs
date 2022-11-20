@@ -764,9 +764,47 @@ def GenTest_Optimize():
     print('JS Between Generated In T and V2: ' , jensen_shannon_distance(lzg_pgen_of_true_data,lzg_pgen_of_V2))
     print('JS Between Generated In V1 and V2: ' , jensen_shannon_distance(lzg_pgen_of_V1,lzg_pgen_of_V2))
     print('SSR of Pgens: ',np.sum( (np.array(V1_pgens)  - np.array(lzg_pgen_of_V2))**2  ))
+def GetGenTable_Optimize():
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path + samples[0], low_memory=False)
+
+    T = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                           'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                           'chosen_v_gene', 'chosen_j_allele',
+                                                           'chosen_v_allele']].dropna()
+
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV0', 'TRBV'))
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV', 'TRBV'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0', 'TRBJ'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ', 'TRBJ'))
+
+    T['V'] = T['chosen_v_family'] + '-' + T['chosen_v_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_v_allele'].astype(int).astype(str)
+    T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_j_allele'].astype(int).astype(str)
+
+    single_sample = T.copy()
+
+
+    lzg = AAPLZGraph(T)
+    from LZGraphs.AAPLZGraph import encode_sequence
+    from time import time
+    ITR = tqdm(T.iterrows())
+    mtime = []
+    for index,row in ITR:
+        st = time()
+        lzg.walk_genes(encode_sequence(row['cdr3_amino_acid']))
+        et = time()
+        mtime.append(et-st)
+        ITR.set_postfix({'Mean GT Time: ':np.mean(mtime)})
+
+
 
 
 # NDPL_Test()
 # AAPG_Test()
 #NaiveG_Test()
 GenTest_Optimize()
+#GetGenTable_Optimize()
+

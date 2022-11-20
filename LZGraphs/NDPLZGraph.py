@@ -179,6 +179,8 @@ class NDPLZGraph(LZGraphBase):
         self.initial_states = pd.Series(self.initial_states)
         self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
         self.initial_states = self.initial_states[self.initial_states > 5]
+        self.initial_states_probability = self.initial_states/self.initial_states.sum()
+
         self.verbose_driver(2, verbose)
 
 
@@ -195,7 +197,7 @@ class NDPLZGraph(LZGraphBase):
         self.edges_list = None
         self._derive_terminal_state_map()
         self.verbose_driver(7, verbose)
-        self._derive_final_state_data()
+        self._derive_stop_probability_data()
         self.verbose_driver(8, verbose)
         self.verbose_driver(5, verbose)
 
