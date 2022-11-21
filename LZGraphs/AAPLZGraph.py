@@ -13,22 +13,17 @@ from tqdm.auto import tqdm
 import seaborn as sns
 from .misc import chunkify, window, choice
 from time import time
-from functools import reduce
-from operator import getitem
 
 
 def derive_lz_and_position(cdr3):
     lzc = lempel_ziv_decomposition(cdr3)
-    cumlen = np.cumsum([len(i) for i in lzc])
+    aux = 0
+    cumlen = []
+    for sp in lzc:
+        aux+=len(sp)
+        cumlen.append(aux)
     return lzc, cumlen
-def getitem_reduce(d, key):
-    return reduce(getitem, key, d)
 
-def get_dictionary_subkeys(target):
-    subkeys = []
-    for key in target:
-        subkeys +=[*target[key]]
-    return subkeys
 def clean_node(base):
     """
     This Function will take in a sub-pattern that has position added to it and clean
@@ -199,10 +194,7 @@ class AAPLZGraph(LZGraphBase):
 
     def __simultaneous_graph_construction(self, data):
         if self.genetic:
-            for index, row in tqdm(data.iterrows(), leave=False):
-                cdr3 = row['cdr3_amino_acid']
-                v = row['V']
-                j = row['J']
+            for cdr3,v,j in tqdm(zip(data['cdr3_amino_acid'],data['V'],data['J']), leave=False):
 
                 LZ, locs = derive_lz_and_position(cdr3)
 
@@ -342,56 +334,6 @@ class AAPLZGraph(LZGraphBase):
 
         return walk
 
-    def genomic_random_walk(self,initial_state=None, vj_init='marginal'):
-        """
-             given a target sequence length and an initial state, the function will select a random
-             V and a random J genes from the observed gene frequency in the graph's "Training data" and
-             generate a walk on the graph from the initial state to a terminal state while making sure
-             at each step that both the selected V and J genes were seen used by that specific sub-pattern.
-
-             if seq_len is equal to "unsupervised" than a random seq len will be returned
-        """
-        selected_v, selected_j = self._select_random_vj_genes(vj_init)
-
-        if initial_state is None:
-            current_state = self._random_initial_state()
-            walk = [current_state]
-        else:
-            current_state = initial_state
-            walk = [initial_state]
-
-        # while the walk is not in a valid final state
-        while not self.is_stop_condition(current_state, selected_v, selected_j):
-            # get the node_data for the current state
-            edge_info = self._get_node_feature_info_df(current_state,'weight',selected_v,selected_j,asdict=True)
-
-            if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
-                for col in self.genetic_walks_black_list[(current_state, selected_v, selected_j)]:
-                    edge_info.pop(col)
-                # edge_info = edge_info.drop(
-                #     columns=self.genetic_walks_black_list[(current_state, selected_v, selected_j)])
-            # check selected path has genes
-            if len(edge_info) == 0:
-                if len(walk) > 2:
-                    self.genetic_walks_black_list[(walk[-2], selected_v, selected_j)] \
-                        = self.genetic_walks_black_list.get((walk[-2], selected_v, selected_j),
-                                                            []) + [walk[-1]]
-                    current_state = walk[-2]
-                    walk = walk[:-1]
-                else:
-                    walk = walk[:1]
-                    current_state = walk[0]
-                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
-
-                continue
-
-            w = np.array([edge_info[i]['weight'] for i in edge_info])
-            w = w / w.sum()
-            #current_state = np.random.choice([*edge_info], size=1, p=w).item()
-            current_state = choice([*edge_info],w)
-            walk.append(current_state)
-
-        return walk, selected_v, selected_j
 
     def multi_gene_random_walk(self, N, seq_len, initial_state=None, vj_init='marginal'):
 
@@ -475,26 +417,6 @@ class AAPLZGraph(LZGraphBase):
 
         return results
 
-    def is_stop_condition(self, state, selected_v=None, selected_j=None):
-        if state not in self.terminal_states:
-            return False
-
-        if selected_j is not None:
-            #edge_info = self._get_node_info_df(state, selected_v, selected_j,condition='or')
-            edge_info = dict(self.graph[state]) #pd.DataFrame()
-            observed_gene_paths = set(get_dictionary_subkeys(edge_info))
-            if len(set(observed_gene_paths) & {selected_v, selected_j}) != 2:
-                neighbours = 0
-            else:
-                neighbours = 2
-        else:
-            neighbours = self.graph.out_degree(state)
-        if (neighbours) == 0:
-            return True
-        else:
-            stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
-            decision = np.random.binomial(1, stop_probability) == 1
-            return decision
 
     def unsupervised_random_walk(self):
         """

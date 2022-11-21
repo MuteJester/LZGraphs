@@ -1,7 +1,8 @@
 from collections import OrderedDict
+from typing import List
 
 
-def lempel_ziv_decomposition(sequence:str):
+def lempel_ziv_decomposition(sequence:str) -> List[str]:
     """
           an implementation of the LZ76 compression algorithm,
           Given a string the function will return all unique sub-patterns derived from the input string
@@ -19,7 +20,6 @@ def lempel_ziv_decomposition(sequence:str):
     while True:
         if ind + inc > n:
             break
-
         if ind + inc == n and sequence[ind:ind + inc] in sub_strings:
             sub_str = sequence[ind: ind + inc]  # +sequence[ind : ind + inc]
             sub_strings.append(sub_str)

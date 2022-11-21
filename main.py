@@ -45,7 +45,7 @@ from multiprocessing import Pool
 from lzgraphs.misc import window
 from tqdm.auto import tqdm
 import pickle
-from LZGraphs.NDPLZGraph import get_lz_and_pos
+from LZGraphs.NDPLZGraph import derive_lz_reading_frame_position
 
 
 class rarity_counter:
@@ -53,7 +53,7 @@ class rarity_counter:
         self.nodes = list()
         self.edges = list()
         for cdr3 in tqdm(cdr3, leave=False, position=0):
-            LZ, POS, locations = get_lz_and_pos(cdr3)
+            LZ, POS, locations = derive_lz_reading_frame_position(cdr3)
             nodes_local = list(map(lambda x, y, z: x + str(y) + '_' + str(z), LZ, POS, locations))
             self.nodes += nodes_local
             self.edges += list(window(nodes_local, 2))
@@ -505,7 +505,7 @@ def AAPG_Test():
     print('Test 3 : # Mismatched Nodes: ', len(bad_nodes), '   T: ', (t / len(lzg.nodes)) * 100, ' %')
     print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
     test_score += new_graph == lzg
-    print('Test 5 : Gen Test: ', new_graph.genomic_random_walk('unsupervised'))
+    print('Test 5 : Gen Test: ', new_graph.genomic_random_walk())
 
     print('Total Test Score: ', test_score)
 
@@ -531,67 +531,68 @@ def NDPL_Test():
         'chosen_j_allele'].astype(int).astype(str)
 
     single_sample = T.copy()
-    #
-    # for sample in samples[:5]:
-    #     table_test = pd.read_table(sample_path + sample, low_memory=False)
-    #
-    #     X = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
-    #                                                            'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
-    #                                                            'chosen_v_gene', 'chosen_j_allele',
-    #                                                            'chosen_v_allele']].dropna()
-    #
-    #     X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV0', 'XRBV'))
-    #     X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV', 'XRBV'))
-    #     X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ0', 'XRBJ'))
-    #     X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ', 'XRBJ'))
-    #
-    #     X['V'] = X['chosen_v_family'] + '-' + X['chosen_v_gene'].astype(int).astype(str) + '*0' + X[
-    #         'chosen_v_allele'].astype(int).astype(str)
-    #     X['J'] = X['chosen_j_family'] + '-' + X['chosen_j_gene'].astype(int).astype(str) + '*0' + X[
-    #         'chosen_j_allele'].astype(int).astype(str)
-    #
-    #     T = pd.concat([T,X])
-    #
 
-    #
-    #
-    #
-    # size_test_graph = AAPLZGraph(T)
+    for sample in samples[:15]:
+        table_test = pd.read_table(sample_path + sample, low_memory=False)
+
+        X = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                               'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                               'chosen_v_gene', 'chosen_j_allele',
+                                                               'chosen_v_allele']].dropna()
+
+        X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV0', 'XRBV'))
+        X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV', 'XRBV'))
+        X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ0', 'XRBJ'))
+        X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ', 'XRBJ'))
+
+        X['V'] = X['chosen_v_family'] + '-' + X['chosen_v_gene'].astype(int).astype(str) + '*0' + X[
+            'chosen_v_allele'].astype(int).astype(str)
+        X['J'] = X['chosen_j_family'] + '-' + X['chosen_j_gene'].astype(int).astype(str) + '*0' + X[
+            'chosen_j_allele'].astype(int).astype(str)
+
+        T = pd.concat([T,X])
+
+
+
+
+
+    size_test_graph = AAPLZGraph(T)
 
     print('============End Of Size Test================')
     print('\n\n')
     with open('hivd1_s0_NDPL_graph_test.pkl', 'rb') as h:
         lzg = pickle.load(h)
-    new_graph = NDPLZGraph(single_sample)
-    #
-    #
-    # with open('hivd1_s0_NDPL_graph_test.pkl', 'wb') as h:
-    #     pickle.dump(new_graph,h)
+    if False:
+        new_graph = NDPLZGraph(single_sample)
+        #
+        #
+        # with open('hivd1_s0_NDPL_graph_test.pkl', 'wb') as h:
+        #     pickle.dump(new_graph,h)
 
-    test_score = 0
-    test_score += len(lzg.nodes) == len(new_graph.nodes)
-    print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
-    test_score += len(lzg.edges) == len(new_graph.edges)
-    print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
+        test_score = 0
+        test_score += len(lzg.nodes) == len(new_graph.nodes)
+        print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
+        test_score += len(lzg.edges) == len(new_graph.edges)
+        print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
 
-    t = 0
-    bad_nodes = []
-    for node in tqdm(lzg.nodes, leave=False):
-        new = pd.DataFrame(dict(new_graph.graph[node])).replace(np.nan, 0).round(7)
-        original = pd.DataFrame(dict(lzg.graph[node]))
-        original = original.loc[new.index, new.columns].replace(np.nan, 0).round(7)
-        if new.equals(original):
-            t += 1
-        else:
-            bad_nodes.append(node)
+        t = 0
+        bad_nodes = []
+        for node in tqdm(lzg.nodes, leave=False):
+            new = pd.DataFrame(dict(new_graph.graph[node])).replace(np.nan, 0).round(7)
+            original = pd.DataFrame(dict(lzg.graph[node]))
+            original = original.loc[new.index, new.columns].replace(np.nan, 0).round(7)
+            if new.equals(original):
+                t += 1
+            else:
+                bad_nodes.append(node)
 
-    test_score += ((t - len(lzg.nodes))==0)
-    print('Test 3 : # Mismatched Nodes: ', len(bad_nodes), '   T: ', (t / len(lzg.nodes)) * 100, ' %')
-    print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
-    test_score += new_graph == lzg
-    print('Test 5 : Gen Test: ', new_graph.gene_random_walk('unsupervised'))
+        test_score += ((t - len(lzg.nodes))==0)
+        print('Test 3 : # Mismatched Nodes: ', len(bad_nodes), '   T: ', (t / len(lzg.nodes)) * 100, ' %')
+        print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
+        test_score += new_graph == lzg
+        print('Test 5 : Gen Test: ', new_graph.gene_random_walk('unsupervised'))
 
-    print('Total Test Score: ',test_score)
+        print('Total Test Score: ',test_score)
 def NaiveG_Test():
     from LZGraphs.AAPLZGraph import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
@@ -794,17 +795,132 @@ def GetGenTable_Optimize():
     mtime = []
     for index,row in ITR:
         st = time()
-        lzg.walk_genes(encode_sequence(row['cdr3_amino_acid']))
+        v,j = lzg.predict_vj_genes(encode_sequence(row['cdr3_amino_acid']),top_n=1)
+        #print(v,'  |   ',j)
         et = time()
         mtime.append(et-st)
-        ITR.set_postfix({'Mean GT Time: ':np.mean(mtime)})
+        #ITR.set_postfix({'Mean GT Time: ':np.mean(mtime)})
+
+def Pgen_Optimize():
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path + samples[0], low_memory=False)
+
+    T = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                           'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                           'chosen_v_gene', 'chosen_j_allele',
+                                                           'chosen_v_allele']].dropna()
+
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV0', 'TRBV'))
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV', 'TRBV'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0', 'TRBJ'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ', 'TRBJ'))
+
+    T['V'] = T['chosen_v_family'] + '-' + T['chosen_v_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_v_allele'].astype(int).astype(str)
+    T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_j_allele'].astype(int).astype(str)
+
+    single_sample = T.copy()
+    with open('hivd1_s0_AAPG_graph_test.pkl', 'rb') as h:
+        lzg = pickle.load(h)
+
+    new_graph = AAPLZGraph(T)
+    from LZGraphs.AAPLZGraph import encode_sequence
+    from time import time
+    pgens = []
+    for cdr in tqdm(T.cdr3_amino_acid):
+        pgens.append(new_graph.walk_probability(encode_sequence(cdr)))
+
+    print('DIFF: ',(np.array(pgens)-np.array([lzg.walk_probability(encode_sequence(i)) for i in T.cdr3_amino_acid])).sum())
+def graph_load_Optimize():
+    from LZGraphs.AAPLZGraph import AAPLZGraph
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path + samples[0], low_memory=False)
+
+    T = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                           'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                           'chosen_v_gene', 'chosen_j_allele',
+                                                           'chosen_v_allele']].dropna()
+
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV0', 'TRBV'))
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV', 'TRBV'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0', 'TRBJ'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ', 'TRBJ'))
+
+    T['V'] = T['chosen_v_family'] + '-' + T['chosen_v_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_v_allele'].astype(int).astype(str)
+    T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_j_allele'].astype(int).astype(str)
+
+    single_sample = T.copy()
+
+    for sample in samples[:15]:
+        table_test = pd.read_table(sample_path + sample, low_memory=False)
+
+        X = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                               'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                               'chosen_v_gene', 'chosen_j_allele',
+                                                               'chosen_v_allele']].dropna()
+
+        X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV0', 'XRBV'))
+        X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV', 'XRBV'))
+        X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ0', 'XRBJ'))
+        X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ', 'XRBJ'))
+
+        X['V'] = X['chosen_v_family'] + '-' + X['chosen_v_gene'].astype(int).astype(str) + '*0' + X[
+            'chosen_v_allele'].astype(int).astype(str)
+        X['J'] = X['chosen_j_family'] + '-' + X['chosen_j_gene'].astype(int).astype(str) + '*0' + X[
+            'chosen_j_allele'].astype(int).astype(str)
+
+        T = pd.concat([T,X])
 
 
 
 
-# NDPL_Test()
+
+    size_test_graph = AAPLZGraph(T)
+    if False:
+        print('============End Of Size Test================')
+        print('\n\n')
+        with open('hivd1_s0_AAPG_graph_test.pkl', 'rb') as h:
+            lzg = pickle.load(h)
+        new_graph = AAPLZGraph(single_sample)
+
+        # with open('hivd1_s0_AAPG_graph_test.pkl', 'wb') as h:
+        #     new_graph = AAPLZGraph(T)
+        #     pickle.dump(new_graph,h)
+
+        test_score = 0
+        test_score += len(lzg.nodes) == len(new_graph.nodes)
+        print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
+        test_score += len(lzg.edges) == len(new_graph.edges)
+        print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
+
+        t = 0
+        bad_nodes = []
+        for node in tqdm(lzg.nodes, leave=False):
+            new = pd.DataFrame(dict(new_graph.graph[node])).replace(np.nan, 0).round(7)
+            original = pd.DataFrame(dict(lzg.graph[node]))
+            original = original.loc[new.index, new.columns].replace(np.nan, 0).round(7)
+            if new.equals(original):
+                t += 1
+            else:
+                bad_nodes.append(node)
+
+        test_score += ((t - len(lzg.nodes)) == 0)
+        print('Test 3 : # Mismatched Nodes: ', len(bad_nodes), '   T: ', (t / len(lzg.nodes)) * 100, ' %')
+        print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
+        test_score += new_graph == lzg
+        print('Test 5 : Gen Test: ', new_graph.genomic_random_walk())
+
+        print('Total Test Score: ', test_score)
+
+#NDPL_Test()
 # AAPG_Test()
 #NaiveG_Test()
-GenTest_Optimize()
+#GenTest_Optimize()
 #GetGenTable_Optimize()
-
+#graph_load_Optimize()
+Pgen_Optimize()
