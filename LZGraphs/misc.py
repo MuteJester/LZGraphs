@@ -1,6 +1,8 @@
 import networkx as nx
 from itertools import tee
 import numpy as np
+from functools import reduce
+from operator import getitem
 
 def has_path(G, source, target):
     try:
@@ -25,7 +27,14 @@ def window(iterable, size):
             next(each, None)
     return zip(*iters)
 
+def getitem_reduce(d, key):
+    return reduce(getitem, key, d)
 
+def get_dictionary_subkeys(target):
+    subkeys = []
+    for key in target:
+        subkeys +=[*target[key]]
+    return subkeys
 def chunkify(L, n):
     """ Yield successive n-sized chunks from L.
     """

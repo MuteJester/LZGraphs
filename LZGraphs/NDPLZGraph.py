@@ -13,7 +13,7 @@ import re
 from .decomposition import lempel_ziv_decomposition
 import seaborn as sns
 
-def get_lz_and_pos(cdr3):
+def derive_lz_reading_frame_position(cdr3):
     """
          given a string this function will return the LZ sub-patterns, the reading frame position of each sub-pattern
          and the start position in the sequence of each sub-patterns in the form of 3 lists.
@@ -25,16 +25,14 @@ def get_lz_and_pos(cdr3):
                           (list,list,list) : (lz_subpatterns,reading_frame_position,position_in_sequence)
    """
     lzc = lempel_ziv_decomposition(cdr3)
-    cumlen = np.cumsum([len(i) for i in lzc])
-    pos = []
-    locations = []
-    aux = 0
-    for i, ll in zip(lzc, cumlen):
-        pos.append((ll - len(i)) % 3)
-        locations.append(aux)
-        aux += 1
-
-    return lzc, pos, cumlen
+    cumlen = []
+    agg=0
+    rf = []
+    for sp in lzc:
+        agg += len(sp)
+        cumlen.append(agg)
+        rf.append((agg - len(sp)) % 3)
+    return lzc, rf, cumlen
 
 
 def clean_node(base):
@@ -64,8 +62,8 @@ def encode_sequence(cdr3):
                   Returns:
                           list : a list of unique sub-patterns in the NDPLZGraph format
    """
-    lz, pos, loc = get_lz_and_pos(cdr3)
-    return list(map(lambda x, y, z: x + str(y) + '_' + str(z), lz, pos, loc))
+    lz, rf, pos = derive_lz_reading_frame_position(cdr3)
+    return list(map(lambda x, y, z: x + str(y) + '_' + str(z), lz, rf, pos))
 
 
 
@@ -216,14 +214,12 @@ class NDPLZGraph(LZGraphBase):
 
     def __simultaneous_graph_construction(self,data):
         if self.genetic:
-            for index,row in tqdm(data.iterrows(), leave=False):
-                cdr3 = row['cdr3_rearrangement']
-                v = row['V']
-                j = row['J']
-                subpattern,positions,location = get_lz_and_pos(cdr3)
+            for cdr3,v,j in tqdm(zip(data['cdr3_rearrangement'],data['V'],data['J']), leave=False):
+
+                subpattern,reading_frame,position = derive_lz_reading_frame_position(cdr3)
                 steps = (window(subpattern, 2))
-                reading_frames = (window(positions, 2))
-                locations = (window(location, 2))
+                reading_frames = (window(reading_frame, 2))
+                locations = (window(position, 2))
 
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
                     A_ = A + str(pos_a) + '_' + str(loc_a)
@@ -232,14 +228,14 @@ class NDPLZGraph(LZGraphBase):
                     self._insert_edge_and_information(A_, B_, v, j)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-                self._update_terminal_states(subpattern[-1] + str(positions[-1]) + '_' + str(location[-1]))
-                self._update_initial_states(subpattern[0] + str(positions[0]) + '_1')
+                self._update_terminal_states(subpattern[-1] + str(reading_frame[-1]) + '_' + str(position[-1]))
+                self._update_initial_states(subpattern[0] + str(reading_frame[0]) + '_1')
         else:
             for cdr3 in tqdm(data['cdr3_rearrangement'], leave=False):
-                subpattern,positions,location = get_lz_and_pos(cdr3)
+                subpattern,reading_frame,position = derive_lz_reading_frame_position(cdr3)
                 steps = (window(subpattern, 2))
-                reading_frames = (window(positions, 2))
-                locations = (window(location, 2))
+                reading_frames = (window(reading_frame, 2))
+                locations = (window(position, 2))
 
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
                     A_ = A + str(pos_a) + '_' + str(loc_a)
@@ -248,7 +244,7 @@ class NDPLZGraph(LZGraphBase):
                     self._insert_edge_and_information(A_, B_)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-                self._update_terminal_states(subpattern[-1] + str(reading_frames[-1]) + '_' + str(location[-1]))
+                self._update_terminal_states(subpattern[-1] + str(reading_frames[-1]) + '_' + str(position[-1]))
                 self._update_initial_states(subpattern[0] + str(reading_frames[0]) + '_1')
 
     def walk_probability(self, walk, verbose=True):
@@ -266,7 +262,7 @@ class NDPLZGraph(LZGraphBase):
                               float : the probability of generating such a walk (PGEN)
                """
         if type(walk) == str:
-            LZ, POS = get_lz_and_pos(walk)
+            LZ, POS = derive_lz_reading_frame_position(walk)
             walk_ = [i + str(j) for i, j in zip(LZ, POS)]
         else:
             walk_ = walk
