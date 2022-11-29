@@ -1113,7 +1113,7 @@ def saturation_probing_Optimize():
     #
     # lzg = AAPLZGraph(T)
     # print('Graph Nodes: ',len(lzg.nodes),' Graph Edges: ',len(lzg.edges))
-    H = sprobe.resampling_test(T.cdr3_amino_acid.to_list(),n_tests=5,log_every=1000,sample_size=0)
+    H = sprobe.resampling_test(T.cdr3_amino_acid.to_list(),n_tests=2,log_every=1000,sample_size=0)
     print(H)
 
 
