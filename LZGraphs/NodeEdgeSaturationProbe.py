@@ -2,7 +2,10 @@ import random
 
 import numpy as np
 
-from LZGraphs import derive_lz_reading_frame_position, derive_lz_and_position, lempel_ziv_decomposition, window
+from .AAPLZGraph import derive_lz_and_position
+from .decomposition import lempel_ziv_decomposition
+from .misc import window
+from .NDPLZGraph import derive_lz_reading_frame_position
 from tqdm.auto import tqdm
 import itertools
 
