@@ -47,12 +47,13 @@ class NodeEdgeSaturationProbe:
 
 
     def test_sequences(self, sequence_list,log_every = 1000,iteration_number=None):
-        for ax,seq in tqdm(enumerate(sequence_list,start=1), leave=False, position=0,total=len(sequence_list)):
+        slen = len(sequence_list)
+        for ax,seq in tqdm(enumerate(sequence_list,start=1), leave=False, position=0,total=slen):
             nodes_local = self.node_function(seq)
             self.nodes.update(nodes_local)
             self.edges.update((window(nodes_local, 2)))
 
-            if ax % log_every == 0:
+            if ax % log_every == 0 or ax >= slen:
                 self.log(ax)
 
     def _reset(self):
