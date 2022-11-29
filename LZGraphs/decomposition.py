@@ -1,7 +1,8 @@
 from collections import OrderedDict
 from typing import List
+from numba import jit
 
-
+#@jit(nopython=True)
 def lempel_ziv_decomposition(sequence:str) -> List[str]:
     """
           an implementation of the LZ76 compression algorithm,
@@ -33,6 +34,6 @@ def lempel_ziv_decomposition(sequence:str) -> List[str]:
             sub_strings.append(sub_str)
             ind += inc
             inc = 1
-    return list(sub_strings)
+    return sub_strings
 
 
