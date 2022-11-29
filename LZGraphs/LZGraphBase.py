@@ -240,14 +240,15 @@ class LZGraphBase:
             return V, J
 
     def _insert_edge_and_information(self, A_, B_, Vgene, Jgene):
-        if self.graph.has_edge(A_, B_):
+        #if self.graph.has_edge(A_, B_):
+        try:#assuming edge exists
             edge_pointer = self.graph[A_][B_]
             edge_pointer["weight"] += 1
             edge_pointer[Vgene] = edge_pointer.get(Vgene,0)+1
             edge_pointer[Jgene] = edge_pointer.get(Jgene,0)+1
             edge_pointer['Vsum'] += 1
             edge_pointer['Jsum'] += 1
-        else:
+        except KeyError as e:# edge not fount
             attr = {'weight': 1, 'Vsum': 1, 'Jsum': 1}
             attr[Vgene] = 1
             attr[Jgene] = 1
@@ -493,3 +494,4 @@ class LZGraphBase:
                                           list : a list of top influential nodes
                         """
         return nx.algorithms.voterank(self.graph, number_of_nodes=n_nodes)
+
