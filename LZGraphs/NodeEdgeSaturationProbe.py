@@ -64,7 +64,7 @@ class NodeEdgeSaturationProbe:
         result = []
         if sample_size == 0:
             for n in range(n_tests):
-                random.shuffle(sequence_list)
+                np.random.shuffle(sequence_list)
                 self.test_sequences(sequence_list,log_every,n)
                 # save logs
                 # reset aux
@@ -72,7 +72,7 @@ class NodeEdgeSaturationProbe:
                 self._reset()
         else:
             for n in range(n_tests):
-                random.shuffle(sequence_list)
+                np.random.shuffle(sequence_list)
                 self.test_sequences(random.sample(sequence_list,sample_size), log_every,n)
                 # save logs
                 # reset aux

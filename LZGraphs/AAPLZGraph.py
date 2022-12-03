@@ -34,16 +34,6 @@ def clean_node(base):
     return re.search(r'[A-Z]*', base).group()
 
 
-def encode_sequence(amino_acid):
-    """
-    This function will take a sequence and return it as LZ sub-patterns with added position
-    the general format is given as {LZ-subpattern}_{start_index}
-    :param cdr3:
-    :return:
-    """
-    lz, loc = derive_lz_and_position(amino_acid)
-    return list(map(lambda x, z: x + '_' + str(z), lz, loc))
-
 
 def path_to_sequence(lz_subpatterns):
     return ''.join([clean_node(i) for i in lz_subpatterns])
@@ -186,13 +176,24 @@ class AAPLZGraph(LZGraphBase):
 
         if calculate_trainset_pgen:
             self.train_pgen = np.array(
-                [self.walk_probability(encode_sequence(i), verbose=False) for i in data.cdr3_amino_acid])
+                [self.walk_probability(self.encode_sequence(i), verbose=False) for i in data.cdr3_amino_acid])
 
         self.constructor_end_time = time()
         self.verbose_driver(6, verbose)
         self.verbose_driver(-2, verbose)
 
-    def __simultaneous_graph_construction(self, data):
+    @staticmethod
+    def encode_sequence(amino_acid):
+        """
+        This function will take a sequence and return it as LZ sub-patterns with added position
+        the general format is given as {LZ-subpattern}_{start_index}
+        :param cdr3:
+        :return:
+        """
+        lz, loc = derive_lz_and_position(amino_acid)
+        return list(map(lambda x, z: x + '_' + str(z), lz, loc))
+
+    def _decomposed_sequence_generator(self,data):
         if self.genetic:
             for cdr3,v,j in tqdm(zip(data['cdr3_amino_acid'],data['V'],data['J']), leave=False):
 
@@ -200,6 +201,26 @@ class AAPLZGraph(LZGraphBase):
 
                 steps = (window(LZ, 2))
                 locations = (window(locs, 2))
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
+
+                self._update_terminal_states(LZ[-1] + '_' + str(locs[-1]))
+                self._update_initial_states(LZ[0] + '_1')
+                yield steps,locations,v,j
+        else:
+            for cdr3 in tqdm(data['cdr3_amino_acid'], leave=False):
+                LZ, locations = derive_lz_and_position(cdr3)
+                steps = (window(LZ, 2))
+                locations = (window(locations, 2))
+                self.lengths.append(len(cdr3))
+                self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
+                self._update_initial_states(LZ[0] + '_1')
+                yield steps,locations
+
+    def __simultaneous_graph_construction(self, data):
+        processing_stream = self._decomposed_sequence_generator(data)
+        if self.genetic:
+            for output in processing_stream:
+                steps, locations,v,j = output
 
                 for (A, B), (loc_a, loc_b) in zip(steps, locations):
                     A_ = A + '_' + str(loc_a)
@@ -207,17 +228,10 @@ class AAPLZGraph(LZGraphBase):
                     B_ = B + '_' + str(loc_b)
                     self._insert_edge_and_information(A_, B_, v, j)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
-
-                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
-
-                self._update_terminal_states(LZ[-1] + '_' + str(locs[-1]))
-                self._update_initial_states(LZ[0] + '_1')
         else:
-            for cdr3 in tqdm(data['cdr3_amino_acid'], leave=False):
-                LZ, locations = derive_lz_and_position(cdr3)
-                steps = (window(LZ, 2))
-                locations = (window(locations, 2))
 
+            for output in processing_stream:
+                steps, locations = output
                 for (A, B), (loc_a, loc_b) in zip(steps, locations):
                     A_ = A + '_' + str(loc_a)
                     self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
@@ -225,9 +239,7 @@ class AAPLZGraph(LZGraphBase):
                     self._insert_edge_and_information_no_genes(A_, B_)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-                self.lengths.append(len(cdr3))
-                self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
-                self._update_initial_states(LZ[0] + '_1')
+
 
     def walk_probability(self, walk, verbose=True, use_epsilon=False):
         """
@@ -567,7 +579,7 @@ class AAPLZGraph(LZGraphBase):
         :param cdr3_sample:
         :return:
         """
-        encoded = encode_sequence(cdr3_sample)
+        encoded = self.encode_sequence(cdr3_sample)
         curve = [self.graph.out_degree(i) for i in encoded]
         return encoded, curve
 
@@ -579,15 +591,15 @@ class AAPLZGraph(LZGraphBase):
                :param threshold: drop genes that are missing from threshold % of the sequence
                :return:
                """
-        length = len(encode_sequence(cdr3_sample))
+        length = len(self.encode_sequence(cdr3_sample))
 
         if threshold is None:
             threshold = length * (1 / 4)
-        gene_table = self.walk_genes(encode_sequence(cdr3_sample), dropna=False)
+        gene_table = self.walk_genes(self.encode_sequence(cdr3_sample), dropna=False)
         gene_table = gene_table[gene_table.isna().sum(axis=1) < threshold]
         vgene_table = gene_table[gene_table.index.str.contains('V')]
 
-        gene_table = self.walk_genes(encode_sequence(cdr3_sample), dropna=False)
+        gene_table = self.walk_genes(self.encode_sequence(cdr3_sample), dropna=False)
         gene_table = gene_table[gene_table.isna().sum(axis=1) < (length * (1 / 2))]
         jgene_table = gene_table[gene_table.index.str.contains('J')]
 
@@ -637,7 +649,7 @@ class AAPLZGraph(LZGraphBase):
                """
         if not self.genetic:
             raise Exception('The LZGraph Has No Gene Data')
-        encoded_a = encode_sequence(cdr3)
+        encoded_a = self.encode_sequence(cdr3)
         nv_genes = [len(self.marginal_vgenes)]
         nj_genes = [len(self.marginal_jgenes)]
         for node in encoded_a[1:]:

@@ -49,21 +49,7 @@ def clean_node(base):
         return re.search(r'[ATGC]*', base).group()
 
 
-def encode_sequence(cdr3):
-    """
-          given a sequence of nucleotides this function will encode it into the following format:
-          {lz_subpattern}{reading frame start}_{start position in sequence}
-          matching the requirement of the NDPLZGraph.
 
-
-                  Parameters:
-                          cdr3 (str): a string to encode into the NDPLZGraph format
-
-                  Returns:
-                          list : a list of unique sub-patterns in the NDPLZGraph format
-   """
-    lz, rf, pos = derive_lz_reading_frame_position(cdr3)
-    return list(map(lambda x, y, z: x + str(y) + '_' + str(z), lz, rf, pos))
 
 
 
@@ -205,21 +191,59 @@ class NDPLZGraph(LZGraphBase):
 
         if calculate_trainset_pgen:
             self.train_pgen = np.array(
-                [self.walk_probability(encode_sequence(i), verbose=False) for i in data['cdr3_rearrangement']])
+                [self.walk_probability(self.encode_sequence(i), verbose=False) for i in data['cdr3_rearrangement']])
 
         self.verbose_driver(-2, verbose)
 
+    @staticmethod
+    def encode_sequence(cdr3):
+        """
+              given a sequence of nucleotides this function will encode it into the following format:
+              {lz_subpattern}{reading frame start}_{start position in sequence}
+              matching the requirement of the NDPLZGraph.
 
 
+                      Parameters:
+                              cdr3 (str): a string to encode into the NDPLZGraph format
 
-    def __simultaneous_graph_construction(self,data):
+                      Returns:
+                              list : a list of unique sub-patterns in the NDPLZGraph format
+       """
+        lz, rf, pos = derive_lz_reading_frame_position(cdr3)
+        return list(map(lambda x, y, z: x + str(y) + '_' + str(z), lz, rf, pos))
+
+    def _decomposed_sequence_generator(self,data):
         if self.genetic:
-            for cdr3,v,j in tqdm(zip(data['cdr3_rearrangement'],data['V'],data['J']), leave=False):
-
-                subpattern,reading_frame,position = derive_lz_reading_frame_position(cdr3)
+            for cdr3, v, j in tqdm(zip(data['cdr3_rearrangement'], data['V'], data['J']), leave=False):
+                subpattern, reading_frame, position = derive_lz_reading_frame_position(cdr3)
                 steps = (window(subpattern, 2))
                 reading_frames = (window(reading_frame, 2))
                 locations = (window(position, 2))
+
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
+
+
+                self._update_terminal_states(subpattern[-1] + str(reading_frame[-1]) + '_' + str(position[-1]))
+                self._update_initial_states(subpattern[0] + str(reading_frame[0]) + '_1')
+                yield steps,reading_frames, locations, v, j
+        else:
+            for cdr3 in tqdm(data['cdr3_rearrangement'], leave=False):
+                subpattern, reading_frame, position = derive_lz_reading_frame_position(cdr3)
+                steps = (window(subpattern, 2))
+                reading_frames = (window(reading_frame, 2))
+                locations = (window(position, 2))
+
+                self.lengths.append(len(cdr3))
+
+                self._update_terminal_states(subpattern[-1] + str(reading_frames[-1]) + '_' + str(position[-1]))
+                self._update_initial_states(subpattern[0] + str(reading_frames[0]) + '_1')
+                yield steps,reading_frames,locations
+
+    def __simultaneous_graph_construction(self,data):
+        processing_stream = self._decomposed_sequence_generator(data)
+        if self.genetic:
+            for output in processing_stream:
+                steps,reading_frames,locations,v,j = output
 
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
                     A_ = A + str(pos_a) + '_' + str(loc_a)
@@ -228,24 +252,15 @@ class NDPLZGraph(LZGraphBase):
                     self._insert_edge_and_information(A_, B_, v, j)
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-                self._update_terminal_states(subpattern[-1] + str(reading_frame[-1]) + '_' + str(position[-1]))
-                self._update_initial_states(subpattern[0] + str(reading_frame[0]) + '_1')
         else:
-            for cdr3 in tqdm(data['cdr3_rearrangement'], leave=False):
-                subpattern,reading_frame,position = derive_lz_reading_frame_position(cdr3)
-                steps = (window(subpattern, 2))
-                reading_frames = (window(reading_frame, 2))
-                locations = (window(position, 2))
-
+            for output in processing_stream:
+                steps, reading_frames, locations = output
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
-                    A_ = A + str(pos_a) + '_' + str(loc_a)
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
-                    B_ = B + str(pos_b) + '_' + str(loc_b)
-                    self._insert_edge_and_information(A_, B_)
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                        A_ = A + str(pos_a) + '_' + str(loc_a)
+                        self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
+                        B_ = B + str(pos_b) + '_' + str(loc_b)
+                        self._insert_edge_and_information(A_, B_)
 
-                self._update_terminal_states(subpattern[-1] + str(reading_frames[-1]) + '_' + str(position[-1]))
-                self._update_initial_states(subpattern[0] + str(reading_frames[0]) + '_1')
 
     def walk_probability(self, walk, verbose=True):
         """
@@ -473,7 +488,7 @@ class NDPLZGraph(LZGraphBase):
         :param cdr3_sample:
         :return:
         """
-        encoded = encode_sequence(cdr3_sample)
+        encoded = self.self.encode_sequence(cdr3_sample)
         curve = [self.graph.out_degree(i) for i in encoded]
         return encoded,curve
 
@@ -485,15 +500,15 @@ class NDPLZGraph(LZGraphBase):
         :param threshold: drop genes that are missing from threshold % of the sequence
         :return:
         """
-        length = len(encode_sequence(cdr3_sample))
+        length = len(self.encode_sequence(cdr3_sample))
 
         if threshold is None:
             threshold = length * (1 / 4)
-        gene_table = self.walk_genes(encode_sequence(cdr3_sample), dropna=False)
+        gene_table = self.walk_genes(self.encode_sequence(cdr3_sample), dropna=False)
         gene_table = gene_table[gene_table.isna().sum(axis=1) < threshold]
         vgene_table = gene_table[gene_table.index.str.contains('V')]
 
-        gene_table = self.walk_genes(encode_sequence(cdr3_sample), dropna=False)
+        gene_table = self.walk_genes(self.encode_sequence(cdr3_sample), dropna=False)
         gene_table = gene_table[gene_table.isna().sum(axis=1) < (length * (1 / 2))]
         jgene_table = gene_table[gene_table.index.str.contains('J')]
 
@@ -543,7 +558,7 @@ class NDPLZGraph(LZGraphBase):
         """
         if not self.genetic:
             raise Exception('The LZGraph Has No Gene Data')
-        encoded_a = encode_sequence(cdr3)
+        encoded_a = self.encode_sequence(cdr3)
         nv_genes = [len(self.marginal_vgenes)]
         nj_genes = [len(self.marginal_jgenes)]
         for node in encoded_a[1:]:
