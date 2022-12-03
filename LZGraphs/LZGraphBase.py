@@ -6,6 +6,7 @@ import pandas as pd
 from pandas.io.json import json_normalize
 import heapq
 from .misc import chunkify, window, choice, get_dictionary_subkeys
+from collections import Counter
 
 
 class LZGraphBase:
@@ -64,6 +65,37 @@ class LZGraphBase:
 
         else:
             return False
+
+    @staticmethod
+    def encode_sequence(cdr3):
+        raise NotImplementedError
+
+    def _decomposed_sequence_generator(self,data):
+        raise NotImplementedError
+
+    def _simultaneous_graph_construction(self, data):
+        processing_stream = self._decomposed_sequence_generator(data)
+        if self.genetic:
+            for output in processing_stream:
+                steps, locations,v,j = output
+
+                for (A, B), (loc_a, loc_b) in zip(steps, locations):
+                    A_ = A + '_' + str(loc_a)
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
+                    B_ = B + '_' + str(loc_b)
+                    self._insert_edge_and_information(A_, B_, v, j)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+        else:
+
+            for output in processing_stream:
+                steps, locations = output
+                for (A, B), (loc_a, loc_b) in zip(steps, locations):
+                    A_ = A + '_' + str(loc_a)
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
+                    B_ = B + '_' + str(loc_b)
+                    self._insert_edge_and_information_no_genes(A_, B_)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+
 
     def _normalize_edge_weights(self):
         # normalize edges
@@ -240,15 +272,15 @@ class LZGraphBase:
             return V, J
 
     def _insert_edge_and_information(self, A_, B_, Vgene, Jgene):
-        #if self.graph.has_edge(A_, B_):
-        try:#assuming edge exists
+        # if self.graph.has_edge(A_, B_):
+        try:  # assuming edge exists
             edge_pointer = self.graph[A_][B_]
             edge_pointer["weight"] += 1
-            edge_pointer[Vgene] = edge_pointer.get(Vgene,0)+1
-            edge_pointer[Jgene] = edge_pointer.get(Jgene,0)+1
+            edge_pointer[Vgene] = edge_pointer.get(Vgene, 0) + 1
+            edge_pointer[Jgene] = edge_pointer.get(Jgene, 0) + 1
             edge_pointer['Vsum'] += 1
             edge_pointer['Jsum'] += 1
-        except KeyError as e:# edge not fount
+        except KeyError as e:  # edge not fount
             attr = {'weight': 1, 'Vsum': 1, 'Jsum': 1}
             attr[Vgene] = 1
             attr[Jgene] = 1
@@ -405,25 +437,100 @@ class LZGraphBase:
         return self.terminal_states[
             self.terminal_states.index.to_series().str.split('_').apply(lambda x: int(x[-1])) == length].index.to_list()
 
-    def predict_vj_genes(self,walk,top_n=1):
+    def _max_sum_gene_prediction(self, walk, top_n=1):
         v_gene_agg = dict()
         j_gene_agg = dict()
         for i in range(0, len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i + 1]):
                 ls = self.graph.get_edge_data(walk[i], walk[i + 1]).copy()
-                for key in {*ls}-{'weight','Vsum','Jsum'}:
+                for key in {*ls} - {'weight', 'Vsum', 'Jsum'}:
                     if 'V' in key:
-                        v_gene_agg[key] = v_gene_agg.get(key,0)+ls[key]
+                        v_gene_agg[key] = v_gene_agg.get(key, 0) + ls[key]
                     else:
-                        j_gene_agg[key] = j_gene_agg.get(key,0)+ls[key]
-
+                        j_gene_agg[key] = j_gene_agg.get(key, 0) + ls[key]
 
         if top_n == 1:
-            return max(v_gene_agg, key=v_gene_agg.get),max(j_gene_agg, key=j_gene_agg.get)
+            return max(v_gene_agg, key=v_gene_agg.get), max(j_gene_agg, key=j_gene_agg.get)
         else:
             vs = {k for k in heapq.nlargest(top_n, v_gene_agg, key=lambda k: v_gene_agg[k])}
             js = {k for k in heapq.nlargest(top_n, j_gene_agg, key=lambda k: j_gene_agg[k])}
-            return vs,js
+            return vs, js
+
+    def _max_product_gene_prediction(self, walk, top_n=1):
+        v_gene_agg = dict()
+        j_gene_agg = dict()
+        for i in range(0, len(walk) - 1):
+            if self.graph.has_edge(walk[i], walk[i + 1]):
+                ls = self.graph.get_edge_data(walk[i], walk[i + 1]).copy()
+                for key in {*ls} - {'weight', 'Vsum', 'Jsum'}:
+                    if 'V' in key:
+                        v_gene_agg[key] = v_gene_agg.get(key, 1) * ls[key]
+                    else:
+                        j_gene_agg[key] = j_gene_agg.get(key, 1) * ls[key]
+
+        if top_n == 1:
+            return max(v_gene_agg, key=v_gene_agg.get), max(j_gene_agg, key=j_gene_agg.get)
+
+        else:
+            vs = {k for k in heapq.nlargest(top_n, v_gene_agg, key=lambda k: v_gene_agg[k])}
+            js = {k for k in heapq.nlargest(top_n, j_gene_agg, key=lambda k: j_gene_agg[k])}
+            return vs, js
+
+    def _sampling_gene_prediction(self, walk, top_n=1):
+        V = []
+        J = []
+        for i in range(0, len(walk) - 1):
+            if self.graph.has_edge(walk[i], walk[i + 1]):
+                ls = self.graph.get_edge_data(walk[i], walk[i + 1]).copy()
+                vkeys = dict()
+                jkeys = dict()
+                for k in ls:
+                    if k not in {'weight', 'Vsum', 'Jsum'}:
+                        if 'V' in k:
+                            vkeys[k] = ls[k]
+                        else:
+                            jkeys[k] = ls[k]
+
+                for _ in range(25):
+                    V.append(choice(list(vkeys.keys()), list(vkeys.values())))
+                    J.append(choice(list(jkeys.keys()), list(jkeys.values())))
+        vcounter = Counter(V)
+        jcounter = Counter(J)
+
+        if top_n == 1:
+
+            return vcounter.most_common(1)[0][0], jcounter.most_common(1)[0][0]
+
+
+        else:
+            vs = [i[0] for i in vcounter]
+            js = [i[0] for i in jcounter]
+            return vs, js
+
+    def _full_appearance_gene_prediction(self, walk, alpha=0):
+        vgenes = list()
+        jgenes = list()
+        wl = len(walk) - (1 + alpha)
+        for i in range(0, wl):
+            if self.graph.has_edge(walk[i], walk[i + 1]):
+                ls = self.graph.get_edge_data(walk[i], walk[i + 1]).copy()
+                vgenes += [i for i in ({*ls} - {'weight', 'Vsum', 'Jsum'}) if 'V' in i]
+                jgenes += [i for i in ({*ls} - {'weight', 'Vsum', 'Jsum'}) if 'J' in i]
+
+        vcount = Counter(vgenes)
+        jcount = Counter(vgenes)
+        return [w for w in vcount if vcount[w] == wl], [w for w in jcount if jcount[w] == wl]
+
+    def predict_vj_genes(self, walk, top_n=1, mode='max', alpha=0):
+
+        if mode == 'max_sum':
+            return self._max_sum_gene_prediction(walk, top_n=top_n)
+        elif mode == 'max_product':
+            return self._max_product_gene_prediction(walk, top_n=top_n)
+        elif mode == 'sampling':
+            return self._sampling_gene_prediction(walk, top_n=top_n)
+        elif mode == 'full':
+            return self._full_appearance_gene_prediction(walk, alpha)
 
     def eigenvector_centrality(self):
         return nx.algorithms.eigenvector_centrality(self.graph, weight='weight')
@@ -494,4 +601,3 @@ class LZGraphBase:
                                           list : a list of top influential nodes
                         """
         return nx.algorithms.voterank(self.graph, number_of_nodes=n_nodes)
-

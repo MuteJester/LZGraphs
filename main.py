@@ -23,8 +23,8 @@ from LZGraphs import graph_union, NodeEdgeSaturationProbe
 # T['J'] = T['chosen_j_family']+'-'+T['chosen_j_gene'].astype(int).astype(str)+'*0'+T['chosen_j_allele'].astype(int).astype(str)
 
 # from LZGraphs.NDPLZGraph import NDPLZGraph, encode_sequence, get_lz_and_pos
-from LZGraphs.AAPLZGraph import encode_sequence, AAPLZGraph
-from LZGraphs.NDPLZGraph import encode_sequence, NDPLZGraph
+from LZGraphs.AAPLZGraph import  AAPLZGraph
+from LZGraphs.NDPLZGraph import  NDPLZGraph
 from LZGraphs.NaiveLZGraph import NaiveLZGraph,generate_dictionary
 # lzg = NDPLZGraph(T,verbose=True)
 
@@ -562,7 +562,7 @@ def NDPL_Test():
     print('\n\n')
     with open('hivd1_s0_NDPL_graph_test.pkl', 'rb') as h:
         lzg = pickle.load(h)
-    if False:
+    if True:
         new_graph = NDPLZGraph(single_sample)
         #
         #
@@ -735,7 +735,7 @@ def GenTest_Optimize():
         ITR.set_postfix({'Mean Generation Time:':np.mean(times)})
 
     import seaborn as sns
-    from LZGraphs.AAPLZGraph import clean_node,encode_sequence
+    from LZGraphs.AAPLZGraph import clean_node
     import matplotlib.pyplot as plt
     concat_genereated = [''.join([clean_node(i) for i in j]) for j,gv,gj in generated]
 
@@ -743,7 +743,7 @@ def GenTest_Optimize():
         V1_random_gene_walks, V1_pgens = pickle.load(h)
     concat_genereated1 = [''.join([clean_node(i) for i in j]) for j,gv,gj in V1_random_gene_walks]
 
-    lzg_pgen_of_true_data = [lzg.walk_probability(encode_sequence(i)) for i in T.cdr3_amino_acid]
+    lzg_pgen_of_true_data = [lzg.walk_probability(AAPLZGraph.encode_sequence(i)) for i in T.cdr3_amino_acid]
     lzg_pgen_of_V1 = [lzg.walk_probability(i) for i,PV,PJ in V1_random_gene_walks]
     lzg_pgen_of_V2 = [lzg.walk_probability(i) for i,PV,PJ in generated]
 
@@ -789,13 +789,12 @@ def GetGenTable_Optimize():
 
 
     lzg = AAPLZGraph(T)
-    from LZGraphs.AAPLZGraph import encode_sequence
     from time import time
     ITR = tqdm(T.iterrows())
     mtime = []
     for index,row in ITR:
         st = time()
-        v,j = lzg.predict_vj_genes(encode_sequence(row['cdr3_amino_acid']),top_n=1)
+        v,j = lzg.predict_vj_genes(AAPLZGraph.encode_sequence(row['cdr3_amino_acid']),top_n=1)
         #print(v,'  |   ',j)
         et = time()
         mtime.append(et-st)
@@ -826,13 +825,12 @@ def Pgen_Optimize():
         lzg = pickle.load(h)
 
     new_graph = AAPLZGraph(T)
-    from LZGraphs.AAPLZGraph import encode_sequence
     from time import time
     pgens = []
     for cdr in tqdm(T.cdr3_amino_acid):
-        pgens.append(new_graph.walk_probability(encode_sequence(cdr)))
+        pgens.append(new_graph.walk_probability(AAPLZGraph.encode_sequence(cdr)))
 
-    print('DIFF: ',(np.array(pgens)-np.array([lzg.walk_probability(encode_sequence(i)) for i in T.cdr3_amino_acid])).sum())
+    print('DIFF: ',(np.array(pgens)-np.array([lzg.walk_probability(AAPLZGraph.encode_sequence(i)) for i in T.cdr3_amino_acid])).sum())
 def graph_load_Optimize():
     from LZGraphs.AAPLZGraph import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
@@ -931,7 +929,6 @@ def lzbow_optimize():
         lzb.transform(rs,normalize=True)
 
 def gene_fitting_testing():
-    from LZGraphs.AAPLZGraph import encode_sequence
     with open(
         r'C:\Users\Tomas\Desktop\Immunobiology\LZGraphs Paper\Final Figures\Data For Figures\AAPLZGraph_Emerson_Mastergraph.pkl',
         'rb') as h:
@@ -959,39 +956,38 @@ def gene_fitting_testing():
         temp['J'] = temp['chosen_j_family']  # .apply(lambda x: 'J' + x.split('J')[1])
         T2 = pd.concat([T2,temp])
 
-    alpha = 0.3
 
-    for seq, true_v, true_j in tqdm(zip(T2.cdr3_amino_acid, T2.V, T2.J)):
-
-
-
-        path = encode_sequence(seq)
-        sum_dict = dict()
-        for na,nb in window(path,2):
-             if master_emerson.graph.has_edge(na,nb):
-                 edge_data = master_emerson.graph[na][nb]
-             if true_v not in edge_data:
-                 # edge_data[true_v] = min(list(edge_data.values())
-                 continue
-             else:
-                 for key in edge_data:
-                     if 'V' in key:
-                        sum_dict[key] = sum_dict.get(key,1)*edge_data[key]
-
-        for na,nb in window(path,2):
-             if master_emerson.graph.has_edge(na,nb):
-                 edge_data = master_emerson.graph[na][nb]
-                 if true_v not in edge_data:
-                     #edge_data[true_v] = min(list(edge_data.values()))
-                      continue
-
-                 else:
-                     vgenes = [i for i in edge_data if 'V' in i]
-                     for gene in vgenes:
-                         if gene != true_v:
-                             edge_data[gene]*=alpha
-                         else:
-                             edge_data[gene]*=(1+alpha)
+    # for seq, true_v, true_j in tqdm(zip(T2.cdr3_amino_acid, T2.V, T2.J)):
+    #
+    #
+    #
+    #     path = encode_sequence(seq)
+    #     sum_dict = dict()
+    #     for na,nb in window(path,2):
+    #          if master_emerson.graph.has_edge(na,nb):
+    #              edge_data = master_emerson.graph[na][nb]
+    #          if true_v not in edge_data:
+    #              # edge_data[true_v] = min(list(edge_data.values())
+    #              continue
+    #          else:
+    #              for key in edge_data:
+    #                  if 'V' in key:
+    #                     sum_dict[key] = sum_dict.get(key,1)*edge_data[key]
+    #
+    #     for na,nb in window(path,2):
+    #          if master_emerson.graph.has_edge(na,nb):
+    #              edge_data = master_emerson.graph[na][nb]
+    #              if true_v not in edge_data:
+    #                  #edge_data[true_v] = min(list(edge_data.values()))
+    #                   continue
+    #
+    #              else:
+    #                  vgenes = [i for i in edge_data if 'V' in i]
+    #                  for gene in vgenes:
+    #                      if gene != true_v:
+    #                          edge_data[gene]*=alpha
+    #                      else:
+    #                          edge_data[gene]*=(1+alpha)
 
         #
         # gtable = master_emerson.walk_genes(encode_sequence(seq), raise_error=False, dropna=False)
@@ -1017,25 +1013,10 @@ def gene_fitting_testing():
         #     for key in vtable.index:
         #         master_emerson.graph[a][b][key] = vtable.loc[key, edge]
 
-    pdf = T2[['V', 'J']].copy()
-    predicted_v = []
-    predicted_j = []
-    total = 0
-    correct = 0
-    for cdr, tv, tj in zip(T2.cdr3_amino_acid, T2.V, T2.J):
-        v, j = master_emerson.predict_vj_genes(encode_sequence(cdr))
-        predicted_v.append(v)
-        predicted_j.append(j)
-        total += 1
-        if int(tv.split('V')[1]) == int(v.split('V')[1]):
-            correct += 1
-    pdf['predicted_v'] = predicted_v
-    pdf['predicted_j'] = predicted_j
+    master_emerson =AAPLZGraph(T2)
 
 
-    print('Accuracy: ',correct/total,' Correct: ',correct,'  Total: ',total)
-
-    for i in range(10,20):
+    for i in range(22,34):
         table_test = pd.read_table(sample_path + samples[i], low_memory=False)
         T2 = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
                                                                 'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
@@ -1050,17 +1031,22 @@ def gene_fitting_testing():
         predicted_j = []
         total = 0
         correct = 0
+        mode = 'full'
+        average_v_return = []
         for cdr, tv, tj in zip(T2.cdr3_amino_acid, T2.V, T2.J):
-            v, j = master_emerson.predict_vj_genes(encode_sequence(cdr))
-            predicted_v.append(v)
-            predicted_j.append(j)
+            v, j = master_emerson.predict_vj_genes(AAPLZGraph.encode_sequence(cdr),mode=mode,alpha=1)
             total += 1
-            if int(tv.split('V')[1]) == int(v.split('V')[1]):
-                correct += 1
-        pdf['predicted_v'] = predicted_v
-        pdf['predicted_j'] = predicted_j
+            if mode == 'full':
+                average_v_return.append(len(v))
+                if tv in v:
+                    correct+=1
+            else:
+                if int(tv.split('V')[1]) == int(v.split('V')[1]):
+                    correct += 1
 
         print('Sample: ', i,'  Accuracy: ', correct / total, ' Correct: ', correct, '  Total: ', total)
+    if mode == 'full':
+        print ('Average Length Returend: ',np.mean(average_v_return))
 def saturation_probing_Optimize():
     from LZGraphs.AAPLZGraph import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
@@ -1117,8 +1103,8 @@ def saturation_probing_Optimize():
     print(H)
 
 
-#NDPL_Test()
-# AAPG_Test()
+NDPL_Test()
+AAPG_Test()
 #NaiveG_Test()
 #GenTest_Optimize()
 #GetGenTable_Optimize()
@@ -1126,4 +1112,4 @@ def saturation_probing_Optimize():
 #Pgen_Optimize()
 #lzbow_optimize()
 #gene_fitting_testing()
-saturation_probing_Optimize()
+#saturation_probing_Optimize()
