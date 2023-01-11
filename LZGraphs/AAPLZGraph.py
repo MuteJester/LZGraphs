@@ -24,19 +24,10 @@ def derive_lz_and_position(cdr3):
         cumlen.append(aux)
     return lzc, cumlen
 
-def clean_node(base):
-    """
-    This Function will take in a sub-pattern that has position added to it and clean
-    the added values returning only the amino acid value
-    :param base:
-    :return:
-    """
-    return re.search(r'[A-Z]*', base).group()
-
 
 
 def path_to_sequence(lz_subpatterns):
-    return ''.join([clean_node(i) for i in lz_subpatterns])
+    return ''.join([AAPLZGraph.clean_node(i) for i in lz_subpatterns])
 
 
 # TO DO: SET AGG LIST (LIKE LENGTHS) TOO NONE TO FREE UP MEMORY
@@ -137,7 +128,7 @@ class AAPLZGraph(LZGraphBase):
         super().__init__()
 
         # check for V and J gene data in input
-        self.genetic = True if 'V' in data.columns and 'J' in data.columns else False
+        self.genetic = True if type(data) == pd.DataFrame and 'V' in data.columns and 'J' in data.columns else False
 
         if self.genetic:
             self._load_gene_data(data)
@@ -192,6 +183,15 @@ class AAPLZGraph(LZGraphBase):
         """
         lz, loc = derive_lz_and_position(amino_acid)
         return list(map(lambda x, z: x + '_' + str(z), lz, loc))
+    @staticmethod
+    def clean_node(base):
+        """
+        This Function will take in a sub-pattern that has position added to it and clean
+        the added values returning only the amino acid value
+        :param base:
+        :return:
+        """
+        return re.search(r'[A-Z]*', base).group()
 
     def _decomposed_sequence_generator(self,data):
         if self.genetic:
@@ -207,11 +207,11 @@ class AAPLZGraph(LZGraphBase):
                 self._update_initial_states(LZ[0] + '_1')
                 yield steps,locations,v,j
         else:
-            for cdr3 in tqdm(data['cdr3_amino_acid'], leave=False):
+            for cdr3 in tqdm(list(data), leave=False):
                 LZ, locations = derive_lz_and_position(cdr3)
                 steps = (window(LZ, 2))
                 locations = (window(locations, 2))
-                self.lengths.append(len(cdr3))
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
                 self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
                 self._update_initial_states(LZ[0] + '_1')
                 yield steps,locations
@@ -302,49 +302,49 @@ class AAPLZGraph(LZGraphBase):
                     return 0
         return proba_v, proba_j
 
-    def random_walk(self, seq_len, initial_state):
-        """
-          given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
-            to a random terminal state in the given number of steps
-
-
-                     Parameters:
-                             steps (int): number of sub-patterns the resulting walk should contain
-                     Returns:
-                             (list) : a list of LZ sub-patterns representing the random walk
-                      """
-        current_state = initial_state
-        walk = [initial_state]
-        sequence = clean_node(initial_state)
-
-        final_states = self._length_specific_terminal_state(seq_len)
-
-        if len(final_states) < 1:
-            raise Exception('Unfamiliar Seq Length')
-
-        while current_state not in final_states:
-            states, probabilities = self._get_state_weights(current_state)
-            # Try add dynamic dictionary of weight that will remove invalid paths
-
-            # if went into a final path with mismatch length
-            if len(probabilities) == 0:  # no options we can take from here
-                # go back to the last junction where a different choice can be made
-                for ax in range(len(walk) - 1, 1, -1):
-                    for final_s in final_states:
-                        try:
-                            SP = nx.dijkstra_path(self.graph, source=walk[ax], target=final_s,
-                                                  weight=lambda x, y, z: 1 - z['weight'])
-                            walk = walk[:ax] + SP
-                            sequence = ''.join([clean_node(i) for i in walk])
-                            return walk
-                        except nx.NetworkXNoPath:
-                            continue
-
-            current_state = np.random.choice(states, size=1, p=probabilities).item()
-            walk.append(current_state)
-            sequence += clean_node(current_state)
-
-        return walk
+    # def random_walk(self, seq_len, initial_state):
+    #     """
+    #       given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+    #         to a random terminal state in the given number of steps
+    #
+    #
+    #                  Parameters:
+    #                          steps (int): number of sub-patterns the resulting walk should contain
+    #                  Returns:
+    #                          (list) : a list of LZ sub-patterns representing the random walk
+    #                   """
+    #     current_state = initial_state
+    #     walk = [initial_state]
+    #     sequence = clean_node(initial_state)
+    #
+    #     final_states = self._length_specific_terminal_state(seq_len)
+    #
+    #     if len(final_states) < 1:
+    #         raise Exception('Unfamiliar Seq Length')
+    #
+    #     while current_state not in final_states:
+    #         states, probabilities = self._get_state_weights(current_state)
+    #         # Try add dynamic dictionary of weight that will remove invalid paths
+    #
+    #         # if went into a final path with mismatch length
+    #         if len(probabilities) == 0:  # no options we can take from here
+    #             # go back to the last junction where a different choice can be made
+    #             for ax in range(len(walk) - 1, 1, -1):
+    #                 for final_s in final_states:
+    #                     try:
+    #                         SP = nx.dijkstra_path(self.graph, source=walk[ax], target=final_s,
+    #                                               weight=lambda x, y, z: 1 - z['weight'])
+    #                         walk = walk[:ax] + SP
+    #                         sequence = ''.join([clean_node(i) for i in walk])
+    #                         return walk
+    #                     except nx.NetworkXNoPath:
+    #                         continue
+    #
+    #         current_state = np.random.choice(states, size=1, p=probabilities).item()
+    #         walk.append(current_state)
+    #         sequence += clean_node(current_state)
+    #
+    #     return walk
 
 
     def multi_gene_random_walk(self, N, seq_len, initial_state=None, vj_init='marginal'):
@@ -446,14 +446,14 @@ class AAPLZGraph(LZGraphBase):
 
         current_state = random_initial_state
         walk = [random_initial_state]
-        sequence = clean_node(random_initial_state)
+        sequence = self.clean_node(random_initial_state)
 
         while not self.is_stop_condition(current_state):
             # take a random step
             current_state = self.random_step(current_state)
 
             walk.append(current_state)
-            sequence += clean_node(current_state)
+            sequence += self.clean_node(current_state)
         return walk, sequence
 
     def walk_genes(self, walk, dropna=True,raise_error=True):
@@ -608,38 +608,6 @@ class AAPLZGraph(LZGraphBase):
 
         return vgene_table, jgene_table
 
-    def path_gene_table_plot(self, cdr3_sample, threshold=None, figsize=None):
-        vgene_table, jgene_table = self.path_gene_table(cdr3_sample, threshold)
-        plt.figure(figsize=(15, 8) if figsize is None else figsize)
-        plt.subplot(1, 2, 1)
-        ax = sns.heatmap(jgene_table.iloc[:, :-2],
-                         xticklabels=[clean_node(i.split('->')[0]) + '->' + clean_node(i.split('->')[1]) for i in
-                                      jgene_table.columns[:-2]],
-                         cmap='coolwarm', linewidths=3)
-        ax.set_facecolor('xkcd:black')
-
-        label_col_vals = jgene_table.iloc[:, :-2].isna().any(axis=1)
-        for i in ax.get_yticklabels():
-            if not label_col_vals[i.get_text()]:
-                i.set_color("red")
-
-        plt.subplot(1, 2, 2)
-        ax = sns.heatmap(vgene_table.iloc[:, :-2],
-                         xticklabels=[clean_node(i.split('->')[0]) + '->' + clean_node(i.split('->')[1]) for i in
-                                      jgene_table.columns[:-2]],
-                         cmap='coolwarm', linewidths=3, yticklabels=vgene_table.index)
-
-        label_col_vals = vgene_table.iloc[:, :-2].isna().any(axis=1)
-        for i in ax.get_yticklabels():
-            if not label_col_vals[i.get_text()]:
-                i.set_color("red")
-
-        ax.set_facecolor('xkcd:black')
-        plt.gcf().suptitle(cdr3_sample, fontsize=26)
-
-        plt.tight_layout()
-        plt.show()
-
     def gene_variation(self, cdr3):
         """
                Plots the data derived at the "gene_variation" method as two bar charts overlayed, one for V gene count
@@ -671,11 +639,3 @@ class AAPLZGraph(LZGraphBase):
              'sp': lempel_ziv_decomposition(cdr3) + lempel_ziv_decomposition(cdr3)})
         return j_df
 
-    def gene_variation_plot(self, cdr3):
-        j_df = self.gene_variation(cdr3)
-        sns.barplot(data=j_df, x='sp', y='genes', hue='type')
-        plt.grid(lw=2, ls=':', axis='y')
-        plt.ylabel('LZ Sub_Pattern')
-        plt.ylabel('Unqiue Gene Possibilities')
-        plt.legend()
-        plt.show()

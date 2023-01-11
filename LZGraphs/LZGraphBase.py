@@ -70,6 +70,20 @@ class LZGraphBase:
     def encode_sequence(cdr3):
         raise NotImplementedError
 
+    @staticmethod
+    def clean_node(base):
+        """
+          given a sub-pattern that has reading frame and position added to it, cleans it and returns
+          only the nucleotides from the string
+
+                  Parameters:
+                          base (str): a node from the NDPLZGraph
+
+                  Returns:
+                          str : only the nucleotides of the node
+     """
+        return re.search(r'[ATGC]*', base).group()
+
     def _decomposed_sequence_generator(self,data):
         raise NotImplementedError
 
@@ -134,19 +148,23 @@ class LZGraphBase:
     def is_stop_condition(self, state, selected_v=None, selected_j=None):
         if state not in self.terminal_states:
             return False
-
-        if selected_j is not None:
-            # edge_info = self._get_node_info_df(state, selected_v, selected_j,condition='or')
-            edge_info = dict(self.graph[state])  # pd.DataFrame()
-            observed_gene_paths = set(get_dictionary_subkeys(edge_info))
-            if len(set(observed_gene_paths) & {selected_v, selected_j}) != 2:
-                neighbours = 0
+        if self.genetic:
+            if selected_j is not None:
+                # edge_info = self._get_node_info_df(state, selected_v, selected_j,condition='or')
+                edge_info = dict(self.graph[state])  # pd.DataFrame()
+                observed_gene_paths = set(get_dictionary_subkeys(edge_info))
+                if len(set(observed_gene_paths) & {selected_v, selected_j}) != 2:
+                    neighbours = 0
+                else:
+                    neighbours = 2
             else:
-                neighbours = 2
-        else:
-            neighbours = self.graph.out_degree(state)
-        if (neighbours) == 0:
-            return True
+                neighbours = self.graph.out_degree(state)
+            if (neighbours) == 0:
+                return True
+            else:
+                stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
+                decision = np.random.binomial(1, stop_probability) == 1
+                return decision
         else:
             stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
             decision = np.random.binomial(1, stop_probability) == 1
@@ -161,6 +179,7 @@ class LZGraphBase:
 
              if seq_len is equal to "unsupervised" than a random seq len will be returned
         """
+        self._raise_genetic_mode_error()
         selected_v, selected_j = self._select_random_vj_genes(vj_init)
 
         if initial_state is None:
@@ -201,6 +220,46 @@ class LZGraphBase:
             walk.append(current_state)
 
         return walk, selected_v, selected_j
+
+    def random_walk(self, initial_state=None, vj_init='marginal'):
+        if initial_state is None:
+            current_state = self._random_initial_state()
+            walk = [current_state]
+        else:
+            current_state = initial_state
+            walk = [initial_state]
+
+        # while the walk is not in a valid final state
+        while not self.is_stop_condition(current_state):
+            # get the node_data for the current state
+            edge_info = self._get_node_feature_info_df(current_state, 'weight', asdict=True)
+
+            if (current_state) in self.genetic_walks_black_list:
+                for col in self.genetic_walks_black_list[(current_state)]:
+                    edge_info.pop(col)
+                # edge_info = edge_info.drop(
+                #     columns=self.genetic_walks_black_list[(current_state, selected_v, selected_j)])
+            # check selected path has genes
+            if len(edge_info) == 0:
+                if len(walk) > 2:
+                    self.genetic_walks_black_list[(walk[-2])] \
+                        = self.genetic_walks_black_list.get((walk[-2]),
+                                                            []) + [walk[-1]]
+                    current_state = walk[-2]
+                    walk = walk[:-1]
+                else:
+                    walk = walk[:1]
+                    current_state = walk[0]
+                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
+
+                continue
+
+            w = np.array([edge_info[i]['weight'] for i in edge_info])
+            w = w / w.sum()
+            current_state = choice([*edge_info], w)
+            walk.append(current_state)
+
+        return walk
 
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
@@ -262,6 +321,7 @@ class LZGraphBase:
         return choice(self.initial_states_probability.index, self.initial_states_probability.values)
 
     def _select_random_vj_genes(self, type='marginal'):
+        self._raise_genetic_mode_error()
         if type == 'marginal':
             V = choice(self.marginal_vgenes.index, self.marginal_vgenes.values)
             J = choice(self.marginal_jgenes.index, self.marginal_jgenes.values)
@@ -520,6 +580,10 @@ class LZGraphBase:
         vcount = Counter(vgenes)
         jcount = Counter(vgenes)
         return [w for w in vcount if vcount[w] == wl], [w for w in jcount if jcount[w] == wl]
+
+    def _raise_genetic_mode_error(self):
+        if not self.genetic:
+            raise Exception('Genomic Data Function Requires Gene Annotation Data, The Graph Has No Such Data')
 
     def predict_vj_genes(self, walk, top_n=1, mode='max', alpha=0):
 
