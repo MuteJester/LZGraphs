@@ -8,3 +8,4 @@ from .BOWEncoder import *
 from .misc import *
 from .Utilities import *
 from .NodeEdgeSaturationProbe import *
+from .Visualize import *

@@ -531,34 +531,34 @@ def NDPL_Test():
         'chosen_j_allele'].astype(int).astype(str)
 
     single_sample = T.copy()
-
-    for sample in samples[:15]:
-        table_test = pd.read_table(sample_path + sample, low_memory=False)
-
-        X = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
-                                                               'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
-                                                               'chosen_v_gene', 'chosen_j_allele',
-                                                               'chosen_v_allele']].dropna()
-
-        X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV0', 'XRBV'))
-        X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV', 'XRBV'))
-        X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ0', 'XRBJ'))
-        X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ', 'XRBJ'))
-
-        X['V'] = X['chosen_v_family'] + '-' + X['chosen_v_gene'].astype(int).astype(str) + '*0' + X[
-            'chosen_v_allele'].astype(int).astype(str)
-        X['J'] = X['chosen_j_family'] + '-' + X['chosen_j_gene'].astype(int).astype(str) + '*0' + X[
-            'chosen_j_allele'].astype(int).astype(str)
-
-        T = pd.concat([T,X])
-
-
-
-
-
-    size_test_graph = AAPLZGraph(T)
-
-    print('============End Of Size Test================')
+    #
+    # for sample in samples[:15]:
+    #     table_test = pd.read_table(sample_path + sample, low_memory=False)
+    #
+    #     X = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+    #                                                            'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+    #                                                            'chosen_v_gene', 'chosen_j_allele',
+    #                                                            'chosen_v_allele']].dropna()
+    #
+    #     X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV0', 'XRBV'))
+    #     X['chosen_v_family'] = X['chosen_v_family'].apply(lambda x: x.replace('XCRBV', 'XRBV'))
+    #     X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ0', 'XRBJ'))
+    #     X['chosen_j_family'] = X['chosen_j_family'].apply(lambda x: x.replace('XCRBJ', 'XRBJ'))
+    #
+    #     X['V'] = X['chosen_v_family'] + '-' + X['chosen_v_gene'].astype(int).astype(str) + '*0' + X[
+    #         'chosen_v_allele'].astype(int).astype(str)
+    #     X['J'] = X['chosen_j_family'] + '-' + X['chosen_j_gene'].astype(int).astype(str) + '*0' + X[
+    #         'chosen_j_allele'].astype(int).astype(str)
+    #
+    #     T = pd.concat([T,X])
+    #
+    #
+    #
+    #
+    #
+    # size_test_graph = AAPLZGraph(T)
+    #
+    # print('============End Of Size Test================')
     print('\n\n')
     with open('hivd1_s0_NDPL_graph_test.pkl', 'rb') as h:
         lzg = pickle.load(h)
@@ -1102,9 +1102,118 @@ def saturation_probing_Optimize():
     H = sprobe.resampling_test(T.cdr3_amino_acid.to_list(),n_tests=2,log_every=1000,sample_size=0)
     print(H)
 
+def sonia_testing():
+    import sonia
+    from sonia.sonia_leftpos_rightpos import SoniaLeftposRightpos
+    from sonia.plotting import Plotter
+    from sonia.evaluate_model import EvaluateModel
+    from sonia.sequence_generation import SequenceGeneration
 
-NDPL_Test()
-AAPG_Test()
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path+samples[1],low_memory=False)
+
+    T_2  = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement','cdr3_amino_acid',
+           'chosen_v_family','chosen_j_family','chosen_j_gene','chosen_v_gene','chosen_j_allele','chosen_v_allele']].dropna()
+
+    T_2['chosen_v_family'] = T_2['chosen_v_family'].apply(lambda x: x.replace('TCRBV0','TRBV'))
+    T_2['chosen_v_family'] = T_2['chosen_v_family'].apply(lambda x: x.replace('TCRBV','TRBV'))
+    T_2['chosen_j_family'] = T_2['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0','TRBJ'))
+    T_2['chosen_j_family'] = T_2['chosen_j_family'].apply(lambda x: x.replace('TCRBJ','TRBJ'))
+
+    T_2['V'] = T_2['chosen_v_family']+'-'+T_2['chosen_v_gene'].astype(int).astype(str)+'*0'+T_2['chosen_v_allele'].astype(int).astype(str)
+    T_2['J'] = T_2['chosen_j_family']+'-'+T_2['chosen_j_gene'].astype(int).astype(str)+'*0'+T_2['chosen_j_allele'].astype(int).astype(str)
+
+    samples_ = T_2[['cdr3_amino_acid', 'V', 'J']]
+
+    model_dir = os.path.join(os.path.dirname(sonia.sonia_leftpos_rightpos.__file__), 'default_models', 'human_T_alpha')
+    qm = SoniaLeftposRightpos(chain_type='human_T_beta',
+                              # gen_seqs=list(Sample_f.values))#,
+                              data_seqs=list(samples_.values))
+
+
+    qm.add_generated_seqs(int(2e5))
+    #define and train model
+    qm.infer_selection(epochs=30,verbose=1)
+
+    gn = SequenceGeneration(qm)
+    pre_seqs = gn.generate_sequences_pre(len(samples_))
+
+    ev = EvaluateModel(qm)
+
+    Q_data_original, pgen_data_original, ppost_data_original = ev.evaluate_seqs(samples_.values)
+
+def test_no_gene_data():
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path + samples[0], low_memory=False)
+
+    T = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                           'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                           'chosen_v_gene', 'chosen_j_allele',
+                                                           'chosen_v_allele']].dropna()
+
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV0', 'TRBV'))
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV', 'TRBV'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0', 'TRBJ'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ', 'TRBJ'))
+
+    T['V'] = T['chosen_v_family'] + '-' + T['chosen_v_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_v_allele'].astype(int).astype(str)
+    T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_j_allele'].astype(int).astype(str)
+
+    single_sample = T.copy()
+
+    ndpl_no_gene = NDPLZGraph(single_sample['cdr3_rearrangement'])
+    aapl_no_gene = NDPLZGraph(single_sample['cdr3_amino_acid'])
+
+    with open('hivd1_s0_NDPL_graph_test.pkl', 'rb') as h:
+        lzg = pickle.load(h)
+    new_graph = ndpl_no_gene
+
+    test_score = 0
+    test_score += len(lzg.nodes) == len(new_graph.nodes)
+    print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
+    test_score += len(lzg.edges) == len(new_graph.edges)
+    print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
+
+    print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
+    test_score += new_graph == lzg
+    print('Test 5 : Gen Test: ', new_graph.random_walk())
+
+    print('Total Test Score: ', test_score)
+
+def test_plots():
+    sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
+    samples = os.listdir(sample_path)
+    table_test = pd.read_table(sample_path + samples[0], low_memory=False)
+
+    T = table_test[table_test.cdr3_rearrangement.notna()][['cdr3_rearrangement', 'cdr3_amino_acid',
+                                                           'chosen_v_family', 'chosen_j_family', 'chosen_j_gene',
+                                                           'chosen_v_gene', 'chosen_j_allele',
+                                                           'chosen_v_allele']].dropna()
+
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV0', 'TRBV'))
+    T['chosen_v_family'] = T['chosen_v_family'].apply(lambda x: x.replace('TCRBV', 'TRBV'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ0', 'TRBJ'))
+    T['chosen_j_family'] = T['chosen_j_family'].apply(lambda x: x.replace('TCRBJ', 'TRBJ'))
+
+    T['V'] = T['chosen_v_family'] + '-' + T['chosen_v_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_v_allele'].astype(int).astype(str)
+    T['J'] = T['chosen_j_family'] + '-' + T['chosen_j_gene'].astype(int).astype(str) + '*0' + T[
+        'chosen_j_allele'].astype(int).astype(str)
+
+    single_sample = T.copy()
+
+    ndpl_no_gene = NDPLZGraph(single_sample)
+    aapl_no_gene = NDPLZGraph(single_sample)
+
+    draw_graph(ndpl_no_gene.graph)
+
+#
+# NDPL_Test()
+# AAPG_Test()
 #NaiveG_Test()
 #GenTest_Optimize()
 #GetGenTable_Optimize()
@@ -1113,3 +1222,6 @@ AAPG_Test()
 #lzbow_optimize()
 #gene_fitting_testing()
 #saturation_probing_Optimize()
+# test_no_gene_data()
+from LZGraphs.Visualize import *
+test_plots()
