@@ -12,3 +12,5 @@ nav:
   - explanation.md
   - Misc Functions: misc_reference.md
   - Visualize Functions: visualize_reference.md
+  - Utilities Functions: utilities_reference.md
+  - Node Edge Saturation Functions: nodedgesaturation_reference.md

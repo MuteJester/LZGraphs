@@ -6,8 +6,17 @@ import pandas as pd
 import networkx as nx
 from tqdm.auto import tqdm
 def restore_gene_counts(column):
+    """ This function is used during the graph union operation, it converts the gene probability distribution at each
+        edge back to a count vector.
+                        Args:
+                            column (pandas Series): An LZGraph
+                        Returns:
+                            pandas Series: padnas series of v and j counts instead of probabilites
+      """
     vgs, jgs = [], []
+    # total number of observed V genes/alleles
     vsum = column['Vsum']
+    # total number of observed J genes/alleles
     jsum = column['Jsum']
     # extract v and j columns
     for col in column.index:
@@ -23,8 +32,17 @@ def restore_gene_counts(column):
 
 
 def renormalize_edege_genes(column):
+    """ This function is used during the graph union operation, it normalizes the gene counts by the total number
+    of observed v / j genes/alleles.
+                    Args:
+                        column (pandas Series): An LZGraph
+                    Returns:
+                        pandas Series: padnas series of v and j counts instead of probabilites
+              """
     vgs, jgs = [], []
+    # total number of observed V genes/alleles
     vsum = column['Vsum']
+    # total number of observed J genes/alleles
     jsum = column['Jsum']
     # extract v and j columns
     for col in column.index:
@@ -39,14 +57,17 @@ def renormalize_edege_genes(column):
     return column
 
 def graph_union(graphA,graphB):
-    """
-    This function performs a union operation between two graphs, graphA will be updated to be the
+    """ This function performs a union operation between two graphs, graphA will be updated to be the
     equivalent of the union of both.
     The result is logically equal to constructing a graph out of the union sequences, of two separate repertoires.
-    :param graphA:
-    :param graphB:
-    :return:
-    """
+
+                 Args:
+                     graphA (LZGraph): An LZGraph
+                     graphB (LZGraph)  An LZGraph of the same class as graphA
+                 Returns:
+                     LZGraph: The resulting LZGraph from the union of graphA and graphB
+           """
+
 
     if type(graphA) != type(graphB):
         raise Exception('Both Graphs Must Be of Same Type!')
