@@ -127,7 +127,7 @@ def ancestors_descendants_curves_plot(graph,sequence):
     plt.xlabel('LZ Sub-pattern')
     plt.show()
 
-def draw_graph(graph,file_name='test.png'):
+def draw_graph(graph,file_name='LZGraph.png'):
     """ Generate a plot of a given graph and save is in project folder.
 
                  Args:
@@ -135,14 +135,14 @@ def draw_graph(graph,file_name='test.png'):
                      file_name (str) the name of the saved image.
                  Returns:
                      None: Shows figure via plt.show()
-           """
+    """
     #initialze Figure
     plt.figure(num=None, figsize=(30, 30), dpi=300)
     plt.axis('off')
     fig = plt.figure(1)
     pos = nx.spring_layout(graph)
-    nx.draw_networkx_nodes(graph,pos)
-    nx.draw_networkx_edges(graph,pos,alpha=0.1)
+    nx.draw_networkx_nodes(graph,pos,alpha=0.3,node_size=100)
+    nx.draw_networkx_edges(graph,pos,alpha=0.3)
     #nx.draw_networkx_labels(graph,pos)
 
     plt.savefig(file_name,bbox_inches="tight")
