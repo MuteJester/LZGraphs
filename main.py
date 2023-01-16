@@ -2,7 +2,7 @@ import os
 import random
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import numpy as np
-from lzgraphs.AAPLZGraph import derive_lz_and_position
+from lzgraphs.AminoAcidPositional import derive_lz_and_position,AAPLZGraph
 from tqdm.auto import tqdm
 import pandas as pd
 
@@ -23,9 +23,9 @@ from LZGraphs import graph_union, NodeEdgeSaturationProbe
 # T['J'] = T['chosen_j_family']+'-'+T['chosen_j_gene'].astype(int).astype(str)+'*0'+T['chosen_j_allele'].astype(int).astype(str)
 
 # from LZGraphs.NDPLZGraph import NDPLZGraph, encode_sequence, get_lz_and_pos
-from LZGraphs.AAPLZGraph import  AAPLZGraph
-from LZGraphs.NDPLZGraph import  NDPLZGraph
-from LZGraphs.NaiveLZGraph import NaiveLZGraph,generate_dictionary
+from LZGraphs.AminoAcidPositional import  AAPLZGraph
+from LZGraphs.NucleotideDoublePositional import  NDPLZGraph
+from LZGraphs.Naive import NaiveLZGraph,generate_dictionary
 # lzg = NDPLZGraph(T,verbose=True)
 
 # print('Nodes: ',len(lzg.nodes))
@@ -45,7 +45,7 @@ from multiprocessing import Pool
 from lzgraphs.misc import window
 from tqdm.auto import tqdm
 import pickle
-from LZGraphs.NDPLZGraph import derive_lz_reading_frame_position
+from LZGraphs.NucleotideDoublePositional import derive_lz_reading_frame_position
 
 
 class rarity_counter:
@@ -273,7 +273,7 @@ def proc5():
     from sonia.plotting import Plotter
     from sonia.evaluate_model import EvaluateModel
     from sonia.sequence_generation import SequenceGeneration
-    from LZGraphs.AAPLZGraph import encode_sequence, AAPLZGraph
+    from LZGraphs.AminoAcidPositional import encode_sequence, AAPLZGraph
 
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
@@ -398,7 +398,7 @@ def proc6():
 
 
 def proc7():
-    from LZGraphs.NDPLZGraph import NDPLZGraph
+    from LZGraphs.NucleotideDoublePositional import NDPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
     table_test = pd.read_table(sample_path + samples[0], low_memory=False)
@@ -426,7 +426,7 @@ def proc7():
 
 
 def AAPG_Test():
-    from LZGraphs.AAPLZGraph import AAPLZGraph
+    from LZGraphs.AminoAcidPositional import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
     table_test = pd.read_table(sample_path + samples[0], low_memory=False)
@@ -510,7 +510,7 @@ def AAPG_Test():
     print('Total Test Score: ', test_score)
 
 def NDPL_Test():
-    from LZGraphs.AAPLZGraph import AAPLZGraph
+    from LZGraphs.AminoAcidPositional import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
     table_test = pd.read_table(sample_path + samples[0], low_memory=False)
@@ -594,7 +594,7 @@ def NDPL_Test():
 
         print('Total Test Score: ',test_score)
 def NaiveG_Test():
-    from LZGraphs.AAPLZGraph import AAPLZGraph
+    from LZGraphs.AminoAcidPositional import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
     table_test = pd.read_table(sample_path + samples[0], low_memory=False)
@@ -735,7 +735,7 @@ def GenTest_Optimize():
         ITR.set_postfix({'Mean Generation Time:':np.mean(times)})
 
     import seaborn as sns
-    from LZGraphs.AAPLZGraph import clean_node
+    from LZGraphs.AminoAcidPositional import clean_node
     import matplotlib.pyplot as plt
     concat_genereated = [''.join([clean_node(i) for i in j]) for j,gv,gj in generated]
 
@@ -832,7 +832,7 @@ def Pgen_Optimize():
 
     print('DIFF: ',(np.array(pgens)-np.array([lzg.walk_probability(AAPLZGraph.encode_sequence(i)) for i in T.cdr3_amino_acid])).sum())
 def graph_load_Optimize():
-    from LZGraphs.AAPLZGraph import AAPLZGraph
+    from LZGraphs.AminoAcidPositional import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
     table_test = pd.read_table(sample_path + samples[0], low_memory=False)
@@ -1048,7 +1048,7 @@ def gene_fitting_testing():
     if mode == 'full':
         print ('Average Length Returend: ',np.mean(average_v_return))
 def saturation_probing_Optimize():
-    from LZGraphs.AAPLZGraph import AAPLZGraph
+    from LZGraphs.AminoAcidPositional import AAPLZGraph
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
     samples = os.listdir(sample_path)
     table_test = pd.read_table(sample_path + samples[0], low_memory=False)
@@ -1166,23 +1166,23 @@ def test_no_gene_data():
     single_sample = T.copy()
 
     ndpl_no_gene = NDPLZGraph(single_sample['cdr3_rearrangement'])
-    aapl_no_gene = NDPLZGraph(single_sample['cdr3_amino_acid'])
-
-    with open('hivd1_s0_NDPL_graph_test.pkl', 'rb') as h:
-        lzg = pickle.load(h)
-    new_graph = ndpl_no_gene
-
-    test_score = 0
-    test_score += len(lzg.nodes) == len(new_graph.nodes)
-    print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
-    test_score += len(lzg.edges) == len(new_graph.edges)
-    print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
-
-    print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
-    test_score += new_graph == lzg
-    print('Test 5 : Gen Test: ', new_graph.random_walk())
-
-    print('Total Test Score: ', test_score)
+    aapl_no_gene = AAPLZGraph(single_sample['cdr3_amino_acid'])
+    #
+    # with open('hivd1_s0_NDPL_graph_test.pkl', 'rb') as h:
+    #     lzg = pickle.load(h)
+    # new_graph = ndpl_no_gene
+    #
+    # test_score = 0
+    # test_score += len(lzg.nodes) == len(new_graph.nodes)
+    # print('Test 1 : # Node: ', len(lzg.nodes) == len(new_graph.nodes))
+    # test_score += len(lzg.edges) == len(new_graph.edges)
+    # print('Test 2 : # Edges: ', len(lzg.edges) == len(new_graph.edges))
+    #
+    # print('Test 4 : Is Metadata Equal: ', new_graph == lzg)
+    # test_score += new_graph == lzg
+    # print('Test 5 : Gen Test: ', new_graph.random_walk())
+    #
+    # print('Total Test Score: ', test_score)
 
 def test_plots():
     sample_path = 'C:/Users/Tomas/Desktop/Immunobiology/HIV C1/'
@@ -1223,5 +1223,4 @@ def test_plots():
 #gene_fitting_testing()
 #saturation_probing_Optimize()
 # test_no_gene_data()
-from LZGraphs.Visualize import *
-test_plots()
+test_no_gene_data()

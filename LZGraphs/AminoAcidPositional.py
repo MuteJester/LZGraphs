@@ -39,10 +39,7 @@ class AAPLZGraph(LZGraphBase):
               in the sequence, formally: {lz_subpattern}_{start position in sequence},
               This class best fits analysis and inference of amino acid sequences.
 
-              ...
-
-              Methods
-              -------
+        Args:
 
               walk_probability(walk,verbose=True):
                   returns the PGEN of the given walk (list of sub-patterns)
@@ -105,8 +102,7 @@ class AAPLZGraph(LZGraphBase):
                 Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges
 
 
-               Attributres
-              -------
+         Attributes:
                     nodes:
                         returns the nodes of the graph
                     edges:
@@ -121,9 +117,10 @@ class AAPLZGraph(LZGraphBase):
         "cdr3_amino_acid"
         and optionally you can add two columns "V" and "J" with the gene annotation for each sequence
 
-        :param data:
-        :param verbose:
-        :param dictionary:
+        Args:
+            data (pd.DataFrame): a dataframe containing the sequences for which to consturct an LZGraph and any
+            additional V/J Data given provided under the "V" column and a "J" column.
+            verbose
         """
         super().__init__()
 
@@ -178,8 +175,9 @@ class AAPLZGraph(LZGraphBase):
         """
         This function will take a sequence and return it as LZ sub-patterns with added position
         the general format is given as {LZ-subpattern}_{start_index}
-        :param cdr3:
-        :return:
+
+        Args:
+            amino_acid (str)
         """
         lz, loc = derive_lz_and_position(amino_acid)
         return list(map(lambda x, z: x + '_' + str(z), lz, loc))
@@ -188,8 +186,8 @@ class AAPLZGraph(LZGraphBase):
         """
         This Function will take in a sub-pattern that has position added to it and clean
         the added values returning only the amino acid value
-        :param base:
-        :return:
+        Args:
+            base (str)
         """
         return re.search(r'[A-Z]*', base).group()
 
@@ -208,11 +206,12 @@ class AAPLZGraph(LZGraphBase):
                 yield steps,locations,v,j
         else:
             for cdr3 in tqdm(list(data), leave=False):
-                LZ, locations = derive_lz_and_position(cdr3)
+                LZ, locations_ = derive_lz_and_position(cdr3)
                 steps = (window(LZ, 2))
-                locations = (window(locations, 2))
+                locations = (window(locations_, 2))
+
                 self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
-                self._update_terminal_states(LZ[-1] + '_' + str(locations[-1]))
+                self._update_terminal_states(LZ[-1] + '_' + str(locations_[-1]))
                 self._update_initial_states(LZ[0] + '_1')
                 yield steps,locations
 
@@ -460,10 +459,10 @@ class AAPLZGraph(LZGraphBase):
         """
                give a walk on the graph (a list of nodes) the function will return a table
                    representing the possible genes and their probabilities at each edge of the walk.
-               :param walk:
-               :param dropna:
-               :return:
-               """
+           Args:
+            walk (list): a list of nodes representing a walk on the graph.
+            dropna (bool): whether to drop the edges that are missing from the graph.
+           """
         trans_genes = dict()
         for i in range(0, len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i + 1]):

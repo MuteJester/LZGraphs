@@ -2,10 +2,10 @@
 
 import random
 import numpy as np
-from .AAPLZGraph import derive_lz_and_position
+from .AminoAcidPositional import derive_lz_and_position
 from .decomposition import lempel_ziv_decomposition
 from .misc import window
-from .NDPLZGraph import derive_lz_reading_frame_position
+from .NucleotideDoublePositional import derive_lz_reading_frame_position
 from tqdm.auto import tqdm
 import itertools
 
@@ -25,7 +25,7 @@ class NodeEdgeSaturationProbe:
 
       Attributes:
 
-          log
+          log_memory (dict): a dictionary containing the results of a single test run
 
 
       """
