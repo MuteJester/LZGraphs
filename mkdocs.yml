@@ -5,12 +5,21 @@ theme:
 plugins:
   - search
   - mkdocstrings
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
 nav:
   - index.md
   - tutorials.md
-  - How-To Guides: how-to-guides.md
   - explanation.md
   - Misc Functions: misc_reference.md
   - Visualize Functions: visualize_reference.md
   - Utilities Functions: utilities_reference.md
   - Node Edge Saturation Functions: nodedgesaturation_reference.md
+  - BOW Encoder Functions: bowencoder_reference.md
+  - LZGraph Base Class: lzgraphbase_reference.md
+  - NDPLZGraph Class: ndplgraph_reference.md
+  - AAPLZGraph Class: aaplzgraph_reference.md

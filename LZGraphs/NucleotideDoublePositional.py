@@ -49,8 +49,7 @@ class NDPLZGraph(LZGraphBase):
 
           ...
 
-          Methods
-          -------
+        Args:
 
           walk_probability(walk,verbose=True):
               returns the PGEN of the given walk (list of sub-patterns)
@@ -113,8 +112,8 @@ class NDPLZGraph(LZGraphBase):
             Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges
 
 
-           Attributres
-          -------
+            Attributes:
+
                 nodes:
                     returns the nodes of the graph
                 edges:

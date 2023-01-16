@@ -8,7 +8,7 @@ def lempel_ziv_decomposition(sequence:str) -> List[str]:
           an implementation of the LZ76 compression algorithm,
           Given a string the function will return all unique sub-patterns derived from the input string
 
-                  Parameters:
+                  Args:
                           sequence (str): a string from which to derive sub-patterns
 
                   Returns:

@@ -1,79 +1,37 @@
 import numpy as np
-from sklearn.feature_extraction.text import CountVectorizer
 from tqdm.auto import tqdm
-
-from .decomposition import lempel_ziv_decomposition
-
-# class BOWVectorizer:
-#     """
-#        A Bag of words vectorizer, can be fitted on a list of repertoires and used
-#        to output LZ-BOW representation
-#
-#        ...
-#
-#        Methods
-#        -------
-#        fit(list_of_repertoires):
-#            fits the vectorizer model to the dictionary derived from the repertoires given by the argument
-#            "list_of_repertoires"
-#
-#        transform(list_of_repertoires):
-#             given a list of repertoires the function will use the fitted BOW dictionary to return
-#             the bag of words vectors for each repertoire in the list
-#
-#        """
-#     def __init__(self):
-#
-#         self.vectorizer = CountVectorizer(lowercase=False, token_pattern=r'(?u)\b\w+\b', ngram_range=(1, 1))
-#
-#
-#     def fit(self,list_of_repertoires):
-#
-#         """
-#            fits the BOW dictionary based on the repertoires given in "list_of_repertoires"
-#
-#                    Parameters:
-#                            list_of_repertoires (list): A list of pandas DataFrame's that have a column named "cdr3_rearrangement"
-#
-#                    Returns:
-#                            None
-#         """
-#
-#         cmp = []
-#         for d in tqdm(list_of_repertoires,leave=False):
-#             for cdr3 in d['cdr3_rearrangement']:
-#                 cmp.append(' '.join(lempel_ziv_decomposition(cdr3)))
-#         self.vectorizer.fit(cmp)
-#
-#     def transform(self,list_of_repertoires):
-#         """
-#               transforms a list of repertoires into a list of bag of words vectors derived based on fitted repertoires
-#
-#                       Parameters:
-#                               list_of_repertoires (list): A list of pandas DataFrame's that have a column named "cdr3_rearrangement"
-#
-#                       Returns:
-#                               None
-#        """
-#         n_encoded = []
-#         for d in tqdm(list_of_repertoires):
-#             cmp = []
-#             for cdr3 in d['cdr3_rearrangement']:
-#                 cmp.append(' '.join(lempel_ziv_decomposition(cdr3)))
-#             n_encoded.append(self.vectorizer.transform([' '.join(cmp)]).todense())
-#         n_encoded = np.array(n_encoded)
-#         n_encoded = n_encoded.squeeze()
-#         return n_encoded
-#
-#
-from collections.abc import Iterable
-from lzgraphs.decomposition import lempel_ziv_decomposition
-
 from collections.abc import Iterable
 from lzgraphs.decomposition import lempel_ziv_decomposition
 
 
 class LZBOW:
+    """
+
+         This class supplies a full suite for the conversion of repertoires into a bag of words representation
+         based on a given sub-pattern (graph node) deriving function.
+         This class requires fitting on a set of sequences in order to derive the dictionary of unique sub patterns used
+         to generate the bag of words representation.
+         After the class been fitted on a source set of sequences each time a transformation is needed one can use
+         the transform method to get the vector representation.
+
+         Args:
+             encoding_function (str): the selected node extraction method to use 'naive' - emulate Naive LZGraph extraction
+              / 'ndp'- emulate Nucleotide Double Positional LZGraph / 'aap' - Amino Acid Positional LZGraph.
+
+         Attributes:
+
+             dictionary (set): a set of sub-patterns (graph nodes) representing the dictionary of the BOW vector
+             dictionary_size (int): The size of the dictionary
+             observed_sequences (int): The number of sequences used to derive the dictionary
+             encoding_function (func): the function used to derive sub-patterns from a sequence (in the context of this
+             library it is one of the 3: Naive, Nucleotide Double Positional, Amino Acid Positional
+             dictionary_index_map (dict): a dictionary that maps the set of sub-patterns to numerical positions in
+             the BOW vector.
+             dictionary_index_inverse_map (dict): a dictionary that maps numerical positions to the sub-patterns from
+             the dictionary set
+
+
+         """
     def __init__(self, encoding_function=lempel_ziv_decomposition):
         self.dictionary = set()
         self.dictionary_size = 0
