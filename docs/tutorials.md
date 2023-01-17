@@ -316,7 +316,7 @@ sequence = 'CASTPGTASGYTF'
 ancestors_descendants_curves_plot(lzgraph,sequence)
 ```
 Output:
-![alt text](https://github.com/MuteJester/LZGraphs/blob/master/docs/images/ad_curve_example.png)
+![alt text](images/ad_curve_example.png)
 ### Sequence Possible Paths Plot
 In this chart we look at a reduced and immediate version of Descendants curve.
 For each sub-pattern derived from a given sequence and based on an LZGraph,
@@ -329,7 +329,7 @@ sequence = 'CASTPGTASGYTF'
 sequence_possible_paths_plot(lzgraph,sequence)
 ```
 Output:
-![alt text](https://github.com/MuteJester/LZGraphs/blob/master/docs/images/sequence_path_number_example.png)
+![alt text](images/sequence_path_number_example.png)
 
 ### Node Genomic Variability Plot
 In this chart we look at the number of V and J genes/alleles per node in a given sequence with respect
@@ -343,7 +343,7 @@ sequence = 'CASTPGTASGYTF'
 sequence_genomic_node_variability_plot(lzgraph,sequence)
 ```
 Output:
-![alt text](https://github.com/MuteJester/LZGraphs/blob/master/docs/images/number_of_vj_at_nodes_example.png)
+![alt text](images/number_of_vj_at_nodes_example.png)
 
 
 ### Edge Genomic Variability Plot
@@ -360,7 +360,7 @@ sequence = 'CASTPGTASGYTF'
 sequence_genomic_edges_variability_plot(lzgraph,sequence)
 ```
 Output:
-![alt text](https://github.com/MuteJester/LZGraphs/blob/master/docs/images/number_of_vj_at_edges_example.png)
+![alt text](images/number_of_vj_at_edges_example.png)
 
 
 
