@@ -11,6 +11,12 @@ construction routine while the Naive graph slightly differ
 ### Constructing Amino Acid Positional and the Nucleotide Double Positional Graphs
 The bellow example presents the construction of the Amino Acid Positional graph but
 the same applies for Nucleotide Double Positional Graphs.
+Note:
+
+* For Nucleotide Double Positional Graphs the column corresponding to the sequence should be named "cdr3_rearrangement"
+* For Amino Acid Positional Graphs the column corresponding to the sequence should be named "cdr3_amino_acid"
+* In both cases V/J genes/alleles should be under the a column "V" for V related genes/alleles and "J" for 
+  for V related genes/alleles
 ```python 
 from LZGraphs.AminoAcidPositional import AAPLZGraph
 # from LZGraphs.NucleotideDoublePositional import NDPLZGraph 
@@ -174,6 +180,36 @@ Name: J, dtype: float64
 ```
 
 ## Calculating the K1000 Diversity Index
+As presented in the paper LZGraphs can offer the user a new diversity index (K1000).
+The index value for any repertoire can be derived in the following way:
+
+```python
+import numpy as np
+from lzgraphs.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+
+def get_k1000_diversity(list_of_sequences,lzgraph_encoding_function,draws=25):
+    # sample 1000 unique sequences
+    NESP = NodeEdgeSaturationProbe()
+    result = NESP.resampling_test(list(set(list_of_sequences)),n_tests=draws,sample_size=1000)
+    K_tests = [list(i.values())[-1]['nodes'] for i in result]
+    return np.mean(K_tests)
+
+list_of_seqs = data.cdr3_amino_acid.to_list() # this is the repertoire under inspection
+k1000 = get_k1000_diversity(list_of_seqs,AAPLZGraph.encode_sequence) # this can be replace with AAPLZGraph.encode_sequence for amino acids
+print('K1000 index for the given repertoire: ',k1000)
+```
+Output:
+```markdown
+K1000 index for the given repertoire:  217.64
+```
+
+Note:
+
+* You can adjust the value of `draws` to be larger than 25, the higher the value is
+  the more realizations will be generated for the K1000 index thus the returned
+  mean value will be a better approximation.
+* the encoding function can be replaced with any one of Naive/NDPLZGraph,AAPLZGraph
+  encoding functions.
 
 ## Deriving Sequence Generation Probability (Pgen)
 After an LZGraph is derived for a given repertoire, one can assess the generation
@@ -275,7 +311,7 @@ as well as the amount of ancestors at each node.
 Sequence with different attribute differ both by the slope and the convergence
 rate of these curve as well as by the intersection point between the curves.
 ```python
-from lzgraphs.Visualize import ancestors_descendants_curves_plot
+from LZGraphs.Visualize import ancestors_descendants_curves_plot
 sequence = 'CASTPGTASGYTF'
 ancestors_descendants_curves_plot(lzgraph,sequence)
 ```
@@ -288,10 +324,66 @@ We can examine the number of alternatives there are at each node, this indicates
 the rarity of a sequence and is correlated with the difference from the 
 mean Levenshtein distance of the repertoire as shown in the LZGraphs paper.
 ```python
-from lzgraphs.Visualize import sequence_possible_paths_plot
+from LZGraphs.Visualize import sequence_possible_paths_plot
 sequence = 'CASTPGTASGYTF'
 sequence_possible_paths_plot(lzgraph,sequence)
 ```
 Output:
 ![alt text](/images/sequence_path_number_example.png)
+
+### Node Genomic Variability Plot
+In this chart we look at the number of V and J genes/alleles per node in a given sequence with respect
+to a given repertoire.
+Not only can one infer the sub-patterns in a sequence that have the exceptional number of V and J alternatives
+but also when comparing between the same sequence in different repertoires (different LZGraphs) one can infer
+the amount difference at each sub-pattern between the two repertoires.
+```python
+from LZGraphs.Visualize import sequence_genomic_node_variability_plot
+sequence = 'CASTPGTASGYTF'
+sequence_genomic_node_variability_plot(lzgraph,sequence)
+```
+Output:
+![alt text](/images/number_of_vj_at_nodes_example.png)
+
+
+### Edge Genomic Variability Plot
+In this chart we look at the number of V and J genes/alleles per edge in a given sequence with respect
+to a given repertoire.
+
+* Allele/gene names colored in red signify that the allele/gene appeared in all the edges in the given sequence.
+* Black cells signify that this spesific allele/gene wasnt observed at that edge.
+* The color gradient at each cell represents the probability of choosing that edge under the constraint of having
+ that specific V/J.
+```python
+from LZGraphs.Visualize import sequence_genomic_edges_variability_plot
+sequence = 'CASTPGTASGYTF'
+sequence_genomic_edges_variability_plot(lzgraph,sequence)
+```
+Output:
+![alt text](/images/number_of_vj_at_edges_example.png)
+
+
+
 ## BOW Vectorizer
+The library also provides a convenient class implementing the BOW logic presented in the paper.
+Note that each instance of the BOW wrapper class has to fitted on a list of sequences (repertoire) before it
+can transform new lists of sequences into BOW vectors.
+
+```python
+from LZGraphs.BOWEncoder import LZBOW
+from LZGraphs.NucleotideDoublePositional import NDPLZGraph
+
+sequence_list = data.cdr3_rearrangement.to_list()
+
+# create vectorizer and choose the Nucleotide Double Positional (ndp) encdoing function (default is Naive)
+vectorizer = LZBOW(encoding_function=NDPLZGraph.encode_sequence)
+
+# fit on sequence list
+vectorizer.fit(sequence_list)
+
+# BOW dictionary
+vectorizer.dictionary
+
+bow_vector = vectorizer.transform(new_list_of_sequences)
+```
+

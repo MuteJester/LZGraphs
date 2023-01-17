@@ -1,5 +1,3 @@
-
-
 import random
 import numpy as np
 from .AminoAcidPositional import derive_lz_and_position
@@ -8,8 +6,6 @@ from .misc import window
 from .NucleotideDoublePositional import derive_lz_reading_frame_position
 from tqdm.auto import tqdm
 import itertools
-
-
 
 
 class NodeEdgeSaturationProbe:
@@ -30,10 +26,11 @@ class NodeEdgeSaturationProbe:
 
       """
 
-    def __init__(self, node_function='naive',log_level=1):
+    def __init__(self, node_function='naive', log_level=1, verbose=False):
         self.nodes = set()
         self.edges = set()
         self.log_memory = dict()
+        self.verbose = verbose
         self.log_level = log_level
         self.node_function = None
         if node_function == 'naive':
@@ -43,8 +40,7 @@ class NodeEdgeSaturationProbe:
         elif node_function == 'aap':
             self.node_function = self.aap_node_extractor
 
-
-    def log(self,args):
+    def log(self, args):
         if self.log_level == 1:
             self.log_memory[args] = {'nodes': len(self.nodes), 'edges': len(self.edges)}
 
@@ -57,6 +53,7 @@ class NodeEdgeSaturationProbe:
                                  list: a list of nodes extract from the given sequence
            """
         return lempel_ziv_decomposition(seq)
+
     @staticmethod
     def ndp_node_extractor(seq):
         """ This function implements the node extraction procedure used by the Nucleotide Double Positional LZGraph.
@@ -68,6 +65,7 @@ class NodeEdgeSaturationProbe:
         LZ, POS, locations = derive_lz_reading_frame_position(seq)
         nodes_local = list(map(lambda x, y, z: x + str(y) + '_' + str(z), LZ, POS, locations))
         return nodes_local
+
     @staticmethod
     def aap_node_extractor(seq):
         """ This function implements the node extraction procedure used by the Amino Acid Positional LZGraph.
@@ -80,7 +78,7 @@ class NodeEdgeSaturationProbe:
         nodes_local = list(map(lambda x, y: x + '_' + str(y), LZ, locations))
         return nodes_local
 
-    def test_sequences(self, sequence_list,log_every = 1000,iteration_number=None):
+    def test_sequences(self, sequence_list, log_every=1000, iteration_number=None):
         """ Given a list of sequences this function will gradually aggregate the nodes that make up the respective
         LZGraph and log the node and edge counts every K sequences.
 
@@ -95,7 +93,14 @@ class NodeEdgeSaturationProbe:
         """
 
         slen = len(sequence_list)
-        for ax,seq in tqdm(enumerate(sequence_list,start=1), leave=False, position=0,total=slen):
+        itr = None
+
+        if self.verbose:
+            itr = tqdm(enumerate(sequence_list, start=1), leave=False, position=0, total=slen)
+        else:
+            itr = enumerate(sequence_list, start=1)
+
+        for ax, seq in itr:
             nodes_local = self.node_function(seq)
             self.nodes.update(nodes_local)
             self.edges.update((window(nodes_local, 2)))
@@ -107,7 +112,8 @@ class NodeEdgeSaturationProbe:
         self.nodes = set()
         self.edges = set()
         self.log_memory = dict()
-    def resampling_test(self,sequence_list,n_tests,log_every=1000,sample_size=0):
+
+    def resampling_test(self, sequence_list, n_tests, log_every=1000, sample_size=0):
         """ Given a list of sequences this function will gradually aggregate the nodes that make up the respective
         LZGraph and log the node and edge counts every K sequences.
         The above procedure will be carried out N times each time starting from X randomly sampled sequences from
@@ -127,7 +133,7 @@ class NodeEdgeSaturationProbe:
         if sample_size == 0:
             for n in range(n_tests):
                 np.random.shuffle(sequence_list)
-                self.test_sequences(sequence_list,log_every,n)
+                self.test_sequences(sequence_list, log_every, n)
                 # save logs
                 # reset aux
                 result.append(self.log_memory.copy())
@@ -135,7 +141,7 @@ class NodeEdgeSaturationProbe:
         else:
             for n in range(n_tests):
                 np.random.shuffle(sequence_list)
-                self.test_sequences(random.sample(sequence_list,sample_size), log_every,n)
+                self.test_sequences(random.sample(sequence_list, sample_size), log_every, n)
                 # save logs
                 # reset aux
                 result.append(self.log_memory.copy())
