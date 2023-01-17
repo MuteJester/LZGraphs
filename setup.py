@@ -4,14 +4,15 @@ with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='LZGraph',
+    name='LZGraphs',
     author='Thomas Konstantinovsky',
     author_email='thomaskon90@gmail.com',
-    description='An Implementation of LZ76 Based graphs for Repertoire Representation',
+    description='An Implementation of LZ76 Based Graphs for Repertoire Representation',
     keywords='Graphs,Immunology,Encoding',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/MuteJester/LZGraph',
+    download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/V1.tar.gz',
     project_urls={
         'Documentation': 'https://github.com/MuteJester/LZGraph',
         'Bug Reports':
