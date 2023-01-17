@@ -21,7 +21,7 @@
   <p align="center">
     LZ76 Graphs and Applications in Immunology
     <br />
-    <a href="https://LZGraphs.readthedocs.io/"><strong>Explore the docs »</strong></a>
+    <a href="https://MuteJester.github.io/LZGraphs/"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://github.com/MuteJester/LZGraphs/wiki/">View Demo</a>
