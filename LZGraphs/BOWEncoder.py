@@ -1,7 +1,7 @@
 import numpy as np
 from tqdm.auto import tqdm
 from collections.abc import Iterable
-from lzgraphs.decomposition import lempel_ziv_decomposition
+from LZGraphs.decomposition import lempel_ziv_decomposition
 
 
 class LZBOW:

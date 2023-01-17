@@ -1,11 +1,11 @@
-__version__ = "0.1.0"
+__version__ = "0.22"
 
-from .decomposition import *
-from .AminoAcidPositional import *
-from .NucleotideDoublePositional import *
-from .Naive import *
-from .BOWEncoder import *
-from .misc import *
-from .Utilities import *
-from .NodeEdgeSaturationProbe import *
-from .Visualize import *
+from LZGraphs.decomposition import *
+from LZGraphs.AminoAcidPositional import *
+from LZGraphs.NucleotideDoublePositional import *
+from LZGraphs.Naive import *
+from LZGraphs.BOWEncoder import *
+from LZGraphs.misc import *
+from LZGraphs.Utilities import *
+from LZGraphs.NodeEdgeSaturationProbe import *
+from LZGraphs.Visualize import *

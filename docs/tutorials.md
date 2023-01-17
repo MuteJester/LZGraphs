@@ -185,7 +185,7 @@ The index value for any repertoire can be derived in the following way:
 
 ```python
 import numpy as np
-from lzgraphs.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+from LZGraphs.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
 
 def get_k1000_diversity(list_of_sequences,lzgraph_encoding_function,draws=25):
     # sample 1000 unique sequences
