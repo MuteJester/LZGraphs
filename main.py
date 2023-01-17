@@ -2,7 +2,7 @@ import os
 import random
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import numpy as np
-from lzgraphs.AminoAcidPositional import derive_lz_and_position,AAPLZGraph
+from LZGraphs.AminoAcidPositional import derive_lz_and_position,AAPLZGraph
 from tqdm.auto import tqdm
 import pandas as pd
 
@@ -42,7 +42,7 @@ from LZGraphs.Naive import NaiveLZGraph,generate_dictionary
 
 from tqdm.auto import tqdm
 from multiprocessing import Pool
-from lzgraphs.misc import window
+from LZGraphs.misc import window
 from tqdm.auto import tqdm
 import pickle
 from LZGraphs.NucleotideDoublePositional import derive_lz_reading_frame_position
