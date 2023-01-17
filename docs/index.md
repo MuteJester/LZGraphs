@@ -2,7 +2,7 @@
 
 This site contains the documentation for the
 `LZGraph` model and the applications around it as seen in the paper cite.
-![alt text](https://github.com/MuteJester/LZGraphs/blob/master/docs/images/lzglogo2.png)
+![alt text](images/lzglogo2.png)
 
 For a quick pug-and-play tutorials visit the [Tutorials](tutorials.md) page for
 all the useful functionality provided by the LZGraph library.
