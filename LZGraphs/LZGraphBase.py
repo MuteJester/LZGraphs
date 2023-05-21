@@ -692,8 +692,8 @@ class LZGraphBase:
         elif mode == 'full':
             return self._full_appearance_gene_prediction(walk, alpha)
 
-    def eigenvector_centrality(self):
-        return nx.algorithms.eigenvector_centrality(self.graph, weight='weight')
+    def eigenvector_centrality(self,max_iter=500):
+        return nx.algorithms.eigenvector_centrality(self.graph, weight='weight',max_iter=max_iter)
 
     def isolates(self):
         """

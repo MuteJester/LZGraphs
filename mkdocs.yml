@@ -14,7 +14,6 @@ markdown_extensions:
 nav:
   - index.md
   - tutorials.md
-  - explanation.md
   - Misc Functions: misc_reference.md
   - Visualize Functions: visualize_reference.md
   - Utilities Functions: utilities_reference.md

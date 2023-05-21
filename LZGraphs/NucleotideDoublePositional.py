@@ -487,7 +487,7 @@ class NDPLZGraph(LZGraphBase):
         :param cdr3_sample:
         :return:
         """
-        encoded = self.self.encode_sequence(cdr3_sample)
+        encoded = self.encode_sequence(cdr3_sample)
         curve = [self.graph.out_degree(i) for i in encoded]
         return encoded,curve
 

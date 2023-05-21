@@ -281,6 +281,22 @@ class NaiveLZGraph:
     def edges(self):
         return self.graph.edges
 
+    @staticmethod
+    def encode_sequence(cdr3):
+        """
+              given a sequence of nucleotides this function will encode it into the following format:
+              {lz_subpattern}
+              matching the requirement of the NaiveLZGraph.
+
+
+                      Parameters:
+                              cdr3 (str): a string to encode into the NDPLZGraph format
+
+                      Returns:
+                              list : a list of unique sub-patterns in the NDPLZGraph format
+       """
+        return lempel_ziv_decomposition(cdr3)
+
     def __derive_terminal_state_map(self):
         """
             This function derives a mapping between each terminal state and all terminal state that could

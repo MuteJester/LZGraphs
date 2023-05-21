@@ -1,22 +1,22 @@
 # Tutorials
-This page aims to provide you with all the details and examples of how you can leverage
-LZGraphs in your work.
 
+This page provides detailed examples and instructions on how to effectively utilize LZGraphs in your work.
 
+## Creating an LZGraph
 
-## Creating An LZGraph
-The Amino Acid Positional and the Nucleotide Double Positional graphs share the same
-construction routine while the Naive graph slightly differ
+The construction process for the Amino Acid Positional and Nucleotide Double Positional graphs follows a similar routine, while the Naive graph has slight differences.
 
-### Constructing Amino Acid Positional and the Nucleotide Double Positional Graphs
-The bellow example presents the construction of the Amino Acid Positional graph but
-the same applies for Nucleotide Double Positional Graphs.
+### Constructing Amino Acid Positional and Nucleotide Double Positional Graphs
+
+The example below demonstrates the construction of the Amino Acid Positional graph. The same steps can be applied to Nucleotide Double Positional Graphs.
+
 Note:
 
-* For Nucleotide Double Positional Graphs the column corresponding to the sequence should be named "cdr3_rearrangement"
-* For Amino Acid Positional Graphs the column corresponding to the sequence should be named "cdr3_amino_acid"
-* In both cases V/J genes/alleles should be under the a column "V" for V related genes/alleles and "J" for 
-  for V related genes/alleles
+- For Nucleotide Double Positional Graphs, the column corresponding to the sequence should be named "cdr3_rearrangement".
+- For Amino Acid Positional Graphs, the column corresponding to the sequence should be named "cdr3_amino_acid".
+- In both cases, V/J genes/alleles should be listed under the "V" column for V-related genes/alleles and under the "J" column for J-related genes/alleles.
+- V/J genes/alleles are optional and are primary used for graph enrichment when generating sequences and deriving insight related to the genomic composition of a sequence.
+
 ```python 
 from LZGraphs.AminoAcidPositional import AAPLZGraph
 # from LZGraphs.NucleotideDoublePositional import NDPLZGraph 
@@ -39,11 +39,12 @@ Terminal State Map Derived.. |  1.37  Seconds
 LZGraph Created Successfully.. |  1.37  Seconds
 ==============================
 ```
-
-The data file is a pandas DataFrame including the sequences under a column
-named "cdr3_amino_acid" and optionaly a "V" and "J" column with the relevant genomic
-information such as Gene / Family / Allele any one of these can be used to create a
-graph with functionality constrained by the genetic information on the edges.
+The data file is a pandas DataFrame that includes the
+sequences under a column named "cdr3_amino_acid".
+Optionally, it can also have "V" and "J" columns containing 
+relevant genomic information such as Gene/Family/Allele.
+Any one of these columns can be used to create a graph, 
+with functionality constrained by the genetic information on the edges.
 
 Example of the input DataFrame:
 
@@ -54,7 +55,8 @@ Example of the input DataFrame:
 | CASSLEPQTFTDTFFF | TRBV16-1*01 | TRBJ2-7*01 |
 
 ### Constructing a Naive LZGraph
-Bellow is an example of a Naive LZGraph construction.
+
+Below is an example of constructing a Naive LZGraph.
 ```python 
 from LZGraphs.Naive import NaiveLZGraph,generate_dictionary
 list_of_sequences = [ 'TGTGCCAGCAGGGCGGGATACGCAGTATTT',
@@ -62,30 +64,27 @@ list_of_sequences = [ 'TGTGCCAGCAGGGCGGGATACGCAGTATTT',
                       'TGTGCCAGCAGCCAGCAGGGCCGGGATACGCAGTATTTT'
                     ...]
                     
-dictionary = generate_dictionary(6)
+# generate all possible nodes with kmers up to length 6                 
+dictionary = generate_dictionary(6) 
+# construct a NaiveLZGraph from your list_of_sequences based on the generated dictionary
 lzgraph = NaiveLZGraph(list_of_sequences, dictionary, verbose=True)
 ```
 Note:
 
-* The generate_dictionary function takes an integer-(X) and generates all possible patterns
-  that could be constructed from (X) nucleotides. you can
-* For CDR3 sequences we suggest X=6 as the maximum sub-pattern length observed by us 
-  in the CDR3 region was 6.
-* The dictionary can be replaced with any number of sub-patterns in case not all combinations
-  are desired.
-* The Naive LZGraph is most relevant in the context of nucleotides as amino acid CDR3
-  sequences result in sparse graphs.
----
-## Exploring Graph Attributes
- After constructing an LZGraph there are several attributes that are available
- to you for quick inference of repertoire statistical properties as well as the
- graph object itself built above the netowrkx DiGraph class.
- Below are examples of how you can evaluate and explore those attributes.
- ()
+- The `generate_dictionary` function takes an integer `(X)` and generates all possible patterns that can be constructed from `(X)` nucleotides. For CDR3 sequences, we suggest using `X=6` as the maximum observed sub-pattern length in the CDR3 region is 6.
+- The dictionary can be replaced with any number of sub-patterns if not all combinations are desired.
+- The Naive LZGraph is most relevant in the context of nucleotides, as amino acid CDR3 sequences result in sparse graphs.
 
-### Amino Acid Positional and the Nucleotide Double Positional Graphs
+---
+
+## Exploring Graph Attributes
+
+After constructing an LZGraph, there are several attributes available to quickly infer repertoire statistical properties as well as explore the graph object itself, built above the networkx DiGraph class. Below are examples of how you can evaluate and explore those attributes.
+
+### Amino Acid Positional and Nucleotide Double Positional Graphs
 
 #### Exploring Graph Nodes and Edges
+
 ```python
 # Retrieving the list of all graph nodes / edges
 node_list = list(lzgraph.nodes)
@@ -102,6 +101,7 @@ First 10 Edges:  [('C_1', 'A_2'), ('C_1', 'T_2'), ('C_1', 'V_2'), ('C_1', 'S_2')
 #### Distribution of Observed Sequence Lengths:
 After fitting an LZGraph to a repertoire you can quickly access the
 distribution of different sequence lengths observed in the repertoire:
+
 ```python
 print(lzgraph.lengths)
 ```

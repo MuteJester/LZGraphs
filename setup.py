@@ -9,7 +9,7 @@ except ImportError:
 setup(
   name = 'LZGraphs',
   packages = ['LZGraphs'],
-  version = '0.22',
+  version = '0.24',
   license='MIT',
   description='An Implementation of LZ76 Based Graphs for Repertoire Representation',
   long_description_content_type="text/markdown",
@@ -17,19 +17,21 @@ setup(
   author = 'Thomas Konstantinovsky',
   author_email = 'thomaskon90@gmail.com',
   url='https://github.com/MuteJester/LZGraph',
-  download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/V1.tar.gz',
+  download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/V2.2.tar.gz',
   keywords = ['Graph Theory','Immunology',
               'analytics,biology','tcell','repertoire','cdr3'],   # Keywords that define your package best
     install_requires=[
         'tqdm',
-        'pandas'
+        'pandas',
+        'networkx==2.8.4',
+        'matplotlib==3.5.1',
+        'seaborn==0.12.1'
     ],
   classifiers=[
     'Development Status :: 3 - Alpha',
     'Intended Audience :: Developers',
     'Topic :: Scientific/Engineering :: Information Analysis',
     'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.8'
   ],
 )
