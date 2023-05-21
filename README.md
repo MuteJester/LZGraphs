@@ -59,6 +59,8 @@ pip install LZGraphs
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+We encourage you to either read our <a href="https://MuteJester.github.io/LZGraphs/"><strong> docs </strong></a> or download the `Examples` folder from this repo and follow an ineractive
+jupyer notebook guide to use the different models of this repo.
 
 
 
