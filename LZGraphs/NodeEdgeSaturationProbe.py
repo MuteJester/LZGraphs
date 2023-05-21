@@ -147,3 +147,10 @@ class NodeEdgeSaturationProbe:
                 result.append(self.log_memory.copy())
                 self._reset()
         return result
+
+def get_k1000_diversity(list_of_sequences,lzgraph_encoding_function,draws=25):
+    # sample 1000 unique sequences
+    NESP = NodeEdgeSaturationProbe(node_function=lzgraph_encoding_function)
+    result = NESP.resampling_test(list(set(list_of_sequences)),n_tests=draws,sample_size=1000)
+    K_tests = [list(i.values())[-1]['nodes'] for i in result]
+    return np.mean(K_tests)
