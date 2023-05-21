@@ -24,8 +24,6 @@
     <a href="https://MuteJester.github.io/LZGraphs/"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/MuteJester/LZGraphs/wiki/">View Demo</a>
-    ·
     <a href="https://github.com/MuteJester/LZGraphs/issues">Report Bug</a>
     ·
     <a href="https://github.com/MuteJester/LZGraphs/issues">Request Feature</a>
