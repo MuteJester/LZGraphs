@@ -12,7 +12,7 @@
         <link rel="prev" href="..">
       
       
-        <link rel="next" href="../explanation/">
+        <link rel="next" href="../misc_reference/">
       
       <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
@@ -238,15 +238,15 @@
       
         <li class="md-nav__item">
   <a href="#creating-an-lzgraph" class="md-nav__link">
-    Creating An LZGraph
+    Creating an LZGraph
   </a>
   
-    <nav class="md-nav" aria-label="Creating An LZGraph">
+    <nav class="md-nav" aria-label="Creating an LZGraph">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#constructing-amino-acid-positional-and-the-nucleotide-double-positional-graphs" class="md-nav__link">
-    Constructing Amino Acid Positional and the Nucleotide Double Positional Graphs
+  <a href="#constructing-amino-acid-positional-and-nucleotide-double-positional-graphs" class="md-nav__link">
+    Constructing Amino Acid Positional and Nucleotide Double Positional Graphs
   </a>
   
 </li>
@@ -272,11 +272,11 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#amino-acid-positional-and-the-nucleotide-double-positional-graphs" class="md-nav__link">
-    Amino Acid Positional and the Nucleotide Double Positional Graphs
+  <a href="#amino-acid-positional-and-nucleotide-double-positional-graphs" class="md-nav__link">
+    Amino Acid Positional and Nucleotide Double Positional Graphs
   </a>
   
-    <nav class="md-nav" aria-label="Amino Acid Positional and the Nucleotide Double Positional Graphs">
+    <nav class="md-nav" aria-label="Amino Acid Positional and Nucleotide Double Positional Graphs">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -429,21 +429,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/" class="md-nav__link">
-        Explanation
-      </a>
-    </li>
-  
-
-    
-      
-      
-      
-
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
         Misc Functions
       </a>
@@ -584,15 +569,15 @@
       
         <li class="md-nav__item">
   <a href="#creating-an-lzgraph" class="md-nav__link">
-    Creating An LZGraph
+    Creating an LZGraph
   </a>
   
-    <nav class="md-nav" aria-label="Creating An LZGraph">
+    <nav class="md-nav" aria-label="Creating an LZGraph">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#constructing-amino-acid-positional-and-the-nucleotide-double-positional-graphs" class="md-nav__link">
-    Constructing Amino Acid Positional and the Nucleotide Double Positional Graphs
+  <a href="#constructing-amino-acid-positional-and-nucleotide-double-positional-graphs" class="md-nav__link">
+    Constructing Amino Acid Positional and Nucleotide Double Positional Graphs
   </a>
   
 </li>
@@ -618,11 +603,11 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#amino-acid-positional-and-the-nucleotide-double-positional-graphs" class="md-nav__link">
-    Amino Acid Positional and the Nucleotide Double Positional Graphs
+  <a href="#amino-acid-positional-and-nucleotide-double-positional-graphs" class="md-nav__link">
+    Amino Acid Positional and Nucleotide Double Positional Graphs
   </a>
   
-    <nav class="md-nav" aria-label="Amino Acid Positional and the Nucleotide Double Positional Graphs">
+    <nav class="md-nav" aria-label="Amino Acid Positional and Nucleotide Double Positional Graphs">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -776,21 +761,19 @@
 
 
 <h1 id="tutorials">Tutorials</h1>
-<p>This page aims to provide you with all the details and examples of how you can leverage
-LZGraphs in your work.</p>
-<h2 id="creating-an-lzgraph">Creating An LZGraph</h2>
-<p>The Amino Acid Positional and the Nucleotide Double Positional graphs share the same
-construction routine while the Naive graph slightly differ</p>
-<h3 id="constructing-amino-acid-positional-and-the-nucleotide-double-positional-graphs">Constructing Amino Acid Positional and the Nucleotide Double Positional Graphs</h3>
-<p>The bellow example presents the construction of the Amino Acid Positional graph but
-the same applies for Nucleotide Double Positional Graphs.
-Note:</p>
+<p>This page provides detailed examples and instructions on how to effectively utilize LZGraphs in your work.</p>
+<h2 id="creating-an-lzgraph">Creating an LZGraph</h2>
+<p>The construction process for the Amino Acid Positional and Nucleotide Double Positional graphs follows a similar routine, while the Naive graph has slight differences.</p>
+<h3 id="constructing-amino-acid-positional-and-nucleotide-double-positional-graphs">Constructing Amino Acid Positional and Nucleotide Double Positional Graphs</h3>
+<p>The example below demonstrates the construction of the Amino Acid Positional graph. The same steps can be applied to Nucleotide Double Positional Graphs.</p>
+<p>Note:</p>
 <ul>
-<li>For Nucleotide Double Positional Graphs the column corresponding to the sequence should be named "cdr3_rearrangement"</li>
-<li>For Amino Acid Positional Graphs the column corresponding to the sequence should be named "cdr3_amino_acid"</li>
-<li>In both cases V/J genes/alleles should be under the a column "V" for V related genes/alleles and "J" for 
-  for V related genes/alleles
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.AminoAcidPositional</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
+<li>For Nucleotide Double Positional Graphs, the column corresponding to the sequence should be named "cdr3_rearrangement".</li>
+<li>For Amino Acid Positional Graphs, the column corresponding to the sequence should be named "cdr3_amino_acid".</li>
+<li>In both cases, V/J genes/alleles should be listed under the "V" column for V-related genes/alleles and under the "J" column for J-related genes/alleles.</li>
+<li>V/J genes/alleles are optional and are primary used for graph enrichment when generating sequences and deriving insight related to the genomic composition of a sequence.</li>
+</ul>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.AminoAcidPositional</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1"># from LZGraphs.NucleotideDoublePositional import NDPLZGraph </span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
@@ -809,12 +792,13 @@ Verbose:
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>Terminal State Map Derived.. |  1.37  Seconds
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="gh">LZGraph Created Successfully.. |  1.37  Seconds</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="gh">==============================</span>
-</code></pre></div></li>
-</ul>
-<p>The data file is a pandas DataFrame including the sequences under a column
-named "cdr3_amino_acid" and optionaly a "V" and "J" column with the relevant genomic
-information such as Gene / Family / Allele any one of these can be used to create a
-graph with functionality constrained by the genetic information on the edges.</p>
+</code></pre></div>
+The data file is a pandas DataFrame that includes the
+sequences under a column named "cdr3_amino_acid".
+Optionally, it can also have "V" and "J" columns containing 
+relevant genomic information such as Gene/Family/Allele.
+Any one of these columns can be used to create a graph, 
+with functionality constrained by the genetic information on the edges.</p>
 <p>Example of the input DataFrame:</p>
 <table>
 <thead>
@@ -843,35 +827,28 @@ graph with functionality constrained by the genetic information on the edges.</p
 </tbody>
 </table>
 <h3 id="constructing-a-naive-lzgraph">Constructing a Naive LZGraph</h3>
-<p>Bellow is an example of a Naive LZGraph construction.
+<p>Below is an example of constructing a Naive LZGraph.
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span><span class="n">generate_dictionary</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">list_of_sequences</span> <span class="o">=</span> <span class="p">[</span> <span class="s1">&#39;TGTGCCAGCAGGGCGGGATACGCAGTATTT&#39;</span><span class="p">,</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                      <span class="s1">&#39;TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT&#39;</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                      <span class="s1">&#39;TGTGCCAGCAGCCAGCAGGGCCGGGATACGCAGTATTTT&#39;</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                    <span class="o">...</span><span class="p">]</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_dictionary</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">lzgraph</span> <span class="o">=</span> <span class="n">NaiveLZGraph</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># generate all possible nodes with kmers up to length 6                 </span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_dictionary</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> 
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># construct a NaiveLZGraph from your list_of_sequences based on the generated dictionary</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">lzgraph</span> <span class="o">=</span> <span class="n">NaiveLZGraph</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 Note:</p>
 <ul>
-<li>The generate_dictionary function takes an integer-(X) and generates all possible patterns
-  that could be constructed from (X) nucleotides. you can</li>
-<li>For CDR3 sequences we suggest X=6 as the maximum sub-pattern length observed by us 
-  in the CDR3 region was 6.</li>
-<li>The dictionary can be replaced with any number of sub-patterns in case not all combinations
-  are desired.</li>
-<li>The Naive LZGraph is most relevant in the context of nucleotides as amino acid CDR3
-  sequences result in sparse graphs.</li>
+<li>The <code>generate_dictionary</code> function takes an integer <code>(X)</code> and generates all possible patterns that can be constructed from <code>(X)</code> nucleotides. For CDR3 sequences, we suggest using <code>X=6</code> as the maximum observed sub-pattern length in the CDR3 region is 6.</li>
+<li>The dictionary can be replaced with any number of sub-patterns if not all combinations are desired.</li>
+<li>The Naive LZGraph is most relevant in the context of nucleotides, as amino acid CDR3 sequences result in sparse graphs.</li>
 </ul>
 <hr />
 <h2 id="exploring-graph-attributes">Exploring Graph Attributes</h2>
-<p>After constructing an LZGraph there are several attributes that are available
- to you for quick inference of repertoire statistical properties as well as the
- graph object itself built above the netowrkx DiGraph class.
- Below are examples of how you can evaluate and explore those attributes.
- ()</p>
-<h3 id="amino-acid-positional-and-the-nucleotide-double-positional-graphs">Amino Acid Positional and the Nucleotide Double Positional Graphs</h3>
+<p>After constructing an LZGraph, there are several attributes available to quickly infer repertoire statistical properties as well as explore the graph object itself, built above the networkx DiGraph class. Below are examples of how you can evaluate and explore those attributes.</p>
+<h3 id="amino-acid-positional-and-nucleotide-double-positional-graphs">Amino Acid Positional and Nucleotide Double Positional Graphs</h3>
 <h4 id="exploring-graph-nodes-and-edges">Exploring Graph Nodes and Edges</h4>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Retrieving the list of all graph nodes / edges</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">node_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
@@ -886,8 +863,8 @@ Output:
 </code></pre></div></p>
 <h4 id="distribution-of-observed-sequence-lengths">Distribution of Observed Sequence Lengths:</h4>
 <p>After fitting an LZGraph to a repertoire you can quickly access the
-distribution of different sequence lengths observed in the repertoire:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">lengths</span><span class="p">)</span>
+distribution of different sequence lengths observed in the repertoire:</p>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">lengths</span><span class="p">)</span>
 </code></pre></div>
 Output:
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="mi">13</span><span class="p">:</span> <span class="mi">2973</span><span class="p">,</span> <span class="mi">15</span><span class="p">:</span> <span class="mi">5075</span><span class="p">,</span> <span class="mi">14</span><span class="p">:</span> <span class="mi">4412</span><span class="p">,</span> <span class="mi">16</span><span class="p">:</span> <span class="mi">2862</span><span class="p">,</span>
@@ -958,7 +935,7 @@ Output:
 <p>As presented in the paper LZGraphs can offer the user a new diversity index (K1000).
 The index value for any repertoire can be derived in the following way:</p>
 <p><div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span> <span class="nn">lzgraphs.NodeEdgeSaturationProbe</span> <span class="kn">import</span> <span class="n">NodeEdgeSaturationProbe</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span> <span class="nn">LZGraphs.NodeEdgeSaturationProbe</span> <span class="kn">import</span> <span class="n">NodeEdgeSaturationProbe</span>
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">def</span> <span class="nf">get_k1000_diversity</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">,</span><span class="n">lzgraph_encoding_function</span><span class="p">,</span><span class="n">draws</span><span class="o">=</span><span class="mi">25</span><span class="p">):</span>
 <a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="c1"># sample 1000 unique sequences</span>
