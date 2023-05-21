@@ -218,21 +218,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../explanation/" class="md-nav__link">
-        Explanation
-      </a>
-    </li>
-  
-
-    
-      
-      
-      
-
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
         Misc Functions
       </a>
@@ -2127,8 +2112,8 @@
 <a id="__codelineno-0-692" name="__codelineno-0-692"></a>        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;full&#39;</span><span class="p">:</span>
 <a id="__codelineno-0-693" name="__codelineno-0-693"></a>            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_full_appearance_gene_prediction</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span> <span class="n">alpha</span><span class="p">)</span>
 <a id="__codelineno-0-694" name="__codelineno-0-694"></a>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="k">def</span> <span class="nf">eigenvector_centrality</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>        <span class="k">return</span> <span class="n">nx</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">eigenvector_centrality</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="s1">&#39;weight&#39;</span><span class="p">)</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="k">def</span> <span class="nf">eigenvector_centrality</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span><span class="n">max_iter</span><span class="o">=</span><span class="mi">500</span><span class="p">):</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>        <span class="k">return</span> <span class="n">nx</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">eigenvector_centrality</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">weight</span><span class="o">=</span><span class="s1">&#39;weight&#39;</span><span class="p">,</span><span class="n">max_iter</span><span class="o">=</span><span class="n">max_iter</span><span class="p">)</span>
 <a id="__codelineno-0-697" name="__codelineno-0-697"></a>
 <a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="k">def</span> <span class="nf">isolates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <a id="__codelineno-0-699" name="__codelineno-0-699"></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
