@@ -24,8 +24,6 @@
     <a href="https://MuteJester.github.io/LZGraphs/"><strong>Explore the docs »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/MuteJester/LZGraphs/wiki/">View Demo</a>
-    ·
     <a href="https://github.com/MuteJester/LZGraphs/issues">Report Bug</a>
     ·
     <a href="https://github.com/MuteJester/LZGraphs/issues">Request Feature</a>
@@ -59,6 +57,8 @@ pip install LZGraphs
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+We encourage you to either read our <a href="https://MuteJester.github.io/LZGraphs/"><strong> docs </strong></a> or download the `Examples` folder from this repo and follow an ineractive
+jupyer notebook guide to use the different models of this repo.
 
 
 
