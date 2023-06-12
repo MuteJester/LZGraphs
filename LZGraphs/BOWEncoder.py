@@ -1,6 +1,8 @@
+from collections.abc import Iterable
+
 import numpy as np
 from tqdm.auto import tqdm
-from collections.abc import Iterable
+
 from LZGraphs.decomposition import lempel_ziv_decomposition
 
 

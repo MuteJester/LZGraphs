@@ -1,10 +1,12 @@
 from itertools import product
+from time import time
+
 import networkx as nx
 import numpy as np
 import pandas as pd
-from .misc import window
+
 from .decomposition import lempel_ziv_decomposition
-from time import time
+from .misc import window
 
 
 def saturation_function(x, h, k):

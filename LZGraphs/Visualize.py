@@ -3,12 +3,13 @@
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
 import seaborn as sns
 from matplotlib import pylab
 
-import networkx as nx
 from .decomposition import lempel_ziv_decomposition
+
 mpl.rcParams['figure.figsize'] = (15,8)
 sns.set_context('poster')
 

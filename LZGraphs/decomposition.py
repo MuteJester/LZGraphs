@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from typing import List
 
 def lempel_ziv_decomposition(sequence:str) -> List[str]:

@@ -1,17 +1,16 @@
 #Nucleotide Double Positional
-from multiprocessing.pool import ThreadPool
 
-import networkx as nx
+import re
+from time import time
+
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
-from time import time
-from . import LZGraphBase
-from .misc import chunkify, window
 from tqdm.auto import tqdm
-import re
+
+from . import LZGraphBase
 from .decomposition import lempel_ziv_decomposition
-import seaborn as sns
+from .misc import window
+
 
 def derive_lz_reading_frame_position(cdr3):
     """

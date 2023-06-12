@@ -22,7 +22,8 @@ setup(
               'analytics,biology','tcell','repertoire','cdr3'],   # Keywords that define your package best
     install_requires=[
         'tqdm',
-        'pandas',
+        'numpy==1.21.5',
+        'pandas==1.3.5',
         'networkx==2.8.4',
         'matplotlib==3.5.1',
         'seaborn==0.12.1'
