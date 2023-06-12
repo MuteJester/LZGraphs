@@ -1,13 +1,12 @@
+import heapq
 import re
-from time import time
+from collections import Counter
 from multiprocessing.pool import ThreadPool
+from time import time
 import networkx as nx
 import numpy as np
 import pandas as pd
-from pandas.io.json import json_normalize
-import heapq
-from .misc import chunkify, window, choice, get_dictionary_subkeys
-from collections import Counter
+from .misc import chunkify, choice, get_dictionary_subkeys
 
 
 class LZGraphBase:

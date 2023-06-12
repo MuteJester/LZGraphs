@@ -13,7 +13,9 @@ The module contains the following functions:
 """
 
 from itertools import tee
+
 import numpy as np
+
 
 def choice(options,probs):
     """Choose a single random variable from a list given a probability distribution

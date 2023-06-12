@@ -1,18 +1,15 @@
 # Amino Acid Positional
 import re
-from multiprocessing.pool import ThreadPool
+from time import time
 
 import networkx as nx
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
+from tqdm.auto import tqdm
 
 from .LZGraphBase import LZGraphBase
 from .decomposition import lempel_ziv_decomposition
-from tqdm.auto import tqdm
-import seaborn as sns
-from .misc import chunkify, window, choice
-from time import time
+from .misc import window
 
 
 def derive_lz_and_position(cdr3):
