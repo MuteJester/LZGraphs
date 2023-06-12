@@ -46,20 +46,87 @@
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
-LZGraphs :dna: :
-An implementation of the methodology present in the XXX paper
+
+LZGraphs :dna: is a Python library that implements the methodology presented in the research paper "A Novel Approach to T-Cell Receptor Beta Chain (TCRB) Repertoire Encoding Using Lossless String Compression". 
+
+### Background
+
+The diversity of T-cells is crucial for producing effective receptors that can recognize the pathogens encountered throughout life. A stochastic biological process known as V(D)J recombination accounts for the high diversity of these receptors, making their analysis challenging.
+
+### The LZGraphs Approach
+
+LZGraphs presents a new approach to sequence encoding and analysis, based on the Lempel-Ziv 76 algorithm (LZ-76). By creating a graph-like model, LZGraphs identifies specific sequence features and produces a new encoding approach to an individual’s repertoire. 
+
+This unique repertoire representation allows for various applications, such as:
+
+- Generation probability inference
+- Informative feature vector derivation
+- Sequence generation
+- A new measure for diversity estimation
+
+All of these are obtained without relying on time costly and error-prone alignment steps. 
 
 
 ### Installation
-```
+
+#### General Python Environment
+
+To install LZGraphs in a general Python environment, you can use pip, which is a package manager for Python. Open your terminal and type the following command:
+
+```bash
 pip install LZGraphs
 ```
 
+If you have both Python 2 and Python 3 installed on your machine, and you want to use Python 3, you should use pip3:
+
+```bash
+pip3 install LZGraphs
+```
+
+#### Jupyter Notebook
+
+If you're using a Jupyter notebook, you can install LZGraphs directly in a code cell. Just type and execute the following command in a new cell:
+
+```python
+!pip install LZGraphs
+```
+
+The exclamation mark at the beginning is a special Jupyter command that allows you to run terminal commands from within a notebook.
+
+#### Troubleshooting
+
+If you encounter any issues during the installation, make sure that your pip is up-to-date. You can upgrade pip using the following command:
+
+```bash
+pip install --upgrade pip
+```
+
+Or, for Python 3:
+
+```bash
+pip3 install --upgrade pip
+```
+
+After upgrading pip, try installing LZGraphs again. If you still encounter issues, please raise an issue in this GitHub repository with a description of the problem and any error messages you received.
+
+---
+
+
 <!-- USAGE EXAMPLES -->
 ## Usage
-We encourage you to either read our <a href="https://MuteJester.github.io/LZGraphs/"><strong> docs </strong></a> or download the `Examples` folder from this repo and follow an ineractive
-jupyer notebook guide to use the different models of this repo.
 
+The LZGraphs library is designed to be user-friendly and easy to use. You can get started with it in two main ways:
+
+1. **Read the Documentation**: We have a comprehensive [documentation](https://MuteJester.github.io/LZGraphs/) that provides detailed information about the LZGraph model and its applications. The documentation is divided into several sections to help you understand and use the functions and data structures implemented in this library in the most effective and quick manner. It includes:
+
+    - Installation instructions
+    - Tutorials for quick plug-and-play usage
+    - Descriptions of miscellaneous, visualization, utilities, and Node Edge Saturation functions
+    - Detailed information about the LZGraph Base Class, NDPLZGraph Class, and AAPLZGraph Class
+
+    We recommend starting with the [Tutorials](https://MuteJester.github.io/LZGraphs/tutorials) page for a hands-on introduction to the useful functionality provided by the LZGraph library.
+
+2. **Interactive Jupyter Notebook Guides**: You can also download the `Examples` folder from this repository and follow an interactive Jupyter notebook guide. These guides provide step-by-step instructions on how to use the different models of this repo, making it easy for you to learn by doing.
 
 
 <!-- ROADMAP -->
@@ -69,7 +136,6 @@ See the [open issues](https://github.com/MuteJester/LZGraphs/issues) for a list 
 
 <!-- CONTRIBUTING -->
 ## Contributing
-
 
 Contributions are what make the open-source community such a powerful place to create new ideas, inspire, and make progress. Any contributions you make are **greatly appreciated**.
 
