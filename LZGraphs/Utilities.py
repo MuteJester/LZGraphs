@@ -31,7 +31,6 @@ def restore_gene_counts(column):
 
     return column
 
-
 def renormalize_edege_genes(column):
     """ This function is used during the graph union operation, it normalizes the gene counts by the total number
     of observed v / j genes/alleles.
