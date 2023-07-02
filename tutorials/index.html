@@ -12,7 +12,7 @@
         <link rel="prev" href="..">
       
       
-        <link rel="next" href="../misc_reference/">
+        <link rel="next" href="../metrics_reference/">
       
       <link rel="icon" href="../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
@@ -338,6 +338,13 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#calculating-the-lzcentrality" class="md-nav__link">
+    Calculating the LZCentrality
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#calculating-the-k1000-diversity-index" class="md-nav__link">
     Calculating the K1000 Diversity Index
   </a>
@@ -417,6 +424,21 @@
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics_reference/" class="md-nav__link">
+        LZ Metrics
+      </a>
     </li>
   
 
@@ -665,6 +687,13 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#calculating-the-lzcentrality" class="md-nav__link">
+    Calculating the LZCentrality
+  </a>
   
 </li>
       
@@ -931,34 +960,41 @@ Output:
 <a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>TRBJ2-4*01    0.008798
 <a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>Name: J, dtype: float64
 </code></pre></div></p>
-<h2 id="calculating-the-k1000-diversity-index">Calculating the K1000 Diversity Index</h2>
-<p>As presented in the paper LZGraphs can offer the user a new diversity index (K1000).
-The index value for any repertoire can be derived in the following way:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span> <span class="nn">LZGraphs.NodeEdgeSaturationProbe</span> <span class="kn">import</span> <span class="n">NodeEdgeSaturationProbe</span>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="k">def</span> <span class="nf">get_k1000_diversity</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">,</span><span class="n">lzgraph_encoding_function</span><span class="p">,</span><span class="n">draws</span><span class="o">=</span><span class="mi">25</span><span class="p">):</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    <span class="c1"># sample 1000 unique sequences</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="n">NESP</span> <span class="o">=</span> <span class="n">NodeEdgeSaturationProbe</span><span class="p">()</span>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">NESP</span><span class="o">.</span><span class="n">resampling_test</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">)),</span><span class="n">n_tests</span><span class="o">=</span><span class="n">draws</span><span class="p">,</span><span class="n">sample_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="n">K_tests</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">values</span><span class="p">())[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s1">&#39;nodes&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">result</span><span class="p">]</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">K_tests</span><span class="p">)</span>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="n">list_of_seqs</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">cdr3_amino_acid</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span> <span class="c1"># this is the repertoire under inspection</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="n">k1000</span> <span class="o">=</span> <span class="n">get_k1000_diversity</span><span class="p">(</span><span class="n">list_of_seqs</span><span class="p">,</span><span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">)</span> <span class="c1"># this can be replace with AAPLZGraph.encode_sequence for amino acids</span>
-<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;K1000 index for the given repertoire: &#39;</span><span class="p">,</span><span class="n">k1000</span><span class="p">)</span>
+<h2 id="calculating-the-lzcentrality">Calculating the LZCentrality</h2>
+<p>The <code>LZGraph</code> library provides a function, <code>LZCentrality</code>, for calculating the LZCentrality of a given CDR3 sequence in a repertoire represented by an LZGraph. The LZCentrality is a measure of sequence centrality within a repertoire, as presented in our paper.</p>
+<p>Here's how you can use the <code>LZCentrality</code> function:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span> <span class="nn">LZGraphs</span> <span class="kn">import</span> <span class="n">LZCentrality</span><span class="p">,</span> <span class="n">NDPLZGraph</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c1"># Assume we have a list of CDR3 sequences and a sequence of interest</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sequence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence2&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence3&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">sequence_of_interest</span> <span class="o">=</span> <span class="s2">&quot;sequence1&quot;</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Create an LZGraph</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="p">(</span><span class="n">sequences</span><span class="p">)</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Calculate the LZCentrality</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="n">lzcentrality</span> <span class="o">=</span> <span class="n">LZCentrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">sequence_of_interest</span><span class="p">)</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The LZCentrality of </span><span class="si">{</span><span class="n">sequence_of_interest</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">lzcentrality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>K1000 index for the given repertoire:  217.64
-</code></pre></div></p>
-<p>Note:</p>
-<ul>
-<li>You can adjust the value of <code>draws</code> to be larger than 25, the higher the value is
-  the more realizations will be generated for the K1000 index thus the returned
-  mean value will be a better approximation.</li>
-<li>the encoding function can be replaced with any one of Naive/NDPLZGraph,AAPLZGraph
-  encoding functions.</li>
-</ul>
+<p>In this example, <code>NDPLZGraph</code> is the LZGraph class used. You can replace it with any other LZGraph class, such as <code>AAPLZGraph</code>.</p>
+<p>This function provides an efficient and scalable way to calculate the LZCentrality, allowing you to gain important insights into the centrality of a sequence within a TCRB repertoire.</p>
+<h2 id="calculating-the-k1000-diversity-index">Calculating the K1000 Diversity Index</h2>
+<p>The <code>LZGraph</code> library provides a convenient function, <code>K1000_Diversity</code>, for calculating the K1000 Diversity index of a list of CDR3 sequences. This index, as presented in our paper, offers a new way to measure the diversity of a repertoire.</p>
+<p>Here's how you can use the <code>K1000_Diversity</code> function:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Metrics</span> <span class="kn">import</span> <span class="n">K1000_Diversity</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span> <span class="nn">LZGraphs.AminoAcidPositional</span> <span class="kn">import</span>  <span class="n">AAPLZGraph</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Assume we have a list of CDR3 sequences</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sequence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence2&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence3&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Calculate the K1000 Diversity index</span>
+<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="n">k1000</span> <span class="o">=</span> <span class="n">K1000_Diversity</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">,</span> <span class="n">draws</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The K1000 Diversity index is </span><span class="si">{</span><span class="n">k1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>In this example, <code>AAPLZGraph.encode_sequence</code> is the LZGraph encoding function used. You can replace it with any other LZGraph encoding function, such as <code>NDPLZGraph.encode_sequence</code>.</p>
+<p>The <code>draws</code> parameter specifies the number of draws for the resampling test. The higher the value, the more realizations will be generated for the K1000 index, and the returned mean value will be a better approximation.</p>
+<p>The <code>K1000_Diversity</code> function works by resampling the list of sequences and building LZGraphs based on the provided encoding function. The resampling is performed <code>draws</code> number of times, with each resampled set containing 1000 unique sequences. For each resampled set, the K1000 Diversity index is calculated using the 'nodes' value of the last item in the result dictionary obtained from the NodeEdgeSaturationProbe's resampling test. The average K1000 Diversity index from all the resampling tests is then returned.</p>
+<p>This function provides an efficient and scalable way to calculate the K1000 Diversity index, allowing you to gain important insights into the diversity of a TCRB repertoire.</p>
 <h2 id="deriving-sequence-generation-probability-pgen">Deriving Sequence Generation Probability (Pgen)</h2>
 <p>After an LZGraph is derived for a given repertoire, one can assess the generation
 probability (Pgen) of a new sequence with respect to that repertoire (LZGraph).
