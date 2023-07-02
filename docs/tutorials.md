@@ -179,37 +179,56 @@ TRBJ2-4*01    0.008798
 Name: J, dtype: float64
 ```
 
-## Calculating the K1000 Diversity Index
-As presented in the paper LZGraphs can offer the user a new diversity index (K1000).
-The index value for any repertoire can be derived in the following way:
+## Calculating the LZCentrality
+
+The `LZGraph` library provides a function, `LZCentrality`, for calculating the LZCentrality of a given CDR3 sequence in a repertoire represented by an LZGraph. The LZCentrality is a measure of sequence centrality within a repertoire, as presented in our paper.
+
+Here's how you can use the `LZCentrality` function:
 
 ```python
-import numpy as np
-from LZGraphs.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+from LZGraphs import LZCentrality, NDPLZGraph
 
-def get_k1000_diversity(list_of_sequences,lzgraph_encoding_function,draws=25):
-    # sample 1000 unique sequences
-    NESP = NodeEdgeSaturationProbe()
-    result = NESP.resampling_test(list(set(list_of_sequences)),n_tests=draws,sample_size=1000)
-    K_tests = [list(i.values())[-1]['nodes'] for i in result]
-    return np.mean(K_tests)
+# Assume we have a list of CDR3 sequences and a sequence of interest
+sequences = ["sequence1", "sequence2", "sequence3", ...]
+sequence_of_interest = "sequence1"
 
-list_of_seqs = data.cdr3_amino_acid.to_list() # this is the repertoire under inspection
-k1000 = get_k1000_diversity(list_of_seqs,AAPLZGraph.encode_sequence) # this can be replace with AAPLZGraph.encode_sequence for amino acids
-print('K1000 index for the given repertoire: ',k1000)
-```
-Output:
-```markdown
-K1000 index for the given repertoire:  217.64
+# Create an LZGraph
+graph = NDPLZGraph(sequences)
+
+# Calculate the LZCentrality
+lzcentrality = LZCentrality(graph, sequence_of_interest)
+print(f"The LZCentrality of {sequence_of_interest} is {lzcentrality}")
 ```
 
-Note:
+In this example, `NDPLZGraph` is the LZGraph class used. You can replace it with any other LZGraph class, such as `AAPLZGraph`.
 
-* You can adjust the value of `draws` to be larger than 25, the higher the value is
-  the more realizations will be generated for the K1000 index thus the returned
-  mean value will be a better approximation.
-* the encoding function can be replaced with any one of Naive/NDPLZGraph,AAPLZGraph
-  encoding functions.
+This function provides an efficient and scalable way to calculate the LZCentrality, allowing you to gain important insights into the centrality of a sequence within a TCRB repertoire.
+
+## Calculating the K1000 Diversity Index
+
+The `LZGraph` library provides a convenient function, `K1000_Diversity`, for calculating the K1000 Diversity index of a list of CDR3 sequences. This index, as presented in our paper, offers a new way to measure the diversity of a repertoire.
+
+Here's how you can use the `K1000_Diversity` function:
+
+```python
+from LZGraphs.Metrics import K1000_Diversity
+from LZGraphs.AminoAcidPositional import  AAPLZGraph
+
+# Assume we have a list of CDR3 sequences
+sequences = ["sequence1", "sequence2", "sequence3", ...]
+
+# Calculate the K1000 Diversity index
+k1000 = K1000_Diversity(sequences, AAPLZGraph.encode_sequence, draws=30)
+print(f"The K1000 Diversity index is {k1000}")
+```
+
+In this example, `AAPLZGraph.encode_sequence` is the LZGraph encoding function used. You can replace it with any other LZGraph encoding function, such as `NDPLZGraph.encode_sequence`.
+
+The `draws` parameter specifies the number of draws for the resampling test. The higher the value, the more realizations will be generated for the K1000 index, and the returned mean value will be a better approximation.
+
+The `K1000_Diversity` function works by resampling the list of sequences and building LZGraphs based on the provided encoding function. The resampling is performed `draws` number of times, with each resampled set containing 1000 unique sequences. For each resampled set, the K1000 Diversity index is calculated using the 'nodes' value of the last item in the result dictionary obtained from the NodeEdgeSaturationProbe's resampling test. The average K1000 Diversity index from all the resampling tests is then returned.
+
+This function provides an efficient and scalable way to calculate the K1000 Diversity index, allowing you to gain important insights into the diversity of a TCRB repertoire.
 
 ## Deriving Sequence Generation Probability (Pgen)
 After an LZGraph is derived for a given repertoire, one can assess the generation

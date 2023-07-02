@@ -14,6 +14,7 @@ markdown_extensions:
 nav:
   - index.md
   - tutorials.md
+  - LZ Metrics: metrics_reference.md
   - Misc Functions: misc_reference.md
   - Visualize Functions: visualize_reference.md
   - Utilities Functions: utilities_reference.md

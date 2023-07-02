@@ -40,6 +40,8 @@ class NodeEdgeSaturationProbe:
             self.node_function = self.ndp_node_extractor
         elif node_function == 'aap':
             self.node_function = self.aap_node_extractor
+        else:
+            self.node_function = node_function
 
     def log(self, args):
         if self.log_level == 1:
