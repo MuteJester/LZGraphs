@@ -14,8 +14,9 @@
       
         <link rel="next" href="../lzgraphbase_reference/">
       
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
     
     
       
@@ -23,14 +24,14 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.6b71719e.min.css">
-      
-        
-        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
       
       
 
+
     
+    
+      
     
     
       
@@ -54,14 +55,8 @@
   </head>
   
   
-    
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+    <body dir="ltr">
   
-    
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -69,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#LZGraphs.BOWEncoder" class="md-skip">
+        <a href="#src.LZGraphs.BagOfWords.BOWEncoder" class="md-skip">
           Skip to content
         </a>
       
@@ -81,7 +76,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
       
@@ -90,6 +87,7 @@
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -110,8 +108,12 @@
     </div>
     
     
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
     
       <label class="md-header__button md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
@@ -120,12 +122,15 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -137,7 +142,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
@@ -182,14 +188,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-        Welcome to LZGraph Docs
+        
+  
+  <span class="md-ellipsis">
+    Welcome to LZGraphs Documentation
+  </span>
+  
+
       </a>
     </li>
   
@@ -197,14 +208,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../tutorials/" class="md-nav__link">
-        Tutorials
+        
+  
+  <span class="md-ellipsis">
+    Tutorials for LZGraphs
+  </span>
+  
+
       </a>
     </li>
   
@@ -212,14 +228,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../metrics_reference/" class="md-nav__link">
-        LZ Metrics
+        
+  
+  <span class="md-ellipsis">
+    LZ Metrics
+  </span>
+  
+
       </a>
     </li>
   
@@ -227,14 +248,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
-        Misc Functions
+        
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -242,14 +268,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../visualize_reference/" class="md-nav__link">
-        Visualize Functions
+        
+  
+  <span class="md-ellipsis">
+    Visualize Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -257,14 +288,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../utilities_reference/" class="md-nav__link">
-        Utilities Functions
+        
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -272,14 +308,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../nodedgesaturation_reference/" class="md-nav__link">
-        Node Edge Saturation Functions
+        
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -287,26 +328,37 @@
     
       
       
-      
-
   
   
     
   
   
+  
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          BOW Encoder Functions
+          
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        BOW Encoder Functions
+        
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
       </a>
       
         
@@ -323,15 +375,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.BOWEncoder" class="md-nav__link">
-    LZGraphs.BOWEncoder
+  <a href="#src.LZGraphs.BagOfWords.BOWEncoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      BOWEncoder
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.BOWEncoder.LZBOW" class="md-nav__link">
-    LZBOW
+  <a href="#src.LZGraphs.BagOfWords.BOWEncoder.LZBOW" class="md-nav__link">
+    <span class="md-ellipsis">
+      LZBOW
+    </span>
   </a>
   
 </li>
@@ -346,14 +402,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../lzgraphbase_reference/" class="md-nav__link">
-        LZGraph Base Class
+        
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -361,14 +422,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../ndplgraph_reference/" class="md-nav__link">
-        NDPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -376,14 +442,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../aaplzgraph_reference/" class="md-nav__link">
-        AAPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    AAPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -414,15 +485,19 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.BOWEncoder" class="md-nav__link">
-    LZGraphs.BOWEncoder
+  <a href="#src.LZGraphs.BagOfWords.BOWEncoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      BOWEncoder
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.BOWEncoder.LZBOW" class="md-nav__link">
-    LZBOW
+  <a href="#src.LZGraphs.BagOfWords.BOWEncoder.LZBOW" class="md-nav__link">
+    <span class="md-ellipsis">
+      LZBOW
+    </span>
   </a>
   
 </li>
@@ -442,13 +517,13 @@
                   
 
 
-
   <h1>BOW Encoder Functions</h1>
 
 <div class="doc doc-object doc-module">
 
 
-<a id="LZGraphs.BOWEncoder"></a>
+
+<a id="src.LZGraphs.BagOfWords.BOWEncoder"></a>
   <div class="doc doc-contents first">
 
   
@@ -466,8 +541,8 @@
 
 
 
-<h2 id="LZGraphs.BOWEncoder.LZBOW" class="doc doc-heading">
-        <code>LZBOW</code>
+<h2 id="src.LZGraphs.BagOfWords.BOWEncoder.LZBOW" class="doc doc-heading">
+          <code>LZBOW</code>
 
 
 </h2>
@@ -482,6 +557,8 @@ This class requires fitting on a set of sequences in order to derive the diction
 to generate the bag of words representation.
 After the class been fitted on a source set of sequences each time a transformation is needed one can use
 the transform method to get the vector representation.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -499,81 +576,33 @@ the transform method to get the vector representation.</p>
           <td>
                 <code>str</code>
           </td>
-          <td><p>the selected node extraction method to use 'naive' - emulate Naive LZGraph extraction
-/ 'ndp'- emulate Nucleotide Double Positional LZGraph / 'aap' - Amino Acid Positional LZGraph.</p></td>
           <td>
-                <code>lempel_ziv_decomposition</code>
+            <div class="doc-md-description">
+              <p>the selected node extraction method to use 'naive' - emulate Naive LZGraph extraction
+/ 'ndp'- emulate Nucleotide Double Positional LZGraph / 'aap' - Amino Acid Positional LZGraph.</p>
+            </div>
+          </td>
+          <td>
+                <code><span title="src.LZGraphs.Utilities.decomposition.lempel_ziv_decomposition">lempel_ziv_decomposition</span></code>
           </td>
         </tr>
     </tbody>
   </table>
+      <p>Attributes:</p>
+<div class="highlight"><pre><span></span><code>dictionary (set): a set of sub-patterns (graph nodes) representing the dictionary of the BOW vector
+dictionary_size (int): The size of the dictionary
+observed_sequences (int): The number of sequences used to derive the dictionary
+encoding_function (func): the function used to derive sub-patterns from a sequence (in the context of this
+library it is one of the 3: Naive, Nucleotide Double Positional, Amino Acid Positional
+dictionary_index_map (dict): a dictionary that maps the set of sub-patterns to numerical positions in
+the BOW vector.
+dictionary_index_inverse_map (dict): a dictionary that maps numerical positions to the sub-patterns from
+the dictionary set
+</code></pre></div>
 
-  <p><strong>Attributes:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>dictionary</code></td>
-          <td>
-                <code>set</code>
-          </td>
-          <td><p>a set of sub-patterns (graph nodes) representing the dictionary of the BOW vector</p></td>
-        </tr>
-        <tr>
-          <td><code>dictionary_size</code></td>
-          <td>
-                <code>int</code>
-          </td>
-          <td><p>The size of the dictionary</p></td>
-        </tr>
-        <tr>
-          <td><code>observed_sequences</code></td>
-          <td>
-                <code>int</code>
-          </td>
-          <td><p>The number of sequences used to derive the dictionary</p></td>
-        </tr>
-        <tr>
-          <td><code>encoding_function</code></td>
-          <td>
-                <code>func</code>
-          </td>
-          <td><p>the function used to derive sub-patterns from a sequence (in the context of this</p></td>
-        </tr>
-        <tr>
-          <td><code>library</code></td>
-          <td>
-                <code>it is one of the 3</code>
-          </td>
-          <td><p>Naive, Nucleotide Double Positional, Amino Acid Positional</p></td>
-        </tr>
-        <tr>
-          <td><code>dictionary_index_map</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>a dictionary that maps the set of sub-patterns to numerical positions in</p></td>
-        </tr>
-        <tr>
-          <td><code>dictionary_index_inverse_map</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>a dictionary that maps numerical positions to the sub-patterns from</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-
-        <details class="quote">
-          <summary>Source code in <code>LZGraphs\BOWEncoder.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-9">  9</a></span>
+            <details class="quote">
+              <summary>Source code in <code>src\LZGraphs\BagOfWords\BOWEncoder.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-9">  9</a></span>
 <span class="normal"><a href="#__codelineno-0-10"> 10</a></span>
 <span class="normal"><a href="#__codelineno-0-11"> 11</a></span>
 <span class="normal"><a href="#__codelineno-0-12"> 12</a></span>
@@ -757,7 +786,7 @@ the transform method to get the vector representation.</p>
 <a id="__codelineno-0-99" name="__codelineno-0-99"></a>        <span class="n">union</span><span class="o">.</span><span class="n">dictionary_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dictionary</span><span class="p">)</span>
 <a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="k">return</span> <span class="n">union</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
@@ -777,6 +806,7 @@ the transform method to get the vector representation.</p>
 
   </div>
 
+
 </div>
 
 
@@ -787,6 +817,13 @@ the transform method to get the vector representation.</p>
   </div>
 
 </div>
+
+
+
+
+
+
+
 
 
 
@@ -797,6 +834,7 @@ the transform method to get the vector representation.</p>
             </div>
           
           
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
       </main>
@@ -824,10 +862,11 @@ the transform method to get the vector representation.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ba449ae6.min.js"></script>
+      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
       
     
   </body>

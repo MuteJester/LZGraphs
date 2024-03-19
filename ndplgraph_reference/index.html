@@ -14,8 +14,9 @@
       
         <link rel="next" href="../aaplzgraph_reference/">
       
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
     
     
       
@@ -23,14 +24,14 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.6b71719e.min.css">
-      
-        
-        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
       
       
 
+
     
+    
+      
     
     
       
@@ -54,14 +55,8 @@
   </head>
   
   
-    
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+    <body dir="ltr">
   
-    
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -69,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#LZGraphs.NucleotideDoublePositional" class="md-skip">
+        <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional" class="md-skip">
           Skip to content
         </a>
       
@@ -81,7 +76,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
       
@@ -90,6 +87,7 @@
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -110,8 +108,12 @@
     </div>
     
     
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
     
       <label class="md-header__button md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
@@ -120,12 +122,15 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -137,7 +142,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
@@ -182,14 +188,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-        Welcome to LZGraph Docs
+        
+  
+  <span class="md-ellipsis">
+    Welcome to LZGraphs Documentation
+  </span>
+  
+
       </a>
     </li>
   
@@ -197,14 +208,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../tutorials/" class="md-nav__link">
-        Tutorials
+        
+  
+  <span class="md-ellipsis">
+    Tutorials for LZGraphs
+  </span>
+  
+
       </a>
     </li>
   
@@ -212,14 +228,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../metrics_reference/" class="md-nav__link">
-        LZ Metrics
+        
+  
+  <span class="md-ellipsis">
+    LZ Metrics
+  </span>
+  
+
       </a>
     </li>
   
@@ -227,14 +248,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
-        Misc Functions
+        
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -242,14 +268,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../visualize_reference/" class="md-nav__link">
-        Visualize Functions
+        
+  
+  <span class="md-ellipsis">
+    Visualize Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -257,14 +288,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../utilities_reference/" class="md-nav__link">
-        Utilities Functions
+        
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -272,14 +308,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../nodedgesaturation_reference/" class="md-nav__link">
-        Node Edge Saturation Functions
+        
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -287,14 +328,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../bowencoder_reference/" class="md-nav__link">
-        BOW Encoder Functions
+        
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -302,14 +348,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../lzgraphbase_reference/" class="md-nav__link">
-        LZGraph Base Class
+        
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -317,26 +368,37 @@
     
       
       
-      
-
   
   
     
   
   
+  
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          NDPLZGraph Class
+          
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        NDPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
       </a>
       
         
@@ -353,86 +415,110 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional" class="md-nav__link">
-    LZGraphs.NucleotideDoublePositional
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional" class="md-nav__link">
+    <span class="md-ellipsis">
+      NucleotideDoublePositional
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph" class="md-nav__link">
-    NDPLZGraph
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      NDPLZGraph
+    </span>
   </a>
   
     <nav class="md-nav" aria-label="NDPLZGraph">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.__init__" class="md-nav__link">
-    __init__()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __init__
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.clean_node" class="md-nav__link">
-    clean_node()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.clean_node" class="md-nav__link">
+    <span class="md-ellipsis">
+      clean_node
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.encode_sequence" class="md-nav__link">
-    encode_sequence()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.encode_sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      encode_sequence
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.gene_random_walk" class="md-nav__link">
-    gene_random_walk()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.gene_random_walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      gene_random_walk
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.gene_variation" class="md-nav__link">
-    gene_variation()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.gene_variation" class="md-nav__link">
+    <span class="md-ellipsis">
+      gene_variation
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.path_gene_table" class="md-nav__link">
-    path_gene_table()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.path_gene_table" class="md-nav__link">
+    <span class="md-ellipsis">
+      path_gene_table
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.sequence_variation_curve" class="md-nav__link">
-    sequence_variation_curve()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.sequence_variation_curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      sequence_variation_curve
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.unsupervised_random_walk" class="md-nav__link">
-    unsupervised_random_walk()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.unsupervised_random_walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      unsupervised_random_walk
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.walk_genes" class="md-nav__link">
-    walk_genes()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.walk_genes" class="md-nav__link">
+    <span class="md-ellipsis">
+      walk_genes
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.walk_probability" class="md-nav__link">
-    walk_probability()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.walk_probability" class="md-nav__link">
+    <span class="md-ellipsis">
+      walk_probability
+    </span>
   </a>
   
 </li>
@@ -443,8 +529,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.derive_lz_reading_frame_position" class="md-nav__link">
-    derive_lz_reading_frame_position()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.derive_lz_reading_frame_position" class="md-nav__link">
+    <span class="md-ellipsis">
+      derive_lz_reading_frame_position
+    </span>
   </a>
   
 </li>
@@ -459,14 +547,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../aaplzgraph_reference/" class="md-nav__link">
-        AAPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    AAPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -497,86 +590,110 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional" class="md-nav__link">
-    LZGraphs.NucleotideDoublePositional
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional" class="md-nav__link">
+    <span class="md-ellipsis">
+      NucleotideDoublePositional
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph" class="md-nav__link">
-    NDPLZGraph
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      NDPLZGraph
+    </span>
   </a>
   
     <nav class="md-nav" aria-label="NDPLZGraph">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.__init__" class="md-nav__link">
-    __init__()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.__init__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __init__
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.clean_node" class="md-nav__link">
-    clean_node()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.clean_node" class="md-nav__link">
+    <span class="md-ellipsis">
+      clean_node
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.encode_sequence" class="md-nav__link">
-    encode_sequence()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.encode_sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      encode_sequence
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.gene_random_walk" class="md-nav__link">
-    gene_random_walk()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.gene_random_walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      gene_random_walk
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.gene_variation" class="md-nav__link">
-    gene_variation()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.gene_variation" class="md-nav__link">
+    <span class="md-ellipsis">
+      gene_variation
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.path_gene_table" class="md-nav__link">
-    path_gene_table()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.path_gene_table" class="md-nav__link">
+    <span class="md-ellipsis">
+      path_gene_table
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.sequence_variation_curve" class="md-nav__link">
-    sequence_variation_curve()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.sequence_variation_curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      sequence_variation_curve
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.unsupervised_random_walk" class="md-nav__link">
-    unsupervised_random_walk()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.unsupervised_random_walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      unsupervised_random_walk
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.walk_genes" class="md-nav__link">
-    walk_genes()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.walk_genes" class="md-nav__link">
+    <span class="md-ellipsis">
+      walk_genes
+    </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.NDPLZGraph.walk_probability" class="md-nav__link">
-    walk_probability()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.walk_probability" class="md-nav__link">
+    <span class="md-ellipsis">
+      walk_probability
+    </span>
   </a>
   
 </li>
@@ -587,8 +704,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NucleotideDoublePositional.derive_lz_reading_frame_position" class="md-nav__link">
-    derive_lz_reading_frame_position()
+  <a href="#src.LZGraphs.Graphs.NucleotideDoublePositional.derive_lz_reading_frame_position" class="md-nav__link">
+    <span class="md-ellipsis">
+      derive_lz_reading_frame_position
+    </span>
   </a>
   
 </li>
@@ -608,13 +727,13 @@
                   
 
 
-
   <h1>NDPLZGraph Class</h1>
 
 <div class="doc doc-object doc-module">
 
 
-<a id="LZGraphs.NucleotideDoublePositional"></a>
+
+<a id="src.LZGraphs.Graphs.NucleotideDoublePositional"></a>
   <div class="doc doc-contents first">
 
   
@@ -632,16 +751,16 @@
 
 
 
-<h2 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph" class="doc doc-heading">
-        <code>NDPLZGraph</code>
+<h2 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph" class="doc doc-heading">
+          <code>NDPLZGraph</code>
 
 
 </h2>
 
 
   <div class="doc doc-contents ">
-      <p class="doc doc-class-bases">
-        Bases: <code><a class="autorefs autorefs-internal" title="LZGraphs.AminoAcidPositional.LZGraphBase" href="../lzgraphbase_reference/#LZGraphs.LZGraphBase">LZGraphBase</a></code></p>
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="src.LZGraphs.LZGraphBase" href="../lzgraphbase_reference/#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase">LZGraphBase</a></code></p>
 
   
       <p>This class implements the logic and infrastructure of the "Nucleotide Double Positional" version of the LZGraph
@@ -649,165 +768,61 @@
   in the sequence, formally: {lz_subpattern}{reading frame start}_{start position in sequence},
   This class best fits analysis and inference of nucleotide sequences.</p>
 <p>...</p>
+<p>Args:</p>
+<p>walk_probability(walk,verbose=True):
+      returns the PGEN of the given walk (list of sub-patterns)</p>
+<p>is_dag():
+    the function checks whether the graph is a Directed acyclic graph</p>
+<p>walk_genes(walk,dropna=True):
+    give a walk on the graph (a list of nodes) the function will return a table
+    representing the possible genes and their probabilities at each edge of the walk.</p>
+<p>path_gene_table(cdr3_sample,threshold=None):
+    the function will return two tables of all possible v and j genes
+    that colud be used to generate the sequence given by "cdr3_sample"</p>
+<p>path_gene_table_plot(threshold=None,figsize=None):
+    the function plots two heatmap, one for V genes and one for J genes,
+    and represents the probability at each edge to select that gene,
+    the color at each cell is equal to the probability of selecting the gene, a black
+    cell means that the graph didn't see that gene used with that sub-pattern.</p>
+<div class="highlight"><pre><span></span><code>the data used to create the charts can be derived by using the &quot;path_gene_table&quot; method.
+</code></pre></div>
+<p>gene_variation(cdr3):
+    given a sequence, this will derive a charts that shows the number of V and J genes observed
+    per node (LZ- subpattern).</p>
+<p>gene_variation_plot(cdr3):
+    Plots the data derived at the "gene_variation" method as two bar charts overlayed, one for V gene count
+    and one for J gene count.</p>
+<p>random_walk(steps):
+     given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+     to a random terminal state in the given number of steps</p>
+<p>gene_random_walk(seq_len, initial_state):
+    given a target sequence length and an initial state, the function will select a random
+    V and a random J genes from the observed gene frequency in the graph's "Training data" and
+    generate a walk on the graph from the initial state to a terminal state while making sure
+    at each step that both the selected V and J genes were seen used by that specific sub-pattern.</p>
+<p>unsupervised_random_walk():
+    a random initial state and a random terminal state are selected and a random unsupervised walk is
+    carried out until the randomly selected terminal state is reached.</p>
+<p>eigenvector_centrality():
+    return the eigen vector centrality value for each node (this function is used as the feature extractor
+    for the LZGraph)</p>
+<p>sequence_variation_curve(cdr3_sample):
+    given a cdr3 sequence, the function will calculate the value of the variation curve and return
+    2 arrays, 1 of the sub-patterns and 1 for the number of out neighbours for each sub-pattern</p>
+<p>graph_summary():
+    the function will return a pandas DataFrame containing the graphs
+    Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges</p>
+<div class="highlight"><pre><span></span><code>Attributes:
 
-  <p><strong>Parameters:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-        <th>Default</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>walk_probability(walk,verbose=True)</code></td>
-          <td>
-          </td>
-          <td><p>returns the PGEN of the given walk (list of sub-patterns)</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>is_dag()</code></td>
-          <td>
-          </td>
-          <td><p>the function checks whether the graph is a Directed acyclic graph</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>walk_genes(walk,dropna=True)</code></td>
-          <td>
-          </td>
-          <td><p>give a walk on the graph (a list of nodes) the function will return a table
-representing the possible genes and their probabilities at each edge of the walk.</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>path_gene_table(cdr3_sample,threshold=None)</code></td>
-          <td>
-          </td>
-          <td><p>the function will return two tables of all possible v and j genes
-that colud be used to generate the sequence given by "cdr3_sample"</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>path_gene_table_plot(threshold=None,figsize=None)</code></td>
-          <td>
-          </td>
-          <td><p>the function plots two heatmap, one for V genes and one for J genes,
-and represents the probability at each edge to select that gene,
-the color at each cell is equal to the probability of selecting the gene, a black
-cell means that the graph didn't see that gene used with that sub-pattern.</p>
-<p>the data used to create the charts can be derived by using the "path_gene_table" method.</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>gene_variation(cdr3)</code></td>
-          <td>
-          </td>
-          <td><p>given a sequence, this will derive a charts that shows the number of V and J genes observed
-per node (LZ- subpattern).</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>gene_variation_plot(cdr3)</code></td>
-          <td>
-          </td>
-          <td><p>Plots the data derived at the "gene_variation" method as two bar charts overlayed, one for V gene count
-and one for J gene count.</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>random_walk(steps)</code></td>
-          <td>
-          </td>
-          <td><p>given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
- to a random terminal state in the given number of steps</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>gene_random_walk(seq_len,</code></td>
-          <td>
-                <code>initial_state</code>
-          </td>
-          <td><p>given a target sequence length and an initial state, the function will select a random
-V and a random J genes from the observed gene frequency in the graph's "Training data" and
-generate a walk on the graph from the initial state to a terminal state while making sure
-at each step that both the selected V and J genes were seen used by that specific sub-pattern.</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>unsupervised_random_walk()</code></td>
-          <td>
-          </td>
-          <td><p>a random initial state and a random terminal state are selected and a random unsupervised walk is
-carried out until the randomly selected terminal state is reached.</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>eigenvector_centrality()</code></td>
-          <td>
-          </td>
-          <td><p>return the eigen vector centrality value for each node (this function is used as the feature extractor
-for the LZGraph)</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>sequence_variation_curve(cdr3_sample)</code></td>
-          <td>
-          </td>
-          <td><p>given a cdr3 sequence, the function will calculate the value of the variation curve and return
-2 arrays, 1 of the sub-patterns and 1 for the number of out neighbours for each sub-pattern</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-        <tr>
-          <td><code>graph_summary()</code></td>
-          <td>
-          </td>
-          <td><p>the function will return a pandas DataFrame containing the graphs
-Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges</p>
-<p>Attributes:</p>
-<div class="highlight"><pre><span></span><code>nodes:
-    returns the nodes of the graph
-edges:
-    return the edges of the graph
-</code></pre></div></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-    </tbody>
-  </table>
+    nodes:
+        returns the nodes of the graph
+    edges:
+        return the edges of the graph
+</code></pre></div>
 
-
-        <details class="quote">
-          <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-42"> 42</a></span>
+            <details class="quote">
+              <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-42"> 42</a></span>
 <span class="normal"><a href="#__codelineno-0-43"> 43</a></span>
 <span class="normal"><a href="#__codelineno-0-44"> 44</a></span>
 <span class="normal"><a href="#__codelineno-0-45"> 45</a></span>
@@ -1821,7 +1836,7 @@ edges:
 <a id="__codelineno-0-547" name="__codelineno-0-547"></a>             <span class="s1">&#39;sp&#39;</span><span class="p">:</span> <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span> <span class="o">+</span> <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)})</span>
 <a id="__codelineno-0-548" name="__codelineno-0-548"></a>        <span class="k">return</span> <span class="n">j_df</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
@@ -1835,12 +1850,13 @@ edges:
 
 
 
+
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.__init__" class="doc doc-heading">
-<code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">calculate_trainset_pgen</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.__init__" class="doc doc-heading">
+          <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">calculate_trainset_pgen</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 </h3>
 
@@ -1852,9 +1868,9 @@ sequences , optinaly genes can be added to graph for gene inference via adding a
 :param verbose:
 :param dictionary:</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-123">123</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-123">123</a></span>
 <span class="normal"><a href="#__codelineno-0-124">124</a></span>
 <span class="normal"><a href="#__codelineno-0-125">125</a></span>
 <span class="normal"><a href="#__codelineno-0-126">126</a></span>
@@ -1972,17 +1988,18 @@ sequences , optinaly genes can be added to graph for gene inference via adding a
 <a id="__codelineno-0-180" name="__codelineno-0-180"></a>
 <a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">verbose_driver</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">verbose</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.clean_node" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">clean_node</span><span class="p">(</span><span class="n">base</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.clean_node" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">clean_node</span><span class="p">(</span><span class="n">base</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
@@ -2002,9 +2019,9 @@ only the nucleotides from the string</p>
             str : only the nucleotides of the node
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-199">199</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
 <span class="normal"><a href="#__codelineno-0-201">201</a></span>
 <span class="normal"><a href="#__codelineno-0-202">202</a></span>
@@ -2030,17 +2047,18 @@ only the nucleotides from the string</p>
 <a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd"> &quot;&quot;&quot;</span>
 <a id="__codelineno-0-211" name="__codelineno-0-211"></a>    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[ATGC]*&#39;</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.encode_sequence" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">encode_sequence</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.encode_sequence" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">encode_sequence</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
@@ -2061,9 +2079,9 @@ matching the requirement of the NDPLZGraph.</p>
             list : a list of unique sub-patterns in the NDPLZGraph format
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-183">183</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-183">183</a></span>
 <span class="normal"><a href="#__codelineno-0-184">184</a></span>
 <span class="normal"><a href="#__codelineno-0-185">185</a></span>
 <span class="normal"><a href="#__codelineno-0-186">186</a></span>
@@ -2095,17 +2113,18 @@ matching the requirement of the NDPLZGraph.</p>
 <a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="n">lz</span><span class="p">,</span> <span class="n">rf</span><span class="p">,</span> <span class="n">pos</span> <span class="o">=</span> <span class="n">derive_lz_reading_frame_position</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span>
 <a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">lz</span><span class="p">,</span> <span class="n">rf</span><span class="p">,</span> <span class="n">pos</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.gene_random_walk" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">gene_random_walk</span><span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="n">initial_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vj_init</span><span class="o">=</span><span class="s1">&#39;marginal&#39;</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.gene_random_walk" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">gene_random_walk</span><span class="p">(</span><span class="n">seq_len</span><span class="p">,</span> <span class="n">initial_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vj_init</span><span class="o">=</span><span class="s1">&#39;marginal&#39;</span><span class="p">)</span></code>
 
 </h3>
 
@@ -2118,9 +2137,9 @@ generate a walk on the graph from the initial state to a terminal state while ma
 at each step that both the selected V and J genes were seen used by that specific sub-pattern.</p>
 <p>if seq_len is equal to "unsupervised" than a random seq len will be returned</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-337">337</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-337">337</a></span>
 <span class="normal"><a href="#__codelineno-0-338">338</a></span>
 <span class="normal"><a href="#__codelineno-0-339">339</a></span>
 <span class="normal"><a href="#__codelineno-0-340">340</a></span>
@@ -2290,17 +2309,18 @@ at each step that both the selected V and J genes were seen used by that specifi
 <a id="__codelineno-0-420" name="__codelineno-0-420"></a>
 <a id="__codelineno-0-421" name="__codelineno-0-421"></a>    <span class="k">return</span> <span class="n">walk</span><span class="p">,</span> <span class="n">selected_gene_path_v</span><span class="p">,</span> <span class="n">selected_gene_path_j</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.gene_variation" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">gene_variation</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.gene_variation" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">gene_variation</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span></code>
 
 </h3>
 
@@ -2312,9 +2332,9 @@ at each step that both the selected V and J genes were seen used by that specifi
 :param cdr3:
 :return:</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-519">519</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-519">519</a></span>
 <span class="normal"><a href="#__codelineno-0-520">520</a></span>
 <span class="normal"><a href="#__codelineno-0-521">521</a></span>
 <span class="normal"><a href="#__codelineno-0-522">522</a></span>
@@ -2374,17 +2394,18 @@ at each step that both the selected V and J genes were seen used by that specifi
 <a id="__codelineno-0-547" name="__codelineno-0-547"></a>         <span class="s1">&#39;sp&#39;</span><span class="p">:</span> <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span> <span class="o">+</span> <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)})</span>
 <a id="__codelineno-0-548" name="__codelineno-0-548"></a>    <span class="k">return</span> <span class="n">j_df</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.path_gene_table" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">path_gene_table</span><span class="p">(</span><span class="n">cdr3_sample</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.path_gene_table" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">path_gene_table</span><span class="p">(</span><span class="n">cdr3_sample</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 </h3>
 
@@ -2397,9 +2418,9 @@ at each step that both the selected V and J genes were seen used by that specifi
 :param threshold: drop genes that are missing from threshold % of the sequence
 :return:</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-493">493</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-493">493</a></span>
 <span class="normal"><a href="#__codelineno-0-494">494</a></span>
 <span class="normal"><a href="#__codelineno-0-495">495</a></span>
 <span class="normal"><a href="#__codelineno-0-496">496</a></span>
@@ -2447,17 +2468,18 @@ at each step that both the selected V and J genes were seen used by that specifi
 <a id="__codelineno-0-515" name="__codelineno-0-515"></a>
 <a id="__codelineno-0-516" name="__codelineno-0-516"></a>    <span class="k">return</span> <span class="n">vgene_table</span><span class="p">,</span><span class="n">jgene_table</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.sequence_variation_curve" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">sequence_variation_curve</span><span class="p">(</span><span class="n">cdr3_sample</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.sequence_variation_curve" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">sequence_variation_curve</span><span class="p">(</span><span class="n">cdr3_sample</span><span class="p">)</span></code>
 
 </h3>
 
@@ -2470,9 +2492,9 @@ of possible choices that can be made at each sub-pattern
 :param cdr3_sample:
 :return:</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-481">481</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-481">481</a></span>
 <span class="normal"><a href="#__codelineno-0-482">482</a></span>
 <span class="normal"><a href="#__codelineno-0-483">483</a></span>
 <span class="normal"><a href="#__codelineno-0-484">484</a></span>
@@ -2494,17 +2516,18 @@ of possible choices that can be made at each sub-pattern
 <a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="n">curve</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">out_degree</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">encoded</span><span class="p">]</span>
 <a id="__codelineno-0-491" name="__codelineno-0-491"></a>    <span class="k">return</span> <span class="n">encoded</span><span class="p">,</span><span class="n">curve</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.unsupervised_random_walk" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">unsupervised_random_walk</span><span class="p">()</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.unsupervised_random_walk" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">unsupervised_random_walk</span><span class="p">()</span></code>
 
 </h3>
 
@@ -2521,9 +2544,9 @@ carried out until the randomly selected terminal state is reached.</p>
               matching the walk only translated back into a sequence.
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-423">423</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-423">423</a></span>
 <span class="normal"><a href="#__codelineno-0-424">424</a></span>
 <span class="normal"><a href="#__codelineno-0-425">425</a></span>
 <span class="normal"><a href="#__codelineno-0-426">426</a></span>
@@ -2573,17 +2596,18 @@ carried out until the randomly selected terminal state is reached.</p>
 <a id="__codelineno-0-446" name="__codelineno-0-446"></a>        <span class="n">sequence</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">clean_node</span><span class="p">(</span><span class="n">current_state</span><span class="p">)</span>
 <a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="k">return</span> <span class="n">walk</span><span class="p">,</span> <span class="n">sequence</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.walk_genes" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">walk_genes</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.walk_genes" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">walk_genes</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span> <span class="n">dropna</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 </h3>
 
@@ -2596,9 +2620,9 @@ carried out until the randomly selected terminal state is reached.</p>
 :param dropna:
 :return:</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-449">449</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-449">449</a></span>
 <span class="normal"><a href="#__codelineno-0-450">450</a></span>
 <span class="normal"><a href="#__codelineno-0-451">451</a></span>
 <span class="normal"><a href="#__codelineno-0-452">452</a></span>
@@ -2660,17 +2684,18 @@ carried out until the randomly selected terminal state is reached.</p>
 <a id="__codelineno-0-478" name="__codelineno-0-478"></a>
 <a id="__codelineno-0-479" name="__codelineno-0-479"></a>    <span class="k">return</span> <span class="n">cc</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h3 id="LZGraphs.NucleotideDoublePositional.NDPLZGraph.walk_probability" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">walk_probability</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph.walk_probability" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">walk_probability</span><span class="p">(</span><span class="n">walk</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 </h3>
 
@@ -2688,9 +2713,9 @@ sequence into LZ sub-patterns</p>
              float : the probability of generating such a walk (PGEN)
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-263">263</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#__codelineno-0-264">264</a></span>
 <span class="normal"><a href="#__codelineno-0-265">265</a></span>
 <span class="normal"><a href="#__codelineno-0-266">266</a></span>
@@ -2748,7 +2773,7 @@ sequence into LZ sub-patterns</p>
 <a id="__codelineno-0-290" name="__codelineno-0-290"></a>            <span class="k">return</span> <span class="mi">0</span>
 <a id="__codelineno-0-291" name="__codelineno-0-291"></a>    <span class="k">return</span> <span class="n">proba</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -2759,15 +2784,17 @@ sequence into LZ sub-patterns</p>
 
   </div>
 
+
 </div>
+
 
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.NucleotideDoublePositional.derive_lz_reading_frame_position" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">derive_lz_reading_frame_position</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Graphs.NucleotideDoublePositional.derive_lz_reading_frame_position" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">derive_lz_reading_frame_position</span><span class="p">(</span><span class="n">cdr3</span><span class="p">)</span></code>
 
 </h2>
 
@@ -2783,9 +2810,9 @@ and the start position in the sequence of each sub-patterns in the form of 3 lis
              (list,list,list) : (lz_subpatterns,reading_frame_position,position_in_sequence)
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NucleotideDoublePositional.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-15">15</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\NucleotideDoublePositional.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-15">15</a></span>
 <span class="normal"><a href="#__codelineno-0-16">16</a></span>
 <span class="normal"><a href="#__codelineno-0-17">17</a></span>
 <span class="normal"><a href="#__codelineno-0-18">18</a></span>
@@ -2825,7 +2852,7 @@ and the start position in the sequence of each sub-patterns in the form of 3 lis
 <a id="__codelineno-0-33" name="__codelineno-0-33"></a>        <span class="n">rf</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">agg</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">sp</span><span class="p">))</span> <span class="o">%</span> <span class="mi">3</span><span class="p">)</span>
 <a id="__codelineno-0-34" name="__codelineno-0-34"></a>    <span class="k">return</span> <span class="n">lzc</span><span class="p">,</span> <span class="n">rf</span><span class="p">,</span> <span class="n">cumlen</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -2837,6 +2864,13 @@ and the start position in the sequence of each sub-patterns in the form of 3 lis
   </div>
 
 </div>
+
+
+
+
+
+
+
 
 
 
@@ -2847,6 +2881,7 @@ and the start position in the sequence of each sub-patterns in the form of 3 lis
             </div>
           
           
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
       </main>
@@ -2874,10 +2909,11 @@ and the start position in the sequence of each sub-patterns in the form of 3 lis
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ba449ae6.min.js"></script>
+      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
       
     
   </body>
