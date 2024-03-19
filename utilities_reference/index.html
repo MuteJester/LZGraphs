@@ -14,8 +14,9 @@
       
         <link rel="next" href="../nodedgesaturation_reference/">
       
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
     
     
       
@@ -23,14 +24,14 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.6b71719e.min.css">
-      
-        
-        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
       
       
 
+
     
+    
+      
     
     
       
@@ -54,14 +55,8 @@
   </head>
   
   
-    
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+    <body dir="ltr">
   
-    
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -69,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#LZGraphs.Utilities" class="md-skip">
+        <a href="#src.LZGraphs.Utilities.Utilities" class="md-skip">
           Skip to content
         </a>
       
@@ -81,7 +76,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
       
@@ -90,6 +87,7 @@
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -110,8 +108,12 @@
     </div>
     
     
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
     
       <label class="md-header__button md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
@@ -120,12 +122,15 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -137,7 +142,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
@@ -182,14 +188,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-        Welcome to LZGraph Docs
+        
+  
+  <span class="md-ellipsis">
+    Welcome to LZGraphs Documentation
+  </span>
+  
+
       </a>
     </li>
   
@@ -197,14 +208,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../tutorials/" class="md-nav__link">
-        Tutorials
+        
+  
+  <span class="md-ellipsis">
+    Tutorials for LZGraphs
+  </span>
+  
+
       </a>
     </li>
   
@@ -212,14 +228,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../metrics_reference/" class="md-nav__link">
-        LZ Metrics
+        
+  
+  <span class="md-ellipsis">
+    LZ Metrics
+  </span>
+  
+
       </a>
     </li>
   
@@ -227,14 +248,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
-        Misc Functions
+        
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -242,14 +268,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../visualize_reference/" class="md-nav__link">
-        Visualize Functions
+        
+  
+  <span class="md-ellipsis">
+    Visualize Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -257,26 +288,37 @@
     
       
       
-      
-
   
   
     
   
   
+  
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          Utilities Functions
+          
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        Utilities Functions
+        
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
       </a>
       
         
@@ -293,29 +335,37 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities" class="md-nav__link">
-    LZGraphs.Utilities
+  <a href="#src.LZGraphs.Utilities.Utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utilities
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities.graph_union" class="md-nav__link">
-    graph_union()
+  <a href="#src.LZGraphs.Utilities.Utilities.graph_union" class="md-nav__link">
+    <span class="md-ellipsis">
+      graph_union
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities.renormalize_edege_genes" class="md-nav__link">
-    renormalize_edege_genes()
+  <a href="#src.LZGraphs.Utilities.Utilities.renormalize_edege_genes" class="md-nav__link">
+    <span class="md-ellipsis">
+      renormalize_edege_genes
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities.restore_gene_counts" class="md-nav__link">
-    restore_gene_counts()
+  <a href="#src.LZGraphs.Utilities.Utilities.restore_gene_counts" class="md-nav__link">
+    <span class="md-ellipsis">
+      restore_gene_counts
+    </span>
   </a>
   
 </li>
@@ -330,14 +380,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../nodedgesaturation_reference/" class="md-nav__link">
-        Node Edge Saturation Functions
+        
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -345,14 +400,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../bowencoder_reference/" class="md-nav__link">
-        BOW Encoder Functions
+        
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -360,14 +420,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../lzgraphbase_reference/" class="md-nav__link">
-        LZGraph Base Class
+        
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -375,14 +440,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../ndplgraph_reference/" class="md-nav__link">
-        NDPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -390,14 +460,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../aaplzgraph_reference/" class="md-nav__link">
-        AAPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    AAPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -428,29 +503,37 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities" class="md-nav__link">
-    LZGraphs.Utilities
+  <a href="#src.LZGraphs.Utilities.Utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      Utilities
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities.graph_union" class="md-nav__link">
-    graph_union()
+  <a href="#src.LZGraphs.Utilities.Utilities.graph_union" class="md-nav__link">
+    <span class="md-ellipsis">
+      graph_union
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities.renormalize_edege_genes" class="md-nav__link">
-    renormalize_edege_genes()
+  <a href="#src.LZGraphs.Utilities.Utilities.renormalize_edege_genes" class="md-nav__link">
+    <span class="md-ellipsis">
+      renormalize_edege_genes
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.Utilities.restore_gene_counts" class="md-nav__link">
-    restore_gene_counts()
+  <a href="#src.LZGraphs.Utilities.Utilities.restore_gene_counts" class="md-nav__link">
+    <span class="md-ellipsis">
+      restore_gene_counts
+    </span>
   </a>
   
 </li>
@@ -470,13 +553,13 @@
                   
 
 
-
   <h1>Utilities Functions</h1>
 
 <div class="doc doc-object doc-module">
 
 
-<a id="LZGraphs.Utilities"></a>
+
+<a id="src.LZGraphs.Utilities.Utilities"></a>
   <div class="doc doc-contents first">
 
   
@@ -491,12 +574,13 @@
 
 
 
+
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.Utilities.graph_union" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">graph_union</span><span class="p">(</span><span class="n">graphA</span><span class="p">,</span> <span class="n">graphB</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.Utilities.graph_union" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">graph_union</span><span class="p">(</span><span class="n">graphA</span><span class="p">,</span> <span class="n">graphB</span><span class="p">)</span></code>
 
 </h2>
 
@@ -513,9 +597,9 @@ The result is logically equal to constructing a graph out of the union sequences
              LZGraph: The resulting LZGraph from the union of graphA and graphB
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\Utilities.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-59"> 59</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\Utilities.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-59"> 59</a></span>
 <span class="normal"><a href="#__codelineno-0-60"> 60</a></span>
 <span class="normal"><a href="#__codelineno-0-61"> 61</a></span>
 <span class="normal"><a href="#__codelineno-0-62"> 62</a></span>
@@ -731,17 +815,18 @@ The result is logically equal to constructing a graph out of the union sequences
 <a id="__codelineno-0-165" name="__codelineno-0-165"></a>
 <a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="n">graphA</span><span class="o">.</span><span class="n">graph</span> <span class="o">=</span> <span class="n">union_graph</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.Utilities.renormalize_edege_genes" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">renormalize_edege_genes</span><span class="p">(</span><span class="n">column</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.Utilities.renormalize_edege_genes" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">renormalize_edege_genes</span><span class="p">(</span><span class="n">column</span><span class="p">)</span></code>
 
 </h2>
 
@@ -755,9 +840,9 @@ of observed v / j genes/alleles.
                 Returns:
                     pandas Series: padnas series of v and j counts instead of probabilites</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\Utilities.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-34">34</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\Utilities.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-34">34</a></span>
 <span class="normal"><a href="#__codelineno-0-35">35</a></span>
 <span class="normal"><a href="#__codelineno-0-36">36</a></span>
 <span class="normal"><a href="#__codelineno-0-37">37</a></span>
@@ -805,17 +890,18 @@ of observed v / j genes/alleles.
 <a id="__codelineno-0-56" name="__codelineno-0-56"></a>
 <a id="__codelineno-0-57" name="__codelineno-0-57"></a>    <span class="k">return</span> <span class="n">column</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.Utilities.restore_gene_counts" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">restore_gene_counts</span><span class="p">(</span><span class="n">column</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.Utilities.restore_gene_counts" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">restore_gene_counts</span><span class="p">(</span><span class="n">column</span><span class="p">)</span></code>
 
 </h2>
 
@@ -829,9 +915,9 @@ edge back to a count vector.
                 Returns:
                     pandas Series: padnas series of v and j counts instead of probabilites</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\Utilities.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\Utilities.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-9"> 9</a></span>
 <span class="normal"><a href="#__codelineno-0-10">10</a></span>
 <span class="normal"><a href="#__codelineno-0-11">11</a></span>
 <span class="normal"><a href="#__codelineno-0-12">12</a></span>
@@ -879,7 +965,7 @@ edge back to a count vector.
 <a id="__codelineno-0-31" name="__codelineno-0-31"></a>
 <a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="k">return</span> <span class="n">column</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -891,6 +977,13 @@ edge back to a count vector.
   </div>
 
 </div>
+
+
+
+
+
+
+
 
 
 
@@ -901,6 +994,7 @@ edge back to a count vector.
             </div>
           
           
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
       </main>
@@ -928,10 +1022,11 @@ edge back to a count vector.
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ba449ae6.min.js"></script>
+      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
       
     
   </body>

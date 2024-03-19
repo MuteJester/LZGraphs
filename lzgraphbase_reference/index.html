@@ -14,8 +14,9 @@
       
         <link rel="next" href="../ndplgraph_reference/">
       
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
     
     
       
@@ -23,14 +24,14 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.6b71719e.min.css">
-      
-        
-        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
       
       
 
+
     
+    
+      
     
     
       
@@ -54,14 +55,8 @@
   </head>
   
   
-    
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+    <body dir="ltr">
   
-    
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -69,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#LZGraphs.LZGraphBase" class="md-skip">
+        <a href="#src.LZGraphs.Graphs.LZGraphBase" class="md-skip">
           Skip to content
         </a>
       
@@ -81,7 +76,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
       
@@ -90,6 +87,7 @@
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -110,8 +108,12 @@
     </div>
     
     
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
     
       <label class="md-header__button md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
@@ -120,12 +122,15 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -137,7 +142,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
@@ -182,14 +188,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-        Welcome to LZGraph Docs
+        
+  
+  <span class="md-ellipsis">
+    Welcome to LZGraphs Documentation
+  </span>
+  
+
       </a>
     </li>
   
@@ -197,14 +208,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../tutorials/" class="md-nav__link">
-        Tutorials
+        
+  
+  <span class="md-ellipsis">
+    Tutorials for LZGraphs
+  </span>
+  
+
       </a>
     </li>
   
@@ -212,14 +228,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../metrics_reference/" class="md-nav__link">
-        LZ Metrics
+        
+  
+  <span class="md-ellipsis">
+    LZ Metrics
+  </span>
+  
+
       </a>
     </li>
   
@@ -227,14 +248,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
-        Misc Functions
+        
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -242,14 +268,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../visualize_reference/" class="md-nav__link">
-        Visualize Functions
+        
+  
+  <span class="md-ellipsis">
+    Visualize Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -257,14 +288,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../utilities_reference/" class="md-nav__link">
-        Utilities Functions
+        
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -272,14 +308,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../nodedgesaturation_reference/" class="md-nav__link">
-        Node Edge Saturation Functions
+        
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -287,14 +328,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../bowencoder_reference/" class="md-nav__link">
-        BOW Encoder Functions
+        
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -302,26 +348,37 @@
     
       
       
-      
-
   
   
     
   
   
+  
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          LZGraph Base Class
+          
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        LZGraph Base Class
+        
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
       </a>
       
         
@@ -338,79 +395,116 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase" class="md-nav__link">
-    LZGraphs.LZGraphBase
+  <a href="#src.LZGraphs.Graphs.LZGraphBase" class="md-nav__link">
+    <span class="md-ellipsis">
+      LZGraphBase
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.__eq__" class="md-nav__link">
-    __eq__()
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase" class="md-nav__link">
+    <span class="md-ellipsis">
+      LZGraphBase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LZGraphBase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.__eq__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __eq__
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.clean_node" class="md-nav__link">
-    clean_node()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.clean_node" class="md-nav__link">
+    <span class="md-ellipsis">
+      clean_node
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.drop_isolates" class="md-nav__link">
-    drop_isolates()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.drop_isolates" class="md-nav__link">
+    <span class="md-ellipsis">
+      drop_isolates
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.encode_sequence" class="md-nav__link">
-    encode_sequence()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.encode_sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      encode_sequence
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.genomic_random_walk" class="md-nav__link">
-    genomic_random_walk()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.genomic_random_walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      genomic_random_walk
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.graph_summary" class="md-nav__link">
-    graph_summary()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.graph_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      graph_summary
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.is_dag" class="md-nav__link">
-    is_dag()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.is_dag" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_dag
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.isolates" class="md-nav__link">
-    isolates()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.isolates" class="md-nav__link">
+    <span class="md-ellipsis">
+      isolates
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.random_step" class="md-nav__link">
-    random_step()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.random_step" class="md-nav__link">
+    <span class="md-ellipsis">
+      random_step
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.voterank" class="md-nav__link">
-    voterank()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.voterank" class="md-nav__link">
+    <span class="md-ellipsis">
+      voterank
+    </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -424,14 +518,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../ndplgraph_reference/" class="md-nav__link">
-        NDPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -439,14 +538,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../aaplzgraph_reference/" class="md-nav__link">
-        AAPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    AAPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -477,79 +581,116 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase" class="md-nav__link">
-    LZGraphs.LZGraphBase
+  <a href="#src.LZGraphs.Graphs.LZGraphBase" class="md-nav__link">
+    <span class="md-ellipsis">
+      LZGraphBase
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.__eq__" class="md-nav__link">
-    __eq__()
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase" class="md-nav__link">
+    <span class="md-ellipsis">
+      LZGraphBase
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LZGraphBase">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.__eq__" class="md-nav__link">
+    <span class="md-ellipsis">
+      __eq__
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.clean_node" class="md-nav__link">
-    clean_node()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.clean_node" class="md-nav__link">
+    <span class="md-ellipsis">
+      clean_node
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.drop_isolates" class="md-nav__link">
-    drop_isolates()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.drop_isolates" class="md-nav__link">
+    <span class="md-ellipsis">
+      drop_isolates
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.encode_sequence" class="md-nav__link">
-    encode_sequence()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.encode_sequence" class="md-nav__link">
+    <span class="md-ellipsis">
+      encode_sequence
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.genomic_random_walk" class="md-nav__link">
-    genomic_random_walk()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.genomic_random_walk" class="md-nav__link">
+    <span class="md-ellipsis">
+      genomic_random_walk
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.graph_summary" class="md-nav__link">
-    graph_summary()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.graph_summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      graph_summary
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.is_dag" class="md-nav__link">
-    is_dag()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.is_dag" class="md-nav__link">
+    <span class="md-ellipsis">
+      is_dag
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.isolates" class="md-nav__link">
-    isolates()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.isolates" class="md-nav__link">
+    <span class="md-ellipsis">
+      isolates
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.random_step" class="md-nav__link">
-    random_step()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.random_step" class="md-nav__link">
+    <span class="md-ellipsis">
+      random_step
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.LZGraphBase.LZGraphBase.voterank" class="md-nav__link">
-    voterank()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.voterank" class="md-nav__link">
+    <span class="md-ellipsis">
+      voterank
+    </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -568,134 +709,77 @@
                   
 
 
-
   <h1>LZGraph Base Class</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="src.LZGraphs.Graphs.LZGraphBase"></a>
+  <div class="doc doc-contents first">
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
 
 <div class="doc doc-object doc-class">
 
 
-<a id="LZGraphs.LZGraphBase"></a>
-  <div class="doc doc-contents first">
+
+<h2 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase" class="doc doc-heading">
+          <code>LZGraphBase</code>
+
+
+</h2>
+
+
+  <div class="doc doc-contents ">
 
   
       <p>This abstract class provides the base functionality and attributes shared between the different LZGraphs
 (excluding the Naive LZGraph).</p>
+      <p>Attributes:</p>
+<div class="highlight"><pre><span></span><code>constructor_start_time (int): An integer recording the time in seconds the constructor was initiated
+(returned via the python time library time function)
+graph (netowrkx.DiGraph): An empty DiGraph based on the networkx library, this object will keep the information
+we derive throughout the constructor routine
+genetic (bool): if True this flag will allow genetic function to be used as V and J annotation were provoided
+along with the sequences. False means no genetic information is encoded into the graph.
+genetic_walks_black_list (dict): This dictionary maps (edge / edge+vj) to another edge that leads a
+generated random walk to a &quot;dead-end&quot; as no more steps can be taken due to missing v/j information.
+(this applies only to genomic random walk where the randomly selected v and j genes have to appear at each edge).
+The more sequences are generated by a particular LZGraph the more dead ends will be found, the quicker
+the sequences will be generated.
+n_subpatterns (int):  The total number of sequences used to construct the LZGraph.
+initial_states (dict): A dictionary containing all initial state and the number of time each one of them
+was observed.
+terminal_states (dict): A dictionary containing all terminal state and the number of time each one of them
+was observed.
+initial_states_probability (pd.Series): A pandas series containing the normalized counts of the initial
+states.
+lengths (dict): a dictionary that maps the different observed sequences length to the number of time
+that length has been observed.
+cac_graphs (dict): This is dictionary used to keep different sub-graphs based on the condition in the
+key, currently deprecated.
+n_transitions (int): The total number of transition observed while constructing the graph.
+n_neighbours (dict): Keep track of the number of neighbours given a certain condition in the key.
+currently deprecated.
+length_distribution_proba (pd.Series): A pandas series mapping sequence length to a probability value
+based on the sequence used to construct the LZGraph.
+subpattern_individual_probability (pd.Series): A pandas series mapping the different graph nodes to the
+emperical probability of observing that specific node independent of the graph structure.
+</code></pre></div>
 
-  <p><strong>Attributes:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>constructor_start_time</code></td>
-          <td>
-                <code>int</code>
-          </td>
-          <td><p>An integer recording the time in seconds the constructor was initiated</p></td>
-        </tr>
-        <tr>
-          <td><code>graph</code></td>
-          <td>
-                <code>netowrkx.<span title="netowrkx.DiGraph">DiGraph</span></code>
-          </td>
-          <td><p>An empty DiGraph based on the networkx library, this object will keep the information</p></td>
-        </tr>
-        <tr>
-          <td><code>genetic</code></td>
-          <td>
-                <code>bool</code>
-          </td>
-          <td><p>if True this flag will allow genetic function to be used as V and J annotation were provoided</p></td>
-        </tr>
-        <tr>
-          <td><code>genetic_walks_black_list</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>This dictionary maps (edge / edge+vj) to another edge that leads a</p></td>
-        </tr>
-        <tr>
-          <td><code>n_subpatterns</code></td>
-          <td>
-                <code>int</code>
-          </td>
-          <td><p>The total number of sequences used to construct the LZGraph.</p></td>
-        </tr>
-        <tr>
-          <td><code>initial_states</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>A dictionary containing all initial state and the number of time each one of them</p></td>
-        </tr>
-        <tr>
-          <td><code>terminal_states</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>A dictionary containing all terminal state and the number of time each one of them</p></td>
-        </tr>
-        <tr>
-          <td><code>initial_states_probability</code></td>
-          <td>
-                <code><span title="pandas">pd</span>.<span title="pandas.Series">Series</span></code>
-          </td>
-          <td><p>A pandas series containing the normalized counts of the initial</p></td>
-        </tr>
-        <tr>
-          <td><code>lengths</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>a dictionary that maps the different observed sequences length to the number of time</p></td>
-        </tr>
-        <tr>
-          <td><code>cac_graphs</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>This is dictionary used to keep different sub-graphs based on the condition in the</p></td>
-        </tr>
-        <tr>
-          <td><code>n_transitions</code></td>
-          <td>
-                <code>int</code>
-          </td>
-          <td><p>The total number of transition observed while constructing the graph.</p></td>
-        </tr>
-        <tr>
-          <td><code>n_neighbours</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>Keep track of the number of neighbours given a certain condition in the key.</p></td>
-        </tr>
-        <tr>
-          <td><code>length_distribution_proba</code></td>
-          <td>
-                <code><span title="pandas">pd</span>.<span title="pandas.Series">Series</span></code>
-          </td>
-          <td><p>A pandas series mapping sequence length to a probability value</p></td>
-        </tr>
-        <tr>
-          <td><code>subpattern_individual_probability</code></td>
-          <td>
-                <code><span title="pandas">pd</span>.<span title="pandas.Series">Series</span></code>
-          </td>
-          <td><p>A pandas series mapping the different graph nodes to the</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-
-        <details class="quote">
-          <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-12"> 12</a></span>
+            <details class="quote">
+              <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-12"> 12</a></span>
 <span class="normal"><a href="#__codelineno-0-13"> 13</a></span>
 <span class="normal"><a href="#__codelineno-0-14"> 14</a></span>
 <span class="normal"><a href="#__codelineno-0-15"> 15</a></span>
@@ -1795,7 +1879,7 @@
 <a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="k">def</span> <span class="nf">_derive_subpattern_individual_probability</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="n">weight_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">nx</span><span class="o">.</span><span class="n">get_edge_attributes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="s1">&#39;weight&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
 <a id="__codelineno-0-361" name="__codelineno-0-361"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">subpattern_individual_probability</span> <span class="o">=</span> <span class="n">weight_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s1">&#39;level_0&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s1">&#39;proba&#39;</span><span class="p">})</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">subpattern_individual_probability</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subpattern_individual_probability</span><span class="o">.</span><span class="n">proba</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">subpattern_individual_probability</span><span class="o">.</span><span class="n">proba</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subpattern_individual_probability</span><span class="o">.</span><span class="n">proba</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 <a id="__codelineno-0-363" name="__codelineno-0-363"></a>
 <a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="k">def</span> <span class="nf">verbose_driver</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message_number</span><span class="p">,</span> <span class="n">verbose</span><span class="p">):</span>
 <a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">verbose</span><span class="p">:</span>
@@ -2197,7 +2281,7 @@
 <a id="__codelineno-0-761" name="__codelineno-0-761"></a><span class="sd">                        &quot;&quot;&quot;</span>
 <a id="__codelineno-0-762" name="__codelineno-0-762"></a>        <span class="k">return</span> <span class="n">nx</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">voterank</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">number_of_nodes</span><span class="o">=</span><span class="n">n_nodes</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
@@ -2211,40 +2295,26 @@
 
 
 
+
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.__eq__" class="doc doc-heading">
-<code class="highlight language-python"><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.__eq__" class="doc doc-heading">
+          <code class="highlight language-python"><span class="fm">__eq__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
   
-      <p>This method test whether two LZGraph are equal, i.e. have the same node,edges and metadata on the edges.</p>
+      <p>This method test whether two LZGraph are equal, i.e. have the same node,edges and metadata on the edges.
+Returns:
+    bool: True if graph equal else False</p>
 
-  <p><strong>Returns:</strong></p>
-  <table>
-    <thead>
-      <tr>
-<th>Name</th>        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-<td><code>bool</code></td>          <td>
-          </td>
-          <td><p>True if graph equal else False</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
 <span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
 <span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
 <span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
@@ -2312,23 +2382,24 @@
 <a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">else</span><span class="p">:</span>
 <a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="k">return</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.clean_node" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">clean_node</span><span class="p">(</span><span class="n">base</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.clean_node" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">clean_node</span><span class="p">(</span><span class="n">base</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2342,9 +2413,9 @@ only the nucleotides from the string</p>
             str : only the nucleotides of the node
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-129">129</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-129">129</a></span>
 <span class="normal"><a href="#__codelineno-0-130">130</a></span>
 <span class="normal"><a href="#__codelineno-0-131">131</a></span>
 <span class="normal"><a href="#__codelineno-0-132">132</a></span>
@@ -2370,19 +2441,20 @@ only the nucleotides from the string</p>
 <a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd"> &quot;&quot;&quot;</span>
 <a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[ATGC]*&#39;</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.drop_isolates" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">drop_isolates</span><span class="p">()</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.drop_isolates" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">drop_isolates</span><span class="p">()</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2395,9 +2467,9 @@ only the nucleotides from the string</p>
             None
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-710">710</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-710">710</a></span>
 <span class="normal"><a href="#__codelineno-0-711">711</a></span>
 <span class="normal"><a href="#__codelineno-0-712">712</a></span>
 <span class="normal"><a href="#__codelineno-0-713">713</a></span>
@@ -2419,23 +2491,24 @@ only the nucleotides from the string</p>
 <a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">              &quot;&quot;&quot;</span>
 <a id="__codelineno-0-720" name="__codelineno-0-720"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">remove_nodes_from</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">isolates</span><span class="p">())</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.encode_sequence" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.encode_sequence" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2451,9 +2524,9 @@ returned list are connect by an edge.</p>
             list : a list of unique sub-patterns
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-113">113</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-113">113</a></span>
 <span class="normal"><a href="#__codelineno-0-114">114</a></span>
 <span class="normal"><a href="#__codelineno-0-115">115</a></span>
 <span class="normal"><a href="#__codelineno-0-116">116</a></span>
@@ -2483,19 +2556,20 @@ returned list are connect by an edge.</p>
 <a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">   &quot;&quot;&quot;</span>
 <a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="k">raise</span> <span class="ne">NotImplementedError</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.genomic_random_walk" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">genomic_random_walk</span><span class="p">(</span><span class="n">initial_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vj_init</span><span class="o">=</span><span class="s1">&#39;marginal&#39;</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.genomic_random_walk" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">genomic_random_walk</span><span class="p">(</span><span class="n">initial_state</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">vj_init</span><span class="o">=</span><span class="s1">&#39;marginal&#39;</span><span class="p">)</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2506,9 +2580,9 @@ generate a walk on the graph from the initial state to a terminal state while ma
 at each step that both the selected V and J genes were seen used by that specific sub-pattern.</p>
 <p>if seq_len is equal to "unsupervised" than a random seq len will be returned</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-268">268</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-268">268</a></span>
 <span class="normal"><a href="#__codelineno-0-269">269</a></span>
 <span class="normal"><a href="#__codelineno-0-270">270</a></span>
 <span class="normal"><a href="#__codelineno-0-271">271</a></span>
@@ -2608,19 +2682,20 @@ at each step that both the selected V and J genes were seen used by that specifi
 <a id="__codelineno-0-316" name="__codelineno-0-316"></a>
 <a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="k">return</span> <span class="n">walk</span><span class="p">,</span> <span class="n">selected_v</span><span class="p">,</span> <span class="n">selected_j</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.graph_summary" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">graph_summary</span><span class="p">()</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.graph_summary" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">graph_summary</span><span class="p">()</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2628,9 +2703,9 @@ at each step that both the selected V and J genes were seen used by that specifi
       <p>the function will return a pandas DataFrame containing the graphs
   Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-738">738</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-738">738</a></span>
 <span class="normal"><a href="#__codelineno-0-739">739</a></span>
 <span class="normal"><a href="#__codelineno-0-740">740</a></span>
 <span class="normal"><a href="#__codelineno-0-741">741</a></span>
@@ -2656,19 +2731,20 @@ at each step that both the selected V and J genes were seen used by that specifi
 <a id="__codelineno-0-749" name="__codelineno-0-749"></a>    <span class="p">})</span>
 <a id="__codelineno-0-750" name="__codelineno-0-750"></a>    <span class="k">return</span> <span class="n">R</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.is_dag" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">is_dag</span><span class="p">()</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.is_dag" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">is_dag</span><span class="p">()</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2677,9 +2753,9 @@ at each step that both the selected V and J genes were seen used by that specifi
 <div class="highlight"><pre><span></span><code>:return:
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-722">722</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-722">722</a></span>
 <span class="normal"><a href="#__codelineno-0-723">723</a></span>
 <span class="normal"><a href="#__codelineno-0-724">724</a></span>
 <span class="normal"><a href="#__codelineno-0-725">725</a></span>
@@ -2693,19 +2769,20 @@ at each step that both the selected V and J genes were seen used by that specifi
 <a id="__codelineno-0-727" name="__codelineno-0-727"></a><span class="sd">           &quot;&quot;&quot;</span>
 <a id="__codelineno-0-728" name="__codelineno-0-728"></a>    <span class="k">return</span> <span class="n">nx</span><span class="o">.</span><span class="n">is_directed_acyclic_graph</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.isolates" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">isolates</span><span class="p">()</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.isolates" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">isolates</span><span class="p">()</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2719,9 +2796,9 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
             list : a list of isolates
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-697">697</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-697">697</a></span>
 <span class="normal"><a href="#__codelineno-0-698">698</a></span>
 <span class="normal"><a href="#__codelineno-0-699">699</a></span>
 <span class="normal"><a href="#__codelineno-0-700">700</a></span>
@@ -2745,19 +2822,20 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
 <a id="__codelineno-0-707" name="__codelineno-0-707"></a><span class="sd">                &quot;&quot;&quot;</span>
 <a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">nx</span><span class="o">.</span><span class="n">isolates</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.random_step" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">random_step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.random_step" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">random_step</span><span class="p">(</span><span class="n">state</span><span class="p">)</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2766,9 +2844,9 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
 :param state:
 :return:</p>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-402">402</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-402">402</a></span>
 <span class="normal"><a href="#__codelineno-0-403">403</a></span>
 <span class="normal"><a href="#__codelineno-0-404">404</a></span>
 <span class="normal"><a href="#__codelineno-0-405">405</a></span>
@@ -2784,19 +2862,20 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
 <a id="__codelineno-0-408" name="__codelineno-0-408"></a>    <span class="n">states</span><span class="p">,</span> <span class="n">probabilities</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_state_weights</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
 <a id="__codelineno-0-409" name="__codelineno-0-409"></a>    <span class="k">return</span> <span class="n">choice</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">probabilities</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.LZGraphBase.LZGraphBase.voterank" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">voterank</span><span class="p">(</span><span class="n">n_nodes</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Graphs.LZGraphBase.LZGraphBase.voterank" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">voterank</span><span class="p">(</span><span class="n">n_nodes</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -2809,9 +2888,9 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
              list : a list of top influential nodes
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\LZGraphBase.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-752">752</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Graphs\LZGraphBase.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-752">752</a></span>
 <span class="normal"><a href="#__codelineno-0-753">753</a></span>
 <span class="normal"><a href="#__codelineno-0-754">754</a></span>
 <span class="normal"><a href="#__codelineno-0-755">755</a></span>
@@ -2833,7 +2912,7 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
 <a id="__codelineno-0-761" name="__codelineno-0-761"></a><span class="sd">                    &quot;&quot;&quot;</span>
 <a id="__codelineno-0-762" name="__codelineno-0-762"></a>    <span class="k">return</span> <span class="n">nx</span><span class="o">.</span><span class="n">algorithms</span><span class="o">.</span><span class="n">voterank</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">graph</span><span class="p">,</span> <span class="n">number_of_nodes</span><span class="o">=</span><span class="n">n_nodes</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -2844,7 +2923,24 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
 
   </div>
 
+
 </div>
+
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+
+
 
 
 
@@ -2855,6 +2951,7 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
             </div>
           
           
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
       </main>
@@ -2882,10 +2979,11 @@ an isolate is a node that is connected to 0 edges (unseen sub-pattern).</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ba449ae6.min.js"></script>
+      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
       
     
   </body>

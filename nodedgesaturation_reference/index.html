@@ -14,8 +14,9 @@
       
         <link rel="next" href="../bowencoder_reference/">
       
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
     
     
       
@@ -23,14 +24,14 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.6b71719e.min.css">
-      
-        
-        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
       
       
 
+
     
+    
+      
     
     
       
@@ -54,14 +55,8 @@
   </head>
   
   
-    
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+    <body dir="ltr">
   
-    
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -69,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#LZGraphs.NodeEdgeSaturationProbe" class="md-skip">
+        <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe" class="md-skip">
           Skip to content
         </a>
       
@@ -81,7 +76,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
       
@@ -90,6 +87,7 @@
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -110,8 +108,12 @@
     </div>
     
     
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
     
       <label class="md-header__button md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
@@ -120,12 +122,15 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -137,7 +142,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
@@ -182,14 +188,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-        Welcome to LZGraph Docs
+        
+  
+  <span class="md-ellipsis">
+    Welcome to LZGraphs Documentation
+  </span>
+  
+
       </a>
     </li>
   
@@ -197,14 +208,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../tutorials/" class="md-nav__link">
-        Tutorials
+        
+  
+  <span class="md-ellipsis">
+    Tutorials for LZGraphs
+  </span>
+  
+
       </a>
     </li>
   
@@ -212,14 +228,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../metrics_reference/" class="md-nav__link">
-        LZ Metrics
+        
+  
+  <span class="md-ellipsis">
+    LZ Metrics
+  </span>
+  
+
       </a>
     </li>
   
@@ -227,14 +248,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../misc_reference/" class="md-nav__link">
-        Misc Functions
+        
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -242,14 +268,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../visualize_reference/" class="md-nav__link">
-        Visualize Functions
+        
+  
+  <span class="md-ellipsis">
+    Visualize Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -257,14 +288,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../utilities_reference/" class="md-nav__link">
-        Utilities Functions
+        
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -272,26 +308,37 @@
     
       
       
-      
-
   
   
     
   
   
+  
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          Node Edge Saturation Functions
+          
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        Node Edge Saturation Functions
+        
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
       </a>
       
         
@@ -308,44 +355,71 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe" class="md-nav__link">
-    LZGraphs.NodeEdgeSaturationProbe
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe" class="md-nav__link">
+    <span class="md-ellipsis">
+      NodeEdgeSaturationProbe
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.aap_node_extractor" class="md-nav__link">
-    aap_node_extractor()
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe" class="md-nav__link">
+    <span class="md-ellipsis">
+      NodeEdgeSaturationProbe
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="NodeEdgeSaturationProbe">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.aap_node_extractor" class="md-nav__link">
+    <span class="md-ellipsis">
+      aap_node_extractor
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.naive_node_extractor" class="md-nav__link">
-    naive_node_extractor()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.naive_node_extractor" class="md-nav__link">
+    <span class="md-ellipsis">
+      naive_node_extractor
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.ndp_node_extractor" class="md-nav__link">
-    ndp_node_extractor()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.ndp_node_extractor" class="md-nav__link">
+    <span class="md-ellipsis">
+      ndp_node_extractor
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.resampling_test" class="md-nav__link">
-    resampling_test()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.resampling_test" class="md-nav__link">
+    <span class="md-ellipsis">
+      resampling_test
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.test_sequences" class="md-nav__link">
-    test_sequences()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.test_sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      test_sequences
+    </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -359,14 +433,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../bowencoder_reference/" class="md-nav__link">
-        BOW Encoder Functions
+        
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -374,14 +453,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../lzgraphbase_reference/" class="md-nav__link">
-        LZGraph Base Class
+        
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -389,14 +473,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../ndplgraph_reference/" class="md-nav__link">
-        NDPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -404,14 +493,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../aaplzgraph_reference/" class="md-nav__link">
-        AAPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    AAPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -442,44 +536,71 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe" class="md-nav__link">
-    LZGraphs.NodeEdgeSaturationProbe
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe" class="md-nav__link">
+    <span class="md-ellipsis">
+      NodeEdgeSaturationProbe
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.aap_node_extractor" class="md-nav__link">
-    aap_node_extractor()
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe" class="md-nav__link">
+    <span class="md-ellipsis">
+      NodeEdgeSaturationProbe
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="NodeEdgeSaturationProbe">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.aap_node_extractor" class="md-nav__link">
+    <span class="md-ellipsis">
+      aap_node_extractor
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.naive_node_extractor" class="md-nav__link">
-    naive_node_extractor()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.naive_node_extractor" class="md-nav__link">
+    <span class="md-ellipsis">
+      naive_node_extractor
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.ndp_node_extractor" class="md-nav__link">
-    ndp_node_extractor()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.ndp_node_extractor" class="md-nav__link">
+    <span class="md-ellipsis">
+      ndp_node_extractor
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.resampling_test" class="md-nav__link">
-    resampling_test()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.resampling_test" class="md-nav__link">
+    <span class="md-ellipsis">
+      resampling_test
+    </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.test_sequences" class="md-nav__link">
-    test_sequences()
+        
+          <li class="md-nav__item">
+  <a href="#src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.test_sequences" class="md-nav__link">
+    <span class="md-ellipsis">
+      test_sequences
+    </span>
   </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -498,19 +619,45 @@
                   
 
 
-
   <h1>Node Edge Saturation Functions</h1>
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe"></a>
+  <div class="doc doc-contents first">
+
+  
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
 
 <div class="doc doc-object doc-class">
 
 
-<a id="LZGraphs.NodeEdgeSaturationProbe"></a>
-  <div class="doc doc-contents first">
+
+<h2 id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe" class="doc doc-heading">
+          <code>NodeEdgeSaturationProbe</code>
+
+
+</h2>
+
+
+  <div class="doc doc-contents ">
 
   
       <p>The class supplies methods used to emulate the creation process of an LZGraph without actually running the full
 creation procedure, rather just accumulate a counter for the number of nodes and edges based on the provided
 number of sequences.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -528,39 +675,25 @@ number of sequences.</p>
           <td>
                 <code>str</code>
           </td>
-          <td><p>the selected node extraction method to use 'naive' - emulate Naive LZGraph extraction
-/ 'ndp'- emulate Nucleotide Double Positional LZGraph / 'aap' - Amino Acid Positional LZGraph.</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>the selected node extraction method to use 'naive' - emulate Naive LZGraph extraction
+/ 'ndp'- emulate Nucleotide Double Positional LZGraph / 'aap' - Amino Acid Positional LZGraph.</p>
+            </div>
+          </td>
           <td>
                 <code>&#39;naive&#39;</code>
           </td>
         </tr>
     </tbody>
   </table>
+      <p>Attributes:</p>
+<div class="highlight"><pre><span></span><code>log_memory (dict): a dictionary containing the results of a single test run
+</code></pre></div>
 
-  <p><strong>Attributes:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>log_memory</code></td>
-          <td>
-                <code>dict</code>
-          </td>
-          <td><p>a dictionary containing the results of a single test run</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-
-        <details class="quote">
-          <summary>Source code in <code>LZGraphs\NodeEdgeSaturationProbe.py</code></summary>
-          <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-12"> 12</a></span>
+            <details class="quote">
+              <summary>Source code in <code>src\LZGraphs\Utilities\NodeEdgeSaturationProbe.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-12"> 12</a></span>
 <span class="normal"><a href="#__codelineno-0-13"> 13</a></span>
 <span class="normal"><a href="#__codelineno-0-14"> 14</a></span>
 <span class="normal"><a href="#__codelineno-0-15"> 15</a></span>
@@ -842,7 +975,7 @@ number of sequences.</p>
 <a id="__codelineno-0-151" name="__codelineno-0-151"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
 <a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="k">return</span> <span class="n">result</span>
 </code></pre></div></td></tr></table></div>
-        </details>
+            </details>
 
   
 
@@ -856,68 +989,32 @@ number of sequences.</p>
 
 
 
+
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.aap_node_extractor" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">aap_node_extractor</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.aap_node_extractor" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">aap_node_extractor</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
   
-      <p>This function implements the node extraction procedure used by the Amino Acid Positional LZGraph.</p>
+      <p>This function implements the node extraction procedure used by the Amino Acid Positional LZGraph.
+Args:
+    seq (str): An sequence of nucleotides or amino acids
+Returns:
+    list: a list of nodes extract from the given sequence</p>
 
-  <p><strong>Parameters:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-        <th>Default</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>seq</code></td>
-          <td>
-                <code>str</code>
-          </td>
-          <td><p>An sequence of nucleotides or amino acids</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-    </tbody>
-  </table>
-
-  <p><strong>Returns:</strong></p>
-  <table>
-    <thead>
-      <tr>
-<th>Name</th>        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-<td><code>list</code></td>          <td>
-          </td>
-          <td><p>a list of nodes extract from the given sequence</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NodeEdgeSaturationProbe.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-72">72</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\NodeEdgeSaturationProbe.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-72">72</a></span>
 <span class="normal"><a href="#__codelineno-0-73">73</a></span>
 <span class="normal"><a href="#__codelineno-0-74">74</a></span>
 <span class="normal"><a href="#__codelineno-0-75">75</a></span>
@@ -939,73 +1036,37 @@ number of sequences.</p>
 <a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="n">nodes_local</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">LZ</span><span class="p">,</span> <span class="n">locations</span><span class="p">))</span>
 <a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="k">return</span> <span class="n">nodes_local</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.naive_node_extractor" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">naive_node_extractor</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.naive_node_extractor" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">naive_node_extractor</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
   
-      <p>This function implements the node extraction procedure used by the Naive LZGraph.</p>
+      <p>This function implements the node extraction procedure used by the Naive LZGraph.
+Args:
+    seq (str): An sequence of nucleotides or amino acids
+Returns:
+    list: a list of nodes extract from the given sequence</p>
 
-  <p><strong>Parameters:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-        <th>Default</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>seq</code></td>
-          <td>
-                <code>str</code>
-          </td>
-          <td><p>An sequence of nucleotides or amino acids</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-    </tbody>
-  </table>
-
-  <p><strong>Returns:</strong></p>
-  <table>
-    <thead>
-      <tr>
-<th>Name</th>        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-<td><code>list</code></td>          <td>
-          </td>
-          <td><p>a list of nodes extract from the given sequence</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NodeEdgeSaturationProbe.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-50">50</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\NodeEdgeSaturationProbe.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-50">50</a></span>
 <span class="normal"><a href="#__codelineno-0-51">51</a></span>
 <span class="normal"><a href="#__codelineno-0-52">52</a></span>
 <span class="normal"><a href="#__codelineno-0-53">53</a></span>
@@ -1023,73 +1084,37 @@ number of sequences.</p>
 <a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">       &quot;&quot;&quot;</span>
 <a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="k">return</span> <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.ndp_node_extractor" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">ndp_node_extractor</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.ndp_node_extractor" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">ndp_node_extractor</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span></code>
   
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
   
-      <p>This function implements the node extraction procedure used by the Nucleotide Double Positional LZGraph.</p>
+      <p>This function implements the node extraction procedure used by the Nucleotide Double Positional LZGraph.
+Args:
+    seq (str): An sequence of nucleotides or amino acids
+Returns:
+    list: a list of nodes extract from the given sequence</p>
 
-  <p><strong>Parameters:</strong></p>
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Type</th>
-        <th>Description</th>
-        <th>Default</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-          <td><code>seq</code></td>
-          <td>
-                <code>str</code>
-          </td>
-          <td><p>An sequence of nucleotides or amino acids</p></td>
-          <td>
-              <em>required</em>
-          </td>
-        </tr>
-    </tbody>
-  </table>
-
-  <p><strong>Returns:</strong></p>
-  <table>
-    <thead>
-      <tr>
-<th>Name</th>        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-<td><code>list</code></td>          <td>
-          </td>
-          <td><p>a list of nodes extract from the given sequence</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NodeEdgeSaturationProbe.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-60">60</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\NodeEdgeSaturationProbe.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-60">60</a></span>
 <span class="normal"><a href="#__codelineno-0-61">61</a></span>
 <span class="normal"><a href="#__codelineno-0-62">62</a></span>
 <span class="normal"><a href="#__codelineno-0-63">63</a></span>
@@ -1111,19 +1136,20 @@ number of sequences.</p>
 <a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="n">nodes_local</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">x</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">y</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">LZ</span><span class="p">,</span> <span class="n">POS</span><span class="p">,</span> <span class="n">locations</span><span class="p">))</span>
 <a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="k">return</span> <span class="n">nodes_local</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.resampling_test" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">resampling_test</span><span class="p">(</span><span class="n">sequence_list</span><span class="p">,</span> <span class="n">n_tests</span><span class="p">,</span> <span class="n">log_every</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">sample_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.resampling_test" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">resampling_test</span><span class="p">(</span><span class="n">sequence_list</span><span class="p">,</span> <span class="n">n_tests</span><span class="p">,</span> <span class="n">log_every</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">sample_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -1142,9 +1168,9 @@ the given sequence list.</p>
         list: a list of logs for each realization given by the parameter n_tests
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NodeEdgeSaturationProbe.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-119">119</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\NodeEdgeSaturationProbe.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-119">119</a></span>
 <span class="normal"><a href="#__codelineno-0-120">120</a></span>
 <span class="normal"><a href="#__codelineno-0-121">121</a></span>
 <span class="normal"><a href="#__codelineno-0-122">122</a></span>
@@ -1212,19 +1238,20 @@ the given sequence list.</p>
 <a id="__codelineno-0-151" name="__codelineno-0-151"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_reset</span><span class="p">()</span>
 <a id="__codelineno-0-152" name="__codelineno-0-152"></a>    <span class="k">return</span> <span class="n">result</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.test_sequences" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">test_sequences</span><span class="p">(</span><span class="n">sequence_list</span><span class="p">,</span> <span class="n">log_every</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">iteration_number</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+<h3 id="src.LZGraphs.Utilities.NodeEdgeSaturationProbe.NodeEdgeSaturationProbe.test_sequences" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">test_sequences</span><span class="p">(</span><span class="n">sequence_list</span><span class="p">,</span> <span class="n">log_every</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">iteration_number</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
-</h2>
+</h3>
 
 
   <div class="doc doc-contents ">
@@ -1239,9 +1266,9 @@ LZGraph and log the node and edge counts every K sequences.</p>
         None:
 </code></pre></div>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\NodeEdgeSaturationProbe.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\NodeEdgeSaturationProbe.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
 <span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
 <span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
 <span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
@@ -1299,7 +1326,7 @@ LZGraph and log the node and edge counts every K sequences.</p>
 <a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="k">if</span> <span class="n">ax</span> <span class="o">%</span> <span class="n">log_every</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">ax</span> <span class="o">&gt;=</span> <span class="n">slen</span><span class="p">:</span>
 <a id="__codelineno-0-112" name="__codelineno-0-112"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">ax</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -1310,7 +1337,24 @@ LZGraph and log the node and edge counts every K sequences.</p>
 
   </div>
 
+
 </div>
+
+
+
+
+  </div>
+
+  </div>
+
+</div>
+
+
+
+
+
+
+
 
 
 
@@ -1321,6 +1365,7 @@ LZGraph and log the node and edge counts every K sequences.</p>
             </div>
           
           
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
       </main>
@@ -1348,10 +1393,11 @@ LZGraph and log the node and edge counts every K sequences.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ba449ae6.min.js"></script>
+      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
       
     
   </body>

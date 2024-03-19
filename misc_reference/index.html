@@ -14,8 +14,9 @@
       
         <link rel="next" href="../visualize_reference/">
       
+      
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.0.3">
+      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
     
     
       
@@ -23,14 +24,14 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.6b71719e.min.css">
-      
-        
-        <link rel="stylesheet" href="../assets/stylesheets/palette.2505c338.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
       
       
 
+
     
+    
+      
     
     
       
@@ -54,14 +55,8 @@
   </head>
   
   
-    
-    
-    
-    
-    
-    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="" data-md-color-accent="">
+    <body dir="ltr">
   
-    
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
@@ -69,7 +64,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#LZGraphs.misc" class="md-skip">
+        <a href="#src.LZGraphs.Utilities.misc" class="md-skip">
           Skip to content
         </a>
       
@@ -81,7 +76,9 @@
     
       
 
-<header class="md-header" data-md-component="header">
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
       
@@ -90,6 +87,7 @@
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
+      
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
@@ -110,8 +108,12 @@
     </div>
     
     
+      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
     
       <label class="md-header__button md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
       </label>
       <div class="md-search" data-md-component="search" role="dialog">
@@ -120,12 +122,15 @@
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
         </button>
       </nav>
@@ -137,7 +142,7 @@
           <div class="md-search-result__meta">
             Initializing search
           </div>
-          <ol class="md-search-result__list"></ol>
+          <ol class="md-search-result__list" role="presentation"></ol>
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@
                     
 
 
+
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
     <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
@@ -182,14 +188,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href=".." class="md-nav__link">
-        Welcome to LZGraph Docs
+        
+  
+  <span class="md-ellipsis">
+    Welcome to LZGraphs Documentation
+  </span>
+  
+
       </a>
     </li>
   
@@ -197,14 +208,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../tutorials/" class="md-nav__link">
-        Tutorials
+        
+  
+  <span class="md-ellipsis">
+    Tutorials for LZGraphs
+  </span>
+  
+
       </a>
     </li>
   
@@ -212,14 +228,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../metrics_reference/" class="md-nav__link">
-        LZ Metrics
+        
+  
+  <span class="md-ellipsis">
+    LZ Metrics
+  </span>
+  
+
       </a>
     </li>
   
@@ -227,26 +248,37 @@
     
       
       
-      
-
   
   
     
   
   
+  
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          Misc Functions
+          
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        Misc Functions
+        
+  
+  <span class="md-ellipsis">
+    Misc Functions
+  </span>
+  
+
       </a>
       
         
@@ -263,36 +295,46 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc" class="md-nav__link">
-    LZGraphs.misc
+  <a href="#src.LZGraphs.Utilities.misc" class="md-nav__link">
+    <span class="md-ellipsis">
+      misc
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.choice" class="md-nav__link">
-    choice()
+  <a href="#src.LZGraphs.Utilities.misc.choice" class="md-nav__link">
+    <span class="md-ellipsis">
+      choice
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.chunkify" class="md-nav__link">
-    chunkify()
+  <a href="#src.LZGraphs.Utilities.misc.chunkify" class="md-nav__link">
+    <span class="md-ellipsis">
+      chunkify
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.get_dictionary_subkeys" class="md-nav__link">
-    get_dictionary_subkeys()
+  <a href="#src.LZGraphs.Utilities.misc.get_dictionary_subkeys" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_dictionary_subkeys
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.window" class="md-nav__link">
-    window()
+  <a href="#src.LZGraphs.Utilities.misc.window" class="md-nav__link">
+    <span class="md-ellipsis">
+      window
+    </span>
   </a>
   
 </li>
@@ -307,14 +349,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../visualize_reference/" class="md-nav__link">
-        Visualize Functions
+        
+  
+  <span class="md-ellipsis">
+    Visualize Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -322,14 +369,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../utilities_reference/" class="md-nav__link">
-        Utilities Functions
+        
+  
+  <span class="md-ellipsis">
+    Utilities Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -337,14 +389,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../nodedgesaturation_reference/" class="md-nav__link">
-        Node Edge Saturation Functions
+        
+  
+  <span class="md-ellipsis">
+    Node Edge Saturation Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -352,14 +409,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../bowencoder_reference/" class="md-nav__link">
-        BOW Encoder Functions
+        
+  
+  <span class="md-ellipsis">
+    BOW Encoder Functions
+  </span>
+  
+
       </a>
     </li>
   
@@ -367,14 +429,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../lzgraphbase_reference/" class="md-nav__link">
-        LZGraph Base Class
+        
+  
+  <span class="md-ellipsis">
+    LZGraph Base Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -382,14 +449,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../ndplgraph_reference/" class="md-nav__link">
-        NDPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    NDPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -397,14 +469,19 @@
     
       
       
-      
-
+  
   
   
   
     <li class="md-nav__item">
       <a href="../aaplzgraph_reference/" class="md-nav__link">
-        AAPLZGraph Class
+        
+  
+  <span class="md-ellipsis">
+    AAPLZGraph Class
+  </span>
+  
+
       </a>
     </li>
   
@@ -435,36 +512,46 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc" class="md-nav__link">
-    LZGraphs.misc
+  <a href="#src.LZGraphs.Utilities.misc" class="md-nav__link">
+    <span class="md-ellipsis">
+      misc
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.choice" class="md-nav__link">
-    choice()
+  <a href="#src.LZGraphs.Utilities.misc.choice" class="md-nav__link">
+    <span class="md-ellipsis">
+      choice
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.chunkify" class="md-nav__link">
-    chunkify()
+  <a href="#src.LZGraphs.Utilities.misc.chunkify" class="md-nav__link">
+    <span class="md-ellipsis">
+      chunkify
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.get_dictionary_subkeys" class="md-nav__link">
-    get_dictionary_subkeys()
+  <a href="#src.LZGraphs.Utilities.misc.get_dictionary_subkeys" class="md-nav__link">
+    <span class="md-ellipsis">
+      get_dictionary_subkeys
+    </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#LZGraphs.misc.window" class="md-nav__link">
-    window()
+  <a href="#src.LZGraphs.Utilities.misc.window" class="md-nav__link">
+    <span class="md-ellipsis">
+      window
+    </span>
   </a>
   
 </li>
@@ -484,13 +571,13 @@
                   
 
 
-
   <h1>Misc Functions</h1>
 
 <div class="doc doc-object doc-module">
 
 
-<a id="LZGraphs.misc"></a>
+
+<a id="src.LZGraphs.Utilities.misc"></a>
   <div class="doc doc-contents first">
   
       <p>Provide support for other library functionality.</p>
@@ -516,12 +603,13 @@ any function with no specific scope appears here.</p>
 
 
 
+
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.misc.choice" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">choice</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">probs</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.misc.choice" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">choice</span><span class="p">(</span><span class="n">options</span><span class="p">,</span> <span class="n">probs</span><span class="p">)</span></code>
 
 </h2>
 
@@ -529,6 +617,8 @@ any function with no specific scope appears here.</p>
   <div class="doc doc-contents ">
   
       <p>Choose a single random variable from a list given a probability distribution</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -546,7 +636,11 @@ any function with no specific scope appears here.</p>
           <td>
                 <code>list</code>
           </td>
-          <td><p>The list of values from which a single random one should be chosen</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>The list of values from which a single random one should be chosen</p>
+            </div>
+          </td>
           <td>
               <em>required</em>
           </td>
@@ -556,13 +650,19 @@ any function with no specific scope appears here.</p>
           <td>
                 <code>float</code>
           </td>
-          <td><p>Probability distribution.</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>Probability distribution.</p>
+            </div>
+          </td>
           <td>
               <em>required</em>
           </td>
         </tr>
     </tbody>
   </table>
+
+
 
   <p><strong>Returns:</strong></p>
   <table>
@@ -576,14 +676,18 @@ any function with no specific scope appears here.</p>
         <tr>
 <td><code>element</code></td>          <td>
           </td>
-          <td><p>a random variable from list "options" with probability p in probas.</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>a random variable from list "options" with probability p in probas.</p>
+            </div>
+          </td>
         </tr>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\misc.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-20">20</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\misc.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-20">20</a></span>
 <span class="normal"><a href="#__codelineno-0-21">21</a></span>
 <span class="normal"><a href="#__codelineno-0-22">22</a></span>
 <span class="normal"><a href="#__codelineno-0-23">23</a></span>
@@ -619,17 +723,18 @@ any function with no specific scope appears here.</p>
 <a id="__codelineno-0-36" name="__codelineno-0-36"></a>            <span class="k">break</span>
 <a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="k">return</span> <span class="n">options</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.misc.chunkify" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">chunkify</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.misc.chunkify" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">chunkify</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span></code>
 
 </h2>
 
@@ -637,6 +742,8 @@ any function with no specific scope appears here.</p>
   <div class="doc doc-contents ">
   
       <p>Yield successive n-sized chunks from L.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -654,34 +761,23 @@ any function with no specific scope appears here.</p>
           <td>
                 <code>iterable</code>
           </td>
-          <td><p>An iterable of elements to partition into n-sized chunks</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>An iterable of elements to partition into n-sized chunks</p>
+            </div>
+          </td>
           <td>
               <em>required</em>
           </td>
         </tr>
     </tbody>
   </table>
+      <p>Returns:
+    generator: a generator that will return the next chunck each time its called until all of L is returned.</p>
 
-  <p><strong>Returns:</strong></p>
-  <table>
-    <thead>
-      <tr>
-<th>Name</th>        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-<td><code>generator</code></td>          <td>
-          </td>
-          <td><p>a generator that will return the next chunck each time its called until all of L is returned.</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\misc.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-65">65</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\misc.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-65">65</a></span>
 <span class="normal"><a href="#__codelineno-0-66">66</a></span>
 <span class="normal"><a href="#__codelineno-0-67">67</a></span>
 <span class="normal"><a href="#__codelineno-0-68">68</a></span>
@@ -703,17 +799,18 @@ any function with no specific scope appears here.</p>
 <a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">L</span><span class="p">),</span> <span class="n">n</span><span class="p">):</span>
 <a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="k">yield</span> <span class="n">L</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">n</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.misc.get_dictionary_subkeys" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">get_dictionary_subkeys</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.misc.get_dictionary_subkeys" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">get_dictionary_subkeys</span><span class="p">(</span><span class="n">target</span><span class="p">)</span></code>
 
 </h2>
 
@@ -721,6 +818,8 @@ any function with no specific scope appears here.</p>
   <div class="doc doc-contents ">
   
       <p>Returns a list of all sub dictionary keys.</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -738,34 +837,23 @@ any function with no specific scope appears here.</p>
           <td>
                 <code>dict</code>
           </td>
-          <td><p>a dictionary of dictionaries.</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>a dictionary of dictionaries.</p>
+            </div>
+          </td>
           <td>
               <em>required</em>
           </td>
         </tr>
     </tbody>
   </table>
+      <p>Returns:
+    list: a list of all the keys contained in the sub dictionaries.</p>
 
-  <p><strong>Returns:</strong></p>
-  <table>
-    <thead>
-      <tr>
-<th>Name</th>        <th>Type</th>
-        <th>Description</th>
-      </tr>
-    </thead>
-    <tbody>
-        <tr>
-<td><code>list</code></td>          <td>
-          </td>
-          <td><p>a list of all the keys contained in the sub dictionaries.</p></td>
-        </tr>
-    </tbody>
-  </table>
-
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\misc.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-53">53</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\misc.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-53">53</a></span>
 <span class="normal"><a href="#__codelineno-0-54">54</a></span>
 <span class="normal"><a href="#__codelineno-0-55">55</a></span>
 <span class="normal"><a href="#__codelineno-0-56">56</a></span>
@@ -789,17 +877,18 @@ any function with no specific scope appears here.</p>
 <a id="__codelineno-0-63" name="__codelineno-0-63"></a>        <span class="n">subkeys</span> <span class="o">+=</span><span class="p">[</span><span class="o">*</span><span class="n">target</span><span class="p">[</span><span class="n">key</span><span class="p">]]</span>
 <a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="k">return</span> <span class="n">subkeys</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
 
-<h2 id="LZGraphs.misc.window" class="doc doc-heading">
-<code class="highlight language-python"><span class="n">window</span><span class="p">(</span><span class="n">iterable</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span></code>
+<h2 id="src.LZGraphs.Utilities.misc.window" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">window</span><span class="p">(</span><span class="n">iterable</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span></code>
 
 </h2>
 
@@ -807,6 +896,8 @@ any function with no specific scope appears here.</p>
   <div class="doc doc-contents ">
   
       <p>Return a sliding window generator of size "size".</p>
+
+
 
   <p><strong>Parameters:</strong></p>
   <table>
@@ -824,7 +915,11 @@ any function with no specific scope appears here.</p>
           <td>
                 <code>iterable</code>
           </td>
-          <td><p>An iterable of elements</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>An iterable of elements</p>
+            </div>
+          </td>
           <td>
               <em>required</em>
           </td>
@@ -834,13 +929,19 @@ any function with no specific scope appears here.</p>
           <td>
                 <code>int</code>
           </td>
-          <td><p>The size of the sliding window.</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>The size of the sliding window.</p>
+            </div>
+          </td>
           <td>
               <em>required</em>
           </td>
         </tr>
     </tbody>
   </table>
+
+
 
   <p><strong>Returns:</strong></p>
   <table>
@@ -854,14 +955,18 @@ any function with no specific scope appears here.</p>
         <tr>
 <td><code>zip</code></td>          <td>
           </td>
-          <td><p>a zip of all windows of size "size"</p></td>
+          <td>
+            <div class="doc-md-description">
+              <p>a zip of all windows of size "size"</p>
+            </div>
+          </td>
         </tr>
     </tbody>
   </table>
 
-      <details class="quote">
-        <summary>Source code in <code>LZGraphs\misc.py</code></summary>
-        <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-38">38</a></span>
+          <details class="quote">
+            <summary>Source code in <code>src\LZGraphs\Utilities\misc.py</code></summary>
+            <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-38">38</a></span>
 <span class="normal"><a href="#__codelineno-0-39">39</a></span>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
@@ -891,7 +996,7 @@ any function with no specific scope appears here.</p>
 <a id="__codelineno-0-51" name="__codelineno-0-51"></a>            <span class="nb">next</span><span class="p">(</span><span class="n">each</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 <a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="k">return</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">iters</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
-      </details>
+          </details>
   </div>
 
 </div>
@@ -903,6 +1008,13 @@ any function with no specific scope appears here.</p>
   </div>
 
 </div>
+
+
+
+
+
+
+
 
 
 
@@ -913,6 +1025,7 @@ any function with no specific scope appears here.</p>
             </div>
           
           
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
         
       </main>
@@ -940,10 +1053,11 @@ any function with no specific scope appears here.</p>
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.e5c33ebb.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.ba449ae6.min.js"></script>
+      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
       
     
   </body>
