@@ -1,29 +1,31 @@
-# Tutorials
+# Tutorials for LZGraphs
 
-This page provides detailed examples and instructions on how to effectively utilize LZGraphs in your work.
+Welcome to the tutorials page for LZGraphs, where you will find step-by-step guides on leveraging the power of LZGraphs for T-cell receptor beta chain (TCRB) repertoire analysis. Whether you are constructing graphs or exploring advanced features, these tutorials are designed to enhance your understanding and utilization of LZGraphs in your research endeavors.
 
-## Creating an LZGraph
+## Getting Started with Graph Construction
 
-The construction process for the Amino Acid Positional and Nucleotide Double Positional graphs follows a similar routine, while the Naive graph has slight differences.
+LZGraphs offers various graph types to suit your analysis needs, including Amino Acid Positional, Nucleotide Double Positional, and Naive graphs. Each graph type is tailored to specific aspects of TCRB repertoire analysis, providing a versatile toolkit for your research.
 
-### Constructing Amino Acid Positional and Nucleotide Double Positional Graphs
+### Amino Acid Positional and Nucleotide Double Positional Graphs
 
-The example below demonstrates the construction of the Amino Acid Positional graph. The same steps can be applied to Nucleotide Double Positional Graphs.
+These graph types are pivotal for in-depth TCRB repertoire analysis. Follow the example below to construct an Amino Acid Positional graph. The process is analogous for Nucleotide Double Positional Graphs, with minor adjustments as noted.
 
-Note:
+#### Essential Points:
 
-- For Nucleotide Double Positional Graphs, the column corresponding to the sequence should be named "cdr3_rearrangement".
-- For Amino Acid Positional Graphs, the column corresponding to the sequence should be named "cdr3_amino_acid".
-- In both cases, V/J genes/alleles should be listed under the "V" column for V-related genes/alleles and under the "J" column for J-related genes/alleles.
-- V/J genes/alleles are optional and are primary used for graph enrichment when generating sequences and deriving insight related to the genomic composition of a sequence.
+- For Nucleotide Double Positional Graphs, use "cdr3_rearrangement" as the column name for sequences.
+- For Amino Acid Positional Graphs, the sequence column should be "cdr3_amino_acid".
+- V and J genes/alleles are categorized under "V" and "J" columns, respectively. This genetic information enriches the graph and enhances sequence generation and genomic insights.
+- Including V/J genes/alleles is optional but recommended for comprehensive analysis.
 
-```python 
-from LZGraphs.AminoAcidPositional import AAPLZGraph
-# from LZGraphs.NucleotideDoublePositional import NDPLZGraph 
+```python
+from LZGraphs import AAPLZGraph
 import pandas as pd
 
+# Load your data
 data = pd.read_csv("/path/to/data/file.csv")
-lzgraph = AAPLZGraph(data,verbose=True)
+
+# Construct the graph
+lzgraph = AAPLZGraph(data, verbose=True)
 ```
 Verbose:
 ```markdown
@@ -57,15 +59,17 @@ Example of the input DataFrame:
 ### Constructing a Naive LZGraph
 
 Below is an example of constructing a Naive LZGraph.
+
 ```python 
-from LZGraphs.Naive import NaiveLZGraph,generate_dictionary
-list_of_sequences = [ 'TGTGCCAGCAGGGCGGGATACGCAGTATTT',
-                      'TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT'
-                      'TGTGCCAGCAGCCAGCAGGGCCGGGATACGCAGTATTTT'
-                    ...]
-                    
+from src.LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
+
+list_of_sequences = ['TGTGCCAGCAGGGCGGGATACGCAGTATTT',
+                     'TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT'
+                     'TGTGCCAGCAGCCAGCAGGGCCGGGATACGCAGTATTTT'
+                     ...]
+
 # generate all possible nodes with kmers up to length 6                 
-dictionary = generate_dictionary(6) 
+dictionary = generate_dictionary(6)
 # construct a NaiveLZGraph from your list_of_sequences based on the generated dictionary
 lzgraph = NaiveLZGraph(list_of_sequences, dictionary, verbose=True)
 ```
@@ -186,7 +190,7 @@ The `LZGraph` library provides a function, `LZCentrality`, for calculating the L
 Here's how you can use the `LZCentrality` function:
 
 ```python
-from LZGraphs import LZCentrality, NDPLZGraph
+from src.LZGraphs import LZCentrality, NDPLZGraph
 
 # Assume we have a list of CDR3 sequences and a sequence of interest
 sequences = ["sequence1", "sequence2", "sequence3", ...]
@@ -211,8 +215,8 @@ The `LZGraph` library provides a convenient function, `K1000_Diversity`, for cal
 Here's how you can use the `K1000_Diversity` function:
 
 ```python
-from LZGraphs.Metrics import K1000_Diversity
-from LZGraphs.AminoAcidPositional import  AAPLZGraph
+from src.LZGraphs.Metircs.Metrics import K1000_Diversity
+from src.LZGraphs import AAPLZGraph
 
 # Assume we have a list of CDR3 sequences
 sequences = ["sequence1", "sequence2", "sequence3", ...]
@@ -289,7 +293,8 @@ using the Naive LZGraph, this allows to create LZGraphs to different repertoires
 maintaining the same dictionary of sub-patterns (nodes).
 
 ```python
-from LZGraphs.Naive import NaiveLZGraph,generate_dictionary
+from src.LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
+
 # Create a dictionary that will be shared between all repertoires
 dictionary = generate_dictionary(6)
 # create a graph, this can be done in a loop over many repertoires
@@ -329,10 +334,12 @@ the amount descendants nodes reachable at each node contained in your sequence,
 as well as the amount of ancestors at each node.
 Sequence with different attribute differ both by the slope and the convergence
 rate of these curve as well as by the intersection point between the curves.
+
 ```python
-from LZGraphs.Visualize import ancestors_descendants_curves_plot
+from src.LZGraphs.Visualization.Visualize import ancestors_descendants_curves_plot
+
 sequence = 'CASTPGTASGYTF'
-ancestors_descendants_curves_plot(lzgraph,sequence)
+ancestors_descendants_curves_plot(lzgraph, sequence)
 ```
 Output:
 ![alt text](images/ad_curve_example.png)
@@ -342,10 +349,12 @@ For each sub-pattern derived from a given sequence and based on an LZGraph,
 We can examine the number of alternatives there are at each node, this indicates
 the rarity of a sequence and is correlated with the difference from the 
 mean Levenshtein distance of the repertoire as shown in the LZGraphs paper.
+
 ```python
-from LZGraphs.Visualize import sequence_possible_paths_plot
+from src.LZGraphs.Visualization.Visualize import sequence_possible_paths_plot
+
 sequence = 'CASTPGTASGYTF'
-sequence_possible_paths_plot(lzgraph,sequence)
+sequence_possible_paths_plot(lzgraph, sequence)
 ```
 Output:
 ![alt text](images/sequence_path_number_example.png)
@@ -356,10 +365,12 @@ to a given repertoire.
 Not only can one infer the sub-patterns in a sequence that have the exceptional number of V and J alternatives
 but also when comparing between the same sequence in different repertoires (different LZGraphs) one can infer
 the amount difference at each sub-pattern between the two repertoires.
+
 ```python
-from LZGraphs.Visualize import sequence_genomic_node_variability_plot
+from src.LZGraphs.Visualization.Visualize import sequence_genomic_node_variability_plot
+
 sequence = 'CASTPGTASGYTF'
-sequence_genomic_node_variability_plot(lzgraph,sequence)
+sequence_genomic_node_variability_plot(lzgraph, sequence)
 ```
 Output:
 ![alt text](images/number_of_vj_at_nodes_example.png)
@@ -373,10 +384,12 @@ to a given repertoire.
 * Black cells signify that this spesific allele/gene wasnt observed at that edge.
 * The color gradient at each cell represents the probability of choosing that edge under the constraint of having
  that specific V/J.
+
 ```python
-from LZGraphs.Visualize import sequence_genomic_edges_variability_plot
+from src.LZGraphs.Visualization.Visualize import sequence_genomic_edges_variability_plot
+
 sequence = 'CASTPGTASGYTF'
-sequence_genomic_edges_variability_plot(lzgraph,sequence)
+sequence_genomic_edges_variability_plot(lzgraph, sequence)
 ```
 Output:
 ![alt text](images/number_of_vj_at_edges_example.png)
@@ -389,8 +402,8 @@ Note that each instance of the BOW wrapper class has to fitted on a list of sequ
 can transform new lists of sequences into BOW vectors.
 
 ```python
-from LZGraphs.BOWEncoder import LZBOW
-from LZGraphs.NucleotideDoublePositional import NDPLZGraph
+from src.LZGraphs import LZBOW
+from src.LZGraphs import NDPLZGraph
 
 sequence_list = data.cdr3_rearrangement.to_list()
 

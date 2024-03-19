@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from .Naive import NaiveLZGraph
+from src.LZGraphs.Graphs.Naive import NaiveLZGraph
 
 
 def restore_gene_counts(column):
