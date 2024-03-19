@@ -17,7 +17,7 @@ setup(
     url='https://github.com/MuteJester/LZGraphs',
     package_dir={'': 'src'},
     packages=find_packages(where='src'),
-    download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/B1.0.tar.gz',
+    download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/Beta1.0.0.tar.gz',
     keywords=['Graph Theory', 'Immunology', 'Analytics', 'Biology', 'T-cell', 'Repertoire', 'CDR3'],
     install_requires=requirements,
     python_requires='>=3.8, <4',
