@@ -7,9 +7,9 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from . import LZGraphBase
-from .decomposition import lempel_ziv_decomposition
-from .misc import window
+from src.LZGraphs import LZGraphBase
+from src.LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
+from src.LZGraphs.Utilities.misc import window
 
 
 def derive_lz_reading_frame_position(cdr3):

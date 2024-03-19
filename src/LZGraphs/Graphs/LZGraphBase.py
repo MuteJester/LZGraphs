@@ -6,7 +6,7 @@ from time import time
 import networkx as nx
 import numpy as np
 import pandas as pd
-from .misc import chunkify, choice, get_dictionary_subkeys
+from src.LZGraphs.Utilities.misc import chunkify, choice, get_dictionary_subkeys
 
 
 class LZGraphBase:
@@ -359,7 +359,7 @@ class LZGraphBase:
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
         self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
-        self.subpattern_individual_probability /= self.subpattern_individual_probability.proba.sum()
+        self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
 
     def verbose_driver(self, message_number, verbose):
         if not verbose:

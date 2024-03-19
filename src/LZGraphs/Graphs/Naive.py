@@ -5,8 +5,8 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from .decomposition import lempel_ziv_decomposition
-from .misc import window
+from src.LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
+from src.LZGraphs.Utilities.misc import window
 
 
 def saturation_function(x, h, k):
@@ -212,7 +212,7 @@ class NaiveLZGraph:
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
         self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
-        self.subpattern_individual_probability /= self.subpattern_individual_probability.proba.sum()
+        self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
 
     def __simultaneous_graph_construction(self, data):
         for cdr3 in (data):
