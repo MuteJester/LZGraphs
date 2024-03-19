@@ -1,1 +1,1 @@
-::: LZGraphs.Metrics
+::: src.LZGraphs.Metircs.Metrics
