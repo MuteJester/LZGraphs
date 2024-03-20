@@ -8,7 +8,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pylab
 
-from src.LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
+from ..Utilities.decomposition import lempel_ziv_decomposition
 
 mpl.rcParams['figure.figsize'] = (15,8)
 sns.set_context('poster')

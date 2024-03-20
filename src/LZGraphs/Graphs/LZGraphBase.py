@@ -6,7 +6,7 @@ from time import time
 import networkx as nx
 import numpy as np
 import pandas as pd
-from src.LZGraphs.Utilities.misc import chunkify, choice, get_dictionary_subkeys
+from ..Utilities.misc import chunkify, choice, get_dictionary_subkeys
 
 
 class LZGraphBase:

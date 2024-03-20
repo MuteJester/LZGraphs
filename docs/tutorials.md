@@ -61,7 +61,7 @@ Example of the input DataFrame:
 Below is an example of constructing a Naive LZGraph.
 
 ```python 
-from src.LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
+from LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
 
 list_of_sequences = ['TGTGCCAGCAGGGCGGGATACGCAGTATTT',
                      'TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT'
@@ -190,7 +190,7 @@ The `LZGraph` library provides a function, `LZCentrality`, for calculating the L
 Here's how you can use the `LZCentrality` function:
 
 ```python
-from src.LZGraphs import LZCentrality, NDPLZGraph
+from LZGraphs import LZCentrality, NDPLZGraph
 
 # Assume we have a list of CDR3 sequences and a sequence of interest
 sequences = ["sequence1", "sequence2", "sequence3", ...]
@@ -215,8 +215,8 @@ The `LZGraph` library provides a convenient function, `K1000_Diversity`, for cal
 Here's how you can use the `K1000_Diversity` function:
 
 ```python
-from src.LZGraphs.Metircs.Metrics import K1000_Diversity
-from src.LZGraphs import AAPLZGraph
+from LZGraphs.Metircs.Metrics import K1000_Diversity
+from LZGraphs import AAPLZGraph
 
 # Assume we have a list of CDR3 sequences
 sequences = ["sequence1", "sequence2", "sequence3", ...]
@@ -293,7 +293,7 @@ using the Naive LZGraph, this allows to create LZGraphs to different repertoires
 maintaining the same dictionary of sub-patterns (nodes).
 
 ```python
-from src.LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
+from LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
 
 # Create a dictionary that will be shared between all repertoires
 dictionary = generate_dictionary(6)
@@ -336,7 +336,7 @@ Sequence with different attribute differ both by the slope and the convergence
 rate of these curve as well as by the intersection point between the curves.
 
 ```python
-from src.LZGraphs.Visualization.Visualize import ancestors_descendants_curves_plot
+from LZGraphs.Visualization.Visualize import ancestors_descendants_curves_plot
 
 sequence = 'CASTPGTASGYTF'
 ancestors_descendants_curves_plot(lzgraph, sequence)
@@ -351,7 +351,7 @@ the rarity of a sequence and is correlated with the difference from the
 mean Levenshtein distance of the repertoire as shown in the LZGraphs paper.
 
 ```python
-from src.LZGraphs.Visualization.Visualize import sequence_possible_paths_plot
+from LZGraphs.Visualization.Visualize import sequence_possible_paths_plot
 
 sequence = 'CASTPGTASGYTF'
 sequence_possible_paths_plot(lzgraph, sequence)
@@ -367,7 +367,7 @@ but also when comparing between the same sequence in different repertoires (diff
 the amount difference at each sub-pattern between the two repertoires.
 
 ```python
-from src.LZGraphs.Visualization.Visualize import sequence_genomic_node_variability_plot
+from LZGraphs.Visualization.Visualize import sequence_genomic_node_variability_plot
 
 sequence = 'CASTPGTASGYTF'
 sequence_genomic_node_variability_plot(lzgraph, sequence)

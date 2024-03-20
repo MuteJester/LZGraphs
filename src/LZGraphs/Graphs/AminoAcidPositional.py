@@ -8,8 +8,8 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 from .LZGraphBase import LZGraphBase
-from src.LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
-from src.LZGraphs.Utilities.misc import window
+from ..Utilities.decomposition import lempel_ziv_decomposition
+from ..Utilities.misc import window
 
 
 def derive_lz_and_position(cdr3):
