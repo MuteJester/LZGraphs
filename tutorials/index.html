@@ -1043,7 +1043,7 @@ with functionality constrained by the genetic information on the edges.</p>
 </table>
 <h3 id="constructing-a-naive-lzgraph">Constructing a Naive LZGraph</h3>
 <p>Below is an example of constructing a Naive LZGraph.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Graphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span> <span class="n">generate_dictionary</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Graphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span> <span class="n">generate_dictionary</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">list_of_sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;TGTGCCAGCAGGGCGGGATACGCAGTATTT&#39;</span><span class="p">,</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                     <span class="s1">&#39;TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT&#39;</span>
@@ -1150,7 +1150,7 @@ Output:
 <h2 id="calculating-the-lzcentrality">Calculating the LZCentrality</h2>
 <p>The <code>LZGraph</code> library provides a function, <code>LZCentrality</code>, for calculating the LZCentrality of a given CDR3 sequence in a repertoire represented by an LZGraph. The LZCentrality is a measure of sequence centrality within a repertoire, as presented in our paper.</p>
 <p>Here's how you can use the <code>LZCentrality</code> function:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs</span> <span class="kn">import</span> <span class="n">LZCentrality</span><span class="p">,</span> <span class="n">NDPLZGraph</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span> <span class="nn">LZGraphs</span> <span class="kn">import</span> <span class="n">LZCentrality</span><span class="p">,</span> <span class="n">NDPLZGraph</span>
 <a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
 <a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c1"># Assume we have a list of CDR3 sequences and a sequence of interest</span>
 <a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sequence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence2&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence3&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
@@ -1168,8 +1168,8 @@ Output:
 <h2 id="calculating-the-k1000-diversity-index">Calculating the K1000 Diversity Index</h2>
 <p>The <code>LZGraph</code> library provides a convenient function, <code>K1000_Diversity</code>, for calculating the K1000 Diversity index of a list of CDR3 sequences. This index, as presented in our paper, offers a new way to measure the diversity of a repertoire.</p>
 <p>Here's how you can use the <code>K1000_Diversity</code> function:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Metircs.Metrics</span> <span class="kn">import</span> <span class="n">K1000_Diversity</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span> <span class="nn">src.LZGraphs</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Metircs.Metrics</span> <span class="kn">import</span> <span class="n">K1000_Diversity</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span> <span class="nn">LZGraphs</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
 <a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
 <a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Assume we have a list of CDR3 sequences</span>
 <a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sequence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence2&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence3&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
@@ -1231,7 +1231,7 @@ Note that the number of features in the resulting vector equal the number of nod
 in the graph, and the value in each node correspond to each node, so it is recommended
 using the Naive LZGraph, this allows to create LZGraphs to different repertoires while
 maintaining the same dictionary of sub-patterns (nodes).</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Graphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span> <span class="n">generate_dictionary</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Graphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span> <span class="n">generate_dictionary</span>
 <a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
 <a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="c1"># Create a dictionary that will be shared between all repertoires</span>
 <a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_dictionary</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
@@ -1269,7 +1269,7 @@ the amount descendants nodes reachable at each node contained in your sequence,
 as well as the amount of ancestors at each node.
 Sequence with different attribute differ both by the slope and the convergence
 rate of these curve as well as by the intersection point between the curves.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">ancestors_descendants_curves_plot</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">ancestors_descendants_curves_plot</span>
 <a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
 <a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
 <a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="n">ancestors_descendants_curves_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
@@ -1282,7 +1282,7 @@ For each sub-pattern derived from a given sequence and based on an LZGraph,
 We can examine the number of alternatives there are at each node, this indicates
 the rarity of a sequence and is correlated with the difference from the 
 mean Levenshtein distance of the repertoire as shown in the LZGraphs paper.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_possible_paths_plot</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_possible_paths_plot</span>
 <a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
 <a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
 <a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">sequence_possible_paths_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
@@ -1295,7 +1295,7 @@ to a given repertoire.
 Not only can one infer the sub-patterns in a sequence that have the exceptional number of V and J alternatives
 but also when comparing between the same sequence in different repertoires (different LZGraphs) one can infer
 the amount difference at each sub-pattern between the two repertoires.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_genomic_node_variability_plot</span>
+<p><div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_genomic_node_variability_plot</span>
 <a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
 <a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
 <a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="n">sequence_genomic_node_variability_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>

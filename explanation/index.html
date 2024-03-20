@@ -16,7 +16,7 @@
     
     
       
-        <title>Explanation - LZGraph Documentation</title>
+        <title>Learning Guide for LZGraphs - LZGraph Documentation</title>
       
     
     
@@ -59,6 +59,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#learning-guide-for-lzgraphs" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -91,7 +96,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Explanation
+              Learning Guide for LZGraphs
             
           </span>
         </div>
@@ -414,6 +419,43 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#getting-started" class="md-nav__link">
+    <span class="md-ellipsis">
+      Getting Started
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-confidence-through-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      Building Confidence Through Code
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#achieve-immediate-success" class="md-nav__link">
+    <span class="md-ellipsis">
+      Achieve Immediate Success
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -428,26 +470,47 @@
                   
 
 
-  <h1>Explanation</h1>
-
-<p>This part of the project documentation focuses on a
-<strong>learning-oriented</strong> approach. You'll learn how to
-get started with the code in this project.</p>
-<blockquote>
-<p><strong>Note:</strong> Expand this section by considering the
-following points:</p>
-</blockquote>
+<h1 id="learning-guide-for-lzgraphs">Learning Guide for LZGraphs</h1>
+<p>Welcome to the learning guide for LZGraphs, where we're dedicated to helping you get up and running with this powerful library. Whether you're new to T-cell receptor beta chain (TCRB) repertoire analysis or looking to deepen your understanding, this guide is designed to provide a clear, straightforward path to mastering LZGraphs.</p>
+<h2 id="getting-started">Getting Started</h2>
+<p>Diving into a new library can be daunting, but we're here to ensure a smooth learning curve. Start with these simple steps:</p>
+<ol>
+<li><strong>Installation</strong>: Make sure LZGraphs is installed in your environment:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>LZGraphs
+</code></pre></div></li>
+<li><strong>First Program</strong>: Let's write your first piece of code to create an LZGraph from a dataset. This immediate hands-on approach will help cement your understanding:
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Load your dataset</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;path/to/your/dataset.csv&quot;</span><span class="p">)</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Initialize and create your LZGraph</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">lzgraph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;LZGraph created successfully!&quot;</span><span class="p">)</span>
+</code></pre></div></li>
+</ol>
+<h2 id="building-confidence-through-code">Building Confidence Through Code</h2>
+<p>To build confidence, it's crucial to engage with the library directly. Here's a simple yet impactful exercise:</p>
 <ul>
-<li>Help newcomers with getting started</li>
-<li>Teach readers about your library by making them
-    write code</li>
-<li>Inspire confidence through examples that work for
-    everyone, repeatably</li>
-<li>Give readers an immediate sense of achievement</li>
-<li>Show concrete examples, no abstractions</li>
-<li>Provide the minimum necessary explanation</li>
-<li>Avoid any distractions</li>
+<li><strong>Task</strong>: Use the LZGraph you've created to list the first 10 nodes and edges.
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Display the first 10 nodes</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;First 10 Nodes:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">nodes</span><span class="p">)[:</span><span class="mi">10</span><span class="p">])</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Display the first 10 edges</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;First 10 Edges:&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">edges</span><span class="p">)[:</span><span class="mi">10</span><span class="p">])</span>
+</code></pre></div></li>
 </ul>
+<h2 id="achieve-immediate-success">Achieve Immediate Success</h2>
+<p>We believe in the power of quick wins. Try calculating the LZCentrality for a sequence in your dataset:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs</span> <span class="kn">import</span> <span class="n">LZCentrality</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">sequence_of_interest</span> <span class="o">=</span> <span class="s2">&quot;your_sequence_here&quot;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">lz_centrality_score</span> <span class="o">=</span> <span class="n">LZCentrality</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence_of_interest</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;LZCentrality for </span><span class="si">{</span><span class="n">sequence_of_interest</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">lz_centrality_score</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div></p>
 
 
 
