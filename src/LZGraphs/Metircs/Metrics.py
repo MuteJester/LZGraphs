@@ -1,5 +1,5 @@
 import numpy as np
-from src.LZGraphs.Utilities.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+from ..Utilities.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
 
 
 def LZCentrality(lzgraph,sequence):

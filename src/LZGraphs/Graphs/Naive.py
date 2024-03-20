@@ -5,8 +5,8 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from src.LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
-from src.LZGraphs.Utilities.misc import window
+from ..Utilities.decomposition import lempel_ziv_decomposition
+from ..Utilities.misc import window
 
 
 def saturation_function(x, h, k):

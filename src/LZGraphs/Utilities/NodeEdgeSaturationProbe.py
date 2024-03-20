@@ -3,10 +3,10 @@ import random
 import numpy as np
 from tqdm.auto import tqdm
 
-from src.LZGraphs.Graphs.AminoAcidPositional import derive_lz_and_position
-from src.LZGraphs.Graphs.NucleotideDoublePositional import derive_lz_reading_frame_position
-from src.LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
-from src.LZGraphs.Utilities.misc import window
+from ..Graphs.AminoAcidPositional import derive_lz_and_position
+from ..Graphs.NucleotideDoublePositional import derive_lz_reading_frame_position
+from ..Utilities.decomposition import lempel_ziv_decomposition
+from ..Utilities.misc import window
 
 
 class NodeEdgeSaturationProbe:
