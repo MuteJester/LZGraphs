@@ -211,7 +211,7 @@ class NaiveLZGraph:
 
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
-        self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
+        self.subpattern_individual_probability = weight_df.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
         self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
 
     def __simultaneous_graph_construction(self, data):
