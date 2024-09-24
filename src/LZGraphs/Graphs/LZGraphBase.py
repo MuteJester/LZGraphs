@@ -65,13 +65,13 @@ class LZGraphBase:
         self.n_subpatterns = 0
 
         self.initial_states, self.terminal_states = dict(), dict()
-        self.initial_states_probability = pd.Series()
+        self.initial_states_probability = pd.Series(dtype=np.float64)
         self.lengths = dict()
         self.cac_graphs = dict()
         self.n_transitions = 0
         self.n_neighbours = dict()
-        self.length_distribution_proba = pd.Series()
-        self.subpattern_individual_probability = pd.Series()
+        self.length_distribution_proba = pd.Series(dtype=np.float64)
+        self.subpattern_individual_probability = pd.Series(dtype=np.float64)
         # per node observed frequency for unity operation
         self.per_node_observed_frequency = dict()
 
@@ -358,7 +358,7 @@ class LZGraphBase:
 
     def _derive_subpattern_individual_probability(self):
         weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
-        self.subpattern_individual_probability = weight_df.groupby('level_0').sum().rename(columns={0: 'proba'})
+        self.subpattern_individual_probability = weight_df.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
         self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
 
     def verbose_driver(self, message_number, verbose):
@@ -468,8 +468,8 @@ class LZGraphBase:
 
     def _batch_gene_weight_normalization(self, n_process=3, verbose=False):
         batches = chunkify(list(self.graph.edges), len(self.graph.edges) // 3)
-        pool = ThreadPool(n_process)
-        pool.map(self._normalize_gene_weights, list(batches))
+        with ThreadPool(n_process) as pool:
+            pool.map(self._normalize_gene_weights, list(batches))
         # self.normalize_gene_weights(self.graph.edges)
 
     def _normalize_gene_weights(self, edge_list):
