@@ -12,20 +12,19 @@ from ..Utilities.decomposition import lempel_ziv_decomposition
 from ..Utilities.misc import window
 
 
-def derive_lz_and_position(cdr3):
-    lzc = lempel_ziv_decomposition(cdr3)
-    aux = 0
-    cumlen = []
-    for sp in lzc:
-        aux+=len(sp)
-        cumlen.append(aux)
-    return lzc, cumlen
-
+def derive_lz_and_position(cdr3_sequence):
+    lz_subpatterns = lempel_ziv_decomposition(cdr3_sequence)
+    cumulative_lengths = []
+    total_length = 0
+    for subpattern in lz_subpatterns:
+        total_length += len(subpattern)
+        cumulative_lengths.append(total_length)
+    return lz_subpatterns, cumulative_lengths
 
 
 def path_to_sequence(lz_subpatterns):
-    return ''.join([AAPLZGraph.clean_node(i) for i in lz_subpatterns])
-
+    cleaned_nodes = [AAPLZGraph.clean_node(subpattern) for subpattern in lz_subpatterns]
+    return ''.join(cleaned_nodes)
 
 # TO DO: SET AGG LIST (LIKE LENGTHS) TOO NONE TO FREE UP MEMORY
 

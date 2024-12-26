@@ -7,9 +7,9 @@ with open('requirements.txt') as f:
 
 setup(
     name='LZGraphs',
-    version='1.0',
+    version='1.0.2',
     license='MIT',
-    description='An Implementation of LZ76 Based Graphs for Repertoire Representation',
+    description='An Implementation of LZ76 Based Graphs for Repertoire Representation and Analysis',
     long_description_content_type="text/markdown",
     long_description=long_description,
     author='Thomas Konstantinovsky',
@@ -17,7 +17,7 @@ setup(
     url='https://github.com/MuteJester/LZGraphs',
     package_dir={'': 'src'},
     packages=find_packages(where='src'),
-    download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/Beta1.0.0.tar.gz',
+    download_url='https://github.com/MuteJester/LZGraphs/archive/refs/tags/Beta1.0.1.tar.gz',
     keywords=['Graph Theory', 'Immunology', 'Analytics', 'Biology', 'T-cell', 'Repertoire', 'CDR3'],
     install_requires=requirements,
     python_requires='>=3.8, <4',

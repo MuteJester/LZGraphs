@@ -505,31 +505,26 @@ class LZGraphBase:
 
     def _derive_terminal_state_map(self):
         """
-        create a matrix map between all terminal state,
-        given that we have  K terminal states, the matrix will be of dim KxK
-        where at each row reachability will be denoted by 1, i.e
-        if I can reach e  state K_i from state k, the value at K[k][K_i] = 1
-        :return:
+        For each terminal state, run a DFS from it and record all other terminal
+        states that are reachable. Store the results as a pd.Series where each
+        index is a terminal state and each value is the list of reachable terminal
+        states from that node.
         """
-        terminal_state_map = np.zeros((len(self.terminal_states), len(self.terminal_states)))
-        ts_index = {i: ax for ax, i in enumerate(self.terminal_states.index)}
+        # Convert the terminal states index into a set for faster membership checks
+        terminal_states_set = set(self.terminal_states.index)
 
-        for pos_1, terminal_1 in enumerate(self.terminal_states.index):
-            dfs_node = list(nx.dfs_preorder_nodes(self.graph, source=terminal_1))
-            # for pos_2, terminal_2 in enumerate(self.terminal_states.index):
-            #     terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
-            reachable_terminal_state = set(dfs_node) & set(self.terminal_states.index)
-            for node in reachable_terminal_state:
-                terminal_state_map[pos_1][ts_index[node]] = 1
+        # We'll store the result in a Python dict first, then convert it to a Series
+        reachability_dict = {}
 
-        terminal_state_map = pd.DataFrame(terminal_state_map,
-                                          columns=self.terminal_states.index,
-                                          index=self.terminal_states.index).apply(
-            lambda x: x.apply(lambda y: x.name if y == 1 else np.nan), axis=0)
-        # np.fill_diagonal(terminal_state_map.values, np.nan)
+        # For each terminal state, run DFS and intersect the visited nodes with the terminal states
+        for terminal in self.terminal_states.index:
+            visited = nx.dfs_preorder_nodes(self.graph, source=terminal)
+            # Record only terminal states that are reachable from this terminal
+            reachable_terminals = list(set(visited) & terminal_states_set)
+            reachability_dict[terminal] = reachable_terminals
 
-        self.terminal_state_map = pd.Series(terminal_state_map.apply(lambda x: (x.dropna().to_list()), axis=1),
-                                            index=self.terminal_states.index)
+        # Convert the dictionary to a Series, each entry is a list of reachable terminals
+        self.terminal_state_map = pd.Series(reachability_dict, index=self.terminal_states.index)
 
     def _derive_stop_probability_data(self):
         def freq_normalize(target):

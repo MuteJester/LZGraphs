@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import product
 from time import time
 
@@ -5,51 +6,10 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
+from ..Utilities import saturation_function, weight_function
 from ..Utilities.decomposition import lempel_ziv_decomposition
 from ..Utilities.misc import window
 
-
-def saturation_function(x, h, k):
-    """
-          a version of the hill saturation function used in the "random_walk_ber_shortest" random walk method
-          where based on the parameters the function controls the probability of choosing the shortest path action
-          at each step
-
-                  Parameters:
-                          x (float): the length of the input at time t divided by the target length
-                          h (float): the saturation constant
-                          k (int): the saturation factor degree
-
-                  Returns:
-                          float : value between 0 - 1 (used as probability for bernoulli trail)
-   """
-    return 1 / (1 + ((h / x) ** k))
-
-
-# a lambda function for networkx proper weight usage
-wfs = lambda x, y, z: 1 - z['weight']
-
-
-def generate_dictionary(max_len):
-    """
-        this function will generate all unique K-Mers for k starting at 1 up to max_len
-        this is a helper function used to derive the node dictionary for the naive LZ-Graph
-        where in general the length distribution of nucleotide sub-patterns are maxed at about 6
-
-                  Parameters:
-                          max_len (int): the length of maximal K-Mer family
-
-
-                  Returns:
-                          list : a list of all unique K-Mers for K =1 --> k = max_len
-   """
-
-    N = max_len
-    DICT = []
-    for i in range(1, N + 1):
-        DICT += [''.join(i) for i in product(['A', 'T', 'G', 'C'], repeat=i)]
-
-    return DICT
 
 
 class NaiveLZGraph:
@@ -210,22 +170,45 @@ class NaiveLZGraph:
             return False
 
     def _derive_subpattern_individual_probability(self):
-        weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
-        self.subpattern_individual_probability = weight_df.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
-        self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
+        # Extract edge weights and convert to DataFrame
+        edge_weights = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
+
+        # Group by source node and sum weights, then normalize
+        subpattern_probs = edge_weights.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
+        subpattern_probs['proba'] /= subpattern_probs['proba'].sum()
+
+        self.subpattern_individual_probability = subpattern_probs
 
     def __simultaneous_graph_construction(self, data):
-        for cdr3 in (data):
+        edge_counts = defaultdict(int)  # (A_, B_) -> count
+
+        # First pass: collect all edges and frequencies
+        for cdr3 in data:
             lz_components = lempel_ziv_decomposition(cdr3)
-            edges = (window(lz_components, 2))
-
+            edges = window(lz_components, 2)
             for (A, B) in edges:
+                edge_counts[(A, B)] += 1
                 self.per_node_observed_frequency[A] = self.per_node_observed_frequency.get(A, 0) + 1
-                self._insert_edge_and_information(A, B)
-            self.per_node_observed_frequency[B] = self.per_node_observed_frequency.get(B, 0)
 
+            # Ensure the last node appears in frequency counts
+            last_subpattern = lz_components[-1]
+            self.per_node_observed_frequency[last_subpattern] = \
+                self.per_node_observed_frequency.get(last_subpattern, 0)
+
+            # Track terminal and initial states
             self._update_terminal_states(lz_components[-1])
             self._update_initial_states(lz_components[0])
+
+        # Second pass: insert into the graph in bulk
+        for (A_, B_), weight_val in edge_counts.items():
+            # If nodes were not already in the graph:
+            if A_ not in self.graph:
+                self.graph.add_node(A_)
+            if B_ not in self.graph:
+                self.graph.add_node(B_)
+
+            # Add or update the edge with the aggregated weight
+            self.graph.add_edge(A_, B_, weight=weight_val)
 
     def _normalize_edge_weights(self):
         # normalize edges
@@ -237,12 +220,6 @@ class NaiveLZGraph:
         for edge_a, edge_b in self.graph.edges:
             node_observed_total = self.per_node_observed_frequency[edge_a]
             self.graph[edge_a][edge_b]['weight'] /= node_observed_total
-
-    def _insert_edge_and_information(self, A_, B_):
-        if self.graph.has_edge(A_, B_):
-            self.graph[A_][B_]["weight"] += 1
-        else:
-            self.graph.add_edge(A_, B_, weight=1)
 
     def _update_terminal_states(self, terminal_state):
         self.terminal_states[terminal_state] = self.terminal_states.get(terminal_state, 0) + 1
@@ -301,21 +278,28 @@ class NaiveLZGraph:
 
     def __derive_terminal_state_map(self):
         """
-            This function derives a mapping between each terminal state and all terminal state that could
-            be reached from it
-          """
-        terminal_state_map = np.zeros((len(self.terminal_states), len(self.terminal_states)))
-        for pos_1, terminal_1 in enumerate(self.terminal_states.index):
-            for pos_2, terminal_2 in enumerate(self.terminal_states.index):
-                terminal_state_map[pos_1][pos_2] = nx.has_path(self.graph, source=terminal_1, target=terminal_2)
-        terminal_state_map = pd.DataFrame(terminal_state_map,
-                                          columns=self.terminal_states.index,
-                                          index=self.terminal_states.index).apply(
-            lambda x: x.apply(lambda y: x.name if y == 1 else np.nan), axis=0)
-        # np.fill_diagonal(terminal_state_map.values, np.nan)
+        This function derives a mapping between each terminal state and
+        all terminal states that could be reached from it.
+        """
+        terminal_idx = list(self.terminal_states.index)
+        terminal_state_map = np.zeros((len(terminal_idx), len(terminal_idx)))
 
-        self.terminal_state_map = pd.Series(terminal_state_map.apply(lambda x: (x.dropna().to_list()), axis=1),
-                                            index=self.terminal_states.index)
+        for i, terminal_src in enumerate(terminal_idx):
+            # Do one BFS/DFS from terminal_src
+            visited = set(nx.dfs_preorder_nodes(self.graph, terminal_src))
+            for j, terminal_dst in enumerate(terminal_idx):
+                terminal_state_map[i][j] = 1 if terminal_dst in visited else 0
+
+        terminal_state_map = pd.DataFrame(
+            terminal_state_map,
+            columns=terminal_idx,
+            index=terminal_idx
+        ).apply(lambda col: col.apply(lambda val: col.name if val == 1 else np.nan), axis=0)
+
+        self.terminal_state_map = pd.Series(
+            terminal_state_map.apply(lambda row: row.dropna().to_list(), axis=1),
+            index=terminal_idx
+        )
 
     def derive_final_state_data(self):
 
@@ -504,7 +488,7 @@ class NaiveLZGraph:
                 seq = ''.join([i for i in value])
                 continue
 
-            SP = nx.shortest_path(self.graph, source=current_state, target=istate, weight=wfs)
+            SP = nx.shortest_path(self.graph, source=current_state, target=istate, weight=weight_function)
 
             if np.random.binomial(1,
                                   saturation_function(((len(current_state) / steps)), sfunc_h, sfunc_k)) == 1 and len(
