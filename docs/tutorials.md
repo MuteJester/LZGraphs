@@ -61,7 +61,7 @@ Example of the input DataFrame:
 Below is an example of constructing a Naive LZGraph.
 
 ```python 
-from LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
+from LZGraphs.Graphs.Naive import NaiveLZGraph, generate_kmer_dictionary
 
 list_of_sequences = ['TGTGCCAGCAGGGCGGGATACGCAGTATTT',
                      'TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT'
@@ -69,7 +69,7 @@ list_of_sequences = ['TGTGCCAGCAGGGCGGGATACGCAGTATTT',
                      ...]
 
 # generate all possible nodes with kmers up to length 6                 
-dictionary = generate_dictionary(6)
+dictionary = generate_kmer_dictionary(6)
 # construct a NaiveLZGraph from your list_of_sequences based on the generated dictionary
 lzgraph = NaiveLZGraph(list_of_sequences, dictionary, verbose=True)
 ```
@@ -293,10 +293,10 @@ using the Naive LZGraph, this allows to create LZGraphs to different repertoires
 maintaining the same dictionary of sub-patterns (nodes).
 
 ```python
-from LZGraphs.Graphs.Naive import NaiveLZGraph, generate_dictionary
+from LZGraphs.Graphs.Naive import NaiveLZGraph, generate_kmer_dictionary
 
 # Create a dictionary that will be shared between all repertoires
-dictionary = generate_dictionary(6)
+dictionary = generate_kmer_dictionary(6)
 # create a graph, this can be done in a loop over many repertoires
 lzgraph = NaiveLZGraph(list_of_sequences, dictionary, verbose=True)
 # derive the feature vector

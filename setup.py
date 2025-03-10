@@ -9,7 +9,7 @@ setup(
     name='LZGraphs',
     version='1.1',
     license='MIT',
-    description='An Implementation of LZ76 Based Graphs for Repertoire Representation',
+    description='An Implementation of LZ76 Based Graphs for Repertoire Representation and Analysis',
     long_description_content_type="text/markdown",
     long_description=long_description,
     author='Thomas Konstantinovsky',
