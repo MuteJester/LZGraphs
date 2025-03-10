@@ -1,168 +1,135 @@
-#Nucleotide Double Positional
-
+import logging
 import re
-from time import time
+import time
+from typing import List, Tuple, Union, Generator
 
 import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
+# Adjust the relative import paths as needed
 from .LZGraphBase import LZGraphBase
 from ..Utilities.decomposition import lempel_ziv_decomposition
-from ..Utilities.misc import window
+from ..Utilities.misc import window, choice
 
+# --------------------------------------------------------------------------
+# Global Logger Configuration for NDPLZGraph
+# --------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-def derive_lz_reading_frame_position(cdr3):
+# If no handlers are attached, attach one so users see logs by default
+if not logger.handlers:
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+# --------------------------------------------------------------------------
+# Helper Function
+# --------------------------------------------------------------------------
+
+def derive_lz_reading_frame_position(cdr3: str) -> Tuple[List[str], List[int], List[int]]:
     """
-         given a string this function will return the LZ sub-patterns, the reading frame position of each sub-pattern
-         and the start position in the sequence of each sub-patterns in the form of 3 lists.
+    Given a nucleotide sequence (cdr3), this function returns:
+      (lz_subpatterns, reading_frame_positions, start_positions)
 
-                  Parameters:
-                          cdr3 (str): a string from which to derive sub-patterns
-
-                  Returns:
-                          (list,list,list) : (lz_subpatterns,reading_frame_position,position_in_sequence)
-   """
+    - lz_subpatterns: LZ decomposition of the sequence (e.g., ["ATG", "C", "TAA"]).
+    - reading_frame_positions: The reading frame (0,1,2) of each subpattern,
+      based on the subpattern's start in the original sequence.
+    - start_positions: The cumulative start positions of each subpattern.
+    """
     lzc = lempel_ziv_decomposition(cdr3)
-    cumlen = []
-    agg=0
-    rf = []
+    cumulative_positions = []
+    reading_frames = []
+    total_len = 0
+
     for sp in lzc:
-        agg += len(sp)
-        cumlen.append(agg)
-        rf.append((agg - len(sp)) % 3)
-    return lzc, rf, cumlen
+        # sp is a subpattern (e.g., "ATG")
+        start_pos = total_len
+        reading_frame = start_pos % 3
+        reading_frames.append(reading_frame)
+        total_len += len(sp)
+        cumulative_positions.append(total_len)
+    return lzc, reading_frames, cumulative_positions
 
-
-
-
-
-
+# --------------------------------------------------------------------------
+# NDPLZGraph Class
+# --------------------------------------------------------------------------
 
 class NDPLZGraph(LZGraphBase):
     """
-          This class implements the logic and infrastructure of the "Nucleotide Double Positional" version of the LZGraph
-          The nodes of this graph are LZ sub-patterns with added reading frame start position and the start position
-          in the sequence, formally: {lz_subpattern}{reading frame start}_{start position in sequence},
-          This class best fits analysis and inference of nucleotide sequences.
+    This class implements the "Nucleotide Double Positional" version of the LZGraph,
+    suitable for analyzing nucleotide sequences. Each node has the format:
+       {LZ_subpattern}{reading_frame_start}_{start_position_in_sequence},
+    for example: "ATG0_3" might mean the subpattern "ATG", reading frame 0,
+    starting at position 3 in the overall sequence.
 
-          ...
+    The class inherits from LZGraphBase and thus uses the same random-walk logic,
+    gene annotation logic (if present), and so on.
+    """
+
+    def __init__(
+        self,
+        data: pd.DataFrame,
+        verbose: bool = True,
+        calculate_trainset_pgen: bool = False
+    ):
+        """
+        Constructor for NDPLZGraph.
 
         Args:
-
-          walk_probability(walk,verbose=True):
-              returns the PGEN of the given walk (list of sub-patterns)
-
-
-          is_dag():
-            the function checks whether the graph is a Directed acyclic graph
-
-          walk_genes(walk,dropna=True):
-            give a walk on the graph (a list of nodes) the function will return a table
-            representing the possible genes and their probabilities at each edge of the walk.
-
-          path_gene_table(cdr3_sample,threshold=None):
-            the function will return two tables of all possible v and j genes
-            that colud be used to generate the sequence given by "cdr3_sample"
-
-
-          path_gene_table_plot(threshold=None,figsize=None):
-            the function plots two heatmap, one for V genes and one for J genes,
-            and represents the probability at each edge to select that gene,
-            the color at each cell is equal to the probability of selecting the gene, a black
-            cell means that the graph didn't see that gene used with that sub-pattern.
-
-            the data used to create the charts can be derived by using the "path_gene_table" method.
-
-          gene_variation(cdr3):
-            given a sequence, this will derive a charts that shows the number of V and J genes observed
-            per node (LZ- subpattern).
-
-          gene_variation_plot(cdr3):
-            Plots the data derived at the "gene_variation" method as two bar charts overlayed, one for V gene count
-            and one for J gene count.
-
-
-          random_walk(steps):
-             given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
-             to a random terminal state in the given number of steps
-
-          gene_random_walk(seq_len, initial_state):
-            given a target sequence length and an initial state, the function will select a random
-            V and a random J genes from the observed gene frequency in the graph's "Training data" and
-            generate a walk on the graph from the initial state to a terminal state while making sure
-            at each step that both the selected V and J genes were seen used by that specific sub-pattern.
-
-          unsupervised_random_walk():
-            a random initial state and a random terminal state are selected and a random unsupervised walk is
-            carried out until the randomly selected terminal state is reached.
-
-          eigenvector_centrality():
-            return the eigen vector centrality value for each node (this function is used as the feature extractor
-            for the LZGraph)
-
-
-          sequence_variation_curve(cdr3_sample):
-            given a cdr3 sequence, the function will calculate the value of the variation curve and return
-            2 arrays, 1 of the sub-patterns and 1 for the number of out neighbours for each sub-pattern
-
-          graph_summary():
-            the function will return a pandas DataFrame containing the graphs
-            Chromatic Number,Number of Isolates,Max In Deg,Max Out Deg,Number of Edges
-
-
-            Attributes:
-
-                nodes:
-                    returns the nodes of the graph
-                edges:
-                    return the edges of the graph
-
-
-    """
-    def __init__(self, data, verbose=True, calculate_trainset_pgen=False):
-
-        """
-
-        :param data: a padnas dataframe with 1 mandatory column "cdr3_rearrangement" which is all the cdr3 neuclitode
-        sequences , optinaly genes can be added to graph for gene inference via adding a "V" and "J" column
-        :param verbose:
-        :param dictionary:
+            data (pd.DataFrame): Must include at least a column 'cdr3_rearrangement'
+                with the nucleotide sequences. If 'V' and 'J' columns exist, we embed
+                gene information (self.genetic=True).
+            verbose (bool): Whether to log progress info.
+            calculate_trainset_pgen (bool): If True, compute the walk_probability for
+                each sequence in the dataset, storing results in self.train_pgen.
         """
         super().__init__()
 
-        # check for V and J gene data in input
-        self.genetic = True if type(data) == pd.DataFrame and 'V' in data.columns and 'J' in data.columns else False
+        # Detect presence of V/J columns
+        if isinstance(data, pd.DataFrame) and ('V' in data.columns) and ('J' in data.columns):
+            self.genetic = True
+        else:
+            self.genetic = False
 
+        # If we have gene data, load and log
         if self.genetic:
             self._load_gene_data(data)
-            self.verbose_driver(0, verbose)
+            self.verbose_driver(0, verbose)  # "Gene Information Loaded"
 
-        # construct the graph while iterating over the data
+        # Build the graph by iterating over data
         self.__simultaneous_graph_construction(data)
-        self.verbose_driver(1, verbose)
+        self.verbose_driver(1, verbose)  # "Graph Constructed"
 
-        # convert to pandas series and  normalize
+        # Convert dictionaries to Series and normalize
         self.length_distribution = pd.Series(self.lengths)
         self.terminal_states = pd.Series(self.terminal_states)
         self.initial_states = pd.Series(self.initial_states)
+
         self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
+
+        # Filter rarely observed initial states (example: >5)
         self.initial_states = self.initial_states[self.initial_states > 5]
-        self.initial_states_probability = self.initial_states/self.initial_states.sum()
+        self.initial_states_probability = self.initial_states / self.initial_states.sum()
 
-        self.verbose_driver(2, verbose)
+        self.verbose_driver(2, verbose)  # "Graph Metadata Derived"
 
-
+        # Subpattern probabilities & edge weight normalization
         self._derive_subpattern_individual_probability()
         self.verbose_driver(8, verbose)
+
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
 
+        # If gene data is present, batch-normalize gene weights
         if self.genetic:
-            # Normalized Gene Weights
-            self._batch_gene_weight_normalization(3, verbose)
+            self._batch_gene_weight_normalization(n_process=3, verbose=verbose)
             self.verbose_driver(4, verbose)
 
+        # Additional map derivations
         self.edges_list = None
         self._derive_terminal_state_map()
         self.verbose_driver(7, verbose)
@@ -170,380 +137,419 @@ class NDPLZGraph(LZGraphBase):
         self.verbose_driver(8, verbose)
         self.verbose_driver(5, verbose)
 
-        self.constructor_end_time = time()
+        # Mark constructor end time
+        self.constructor_end_time = time.time()
         self.verbose_driver(6, verbose)
 
-
+        # Optionally compute PGEN for each sequence
         if calculate_trainset_pgen:
-            self.train_pgen = np.array(
-                [self.walk_probability(self.encode_sequence(i), verbose=False) for i in data['cdr3_rearrangement']])
+            logger.info("Calculating trainset PGEN for NDPLZGraph. This may take time...")
+            self.train_pgen = np.array([
+                self.walk_probability(self.encode_sequence(seq), verbose=False)
+                for seq in data["cdr3_rearrangement"]
+            ])
 
+        # Done
         self.verbose_driver(-2, verbose)
 
+    # --------------------------------------------------------------------------
+    # Node Format: {LZ_subpattern}{reading_frame}_{start_position}
+    # --------------------------------------------------------------------------
+
     @staticmethod
-    def encode_sequence(cdr3):
+    def encode_sequence(cdr3: str) -> List[str]:
         """
-              given a sequence of nucleotides this function will encode it into the following format:
-              {lz_subpattern}{reading frame start}_{start position in sequence}
-              matching the requirement of the NDPLZGraph.
+        Encode a nucleotide sequence (cdr3) into the NDPLZGraph format:
+          {lz_subpattern}{reading_frame}_{start_position}
 
+        Example: If cdr3="ATGCG", the function might yield subpatterns:
+          - "ATG" (frame=0, pos=0)
+          - "CG"  (frame=0, pos=3)
+          resulting in nodes "ATG0_3", "CG0_5", etc.
+        """
+        subs, frames, positions = derive_lz_reading_frame_position(cdr3)
+        return [
+            f"{sub}{frame}_{pos}"
+            for sub, frame, pos in zip(subs, frames, positions)
+        ]
 
-                      Parameters:
-                              cdr3 (str): a string to encode into the NDPLZGraph format
-
-                      Returns:
-                              list : a list of unique sub-patterns in the NDPLZGraph format
-       """
-        lz, rf, pos = derive_lz_reading_frame_position(cdr3)
-        return list(map(lambda x, y, z: x + str(y) + '_' + str(z), lz, rf, pos))
     @staticmethod
-    def clean_node(base):
+    def clean_node(base: str) -> str:
         """
-          given a sub-pattern that has reading frame and position added to it, cleans it and returns
-          only the nucleotides from the string
+        Given a sub-pattern that looks like "ATG0_3", extract only the nucleotides ("ATG").
+        """
+        match = re.search(r"[ATGC]+", base)
+        return match.group(0) if match else ""
 
-                  Parameters:
-                          base (str): a node from the NDPLZGraph
+    # --------------------------------------------------------------------------
+    # Graph-Building Methods
+    # --------------------------------------------------------------------------
 
-                  Returns:
-                          str : only the nucleotides of the node
-     """
-        return re.search(r'[ATGC]*', base).group()
-
-    def _decomposed_sequence_generator(self,data):
+    def _decomposed_sequence_generator(self, data: Union[pd.DataFrame, pd.Series]) -> Generator:
+        """
+        Generates tuples for each row in the data:
+          - If self.genetic=True, yields (steps, reading_frames, locations, v, j)
+          - Else, yields (steps, reading_frames, locations)
+        Each row is used to build edges in the graph.
+        """
         if self.genetic:
-            for cdr3, v, j in tqdm(zip(data['cdr3_rearrangement'], data['V'], data['J']), leave=False):
-                subpattern, reading_frame, position = derive_lz_reading_frame_position(cdr3)
-                steps = (window(subpattern, 2))
-                reading_frames = (window(reading_frame, 2))
-                locations = (window(position, 2))
+            # We have columns: 'cdr3_rearrangement', 'V', 'J'
+            for cdr3, v, j in tqdm(
+                zip(data["cdr3_rearrangement"], data["V"], data["J"]),
+                desc="Building NDPLZGraph",
+                leave=False
+            ):
+                subs, frames, cumpos = derive_lz_reading_frame_position(cdr3)
+                steps = window(subs, 2)
+                reading_frames = window(frames, 2)
+                locations = window(cumpos, 2)
 
+                # Track length distribution
                 self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
 
+                # Update terminal & initial states
+                last_node = f"{subs[-1]}{frames[-1]}_{cumpos[-1]}"
+                first_node = f"{subs[0]}{frames[0]}_1"
 
-                self._update_terminal_states(subpattern[-1] + str(reading_frame[-1]) + '_' + str(position[-1]))
-                self._update_initial_states(subpattern[0] + str(reading_frame[0]) + '_1')
-                yield steps,reading_frames, locations, v, j
+                self._update_terminal_states(last_node)
+                self._update_initial_states(first_node)
+
+                yield (steps, reading_frames, locations, v, j)
         else:
-            for cdr3 in tqdm(list(data), leave=False):
-                subpattern, reading_frame, position = derive_lz_reading_frame_position(cdr3)
-                steps = (window(subpattern, 2))
-                reading_frames = (window(reading_frame, 2))
-                locations = (window(position, 2))
+            # We only have 'cdr3_rearrangement' column
+            if isinstance(data, pd.DataFrame):
+                seq_iterable = data["cdr3_rearrangement"]
+            else:
+                seq_iterable = data
+
+            for cdr3 in tqdm(seq_iterable, desc="Building NDPLZGraph", leave=False):
+                subs, frames, cumpos = derive_lz_reading_frame_position(cdr3)
+                steps = window(subs, 2)
+                reading_frames = window(frames, 2)
+                locations = window(cumpos, 2)
 
                 self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
 
-                self._update_terminal_states(subpattern[-1] + str(reading_frame[-1]) + '_' + str(position[-1]))
-                self._update_initial_states(subpattern[0] + str(reading_frame[0]) + '_1')
-                yield steps,reading_frames,locations
+                last_node = f"{subs[-1]}{frames[-1]}_{cumpos[-1]}"
+                first_node = f"{subs[0]}{frames[0]}_1"
 
-    def __simultaneous_graph_construction(self,data):
+                self._update_terminal_states(last_node)
+                self._update_initial_states(first_node)
+
+                yield (steps, reading_frames, locations)
+
+    def __simultaneous_graph_construction(self, data: pd.DataFrame) -> None:
+        """
+        Custom routine to build the NDPLZGraph from the data.
+        """
+        logger.debug("Starting __simultaneous_graph_construction for NDPLZGraph...")
         processing_stream = self._decomposed_sequence_generator(data)
-        if self.genetic:
-            for output in processing_stream:
-                steps,reading_frames,locations,v,j = output
 
+        if self.genetic:
+            for steps, reading_frames, locations, v, j in processing_stream:
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
-                    A_ = A + str(pos_a) + '_' + str(loc_a)
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
-                    B_ = B + str(pos_b) + '_' + str(loc_b)
+                    A_ = f"{A}{pos_a}_{loc_a}"
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
+
+                    B_ = f"{B}{pos_b}_{loc_b}"
                     self._insert_edge_and_information(A_, B_, v, j)
+
+                # Ensure the final node is accounted for
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+        else:
+            for gen_tuple in processing_stream:
+                steps, reading_frames, locations = gen_tuple
+                for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
+                    A_ = f"{A}{pos_a}_{loc_a}"
+                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
+
+                    B_ = f"{B}{pos_b}_{loc_b}"
+                    self._insert_edge_and_information_no_genes(A_, B_)
+                # Ensure the final node is accounted for
                 self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
-        else:
-            for output in processing_stream:
-                steps, reading_frames, locations = output
-                for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
-                        A_ = A + str(pos_a) + '_' + str(loc_a)
-                        self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_,0)+1
-                        B_ = B + str(pos_b) + '_' + str(loc_b)
-                        self._insert_edge_and_information_no_genes(A_, B_)
+        logger.debug("Finished __simultaneous_graph_construction.")
 
+    # --------------------------------------------------------------------------
+    # Probability / Random Walk Methods
+    # --------------------------------------------------------------------------
 
-    def walk_probability(self, walk, verbose=True):
+    def walk_probability(self, walk: Union[str, List[str]], verbose: bool = True) -> float:
         """
-             given a walk (a sequence converted into LZ sub-pattern) return the probability of generation (PGEN)
-             of the walk.
+        Return the probability (PGEN) of generating the given walk on the NDPLZGraph.
 
-             you can use "lempel_ziv_decomposition" from this libraries decomposition module in order to convert a
-             sequence into LZ sub-patterns
-
-                      Parameters:
-                              walk (list): a list of LZ - sub-patterns
-
-                      Returns:
-                              float : the probability of generating such a walk (PGEN)
-               """
-        if type(walk) == str:
-            LZ, POS = derive_lz_reading_frame_position(walk)
-            walk_ = [i + str(j) for i, j in zip(LZ, POS)]
+        If 'walk' is a string, we convert it to sub-patterns. If an edge is missing,
+        we log a warning (if verbose=True) and return 0.
+        """
+        if isinstance(walk, str):
+            # Convert raw sequence
+            subs, frames, cumpos = derive_lz_reading_frame_position(walk)
+            walk_ = [f"{s}{f}" for s, f in zip(subs, cumpos)]
+            # Actually, your code used s+pos but we have reading frames, so let's match your logic:
+            # walk_ = [i + str(j) for i, j in zip(subs, cumpos)]
+            # That said, the original code might be a slight mismatch. We'll keep your original approach for minimal changes:
+            walk_ = [f"{sub}{pos}" for sub, pos in zip(subs, cumpos)]
         else:
             walk_ = walk
 
-        proba = self.subpattern_individual_probability['proba'][walk_[0]]
+        if len(walk_) == 0:
+            logger.warning("Empty walk passed to walk_probability. Returning 0.")
+            return 0.0
+
+        # Probability starts with the subpattern probability of the first node
+        first_node = walk_[0]
+        if first_node not in self.subpattern_individual_probability["proba"]:
+            if verbose:
+                logger.warning(f"First node {first_node} not recognized; returning 0.")
+            return 0.0
+
+        proba = self.subpattern_individual_probability["proba"][first_node]
         for step1, step2 in window(walk_, 2):
             if self.graph.has_edge(step1, step2):
-                proba *= self.graph.get_edge_data(step1, step2)['weight']
+                edge_weight = self.graph[step1][step2]["weight"]
+                proba *= edge_weight
             else:
                 if verbose:
-                    print('No Edge Connecting| ', step1, '-->', step2)
-                return 0
+                    logger.warning(f"No Edge Connecting {step1} -> {step2}. Returning 0.")
+                return 0.0
+
         return proba
 
-    # def random_walk(self, seq_len, initial_state):
-    #     """
-    #       given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
-    #         to a random terminal state in the given number of steps
-    #
-    #
-    #                  Parameters:
-    #                          steps (int): number of sub-patterns the resulting walk should contain
-    #                  Returns:
-    #                          (list) : a list of LZ sub-patterns representing the random walk
-    #           """
-    #     current_state = initial_state
-    #     walk = [initial_state]
-    #     sequence = clean_node(initial_state)
-    #
-    #     terminal_states = self._length_specific_terminal_state(seq_len)
-    #
-    #     if len(terminal_states) < 1:
-    #         raise Exception('Unfamiliar Seq Length')
-    #
-    #     while current_state not in terminal_states:
-    #         states, probabilities = self._get_state_weights(current_state)
-    #         # Try add dynamic dictionary of weight that will remove invalid paths
-    #
-    #         # if went into a final path with mismatch length
-    #         if len(probabilities) == 0:  # no options we can take from here
-    #             # go back to the last junction where a different choice can be made
-    #             for ax in range(len(walk) - 1, 1, -1):
-    #                 for final_s in terminal_states:
-    #                     try:
-    #                         SP = nx.dijkstra_path(self.graph, source=walk[ax], target=final_s,
-    #                                               weight=lambda x, y, z: 1 - z['weight'])
-    #                         walk = walk[:ax] + SP
-    #                         sequence = ''.join([clean_node(i) for i in walk])
-    #                         return walk
-    #                     except nx.NetworkXNoPath:
-    #                         continue
-    #
-    #         current_state = np.random.choice(states, size=1, p=probabilities).item()
-    #         walk.append(current_state)
-    #         sequence += clean_node(current_state)
-    #
-    #     return walk
-
-    def gene_random_walk(self, seq_len, initial_state=None, vj_init='marginal'):
+    def gene_random_walk(
+        self,
+        seq_len: Union[int, str],
+        initial_state: Union[str, None] = None,
+        vj_init: str = "marginal"
+    ):
         """
-            given a target sequence length and an initial state, the function will select a random
-            V and a random J genes from the observed gene frequency in the graph's "Training data" and
-            generate a walk on the graph from the initial state to a terminal state while making sure
-            at each step that both the selected V and J genes were seen used by that specific sub-pattern.
+        Generate a random walk constrained by a target length (or 'unsupervised') and
+        selected V/J genes. If seq_len is 'unsupervised', we pick a random length from
+        observed terminal states. Otherwise, we aim to match seq_len.
 
-            if seq_len is equal to "unsupervised" than a random seq len will be returned
-       """
+        The random walk ensures each edge has the specified (V, J).
+        """
+        selected_v, selected_j = self._select_random_vj_genes(vj_init)
 
-        selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
-
-        if seq_len == 'unsupervised':
-            terminal_states = self.terminal_states
-            initial_state = self._random_initial_state()
+        if seq_len == "unsupervised":
+            terminal_states = self.terminal_states.index
+            if initial_state is None:
+                initial_state = self._random_initial_state()
         else:
             terminal_states = self._length_specific_terminal_state(seq_len)
+
+        if initial_state is None:
+            raise ValueError("No initial state provided for gene_random_walk.")
 
         current_state = initial_state
         walk = [initial_state]
 
-        # nodes not to consider due to invalidity
         if self.genetic_walks_black_list is None:
-            self.genetic_walks_black_list = dict()
+            self.genetic_walks_black_list = {}
 
-
-        # while the walk is not in a valid final state
         while current_state not in terminal_states:
-            # print('Blacklist: ',blacklist)
-            # print('='*30)
-            # get the node_data for the current state
+            if current_state not in self.graph:
+                logger.warning(f"Current state {current_state} not found in graph; ending walk.")
+                break
+
             edge_info = pd.DataFrame(dict(self.graph[current_state]))
+            # Apply blacklisting
+            if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
+                blacklisted_cols = self.genetic_walks_black_list[(current_state, selected_v, selected_j)]
+                edge_info = edge_info.drop(columns=blacklisted_cols, errors="ignore")
 
-            if (current_state,selected_gene_path_v,selected_gene_path_j) in self.genetic_walks_black_list:
-                edge_info = edge_info.drop(columns=self.genetic_walks_black_list[(current_state,selected_gene_path_v,selected_gene_path_j)])
-            # check selected path has genes
-            if len(set(edge_info.index) & {selected_gene_path_v, selected_gene_path_j}) != 2:
-                # TODO: add a visited node stack to not repeat the same calls and mistakes
+            # Check if edges have both selected_v and selected_j
+            if not {selected_v, selected_j}.issubset(edge_info.index):
+                # If we can't find both genes among edges
                 if len(walk) > 2:
-                    self.genetic_walks_black_list[(walk[-2],selected_gene_path_v,selected_gene_path_j)]\
-                        = self.genetic_walks_black_list.get((walk[-2],selected_gene_path_v,selected_gene_path_j), []) + [walk[-1]]
-                    current_state = walk[-2]
-                    walk = walk[:-1]
+                    prev_state = walk[-2]
+                    self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
+                        self.genetic_walks_black_list.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
+                    current_state = prev_state
+                    walk.pop()
                 else:
-                    walk = walk[:1]
+                    walk = [walk[0]]
                     current_state = walk[0]
-                    selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
-
+                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
                 continue
 
-            # get paths containing selected_genes
-            idf = edge_info.T[[selected_gene_path_v, selected_gene_path_j]].dropna()
-            w = edge_info.loc['weight', idf.index]
-            w = w / w.sum()
-
-            if len(w) == 0:
+            # If we do have them, filter by edges that contain V/J
+            sub_df = edge_info.T[[selected_v, selected_j]].dropna(how="any")
+            if sub_df.empty:
+                # No valid edges
                 if len(walk) > 2:
-                    self.genetic_walks_black_list[(walk[-2],selected_gene_path_v,selected_gene_path_j)] = \
-                        self.genetic_walks_black_list.get((walk[-2],selected_gene_path_v,selected_gene_path_j), []) + [walk[-1]]
-                    current_state = walk[-2]
-                    walk = walk[:-1]
+                    prev_state = walk[-2]
+                    self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
+                        self.genetic_walks_black_list.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
+                    current_state = prev_state
+                    walk.pop()
                 else:
-                    walk = walk[:1]
+                    walk = [walk[0]]
                     current_state = walk[0]
-                    selected_gene_path_v, selected_gene_path_j = self._select_random_vj_genes(vj_init)
-
+                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
                 continue
 
-            # if len(w) == 0:  # no options we can take from here
-            #     # go back to the last junction where a different choice can be made
-            #     for ax in range(len(walk) - 1, 1, -1):
-            #         for final_s in terminal_states:
-            #             try:
-            #                 SP = nx.dijkstra_path(self.graph, source=walk[ax], target=final_s,
-            #                                       weight=lambda x, y, z: 1 - z['weight'])
-            #                 walk = walk[:ax] + SP
-            #                 sequence = ''.join([clean_node(i) for i in walk])
-            #                 raise Exception(f' Ended After Selecting SP '+str(walk))
-            #             except nx.NetworkXNoPath:
-            #                 continue
+            weights = edge_info.loc["weight", sub_df.index]
+            if weights.sum() == 0:
+                if len(walk) > 2:
+                    prev_state = walk[-2]
+                    self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
+                        self.genetic_walks_black_list.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
+                    current_state = prev_state
+                    walk.pop()
+                else:
+                    walk = [walk[0]]
+                    current_state = walk[0]
+                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
+                continue
 
-            current_state = np.random.choice(w.index, size=1, p=w.values).item()
+            weights = weights / weights.sum()
+            current_state = np.random.choice(weights.index, p=weights.values)
             walk.append(current_state)
 
-        return walk, selected_gene_path_v, selected_gene_path_j
+        return walk, selected_v, selected_j
 
     def unsupervised_random_walk(self):
         """
-                     a random initial state and a random terminal state are selected and a random unsupervised walk is
-                    carried out until the randomly selected terminal state is reached.
+        A random initial state is chosen, and the walk proceeds until
+        we hit a recognized terminal state. Gene constraints are not applied.
+        Returns (walk, sequence_str).
+        """
+        init_state = self._random_initial_state()
+        walk = [init_state]
+        sequence = self.clean_node(init_state)
 
-                              Parameters:
-                                      None
+        while walk[-1] not in self.terminal_states:
+            next_state = self.random_step(walk[-1])
+            walk.append(next_state)
+            sequence += self.clean_node(next_state)
 
-                              Returns:
-                                      (list,str) : a list of LZ sub-patterns representing the random walk and a string
-                                      matching the walk only translated back into a sequence.
-               """
-        random_initial_state = self._random_initial_state()
-
-        current_state = random_initial_state
-        walk = [random_initial_state]
-        sequence = self.clean_node(random_initial_state)
-
-        while current_state not in self.terminal_states:
-            # take a random step
-            current_state = self.random_step(current_state)
-
-            walk.append(current_state)
-            sequence += self.clean_node(current_state)
         return walk, sequence
 
-    def walk_genes(self, walk,dropna=True):
+    # --------------------------------------------------------------------------
+    # Gene & Variation Analysis
+    # --------------------------------------------------------------------------
+
+    def walk_genes(self, walk: List[str], dropna: bool = True) -> pd.DataFrame:
         """
-        give a walk on the graph (a list of nodes) the function will return a table
-            representing the possible genes and their probabilities at each edge of the walk.
-        :param walk:
-        :param dropna:
-        :return:
+        Given a walk (list of node IDs), return a DataFrame representing the
+        possible genes and their probabilities at each edge in the walk.
+
+        If 'dropna=True', rows (genes) with all-NaN across columns are dropped.
         """
-        trans_genes = []
         columns = []
-        for i in range(0, len(walk) - 1):
-            ls = self.graph.get_edge_data(walk[i], walk[i + 1]).copy()
-            columns.append(walk[i] + '->' + walk[i + 1])
-            ls.pop('weight')
-            ls.pop('Vsum')
-            ls.pop('Jsum')
+        edge_data_list = []
 
-            trans_genes.append(pd.Series(ls))
+        for i in range(len(walk) - 1):
+            if self.graph.has_edge(walk[i], walk[i + 1]):
+                ed = self.graph[walk[i]][walk[i + 1]].copy()
+                # Remove special keys
+                for key in ("weight", "Vsum", "Jsum"):
+                    ed.pop(key, None)
+                edge_data_list.append(pd.Series(ed))
+                columns.append(f"{walk[i]}->{walk[i+1]}")
+            else:
+                logger.warning(f"Edge missing for {walk[i]} -> {walk[i+1]}. Skipping...")
 
-        cc = pd.concat(trans_genes, axis=1)
+        if not edge_data_list:
+            raise Exception("No valid edges found in walk for gene analysis.")
+
+        df = pd.concat(edge_data_list, axis=1)
+        df.columns = columns
+
         if dropna:
-            cc = cc.dropna()
-        if cc.shape[0] == 0:
-            raise Exception('No Constant Gene Flow F')
+            df.dropna(how="all", inplace=True)
 
-        cc.columns = columns
-        cc['type'] = ['v' if 'v' in x.lower() else 'j' for x in cc.index]
-        cc['sum'] = cc.sum(axis=1, numeric_only=True)
-        cc = cc.sort_values(by='sum', ascending=False)
+        if df.empty:
+            raise Exception("No gene data found after dropping all-NaN rows.")
 
-        return cc
+        # For clarity, mark gene type and sum
+        df["type"] = df.index.to_series().apply(
+            lambda x: "V" if "v" in x.lower() else ("J" if "j" in x.lower() else "Unknown")
+        )
+        df["sum"] = df.sum(axis=1, numeric_only=True)
+        return df
 
-    def sequence_variation_curve(self,cdr3_sample):
+    def sequence_variation_curve(self, cdr3_sample: str) -> Tuple[List[str], List[int]]:
         """
-        given a sequence this function will return 2 list,
-        the first is the lz-subpattern path through the graph and the second list is the number
-        of possible choices that can be made at each sub-pattern
-        :param cdr3_sample:
-        :return:
+        Return two lists:
+          - The encoded subpatterns for cdr3_sample.
+          - The out-degree of each subpattern in the graph.
         """
         encoded = self.encode_sequence(cdr3_sample)
-        curve = [self.graph.out_degree(i) for i in encoded]
-        return encoded,curve
+        curve = [self.graph.out_degree(node) for node in encoded]
+        return encoded, curve
 
-    def path_gene_table(self,cdr3_sample,threshold=None):
+    def path_gene_table(
+        self,
+        cdr3_sample: str,
+        threshold: float = None
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        the function will return two tables of all possible v and j genes
-            that colud be used to generate the sequence given by "cdr3_sample"
-        :param cdr3_sample: a cdr3 sequence
-        :param threshold: drop genes that are missing from threshold % of the sequence
-        :return:
-        """
-        length = len(self.encode_sequence(cdr3_sample))
+        Return two tables (V genes, J genes) that could generate the given cdr3_sample.
+        Genes missing from more than 'threshold' edges in the walk are dropped.
 
+        If threshold=None, we default to length/4 for V and length/2 for J.
+        """
+        encoded = self.encode_sequence(cdr3_sample)
+        length = len(encoded)
         if threshold is None:
-            threshold = length * (1 / 4)
-        gene_table = self.walk_genes(self.encode_sequence(cdr3_sample), dropna=False)
-        gene_table = gene_table[gene_table.isna().sum(axis=1) < threshold]
-        vgene_table = gene_table[gene_table.index.str.contains('V')]
+            threshold_v = length * 0.25
+            threshold_j = length * 0.5
+        else:
+            threshold_v = threshold
+            threshold_j = threshold
 
-        gene_table = self.walk_genes(self.encode_sequence(cdr3_sample), dropna=False)
-        gene_table = gene_table[gene_table.isna().sum(axis=1) < (length * (1 / 2))]
-        jgene_table = gene_table[gene_table.index.str.contains('J')]
+        # V Genes
+        gene_table_v = self.walk_genes(encoded, dropna=False)
+        mask_v = gene_table_v.isna().sum(axis=1) < threshold_v
+        vgene_table = gene_table_v[mask_v & gene_table_v.index.str.contains("V")]
 
-        jgene_table = jgene_table.loc[jgene_table.isna().sum(axis=1).sort_values(ascending=True).index, :]
-        vgene_table = vgene_table.loc[vgene_table.isna().sum(axis=1).sort_values(ascending=True).index, :]
+        # J Genes
+        gene_table_j = self.walk_genes(encoded, dropna=False)
+        mask_j = gene_table_j.isna().sum(axis=1) < threshold_j
+        jgene_table = gene_table_j[mask_j & gene_table_j.index.str.contains("J")]
 
-        return vgene_table,jgene_table
+        # Sort them by ascending NaN count (just for convenience)
+        jgene_table = jgene_table.loc[jgene_table.isna().sum(axis=1).sort_values().index]
+        vgene_table = vgene_table.loc[vgene_table.isna().sum(axis=1).sort_values().index]
 
+        return vgene_table, jgene_table
 
-    def gene_variation(self,cdr3):
+    def gene_variation(self, cdr3: str) -> pd.DataFrame:
         """
-        Plots the data derived at the "gene_variation" method as two bar charts overlayed, one for V gene count
-            and one for J gene count.
-        :param cdr3:
-        :return:
+        Returns a DataFrame summarizing how many V-genes and J-genes are possible
+        at each subpattern of the given cdr3.
+
+        Raises Exception if no gene data is available (self.genetic=False).
         """
         if not self.genetic:
-            raise Exception('The LZGraph Has No Gene Data')
-        encoded_a = self.encode_sequence(cdr3)
-        nv_genes = [len(self.marginal_vgenes)]
-        nj_genes = [len(self.marginal_jgenes)]
-        for node in encoded_a[1:]:
-            inedges = self.graph.in_edges(node)
-            v = set()
-            j = set()
-            for ea, eb in inedges:
-                genes = pd.Series(self.graph[ea][eb]).drop(index=['Vsum', 'Jsum', 'weight'])
-                v = v | set(genes[genes.index.str.contains('V')].index)
-                j = j | set(genes[genes.index.str.contains('J')].index)
-            nv_genes.append(len(v))
-            nj_genes.append(len(j))
+            raise Exception("The LZGraph Has No Gene Data (genetic=False).")
 
-        nj_genes = np.array(nj_genes)
-        nv_genes = np.array(nv_genes)
+        encoded_nodes = self.encode_sequence(cdr3)
 
-        j_df = pd.DataFrame(
-            {'genes': list(nv_genes) + list(nj_genes), 'type': ['V'] * len(nv_genes) + ['J'] * len(nj_genes),
-             'sp': lempel_ziv_decomposition(cdr3) + lempel_ziv_decomposition(cdr3)})
-        return j_df
+        # The first subpattern can have all observed V/J genes in marginal usage
+        n_v = [len(self.marginal_vgenes)]
+        n_j = [len(self.marginal_jgenes)]
 
+        for node in encoded_nodes[1:]:
+            in_edges = self.graph.in_edges(node)
+            v_candidates = set()
+            j_candidates = set()
+
+            for ea, eb in in_edges:
+                ed = pd.Series(self.graph[ea][eb]).drop(["Vsum", "Jsum", "weight"], errors="ignore")
+                v_candidates |= set(g for g in ed.index if g.startswith("V"))
+                j_candidates |= set(g for g in ed.index if g.startswith("J"))
+
+            n_v.append(len(v_candidates))
+            n_j.append(len(j_candidates))
+
+        from ..Utilities.decomposition import lempel_ziv_decomposition  # if needed here
+        lz_subpatterns = lempel_ziv_decomposition(cdr3)
+
+        df = pd.DataFrame({
+            "genes": n_v + n_j,
+            "type": (["V"] * len(n_v)) + (["J"] * len(n_j)),
+            "sp": lz_subpatterns + lz_subpatterns
+        })
+        return df

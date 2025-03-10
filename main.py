@@ -25,7 +25,7 @@ from src.LZGraphs import graph_union, NodeEdgeSaturationProbe
 # from LZGraphs.NDPLZGraph import NDPLZGraph, encode_sequence, get_lz_and_pos
 from src.LZGraphs import  AAPLZGraph
 from src.LZGraphs import  NDPLZGraph
-from src.LZGraphs.Graphs.Naive import NaiveLZGraph,generate_dictionary
+from src.LZGraphs.Graphs.Naive import NaiveLZGraph,generate_kmer_dictionary
 # lzg = NDPLZGraph(T,verbose=True)
 
 # print('Nodes: ',len(lzg.nodes))
@@ -646,7 +646,7 @@ def NaiveG_Test():
     print('\n\n')
     with open('hivd1_s0_Naive_graph_test.pkl', 'rb') as h:
         lzg = pickle.load(h)
-    new_graph = NaiveLZGraph(single_sample.cdr3_rearrangement,generate_dictionary(6))
+    new_graph = NaiveLZGraph(single_sample.cdr3_rearrangement, generate_kmer_dictionary(6))
     #
     #
     # with open('hivd1_s0_Naive_graph_test.pkl', 'wb') as h:
