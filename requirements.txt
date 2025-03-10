@@ -4,4 +4,4 @@ pandas~=1.5.3
 tqdm~=4.65.0
 matplotlib~=3.7.2
 seaborn~=0.12.2
-setuptools~=68.0.0
+setuptools~=69.5.1
