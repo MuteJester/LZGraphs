@@ -94,31 +94,55 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install python-semantic-release build twine
+          pip install build twine
 
-      - name: Configure Git
+      - name: Get version from package
+        id: version
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          VERSION=$(python -c "from src.LZGraphs import __version__; print(__version__)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
 
-      - name: Python Semantic Release
-        id: release
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      - name: Check if version exists on PyPI
+        id: check_pypi
         run: |
-          semantic-release version
-          semantic-release publish
+          VERSION=${{ steps.version.outputs.version }}
+          if pip index versions LZGraphs 2>/dev/null | grep -q "$VERSION"; then
+            echo "Version $VERSION already exists on PyPI"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Version $VERSION not on PyPI - will publish"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build package
+        if: steps.check_pypi.outputs.exists == 'false'
+        run: python -m build
 
       - name: Publish to PyPI
-        if: steps.release.outcome == 'success'
+        if: steps.check_pypi.outputs.exists == 'false'
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
+
+      - name: Create GitHub Release
+        if: steps.check_pypi.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
-            twine upload dist/*
-          else
-            echo "No distribution files to upload"
+          VERSION=${{ steps.version.outputs.version }}
+          # Check if tag exists, create if not
+          if ! git tag -l | grep -q "^v$VERSION$"; then
+            git tag "v$VERSION"
+            git push origin "v$VERSION"
+          fi
+          # Create release if it doesn't exist
+          if ! gh release view "v$VERSION" &>/dev/null; then
+            gh release create "v$VERSION" \
+              --title "v$VERSION" \
+              --notes "Release v$VERSION" \
+              dist/*
           fi
 
   # ===========================================================================
