@@ -569,8 +569,9 @@ class NDPLZGraph(LZGraphBase):
 
             for ea, eb in in_edges:
                 ed = pd.Series(self.graph[ea][eb]).drop(["Vsum", "Jsum", "weight"], errors="ignore")
-                v_candidates |= set(g for g in ed.index if g.startswith("V"))
-                j_candidates |= set(g for g in ed.index if g.startswith("J"))
+                # Gene names are like "TRBV30-1*01" and "TRBJ1-2*01", so use 'in' not startswith
+                v_candidates |= set(g for g in ed.index if "V" in g)
+                j_candidates |= set(g for g in ed.index if "J" in g)
 
             n_v.append(len(v_candidates))
             n_j.append(len(j_candidates))
