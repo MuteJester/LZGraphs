@@ -1,0 +1,233 @@
+/* LZGraphs Documentation Custom Styles */
+
+/* ============================================
+   Typography and General Styling
+   ============================================ */
+
+/* Code block enhancements */
+.md-typeset code {
+  font-size: 0.85em;
+}
+
+/* Inline code styling */
+.md-typeset :not(pre) > code {
+  padding: 0.1em 0.3em;
+  border-radius: 0.2em;
+}
+
+/* ============================================
+   Homepage Feature Cards
+   ============================================ */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.card {
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.card h3 {
+  margin-top: 0;
+  color: var(--md-primary-fg-color);
+}
+
+.card p {
+  margin-bottom: 0;
+  color: var(--md-default-fg-color--light);
+}
+
+/* ============================================
+   Admonition Customization
+   ============================================ */
+
+/* Custom tip styling */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-color: #00bfa5;
+}
+
+.md-typeset .tip > .admonition-title,
+.md-typeset .tip > summary {
+  background-color: rgba(0, 191, 165, 0.1);
+}
+
+/* Custom note for API references */
+.md-typeset .admonition.api,
+.md-typeset details.api {
+  border-color: #7c4dff;
+}
+
+.md-typeset .api > .admonition-title,
+.md-typeset .api > summary {
+  background-color: rgba(124, 77, 255, 0.1);
+}
+
+/* ============================================
+   Table Styling
+   ============================================ */
+
+.md-typeset table:not([class]) {
+  font-size: 0.85rem;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-primary-fg-color);
+  color: var(--md-primary-bg-color);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+}
+
+.md-typeset table:not([class]) td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset table:not([class]) tr:hover {
+  background-color: var(--md-code-bg-color);
+}
+
+/* ============================================
+   API Documentation Styling
+   ============================================ */
+
+/* Method signatures */
+.doc-signature {
+  font-family: var(--md-code-font-family);
+  background: var(--md-code-bg-color);
+  padding: 1rem;
+  border-radius: 0.25rem;
+  overflow-x: auto;
+}
+
+/* Parameter tables in API docs */
+.doc-param-table th {
+  white-space: nowrap;
+}
+
+/* ============================================
+   Examples Gallery
+   ============================================ */
+
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.example-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.example-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.example-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.example-card-content {
+  padding: 1rem;
+}
+
+.example-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+}
+
+.example-card p {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.9rem;
+}
+
+/* ============================================
+   Badges
+   ============================================ */
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.badges img {
+  height: 20px;
+}
+
+/* ============================================
+   Quick Links Navigation
+   ============================================ */
+
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.quick-link {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: var(--md-code-bg-color);
+  border-radius: 0.5rem;
+  text-decoration: none;
+  color: var(--md-default-fg-color);
+  transition: background 0.2s ease;
+}
+
+.quick-link:hover {
+  background: var(--md-accent-fg-color--transparent);
+  text-decoration: none;
+}
+
+.quick-link-icon {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+
+@media screen and (max-width: 76.25em) {
+  .grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+@media screen and (max-width: 44.9375em) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .example-grid {
+    grid-template-columns: 1fr;
+  }
+}
