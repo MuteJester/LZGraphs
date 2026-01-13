@@ -1,25 +1,158 @@
-site_name: LZGraph Documentation
+site_name: LZGraphs Documentation
+site_url: https://MuteJester.github.io/LZGraphs/
+site_description: LZ76-based graph representations for T-cell receptor repertoire analysis
+site_author: Thomas Konstantinovsky
+repo_url: https://github.com/MuteJester/LZGraphs
+repo_name: MuteJester/LZGraphs
+edit_uri: edit/master/docs/
+
+copyright: Copyright &copy; 2024 Thomas Konstantinovsky
+
 theme:
-  name: "material"
+  name: material
+  logo: images/lzglogo2.png
+  favicon: images/lzglogo2.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  icon:
+    repo: fontawesome/brands/github
 
 plugins:
-  - search
-  - mkdocstrings
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: false
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            docstring_style: google
+            docstring_section_style: spacy
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true
+
 markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/MuteJester/LZGraphs
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/LZGraphs/
+  generator: false
+  version:
+    provider: mike
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
 nav:
-  - index.md
-  - tutorials.md
-  - LZ Metrics: metrics_reference.md
-  - Misc Functions: misc_reference.md
-  - Visualize Functions: visualize_reference.md
-  - Utilities Functions: utilities_reference.md
-  - Node Edge Saturation Functions: nodedgesaturation_reference.md
-  - BOW Encoder Functions: bowencoder_reference.md
-  - LZGraph Base Class: lzgraphbase_reference.md
-  - NDPLZGraph Class: ndplgraph_reference.md
-  - AAPLZGraph Class: aaplzgraph_reference.md
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - First Steps: getting-started/first-steps.md
+  - Tutorials:
+    - tutorials/index.md
+    - Graph Construction: tutorials/graph-construction.md
+    - Sequence Analysis: tutorials/sequence-analysis.md
+    - Diversity Metrics: tutorials/diversity-metrics.md
+    - Visualization: tutorials/visualization.md
+  - Concepts:
+    - concepts/index.md
+    - LZ76 Algorithm: concepts/lz76-algorithm.md
+    - Graph Types: concepts/graph-types.md
+    - Probability Model: concepts/probability-model.md
+  - How-To Guides:
+    - how-to/index.md
+    - Save & Load Graphs: how-to/serialization.md
+    - Generate Sequences: how-to/sequence-generation.md
+    - Compare Repertoires: how-to/repertoire-comparison.md
+  - Examples: examples/index.md
+  - API Reference:
+    - api/index.md
+    - AAPLZGraph: api/aaplzgraph.md
+    - NDPLZGraph: api/ndplzgraph.md
+    - NaiveLZGraph: api/naivelzgraph.md
+    - Metrics: api/metrics.md
+    - Utilities: api/utilities.md
+    - Exceptions: api/exceptions.md
+  - Resources:
+    - FAQ: resources/faq.md
+    - Changelog: resources/changelog.md
+    - Citation: resources/citation.md
