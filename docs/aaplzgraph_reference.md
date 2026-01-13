@@ -1,1 +1,0 @@
-::: LZGraphs.Graphs.AminoAcidPositional

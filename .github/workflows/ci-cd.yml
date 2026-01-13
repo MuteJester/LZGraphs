@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   id-token: write
+  pages: write
 
 jobs:
   # ===========================================================================
@@ -118,3 +119,35 @@ jobs:
           else
             echo "No distribution files to upload"
           fi
+
+  # ===========================================================================
+  # Deploy Documentation to GitHub Pages
+  # ===========================================================================
+  docs:
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Build and deploy documentation
+        run: mkdocs gh-deploy --force
