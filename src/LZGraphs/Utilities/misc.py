@@ -17,20 +17,40 @@ from itertools import tee
 import numpy as np
 
 
-def choice(options,probs):
-    """Choose a single random variable from a list given a probability distribution
+def choice(options, probs):
+    """Choose a single random variable from a list given a probability distribution.
 
-      Args:
-          options (list): The list of values from which a single random one should be chosen
-          probs (float): Probability distribution.
+    Args:
+        options (list): The list of values from which a single random one should be chosen.
+        probs (list): Probability distribution (must sum to ~1.0).
 
-      Returns:
-          element: a random variable from list "options" with probability p in probas.
-      """
+    Returns:
+        element: A random variable from list "options" with probability p in probs.
+
+    Raises:
+        ValueError: If options is empty, lengths don't match, or probabilities invalid.
+    """
+    # Validate inputs
+    if len(options) == 0:
+        raise ValueError("options cannot be empty")
+
+    if len(options) != len(probs):
+        raise ValueError(
+            f"Length mismatch: options has {len(options)} elements, "
+            f"probs has {len(probs)} elements"
+        )
+
+    # Validate probabilities sum to approximately 1
+    prob_sum = sum(probs)
+    if not (0.99 <= prob_sum <= 1.01):
+        raise ValueError(
+            f"Probabilities must sum to ~1.0, got {prob_sum:.4f}"
+        )
+
     x = np.random.rand()
     cum = 0
     i = None
-    for i,p in enumerate(probs):
+    for i, p in enumerate(probs):
         cum += p
         if x < cum:
             break

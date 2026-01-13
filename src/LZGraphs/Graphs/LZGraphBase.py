@@ -1,11 +1,16 @@
 import logging
 import heapq
+import json
+import pickle
 import re
 from collections import Counter
 from multiprocessing.pool import ThreadPool
+from pathlib import Path
 from time import time
+from typing import Union, Optional
 
 import networkx as nx
+from networkx.readwrite import json_graph
 import numpy as np
 import pandas as pd
 
@@ -59,25 +64,30 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         This method tests whether two LZGraphs are equal, i.e. have the same node, edges,
         and metadata on the edges.
         """
-        if nx.utils.graphs_equal(self.graph, other.graph):
-            aux = 0
-            aux += self.genetic_walks_black_list != other.genetic_walks_black_list
-            aux += self.n_subpatterns != other.n_subpatterns
+        # Check if graphs have same structure
+        if not nx.utils.graphs_equal(self.graph, other.graph):
+            return False
 
-            # Compare initial_states, terminal_states, etc.
-            aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
-            aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
+        # Check if both have same genetic status
+        if self.genetic != other.genetic:
+            return False
 
-            # Compare gene-related distributions
+        aux = 0
+        aux += self.genetic_walks_black_list != other.genetic_walks_black_list
+        aux += self.n_subpatterns != other.n_subpatterns
+
+        # Compare initial_states, terminal_states, etc.
+        aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
+        aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
+        aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
+
+        # Compare gene-related distributions only if both are genetic
+        if self.genetic and other.genetic:
             aux += not other.marginal_vgenes.round(3).equals(self.marginal_vgenes.round(3))
             aux += not other.vj_probabilities.round(3).equals(self.vj_probabilities.round(3))
             aux += not other.length_distribution.round(3).equals(self.length_distribution.round(3))
-            aux += not other.terminal_states.round(3).equals(self.terminal_states.round(3))
-            aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
 
-            return (aux == 0)
-        else:
-            return False
+        return (aux == 0)
 
     @staticmethod
     def encode_sequence(sequence):
@@ -118,7 +128,7 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                     B_ = f"{B}_{loc_b}"
                     self._insert_edge_and_information(A_, B_, v, j)
                 # ensure final node is counted
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0) + 1
         else:
             for output in processing_stream:
                 steps, locations = output
@@ -127,7 +137,8 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                     self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
                     B_ = f"{B}_{loc_b}"
                     self._insert_edge_and_information_no_genes(A_, B_)
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                # ensure final node is counted
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0) + 1
 
     def _insert_edge_and_information_no_genes(self, node_a, node_b):
         """
@@ -430,3 +441,348 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Use the VoteRank algorithm to return the top N most influential nodes in the graph.
         """
         return nx.algorithms.voterank(self.graph, number_of_nodes=n_nodes)
+
+    # =========================================================================
+    # Serialization Methods
+    # =========================================================================
+
+    def save(self, filepath: Union[str, Path], format: str = 'pickle',
+             compress: bool = False) -> None:
+        """
+        Save the LZGraph to a file for later use.
+
+        This method serializes the entire LZGraph object, including the underlying
+        NetworkX graph and all computed attributes (probabilities, gene data, etc.).
+        Saving avoids expensive re-computation when working with large repertoires.
+
+        Args:
+            filepath: Path where the graph will be saved. File extension is
+                automatically added based on format if not present.
+            format: Serialization format to use:
+                - 'pickle' (default): Binary format, fastest and most complete.
+                  Preserves all Python objects exactly. Recommended for most uses.
+                - 'json': Human-readable text format. Useful for interoperability
+                  but may not preserve all edge attributes with complex types.
+            compress: If True, compress the output using gzip (adds .gz extension).
+                Only supported for pickle format.
+
+        Raises:
+            ValueError: If an unsupported format is specified.
+            IOError: If the file cannot be written.
+
+        Example:
+            >>> graph = AAPLZGraph(data)
+            >>> graph.save('my_repertoire.pkl')
+            >>> # Later...
+            >>> loaded_graph = AAPLZGraph.load('my_repertoire.pkl')
+
+        Note:
+            The pickle format preserves the exact class type (AAPLZGraph, NDPLZGraph, etc.)
+            so the loaded object will be the same subclass as the original.
+        """
+        filepath = Path(filepath)
+
+        if format == 'pickle':
+            # Add extension if not present
+            if filepath.suffix not in ('.pkl', '.pickle', '.gz'):
+                filepath = filepath.with_suffix('.pkl')
+
+            if compress:
+                import gzip
+                if not filepath.suffix == '.gz':
+                    filepath = Path(str(filepath) + '.gz')
+                with gzip.open(filepath, 'wb') as f:
+                    pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+            else:
+                with open(filepath, 'wb') as f:
+                    pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        elif format == 'json':
+            if filepath.suffix != '.json':
+                filepath = filepath.with_suffix('.json')
+
+            # Prepare serializable data
+            data = self._to_json_dict()
+
+            with open(filepath, 'w') as f:
+                json.dump(data, f, indent=2, default=str)
+
+        else:
+            raise ValueError(
+                f"Unsupported format '{format}'. Use 'pickle' or 'json'."
+            )
+
+        logger.info(f"LZGraph saved to {filepath}")
+
+    @classmethod
+    def load(cls, filepath: Union[str, Path], format: Optional[str] = None):
+        """
+        Load an LZGraph from a file.
+
+        This class method reconstructs an LZGraph object from a previously saved file.
+        The loaded graph will have all the same attributes and capabilities as the
+        original, including probability calculations and random walk functionality.
+
+        Args:
+            filepath: Path to the saved graph file.
+            format: Serialization format. If None, automatically detected from
+                file extension:
+                - '.pkl', '.pickle', '.gz' -> pickle format
+                - '.json' -> json format
+
+        Returns:
+            The loaded LZGraph instance. The exact class type (AAPLZGraph, NDPLZGraph, etc.)
+            is preserved when using pickle format.
+
+        Raises:
+            FileNotFoundError: If the specified file does not exist.
+            ValueError: If the format cannot be determined or is unsupported.
+            pickle.UnpicklingError: If the pickle file is corrupted.
+
+        Example:
+            >>> # Load a previously saved graph
+            >>> graph = AAPLZGraph.load('my_repertoire.pkl')
+            >>> # Use it immediately
+            >>> prob = graph.walk_probability(sequence)
+
+        Note:
+            For pickle format, the actual class of the returned object may differ
+            from the class used to call load(). For example, calling
+            `LZGraphBase.load('aap_graph.pkl')` will return an AAPLZGraph instance
+            if that's what was originally saved.
+        """
+        filepath = Path(filepath)
+
+        if not filepath.exists():
+            raise FileNotFoundError(f"File not found: {filepath}")
+
+        # Auto-detect format from extension
+        if format is None:
+            if filepath.suffix in ('.pkl', '.pickle'):
+                format = 'pickle'
+            elif filepath.suffix == '.gz':
+                format = 'pickle'  # Compressed pickle
+            elif filepath.suffix == '.json':
+                format = 'json'
+            else:
+                raise ValueError(
+                    f"Cannot determine format from extension '{filepath.suffix}'. "
+                    "Please specify format='pickle' or format='json'."
+                )
+
+        if format == 'pickle':
+            if filepath.suffix == '.gz':
+                import gzip
+                with gzip.open(filepath, 'rb') as f:
+                    obj = pickle.load(f)
+            else:
+                with open(filepath, 'rb') as f:
+                    obj = pickle.load(f)
+            return obj
+
+        elif format == 'json':
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+            return cls._from_json_dict(data)
+
+        else:
+            raise ValueError(
+                f"Unsupported format '{format}'. Use 'pickle' or 'json'."
+            )
+
+    def _to_json_dict(self) -> dict:
+        """
+        Convert the LZGraph to a JSON-serializable dictionary.
+
+        This internal method prepares all graph data for JSON serialization.
+        Complex types (DataFrames, Series) are converted to dictionaries.
+
+        Returns:
+            dict: A dictionary containing all graph data in JSON-compatible format.
+        """
+        # Convert NetworkX graph to node-link format
+        graph_data = json_graph.node_link_data(self.graph)
+
+        # Helper to convert pandas objects
+        def serialize_pandas(obj):
+            if isinstance(obj, pd.DataFrame):
+                return {'_type': 'DataFrame', 'data': obj.to_dict()}
+            elif isinstance(obj, pd.Series):
+                return {'_type': 'Series', 'data': obj.to_dict(), 'name': obj.name}
+            return obj
+
+        data = {
+            '_class': self.__class__.__name__,
+            '_module': self.__class__.__module__,
+            'graph': graph_data,
+            'genetic': self.genetic,
+            'n_subpatterns': self.n_subpatterns,
+            'n_transitions': self.n_transitions,
+            'initial_states': dict(self.initial_states) if isinstance(self.initial_states, pd.Series) else self.initial_states,
+            'terminal_states': dict(self.terminal_states) if isinstance(self.terminal_states, pd.Series) else self.terminal_states,
+            'lengths': self.lengths,
+            'per_node_observed_frequency': self.per_node_observed_frequency,
+            'initial_states_probability': serialize_pandas(self.initial_states_probability),
+            'length_distribution_proba': serialize_pandas(self.length_distribution_proba),
+            'subpattern_individual_probability': serialize_pandas(self.subpattern_individual_probability),
+        }
+
+        # Add gene-related attributes if genetic
+        if self.genetic:
+            if hasattr(self, 'marginal_vgenes'):
+                data['marginal_vgenes'] = serialize_pandas(self.marginal_vgenes)
+            if hasattr(self, 'marginal_jgenes'):
+                data['marginal_jgenes'] = serialize_pandas(self.marginal_jgenes)
+            if hasattr(self, 'vj_probabilities'):
+                data['vj_probabilities'] = serialize_pandas(self.vj_probabilities)
+            if hasattr(self, 'length_distribution'):
+                data['length_distribution'] = serialize_pandas(self.length_distribution)
+            if hasattr(self, 'observed_vgenes'):
+                data['observed_vgenes'] = list(self.observed_vgenes)
+            if hasattr(self, 'observed_jgenes'):
+                data['observed_jgenes'] = list(self.observed_jgenes)
+
+        # Terminal state data
+        if hasattr(self, 'terminal_state_map'):
+            data['terminal_state_map'] = serialize_pandas(self.terminal_state_map)
+        if hasattr(self, 'terminal_state_data'):
+            data['terminal_state_data'] = serialize_pandas(self.terminal_state_data)
+
+        return data
+
+    @classmethod
+    def _from_json_dict(cls, data: dict):
+        """
+        Reconstruct an LZGraph from a JSON dictionary.
+
+        This internal method rebuilds the graph from JSON-serialized data.
+
+        Args:
+            data: Dictionary containing serialized graph data.
+
+        Returns:
+            Reconstructed LZGraph instance.
+        """
+        # Helper to deserialize pandas objects
+        def deserialize_pandas(obj):
+            if isinstance(obj, dict) and '_type' in obj:
+                if obj['_type'] == 'DataFrame':
+                    return pd.DataFrame(obj['data'])
+                elif obj['_type'] == 'Series':
+                    return pd.Series(obj['data'], name=obj.get('name'))
+            return obj
+
+        # Import the correct class
+        class_name = data.get('_class', 'LZGraphBase')
+        module_name = data.get('_module', 'LZGraphs.Graphs.LZGraphBase')
+
+        # Try to get the actual class, fall back to current class
+        try:
+            import importlib
+            module = importlib.import_module(module_name)
+            graph_class = getattr(module, class_name)
+        except (ImportError, AttributeError):
+            graph_class = cls
+
+        # Create instance without calling __init__
+        instance = object.__new__(graph_class)
+
+        # Restore NetworkX graph
+        instance.graph = json_graph.node_link_graph(data['graph'])
+
+        # Restore basic attributes
+        instance.genetic = data.get('genetic', False)
+        instance.genetic_walks_black_list = {}
+        instance.n_subpatterns = data.get('n_subpatterns', 0)
+        instance.n_transitions = data.get('n_transitions', 0)
+
+        # Restore dictionaries (may need to convert back to Series for some)
+        instance.initial_states = data.get('initial_states', {})
+        instance.terminal_states = data.get('terminal_states', {})
+        instance.lengths = data.get('lengths', {})
+        instance.cac_graphs = {}
+        instance.n_neighbours = {}
+        instance.per_node_observed_frequency = data.get('per_node_observed_frequency', {})
+
+        # Restore pandas objects
+        instance.initial_states_probability = deserialize_pandas(
+            data.get('initial_states_probability', {'_type': 'Series', 'data': {}})
+        )
+        instance.length_distribution_proba = deserialize_pandas(
+            data.get('length_distribution_proba', {'_type': 'Series', 'data': {}})
+        )
+        instance.subpattern_individual_probability = deserialize_pandas(
+            data.get('subpattern_individual_probability', {'_type': 'Series', 'data': {}})
+        )
+
+        # Restore gene-related attributes if present
+        if instance.genetic:
+            if 'marginal_vgenes' in data:
+                instance.marginal_vgenes = deserialize_pandas(data['marginal_vgenes'])
+            if 'marginal_jgenes' in data:
+                instance.marginal_jgenes = deserialize_pandas(data['marginal_jgenes'])
+            if 'vj_probabilities' in data:
+                instance.vj_probabilities = deserialize_pandas(data['vj_probabilities'])
+            if 'length_distribution' in data:
+                instance.length_distribution = deserialize_pandas(data['length_distribution'])
+            if 'observed_vgenes' in data:
+                instance.observed_vgenes = set(data['observed_vgenes'])
+            if 'observed_jgenes' in data:
+                instance.observed_jgenes = set(data['observed_jgenes'])
+
+        # Restore terminal state data
+        if 'terminal_state_map' in data:
+            instance.terminal_state_map = deserialize_pandas(data['terminal_state_map'])
+        if 'terminal_state_data' in data:
+            instance.terminal_state_data = deserialize_pandas(data['terminal_state_data'])
+
+        # Convert initial/terminal states to Series if they're dicts
+        if isinstance(instance.initial_states, dict):
+            instance.initial_states = pd.Series(instance.initial_states)
+        if isinstance(instance.terminal_states, dict):
+            instance.terminal_states = pd.Series(instance.terminal_states)
+
+        return instance
+
+    def to_networkx(self) -> nx.DiGraph:
+        """
+        Export the underlying graph as a pure NetworkX DiGraph.
+
+        This method returns a copy of the internal graph structure without the
+        LZGraph wrapper. Useful for custom graph analysis or integration with
+        other NetworkX-based tools.
+
+        Returns:
+            nx.DiGraph: A copy of the internal directed graph with all node
+                and edge attributes preserved.
+
+        Example:
+            >>> lzgraph = AAPLZGraph(data)
+            >>> G = lzgraph.to_networkx()
+            >>> # Use standard NetworkX functions
+            >>> nx.draw(G)
+            >>> components = list(nx.weakly_connected_components(G))
+        """
+        return self.graph.copy()
+
+    def get_graph_metadata(self) -> dict:
+        """
+        Get a summary of graph metadata for inspection.
+
+        Returns a dictionary containing key statistics about the graph,
+        useful for debugging or logging.
+
+        Returns:
+            dict: Dictionary with graph statistics including node count,
+                edge count, genetic status, and size information.
+        """
+        return {
+            'class': self.__class__.__name__,
+            'n_nodes': self.graph.number_of_nodes(),
+            'n_edges': self.graph.number_of_edges(),
+            'genetic': self.genetic,
+            'n_subpatterns': self.n_subpatterns,
+            'n_transitions': self.n_transitions,
+            'n_initial_states': len(self.initial_states) if hasattr(self, 'initial_states') else 0,
+            'n_terminal_states': len(self.terminal_states) if hasattr(self, 'terminal_states') else 0,
+        }

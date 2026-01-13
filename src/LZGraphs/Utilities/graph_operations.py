@@ -1,7 +1,10 @@
+import networkx as nx
+import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
 from ..Graphs.Naive import NaiveLZGraph
+from .Utilities import restore_gene_counts, renormalize_edge_genes
 
 
 def graph_union(graphA,graphB):
@@ -80,9 +83,10 @@ def graph_union(graphA,graphB):
                 factor = (h1_node_sum + h2_node_sum)
 
                 c = h1.combine(h2, lambda x, y: x + y, fill_value=0).replace(0, np.nan)
-                c.loc['weight', :] /= factor
+                if factor > 0:
+                    c.loc['weight', :] /= factor
                 # gene renormalization
-                c = c.apply(renormalize_edege_genes)
+                c = c.apply(renormalize_edge_genes)
                 c = c.round(10)
 
                 # save new counts

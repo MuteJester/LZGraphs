@@ -67,11 +67,15 @@ class AAPLZGraph(LZGraphBase):
         {LZ_subpattern}_{start_position_in_sequence}
     """
 
+    # Valid amino acid characters (standard 20 amino acids)
+    VALID_AMINO_ACIDS = set('ACDEFGHIKLMNPQRSTVWY')
+
     def __init__(
         self,
         data: pd.DataFrame,
         verbose: bool = True,
-        calculate_trainset_pgen: bool = False
+        calculate_trainset_pgen: bool = False,
+        validate_sequences: bool = True
     ):
         """
         Create an amino-acid-positional LZGraph from a DataFrame.
@@ -85,8 +89,17 @@ class AAPLZGraph(LZGraphBase):
                 a "cdr3_amino_acid" column; optionally "V" and "J" columns.
             verbose (bool): Whether to log progress information.
             calculate_trainset_pgen (bool): If True, compute PGEN for each sequence in `data`.
+            validate_sequences (bool): If True, validate that sequences contain only
+                standard amino acids. Set to False to skip validation for performance.
+
+        Raises:
+            TypeError: If data is not a pandas DataFrame.
+            ValueError: If required columns are missing or sequences are invalid.
         """
         super().__init__()  # Initialize LZGraphBase
+
+        # Input validation
+        self._validate_input(data, validate_sequences)
 
         # Determine if we have gene data
         self.genetic = (
@@ -148,6 +161,121 @@ class AAPLZGraph(LZGraphBase):
         self.constructor_end_time = time.time()
         self.verbose_driver(6, verbose)
         self.verbose_driver(-2, verbose)
+
+    # --------------------------------------------------------------------------
+    # Input Validation
+    # --------------------------------------------------------------------------
+
+    def _validate_input(self, data: pd.DataFrame, validate_sequences: bool) -> None:
+        """
+        Validate input data before graph construction.
+
+        Args:
+            data: Input DataFrame
+            validate_sequences: Whether to check sequence content
+
+        Raises:
+            TypeError: If data is not a pandas DataFrame
+            ValueError: If required columns are missing or data is invalid
+        """
+        # Check type
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError(
+                f"Expected pandas DataFrame, got {type(data).__name__}. "
+                "Please provide a DataFrame with a 'cdr3_amino_acid' column."
+            )
+
+        # Check for required column
+        if 'cdr3_amino_acid' not in data.columns:
+            available_cols = list(data.columns)
+            raise ValueError(
+                f"DataFrame must contain 'cdr3_amino_acid' column. "
+                f"Available columns: {available_cols}"
+            )
+
+        # Check for empty data
+        if len(data) == 0:
+            raise ValueError("DataFrame is empty. Cannot build LZGraph from zero sequences.")
+
+        # Check for null values in CDR3 column
+        null_count = data['cdr3_amino_acid'].isna().sum()
+        if null_count > 0:
+            raise ValueError(
+                f"Found {null_count} null values in 'cdr3_amino_acid' column. "
+                "Please remove or fill null values before building the graph."
+            )
+
+        # Check for empty strings
+        empty_count = (data['cdr3_amino_acid'].str.len() == 0).sum()
+        if empty_count > 0:
+            raise ValueError(
+                f"Found {empty_count} empty strings in 'cdr3_amino_acid' column. "
+                "Please remove empty sequences before building the graph."
+            )
+
+        # Validate sequence content if requested
+        if validate_sequences:
+            self._validate_sequence_content(data['cdr3_amino_acid'])
+
+        # Validate gene columns if present
+        if 'V' in data.columns and 'J' in data.columns:
+            self._validate_gene_columns(data)
+
+    def _validate_sequence_content(self, sequences: pd.Series) -> None:
+        """
+        Validate that sequences contain only valid amino acid characters.
+
+        Args:
+            sequences: Series of amino acid sequences
+
+        Raises:
+            ValueError: If invalid characters are found
+        """
+        # Sample up to 1000 sequences for validation (performance)
+        sample_size = min(1000, len(sequences))
+        sample = sequences.sample(n=sample_size, random_state=42) if len(sequences) > sample_size else sequences
+
+        invalid_chars_found = set()
+        invalid_sequences = []
+
+        for seq in sample:
+            if not isinstance(seq, str):
+                raise ValueError(
+                    f"Sequence must be a string, got {type(seq).__name__}: {seq}"
+                )
+            invalid_in_seq = set(seq.upper()) - self.VALID_AMINO_ACIDS
+            if invalid_in_seq:
+                invalid_chars_found.update(invalid_in_seq)
+                if len(invalid_sequences) < 3:
+                    invalid_sequences.append(seq)
+
+        if invalid_chars_found:
+            examples = ", ".join(f"'{s}'" for s in invalid_sequences[:3])
+            raise ValueError(
+                f"Found invalid amino acid characters: {sorted(invalid_chars_found)}. "
+                f"Valid amino acids are: {sorted(self.VALID_AMINO_ACIDS)}. "
+                f"Example invalid sequences: {examples}"
+            )
+
+    def _validate_gene_columns(self, data: pd.DataFrame) -> None:
+        """
+        Validate V and J gene columns.
+
+        Args:
+            data: DataFrame with V and J columns
+
+        Raises:
+            ValueError: If gene columns contain invalid data
+        """
+        # Check for nulls in gene columns
+        v_nulls = data['V'].isna().sum()
+        j_nulls = data['J'].isna().sum()
+
+        if v_nulls > 0 or j_nulls > 0:
+            raise ValueError(
+                f"Found null values in gene columns: V has {v_nulls} nulls, "
+                f"J has {j_nulls} nulls. Please fill or remove rows with missing genes."
+            )
 
     # --------------------------------------------------------------------------
     # Overridden / specialized methods
@@ -242,7 +370,8 @@ class AAPLZGraph(LZGraphBase):
         self,
         walk: Union[str, List[str]],
         verbose: bool = True,
-        use_epsilon: bool = False
+        use_epsilon: bool = False,
+        use_log: bool = False
     ) -> float:
         """
         Given a walk (a sequence or a pre-encoded LZ pattern list), return
@@ -255,46 +384,96 @@ class AAPLZGraph(LZGraphBase):
             walk: The walk as a string or list of sub-patterns.
             verbose: Whether to log missing-edge warnings.
             use_epsilon: Not used in the main logic here, but kept for consistency.
+            use_log: If True, return log-probability instead of probability.
+                     Recommended for long sequences (>30 amino acids) to prevent
+                     numerical underflow. Default is False for backward compatibility.
 
         Returns:
-            Probability (float) of generating the walk.
+            float: Probability of generating the walk, or log-probability if use_log=True.
+                   For log-probability mode, returns log(P) where P is the probability.
         """
         # If the user passed a raw sequence, encode it
         if isinstance(walk, str):
             lz, locs = derive_lz_and_position(walk)
-            walk_ = [f"{subp}{pos}" for subp, pos in zip(lz, locs)]
+            walk_ = [f"{subp}_{pos}" for subp, pos in zip(lz, locs)]
         else:
             walk_ = walk
 
         if len(walk_) == 0:
             logger.warning("Empty walk provided to walk_probability. Returning eps.")
-            return np.finfo(float).eps
+            return np.log(np.finfo(float).eps) if use_log else np.finfo(float).eps
 
         # If the first subpattern isn't observed, return near-zero
         first_node = walk_[0]
         if first_node not in self.subpattern_individual_probability['proba']:
-            return np.finfo(float).eps ** 2
+            eps_val = np.finfo(float).eps ** 2
+            return np.log(eps_val) if use_log else eps_val
 
-        proba = self.subpattern_individual_probability['proba'][first_node]
         missing_count = 0
         total_steps = 0
 
-        for step1, step2 in window(walk_, 2):
-            if self.graph.has_edge(step1, step2):
-                edge_weight = self.graph[step1][step2]["weight"]
-                proba *= edge_weight
-            else:
-                if verbose:
-                    logger.warning(f"No Edge Connecting: {step1} --> {step2}. Probability adjusted.")
-                missing_count += 1
-            total_steps += 1
+        if use_log:
+            # Log-space computation to prevent underflow
+            log_proba = np.log(self.subpattern_individual_probability['proba'][first_node])
 
-        if missing_count > 0 and total_steps > 0:
-            # Geometric mean approach
-            gmean = np.power(proba, 1.0 / total_steps)
-            proba *= (gmean ** missing_count)
+            for step1, step2 in window(walk_, 2):
+                if self.graph.has_edge(step1, step2):
+                    edge_weight = self.graph[step1][step2]["weight"]
+                    log_proba += np.log(edge_weight)
+                else:
+                    if verbose:
+                        logger.warning(f"No Edge Connecting: {step1} --> {step2}. Probability adjusted.")
+                    missing_count += 1
+                total_steps += 1
 
-        return proba
+            if missing_count > 0 and total_steps > 0:
+                # Geometric mean approach in log-space
+                # gmean = proba^(1/total_steps) => log(gmean) = log_proba / total_steps
+                log_gmean = log_proba / total_steps
+                log_proba += log_gmean * missing_count
+
+            return log_proba
+        else:
+            # Original probability-space computation
+            proba = self.subpattern_individual_probability['proba'][first_node]
+
+            for step1, step2 in window(walk_, 2):
+                if self.graph.has_edge(step1, step2):
+                    edge_weight = self.graph[step1][step2]["weight"]
+                    proba *= edge_weight
+                else:
+                    if verbose:
+                        logger.warning(f"No Edge Connecting: {step1} --> {step2}. Probability adjusted.")
+                    missing_count += 1
+                total_steps += 1
+
+            if missing_count > 0 and total_steps > 0:
+                # Geometric mean approach
+                gmean = np.power(proba, 1.0 / total_steps)
+                proba *= (gmean ** missing_count)
+
+            return proba
+
+    def walk_log_probability(
+        self,
+        walk: Union[str, List[str]],
+        verbose: bool = True
+    ) -> float:
+        """
+        Convenience method to compute log-probability of a walk.
+        Equivalent to walk_probability(walk, use_log=True).
+
+        Recommended for long sequences (>30 amino acids) to prevent
+        numerical underflow.
+
+        Args:
+            walk: The walk as a string or list of sub-patterns.
+            verbose: Whether to log missing-edge warnings.
+
+        Returns:
+            float: Log-probability of generating the walk.
+        """
+        return self.walk_probability(walk, verbose=verbose, use_log=True)
 
     def walk_gene_probability(
         self,
@@ -316,7 +495,7 @@ class AAPLZGraph(LZGraphBase):
         # Possibly re-encode the walk if the user passed a raw string
         if isinstance(walk, str):
             lz, locs = derive_lz_and_position(walk)
-            walk_ = [f"{subp}{pos}" for subp, pos in zip(lz, locs)]
+            walk_ = [f"{subp}_{pos}" for subp, pos in zip(lz, locs)]
         else:
             walk_ = walk
 
@@ -694,15 +873,17 @@ class AAPLZGraph(LZGraphBase):
             threshold_v = threshold
             threshold_j = threshold
 
+        # Get gene table once (avoid duplicate expensive call)
+        gene_table = self.walk_genes(encoded, dropna=False, raise_error=False)
+        na_counts = gene_table.isna().sum(axis=1)
+
         # For V genes
-        gene_table_v = self.walk_genes(encoded, dropna=False, raise_error=False)
-        mask_v = gene_table_v.isna().sum(axis=1) < threshold_v
-        vgene_table = gene_table_v[mask_v & gene_table_v.index.str.contains("V", case=False)]
+        mask_v = na_counts < threshold_v
+        vgene_table = gene_table[mask_v & gene_table.index.str.contains("V", case=False)]
 
         # For J genes
-        gene_table_j = self.walk_genes(encoded, dropna=False, raise_error=False)
-        mask_j = gene_table_j.isna().sum(axis=1) < threshold_j
-        jgene_table = gene_table_j[mask_j & gene_table_j.index.str.contains("J", case=False)]
+        mask_j = na_counts < threshold_j
+        jgene_table = gene_table[mask_j & gene_table.index.str.contains("J", case=False)]
 
         # Sort by ascending number of NaNs (optional clarity)
         jgene_table = jgene_table.loc[jgene_table.isna().sum(axis=1).sort_values().index]

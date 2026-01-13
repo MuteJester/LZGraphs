@@ -9,4 +9,4 @@ from .Utilities.Utilities import *
 from .Visualization.Visualize import *
 from .Utilities.decomposition import *
 from .Utilities.misc import *
-from .Metircs import *
+from .Metrics import *

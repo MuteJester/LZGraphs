@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from itertools import product
 from time import time
@@ -9,6 +10,8 @@ import pandas as pd
 from ..Utilities import saturation_function, weight_function
 from ..Utilities.decomposition import lempel_ziv_decomposition
 from ..Utilities.misc import window
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -112,38 +115,28 @@ class NaiveLZGraph:
             return None
 
         if message_number == -2:
-            print("===" * 10)
-            print('\n')
-        elif message_number == 0:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Gene Information Loaded..", '| ', CT, ' Seconds')
-        elif message_number == 1:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Graph Constructed..", '| ', CT, ' Seconds')
-        elif message_number == 2:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Graph Metadata Derived..", '| ', CT, ' Seconds')
-        elif message_number == 3:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Graph Edge Weight Normalized..", '| ', CT, ' Seconds')
-        elif message_number == 4:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Graph Edge Gene Weights Normalized..", '| ', CT, ' Seconds')
-        elif message_number == 5:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
-        elif message_number == 6:
-            CT = round(self.constructor_end_time - self.constructor_start_time, 2)
-            print("LZGraph Created Successfully..", '| ', CT, ' Seconds')
-        elif message_number == 7:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Terminal State Map Derived..", '| ', CT, ' Seconds')
-        elif message_number == 8:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Individual Subpattern Empirical Probability Derived..", '| ', CT, ' Seconds')
-        elif message_number == 9:
-            CT = round(time() - self.constructor_start_time, 2)
-            print("Terminal State Conditional Probabilities Map Derived..", '| ', CT, ' Seconds')
+            return  # Separator - skip
+
+        CT = round(time() - self.constructor_start_time, 2)
+
+        messages = {
+            0: f"Gene Information Loaded.. | {CT} Seconds",
+            1: f"Graph Constructed.. | {CT} Seconds",
+            2: f"Graph Metadata Derived.. | {CT} Seconds",
+            3: f"Graph Edge Weight Normalized.. | {CT} Seconds",
+            4: f"Graph Edge Gene Weights Normalized.. | {CT} Seconds",
+            5: f"Terminal State Map Derived.. | {CT} Seconds",
+            7: f"Terminal State Map Derived.. | {CT} Seconds",
+            8: f"Individual Subpattern Empirical Probability Derived.. | {CT} Seconds",
+            9: f"Terminal State Conditional Probabilities Map Derived.. | {CT} Seconds",
+        }
+
+        # Special case for message 6 - uses constructor_end_time
+        if message_number == 6:
+            total_time = round(self.constructor_end_time - self.constructor_start_time, 2)
+            logger.info(f"NaiveLZGraph Created Successfully.. | {total_time} Seconds")
+        elif message_number in messages:
+            logger.info(messages[message_number])
 
     def __eq__(self, other):
         if nx.utils.graphs_equal(self.graph, other.graph):
@@ -392,7 +385,7 @@ class NaiveLZGraph:
                 proba *= self.graph.get_edge_data(step1, step2)['weight']
             else:
                 if verbose:
-                    print('No Edge Connecting| ', step1, '-->', step2)
+                    logger.debug(f"No edge connecting: {step1} --> {step2}")
                 return 0
         return proba
 
@@ -422,7 +415,7 @@ class NaiveLZGraph:
 
             # if terminal state
             if len(w) == 0:
-                value = value[:np.random.randint(1, len(value), 1)[0]]
+                value = value[:np.random.randint(1, max(len(value), 2))]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i[:-1] for i in value])
@@ -437,12 +430,12 @@ class NaiveLZGraph:
             if current_state in self.terminal_states and len(value) == steps and len(seq) % 3 == 0:
                 return value, seq
             elif len(value) == steps and current_state not in self.terminal_states:
-                value = value[:np.random.randint(1, len(value), 1)[0]]
+                value = value[:np.random.randint(1, max(len(value), 2))]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
             elif len(value) == steps and current_state in self.terminal_states and len(seq) % 3 != 0:
-                value = value[:np.random.randint(1, len(value), 1)[0]]
+                value = value[:np.random.randint(1, max(len(value), 2))]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
@@ -482,7 +475,7 @@ class NaiveLZGraph:
 
             # if terminal state
             if len(w) == 0:
-                value = value[:np.random.randint(1, len(value), 1)[0]]
+                value = value[:np.random.randint(1, max(len(value), 2))]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
@@ -504,12 +497,12 @@ class NaiveLZGraph:
             if current_state in self.terminal_states and len(value) == steps and len(seq) % 3 == 0:
                 return value, seq
             elif len(value) == steps and current_state not in self.terminal_states:
-                value = value[:np.random.randint(1, len(value), 1)[0]]
+                value = value[:np.random.randint(1, max(len(value), 2))]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
             elif len(value) == steps and current_state in self.terminal_states and len(seq) % 3 != 0:
-                value = value[:np.random.randint(1, len(value), 1)[0]]
+                value = value[:np.random.randint(1, max(len(value), 2))]
                 tolorance += 1
                 current_state = value[-1]
                 seq = ''.join([i for i in value])
