@@ -279,12 +279,26 @@ class NDPLZGraph(LZGraphBase):
     # Probability / Random Walk Methods
     # --------------------------------------------------------------------------
 
-    def walk_probability(self, walk: Union[str, List[str]], verbose: bool = True) -> float:
+    def walk_probability(
+        self,
+        walk: Union[str, List[str]],
+        verbose: bool = True,
+        use_log: bool = False
+    ) -> float:
         """
         Return the probability (PGEN) of generating the given walk on the NDPLZGraph.
 
         If 'walk' is a string, we convert it to sub-patterns. If an edge is missing,
         we log a warning (if verbose=True) and return 0.
+
+        Args:
+            walk: The walk as a string or list of sub-patterns.
+            verbose: Whether to log missing-edge warnings.
+            use_log: If True, return log-probability instead of probability.
+                     Recommended for long sequences to prevent numerical underflow.
+
+        Returns:
+            float: Probability of generating the walk, or log-probability if use_log=True.
         """
         if isinstance(walk, str):
             # Convert raw sequence to node format: {subpattern}{frame}_{position}
@@ -295,26 +309,37 @@ class NDPLZGraph(LZGraphBase):
 
         if len(walk_) == 0:
             logger.warning("Empty walk passed to walk_probability. Returning 0.")
-            return 0.0
+            return float('-inf') if use_log else 0.0
 
         # Probability starts with the subpattern probability of the first node
         first_node = walk_[0]
         if first_node not in self.subpattern_individual_probability["proba"]:
             if verbose:
                 logger.warning(f"First node {first_node} not recognized; returning 0.")
-            return 0.0
+            return float('-inf') if use_log else 0.0
 
-        proba = self.subpattern_individual_probability["proba"][first_node]
-        for step1, step2 in window(walk_, 2):
-            if self.graph.has_edge(step1, step2):
-                edge_weight = self.graph[step1][step2]["weight"]
-                proba *= edge_weight
-            else:
-                if verbose:
-                    logger.warning(f"No Edge Connecting {step1} -> {step2}. Returning 0.")
-                return 0.0
-
-        return proba
+        if use_log:
+            log_proba = np.log(self.subpattern_individual_probability["proba"][first_node])
+            for step1, step2 in window(walk_, 2):
+                if self.graph.has_edge(step1, step2):
+                    edge_weight = self.graph[step1][step2]["weight"]
+                    log_proba += np.log(edge_weight)
+                else:
+                    if verbose:
+                        logger.warning(f"No Edge Connecting {step1} -> {step2}. Returning -inf.")
+                    return float('-inf')
+            return log_proba
+        else:
+            proba = self.subpattern_individual_probability["proba"][first_node]
+            for step1, step2 in window(walk_, 2):
+                if self.graph.has_edge(step1, step2):
+                    edge_weight = self.graph[step1][step2]["weight"]
+                    proba *= edge_weight
+                else:
+                    if verbose:
+                        logger.warning(f"No Edge Connecting {step1} -> {step2}. Returning 0.")
+                    return 0.0
+            return proba
 
     def gene_random_walk(
         self,

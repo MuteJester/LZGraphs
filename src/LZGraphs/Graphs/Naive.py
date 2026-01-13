@@ -1,4 +1,5 @@
 import logging
+import pickle
 from collections import defaultdict
 from itertools import product
 from time import time
@@ -359,35 +360,59 @@ class NaiveLZGraph:
 
         self.terminal_state_data = es
 
-    def walk_probability(self, walk, verbose=True):
+    def walk_probability(self, walk, verbose=True, use_log=False):
         """
-             given a walk (a sequence converted into LZ sub-pattern) return the probability of generation (PGEN)
-             of the walk.
+        Given a walk (a sequence converted into LZ sub-pattern) return the probability
+        of generation (PGEN) of the walk.
 
-             you can use "lempel_ziv_decomposition" from this libraries decomposition module in order to convert a
-             sequence into LZ sub-patterns
+        You can use "lempel_ziv_decomposition" from this library's decomposition module
+        in order to convert a sequence into LZ sub-patterns.
 
-                      Parameters:
-                              walk (list): a list of LZ - sub-patterns
+        Args:
+            walk (list or str): A list of LZ sub-patterns or a raw sequence string.
+            verbose (bool): Whether to log missing-edge warnings.
+            use_log (bool): If True, return log-probability instead of probability.
+                           Recommended for long sequences to prevent numerical underflow.
 
-                      Returns:
-                              float : the probability of generating such a walk (PGEN)
-       """
+        Returns:
+            float: The probability of generating such a walk (PGEN), or log-probability
+                   if use_log=True.
+        """
         if type(walk) == str:
             LZ = lempel_ziv_decomposition(walk)
             walk_ = LZ
         else:
             walk_ = walk
 
-        proba = self.subpattern_individual_probability['proba'][walk_[0]]
-        for step1, step2 in window(walk_, 2):
-            if self.graph.has_edge(step1, step2):
-                proba *= self.graph.get_edge_data(step1, step2)['weight']
-            else:
-                if verbose:
-                    logger.debug(f"No edge connecting: {step1} --> {step2}")
-                return 0
-        return proba
+        if len(walk_) == 0:
+            return float('-inf') if use_log else 0.0
+
+        first_node = walk_[0]
+        if first_node not in self.subpattern_individual_probability['proba']:
+            if verbose:
+                logger.debug(f"First node {first_node} not recognized")
+            return float('-inf') if use_log else 0.0
+
+        if use_log:
+            log_proba = np.log(self.subpattern_individual_probability['proba'][first_node])
+            for step1, step2 in window(walk_, 2):
+                if self.graph.has_edge(step1, step2):
+                    log_proba += np.log(self.graph.get_edge_data(step1, step2)['weight'])
+                else:
+                    if verbose:
+                        logger.debug(f"No edge connecting: {step1} --> {step2}")
+                    return float('-inf')
+            return log_proba
+        else:
+            proba = self.subpattern_individual_probability['proba'][first_node]
+            for step1, step2 in window(walk_, 2):
+                if self.graph.has_edge(step1, step2):
+                    proba *= self.graph.get_edge_data(step1, step2)['weight']
+                else:
+                    if verbose:
+                        logger.debug(f"No edge connecting: {step1} --> {step2}")
+                    return 0
+            return proba
 
     def random_walk(self, steps):
 
@@ -650,3 +675,45 @@ class NaiveLZGraph:
             'Number of Edges': len(self.graph.edges)
         })
         return R
+
+    def save(self, filepath: str) -> None:
+        """
+        Save the NaiveLZGraph to a file for later use.
+
+        This method serializes the entire NaiveLZGraph object using pickle,
+        including the underlying NetworkX graph and all computed attributes.
+
+        Args:
+            filepath: Path where the graph will be saved.
+
+        Example:
+            >>> graph = NaiveLZGraph(sequences, dictionary)
+            >>> graph.save('my_graph.pkl')
+        """
+        with open(filepath, 'wb') as f:
+            pickle.dump(self, f)
+        logger.info(f"NaiveLZGraph saved to {filepath}")
+
+    @classmethod
+    def load(cls, filepath: str) -> 'NaiveLZGraph':
+        """
+        Load a NaiveLZGraph from a file.
+
+        This class method reconstructs a NaiveLZGraph object from a previously
+        saved file.
+
+        Args:
+            filepath: Path to the saved graph file.
+
+        Returns:
+            NaiveLZGraph: The loaded graph object.
+
+        Example:
+            >>> loaded_graph = NaiveLZGraph.load('my_graph.pkl')
+        """
+        with open(filepath, 'rb') as f:
+            obj = pickle.load(f)
+        if not isinstance(obj, cls):
+            raise TypeError(f"Loaded object is not a {cls.__name__}")
+        logger.info(f"NaiveLZGraph loaded from {filepath}")
+        return obj
