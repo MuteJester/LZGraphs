@@ -14,7 +14,7 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from LZGraphs import AAPLZGraph, NDPLZGraph
+from LZGraphs import AAPLZGraph, NDPLZGraph, IncompatibleGraphsError
 
 
 class TestGraphEquality:
@@ -163,7 +163,7 @@ class TestGraphUnion:
         graph_aap = AAPLZGraph(test_data_aap, verbose=False)
         graph_ndp = NDPLZGraph(test_data_ndp, verbose=False)
 
-        with pytest.raises(Exception, match="Same Type"):
+        with pytest.raises(IncompatibleGraphsError):
             graph_union(graph_aap, graph_ndp)
 
     def test_graph_union_combines_initial_states(self, test_data_aap):

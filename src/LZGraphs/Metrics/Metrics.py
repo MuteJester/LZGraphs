@@ -5,6 +5,7 @@ import numpy as np
 from scipy import stats
 
 from ..Utilities.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+from ..Exceptions import EmptyDataError, InsufficientDataError
 
 
 def LZCentrality(lzgraph, sequence: str) -> float:
@@ -80,9 +81,13 @@ def K_Diversity(
         ... )
     """
     if not list_of_sequences:
-        raise ValueError("list_of_sequences cannot be empty")
+        raise EmptyDataError("list_of_sequences cannot be empty")
     if draws < 2:
-        raise ValueError("draws must be at least 2 for statistical calculations")
+        raise InsufficientDataError(
+            required=2,
+            available=draws,
+            message="draws must be at least 2 for statistical calculations"
+        )
 
     # Get unique sequences
     unique_sequences = list(set(list_of_sequences))
@@ -99,8 +104,10 @@ def K_Diversity(
         )
 
     if effective_sample < 10:
-        raise ValueError(
-            f"Repertoire too small ({n_unique} unique sequences) for meaningful "
+        raise InsufficientDataError(
+            required=13,
+            available=n_unique,
+            message=f"Repertoire too small ({n_unique} unique sequences) for meaningful "
             f"K-Diversity calculation. Need at least 13 unique sequences."
         )
 

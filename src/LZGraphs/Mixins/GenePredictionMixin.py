@@ -1,6 +1,8 @@
 import heapq
 from collections import Counter
 
+from ..Exceptions import MetricsError
+
 class GenePredictionMixin:
     """
     Mixin that provides different heuristics for predicting V/J genes
@@ -236,7 +238,10 @@ class GenePredictionMixin:
         elif mode == 'full':
             return self._full_appearance_gene_prediction(walk, alpha)
         else:
-            raise ValueError(f"Unknown prediction mode: {mode}")
+            raise MetricsError(
+                f"Unknown prediction mode: {mode}. "
+                "Use 'max', 'sampling', or 'full'."
+            )
 
     def _choice_wrapper(self, keys, values):
         """

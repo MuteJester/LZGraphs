@@ -11,6 +11,11 @@ from tqdm.auto import tqdm
 from .LZGraphBase import LZGraphBase
 from ..Utilities.decomposition import lempel_ziv_decomposition
 from ..Utilities.misc import window, choice
+from ..Exceptions import (
+    NoGeneDataError,
+    GeneAnnotationError,
+    NoValidPathError,
+)
 
 # --------------------------------------------------------------------------
 # Global Logger Configuration for NDPLZGraph
@@ -334,7 +339,7 @@ class NDPLZGraph(LZGraphBase):
             terminal_states = self._length_specific_terminal_state(seq_len)
 
         if initial_state is None:
-            raise ValueError("No initial state provided for gene_random_walk.")
+            raise NoValidPathError(message="No initial state provided for gene_random_walk.")
 
         current_state = initial_state
         walk = [initial_state]
@@ -447,7 +452,7 @@ class NDPLZGraph(LZGraphBase):
                 logger.warning(f"Edge missing for {walk[i]} -> {walk[i+1]}. Skipping...")
 
         if not edge_data_list:
-            raise Exception("No valid edges found in walk for gene analysis.")
+            raise GeneAnnotationError("No valid edges found in walk for gene analysis.")
 
         df = pd.concat(edge_data_list, axis=1)
         df.columns = columns
@@ -456,7 +461,7 @@ class NDPLZGraph(LZGraphBase):
             df.dropna(how="all", inplace=True)
 
         if df.empty:
-            raise Exception("No gene data found after dropping all-NaN rows.")
+            raise GeneAnnotationError("No gene data found after dropping all-NaN rows.")
 
         # For clarity, mark gene type and sum
         df["type"] = df.index.to_series().apply(
@@ -521,7 +526,10 @@ class NDPLZGraph(LZGraphBase):
         Raises Exception if no gene data is available (self.genetic=False).
         """
         if not self.genetic:
-            raise Exception("The LZGraph Has No Gene Data (genetic=False).")
+            raise NoGeneDataError(
+                operation="gene_repertoire_per_subpattern",
+                message="Cannot compute gene repertoire: this LZGraph has no gene data (genetic=False)."
+            )
 
         encoded_nodes = self.encode_sequence(cdr3)
 

@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from ..Utilities.misc import choice  # or your custom weighted choice function
+from ..Exceptions import NoGeneDataError, MetricsError
 
 class GeneLogicMixin:
     """
@@ -21,8 +22,10 @@ class GeneLogicMixin:
         Raise an error if genetic mode is off but a genetic function is called.
         """
         if not self.genetic:
-            raise ValueError("Genomic Data Function Requires Gene Annotation Data, "
-                             "but `self.genetic` is False.")
+            raise NoGeneDataError(
+                message="Genomic data function requires gene annotation data, "
+                "but `self.genetic` is False."
+            )
 
     def _load_gene_data(self, data: pd.DataFrame) -> None:
         """
@@ -67,7 +70,7 @@ class GeneLogicMixin:
             V, J = VJ.split('_')
             return V, J
         else:
-            raise ValueError(f"Unknown mode: {mode}")
+            raise MetricsError(f"Unknown mode: {mode}. Use 'marginal' or 'combined'.")
 
     def _insert_edge_and_information(self, node_a: str, node_b: str, Vgene: str, Jgene: str) -> None:
         """

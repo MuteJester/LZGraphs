@@ -1,9 +1,13 @@
 <p align="center">
 
+[![PyPI version](https://img.shields.io/pypi/v/LZGraphs.svg)](https://pypi.org/project/LZGraphs/)
+[![Python versions](https://img.shields.io/pypi/pyversions/LZGraphs.svg)](https://pypi.org/project/LZGraphs/)
+[![CI/CD](https://github.com/MuteJester/LZGraphs/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/MuteJester/LZGraphs/actions/workflows/ci-cd.yml)
+[![License](https://img.shields.io/github/license/MuteJester/LZGraphs.svg)](https://github.com/MuteJester/LZGraphs/blob/master/LICENSE)
+[![Downloads](https://img.shields.io/pypi/dm/LZGraphs.svg)](https://pypi.org/project/LZGraphs/)
+
 [![Stargazers][stars-shield]][stars-url]
-[![Commits][commits-shield]][commits-url]
 [![Issues][issues-shield]][issues-url]
-[![MIT License][license-shield]][license-url]
 [![LinkedIn][linkedin-shield]][linkedin-url]
 
 </p>
@@ -169,9 +173,5 @@ Project Link: [https://github.com/MuteJester/LZGraphs](https://github.com/MuteJe
 [stars-url]: https://github.com/MuteJester/LZGraphs/stargazers
 [issues-shield]: https://img.shields.io/github/issues/MuteJester/LZGraphs.svg?style=flat-square
 [issues-url]: https://github.com/MuteJester/LZGraphs/issues
-[license-shield]: https://img.shields.io/github/license/MuteJester/LZGraphs.svg?style=flat-square
-[license-url]: https://github.com/MuteJester/LZGraphs/blob/master/LICENSE
-[commits-shield]: https://img.shields.io/github/commit-activity/m/MuteJester/LZGraphs?style=flat-square
-[commits-url]: https://github.com/MuteJester/LZGraphs
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
 [linkedin-url]: https://www.linkedin.com/in/thomas-konstantinovsky-56230117b/
