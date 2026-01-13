@@ -933,8 +933,9 @@ class AAPLZGraph(LZGraphBase):
             for e_a, e_b in in_edges:
                 # Gather keys ignoring weight, Vsum, Jsum
                 ed = pd.Series(self.graph[e_a][e_b]).drop(["weight", "Vsum", "Jsum"], errors="ignore")
-                v_genes |= set(g for g in ed.index if g.startswith("V"))
-                j_genes |= set(g for g in ed.index if g.startswith("J"))
+                # Gene names are like "TRBV30-1*01" and "TRBJ1-2*01", so use 'in' not startswith
+                v_genes |= set(g for g in ed.index if "V" in g)
+                j_genes |= set(g for g in ed.index if "J" in g)
 
             n_v_genes.append(len(v_genes))
             n_j_genes.append(len(j_genes))
