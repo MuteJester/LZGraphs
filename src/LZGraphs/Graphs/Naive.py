@@ -257,18 +257,34 @@ class NaiveLZGraph:
     @staticmethod
     def encode_sequence(cdr3):
         """
-              given a sequence of nucleotides this function will encode it into the following format:
-              {lz_subpattern}
-              matching the requirement of the NaiveLZGraph.
+        Encode a sequence of nucleotides into the NaiveLZGraph format.
 
+        For NaiveLZGraph, this is simply the LZ decomposition without any
+        position information.
 
-                      Parameters:
-                              cdr3 (str): a string to encode into the NDPLZGraph format
+        Args:
+            cdr3 (str): A nucleotide sequence to encode.
 
-                      Returns:
-                              list : a list of unique sub-patterns in the NDPLZGraph format
-       """
+        Returns:
+            list: A list of LZ sub-patterns.
+        """
         return lempel_ziv_decomposition(cdr3)
+
+    @staticmethod
+    def clean_node(node: str) -> str:
+        """
+        Return the clean subpattern from a node.
+
+        For NaiveLZGraph, nodes are already just the raw LZ subpatterns
+        without any position information, so this returns the node unchanged.
+
+        Args:
+            node (str): A node identifier (LZ subpattern).
+
+        Returns:
+            str: The same subpattern (no transformation needed).
+        """
+        return node
 
     def __derive_terminal_state_map(self):
         """
