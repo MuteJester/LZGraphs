@@ -1,1 +1,1 @@
-::: src.LZGraphs.Graphs.LZGraphBase
+::: LZGraphs.Graphs.LZGraphBase

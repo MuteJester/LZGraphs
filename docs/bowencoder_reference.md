@@ -1,1 +1,1 @@
-::: src.LZGraphs.BagOfWords.BOWEncoder
+::: LZGraphs.BagOfWords.BOWEncoder

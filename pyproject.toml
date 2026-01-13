@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "An Implementation of LZ76 Based Graphs for Repertoire Representation and Analysis"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Thomas Konstantinovsky", email = "thomaskon90@gmail.com"}
 ]
@@ -35,7 +35,6 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Information Analysis",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -93,7 +92,7 @@ LZGraphs = ["py.typed"]
 
 [tool.black]
 line-length = 100
-target-version = ["py38", "py39", "py310", "py311", "py312"]
+target-version = ["py39", "py310", "py311", "py312"]
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -114,7 +113,7 @@ known_first_party = ["LZGraphs"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py39"
 exclude = [
     ".git",
     ".venv",

@@ -12,7 +12,7 @@ Diving into a new library can be daunting, but we're here to ensure a smooth lea
     ```
 2. **First Program**: Let's write your first piece of code to create an LZGraph from a dataset. This immediate hands-on approach will help cement your understanding:
     ```python
-    from src.LZGraphs import AAPLZGraph
+    from LZGraphs import AAPLZGraph
     import pandas as pd
 
     # Load your dataset
@@ -41,7 +41,7 @@ To build confidence, it's crucial to engage with the library directly. Here's a 
 
 We believe in the power of quick wins. Try calculating the LZCentrality for a sequence in your dataset:
 ```python
-from src.LZGraphs import LZCentrality
+from LZGraphs import LZCentrality
 
 sequence_of_interest = "your_sequence_here"
 lz_centrality_score = LZCentrality(lzgraph, sequence_of_interest)
