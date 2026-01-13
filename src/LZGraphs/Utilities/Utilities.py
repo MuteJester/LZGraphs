@@ -32,7 +32,7 @@ def restore_gene_counts(column):
 
     return column
 
-def renormalize_edege_genes(column):
+def renormalize_edge_genes(column):
     """ This function is used during the graph union operation, it normalizes the gene counts by the total number
     of observed v / j genes/alleles.
                     Args:
@@ -72,6 +72,8 @@ def saturation_function(x, h, k):
                   Returns:
                           float : value between 0 - 1 (used as probability for bernoulli trail)
    """
+    if x == 0:
+        return 0.0
     return 1 / (1 + ((h / x) ** k))
 
 def weight_function(x, y, z):

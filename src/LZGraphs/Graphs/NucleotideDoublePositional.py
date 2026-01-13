@@ -282,13 +282,9 @@ class NDPLZGraph(LZGraphBase):
         we log a warning (if verbose=True) and return 0.
         """
         if isinstance(walk, str):
-            # Convert raw sequence
+            # Convert raw sequence to node format: {subpattern}{frame}_{position}
             subs, frames, cumpos = derive_lz_reading_frame_position(walk)
-            walk_ = [f"{s}{f}" for s, f in zip(subs, cumpos)]
-            # Actually, your code used s+pos but we have reading frames, so let's match your logic:
-            # walk_ = [i + str(j) for i, j in zip(subs, cumpos)]
-            # That said, the original code might be a slight mismatch. We'll keep your original approach for minimal changes:
-            walk_ = [f"{sub}{pos}" for sub, pos in zip(subs, cumpos)]
+            walk_ = [f"{sub}{frame}_{pos}" for sub, frame, pos in zip(subs, frames, cumpos)]
         else:
             walk_ = walk
 
@@ -499,15 +495,17 @@ class NDPLZGraph(LZGraphBase):
             threshold_v = threshold
             threshold_j = threshold
 
+        # Get gene table once (avoid duplicate expensive call)
+        gene_table = self.walk_genes(encoded, dropna=False)
+        na_counts = gene_table.isna().sum(axis=1)
+
         # V Genes
-        gene_table_v = self.walk_genes(encoded, dropna=False)
-        mask_v = gene_table_v.isna().sum(axis=1) < threshold_v
-        vgene_table = gene_table_v[mask_v & gene_table_v.index.str.contains("V")]
+        mask_v = na_counts < threshold_v
+        vgene_table = gene_table[mask_v & gene_table.index.str.contains("V")]
 
         # J Genes
-        gene_table_j = self.walk_genes(encoded, dropna=False)
-        mask_j = gene_table_j.isna().sum(axis=1) < threshold_j
-        jgene_table = gene_table_j[mask_j & gene_table_j.index.str.contains("J")]
+        mask_j = na_counts < threshold_j
+        jgene_table = gene_table[mask_j & gene_table.index.str.contains("J")]
 
         # Sort them by ascending NaN count (just for convenience)
         jgene_table = jgene_table.loc[jgene_table.isna().sum(axis=1).sort_values().index]
