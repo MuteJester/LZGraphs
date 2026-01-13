@@ -4,6 +4,7 @@ import numpy as np
 from tqdm.auto import tqdm
 
 from ..Utilities.decomposition import lempel_ziv_decomposition
+from ..Exceptions import EncodingFunctionMismatchError
 
 
 class LZBOW:
@@ -90,7 +91,10 @@ class LZBOW:
 
     def __add__(self, other):
         if self.encoding_function != other.encoding_function:
-            raise Exception('Encoding Function Mismatch Between BOW Objects')
+            raise EncodingFunctionMismatchError(
+                "Cannot combine BOW objects with different encoding functions. "
+                "Both objects must use the same encoding function."
+            )
         union = LZBOW(self.encoding_function)
         union.dictionary = self.dictionary | other.dictionary
         union.observed_sequences = self.observed_sequences + other.observed_sequences

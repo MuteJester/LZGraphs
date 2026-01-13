@@ -14,6 +14,7 @@ import numpy as np
 
 from LZGraphs.BagOfWords.BOWEncoder import LZBOW
 from LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
+from LZGraphs import EncodingFunctionMismatchError
 
 
 class TestLZBOWFit:
@@ -162,7 +163,7 @@ class TestLZBOWCombination:
         bow2 = LZBOW(encoding_function=lambda x: list(x))  # Different function
         bow2.fit("CASSLGQAYEQYF")
 
-        with pytest.raises(Exception, match="Encoding Function Mismatch"):
+        with pytest.raises(EncodingFunctionMismatchError):
             _ = bow1 + bow2
 
 

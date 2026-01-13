@@ -5,6 +5,7 @@ from tqdm.auto import tqdm
 
 from ..Graphs.Naive import NaiveLZGraph
 from .Utilities import restore_gene_counts, renormalize_edge_genes
+from ..Exceptions import IncompatibleGraphsError
 
 
 def graph_union(graphA,graphB):
@@ -21,7 +22,11 @@ def graph_union(graphA,graphB):
 
 
     if type(graphA) != type(graphB):
-        raise Exception('Both Graphs Must Be of Same Type!')
+        raise IncompatibleGraphsError(
+            type1=type(graphA).__name__,
+            type2=type(graphB).__name__,
+            message="Both graphs must be of the same type for union operation."
+        )
 
     if type(graphA) == NaiveLZGraph:
         pass

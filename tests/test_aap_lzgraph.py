@@ -17,7 +17,7 @@ Test Categories:
 
 import pytest
 import numpy as np
-from LZGraphs import AAPLZGraph, NDPLZGraph
+from LZGraphs import AAPLZGraph, NDPLZGraph, InvalidSequenceError, MissingColumnError
 
 
 class TestAAPLZGraphConstruction:
@@ -229,15 +229,15 @@ class TestAAPLZGraphValidation:
             'J': ['TRBJ2-7*01'] * 3
         })
 
-        with pytest.raises(ValueError, match="invalid amino acid"):
+        with pytest.raises(InvalidSequenceError, match="invalid amino acid"):
             AAPLZGraph(bad_data)
 
     def test_missing_column_raises_error(self, test_data_aap):
-        """Verify that missing required column raises ValueError."""
+        """Verify that missing required column raises MissingColumnError."""
         # Remove required column
         bad_data = test_data_aap.drop(columns=['cdr3_amino_acid'])
 
-        with pytest.raises(ValueError, match="cdr3_amino_acid"):
+        with pytest.raises(MissingColumnError, match="cdr3_amino_acid"):
             AAPLZGraph(bad_data)
 
     def test_non_dataframe_raises_error(self):

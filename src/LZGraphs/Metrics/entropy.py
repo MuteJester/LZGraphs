@@ -16,6 +16,8 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from scipy.stats import entropy as scipy_entropy
 
+from ..Exceptions import EmptyDataError, NoGeneDataError, MetricsError
+
 
 def node_entropy(lzgraph, base: float = 2) -> float:
     """
@@ -38,7 +40,7 @@ def node_entropy(lzgraph, base: float = 2) -> float:
         >>> print(f"Node entropy: {h:.2f} bits")
     """
     if not hasattr(lzgraph, 'subpattern_individual_probability'):
-        raise ValueError("LZGraph does not have subpattern probability data")
+        raise MetricsError("LZGraph does not have subpattern probability data")
 
     probs = lzgraph.subpattern_individual_probability['proba'].values
     # Filter out zeros to avoid log(0)
@@ -176,7 +178,7 @@ def sequence_perplexity(lzgraph, sequence: str) -> float:
         >>> print(f"Perplexity: {ppl:.2f}")
     """
     if not hasattr(lzgraph, 'walk_probability'):
-        raise ValueError("LZGraph does not have walk_probability method")
+        raise MetricsError("LZGraph does not have walk_probability method")
 
     # Get log probability
     log_prob = lzgraph.walk_probability(sequence, verbose=False, use_log=True)
@@ -222,7 +224,7 @@ def repertoire_perplexity(lzgraph, sequences: List[str],
         >>> print(f"Repertoire perplexity: {ppl:.2f}")
     """
     if not sequences:
-        raise ValueError("sequences list cannot be empty")
+        raise EmptyDataError("sequences list cannot be empty")
 
     perplexities = []
     for seq in sequences:
@@ -247,7 +249,7 @@ def repertoire_perplexity(lzgraph, sequences: List[str],
     elif aggregation == 'median':
         return float(np.median(perplexities))
     else:
-        raise ValueError(f"Unknown aggregation method: {aggregation}")
+        raise MetricsError(f"Unknown aggregation method: {aggregation}. Use 'geometric', 'arithmetic', or 'median'.")
 
 
 def jensen_shannon_divergence(lzgraph1, lzgraph2) -> float:
@@ -418,7 +420,10 @@ def mutual_information_genes(lzgraph, gene_type: str = 'V',
         >>> print(f"I(Path; V) = {mi_v:.3f} bits")
     """
     if not lzgraph.genetic:
-        raise ValueError("LZGraph must have genetic information")
+        raise NoGeneDataError(
+            operation="mutual_information_genes",
+            message="LZGraph must have genetic information for mutual information calculation"
+        )
 
     # Get marginal gene distribution
     if gene_type == 'V':
@@ -426,7 +431,7 @@ def mutual_information_genes(lzgraph, gene_type: str = 'V',
     elif gene_type == 'J':
         marginal = lzgraph.marginal_jgenes
     else:
-        raise ValueError("gene_type must be 'V' or 'J'")
+        raise MetricsError("gene_type must be 'V' or 'J'")
 
     # Marginal entropy H(Gene)
     h_gene = scipy_entropy(marginal.values, base=2)

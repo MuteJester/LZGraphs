@@ -1,4 +1,4 @@
-__version__ = "1.0.2"
+__version__ = "1.1.1"
 
 from .Graphs.AminoAcidPositional import *
 from .BagOfWords.BOWEncoder import *
@@ -10,3 +10,41 @@ from .Visualization.Visualize import *
 from .Utilities.decomposition import *
 from .Utilities.misc import *
 from .Metrics import *
+
+# Custom Exceptions
+from .Exceptions import (
+    # Base
+    LZGraphError,
+    # Input validation
+    InputValidationError,
+    EmptyDataError,
+    MissingColumnError,
+    InvalidSequenceError,
+    InvalidProbabilityError,
+    # Graph construction
+    GraphConstructionError,
+    EncodingError,
+    # Gene data
+    GeneDataError,
+    NoGeneDataError,
+    GeneAnnotationError,
+    # Walk/probability
+    WalkError,
+    NoValidPathError,
+    MissingNodeError,
+    MissingEdgeError,
+    # Serialization
+    SerializationError,
+    UnsupportedFormatError,
+    CorruptedFileError,
+    # BOW
+    BOWError,
+    EncodingFunctionMismatchError,
+    UnfittedBOWError,
+    # Graph operations
+    GraphOperationError,
+    IncompatibleGraphsError,
+    # Metrics
+    MetricsError,
+    InsufficientDataError,
+)

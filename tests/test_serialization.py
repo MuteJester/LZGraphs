@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 import networkx as nx
 
-from LZGraphs import AAPLZGraph, NDPLZGraph
+from LZGraphs import AAPLZGraph, NDPLZGraph, UnsupportedFormatError
 
 
 class TestPickleSerialization:
@@ -261,21 +261,21 @@ class TestErrorHandling:
             AAPLZGraph.load('/nonexistent/path/graph.pkl')
 
     def test_unsupported_save_format_raises_error(self, aap_lzgraph):
-        """Verify unsupported format raises ValueError."""
+        """Verify unsupported format raises UnsupportedFormatError."""
         with tempfile.TemporaryDirectory() as tmpdir:
             filepath = Path(tmpdir) / 'test.xyz'
 
-            with pytest.raises(ValueError, match="Unsupported format"):
+            with pytest.raises(UnsupportedFormatError):
                 aap_lzgraph.save(filepath, format='xyz')
 
     def test_unknown_extension_without_format_raises_error(self, aap_lzgraph):
-        """Verify unknown extension without explicit format raises ValueError."""
+        """Verify unknown extension without explicit format raises UnsupportedFormatError."""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a file with unknown extension
             filepath = Path(tmpdir) / 'test.xyz'
             filepath.touch()
 
-            with pytest.raises(ValueError, match="Cannot determine format"):
+            with pytest.raises(UnsupportedFormatError):
                 AAPLZGraph.load(filepath)
 
 

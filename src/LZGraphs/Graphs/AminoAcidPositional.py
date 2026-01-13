@@ -13,6 +13,13 @@ from tqdm.auto import tqdm
 from .LZGraphBase import LZGraphBase
 from ..Utilities.decomposition import lempel_ziv_decomposition
 from ..Utilities.misc import window, choice
+from ..Exceptions import (
+    EmptyDataError,
+    MissingColumnError,
+    InvalidSequenceError,
+    NoGeneDataError,
+    GeneAnnotationError,
+)
 
 # --------------------------------------------------------------------------
 # Global Logger Configuration
@@ -187,15 +194,14 @@ class AAPLZGraph(LZGraphBase):
 
         # Check for required column
         if 'cdr3_amino_acid' not in data.columns:
-            available_cols = list(data.columns)
-            raise ValueError(
-                f"DataFrame must contain 'cdr3_amino_acid' column. "
-                f"Available columns: {available_cols}"
+            raise MissingColumnError(
+                column_name='cdr3_amino_acid',
+                available_columns=list(data.columns)
             )
 
         # Check for empty data
         if len(data) == 0:
-            raise ValueError("DataFrame is empty. Cannot build LZGraph from zero sequences.")
+            raise EmptyDataError("DataFrame is empty. Cannot build LZGraph from zero sequences.")
 
         # Check for null values in CDR3 column
         null_count = data['cdr3_amino_acid'].isna().sum()
@@ -240,8 +246,9 @@ class AAPLZGraph(LZGraphBase):
 
         for seq in sample:
             if not isinstance(seq, str):
-                raise ValueError(
-                    f"Sequence must be a string, got {type(seq).__name__}: {seq}"
+                raise InvalidSequenceError(
+                    sequence=str(seq),
+                    message=f"Sequence must be a string, got {type(seq).__name__}: {seq}"
                 )
             invalid_in_seq = set(seq.upper()) - self.VALID_AMINO_ACIDS
             if invalid_in_seq:
@@ -251,10 +258,14 @@ class AAPLZGraph(LZGraphBase):
 
         if invalid_chars_found:
             examples = ", ".join(f"'{s}'" for s in invalid_sequences[:3])
-            raise ValueError(
-                f"Found invalid amino acid characters: {sorted(invalid_chars_found)}. "
-                f"Valid amino acids are: {sorted(self.VALID_AMINO_ACIDS)}. "
-                f"Example invalid sequences: {examples}"
+            raise InvalidSequenceError(
+                sequence=invalid_sequences[0] if invalid_sequences else None,
+                invalid_chars=''.join(sorted(invalid_chars_found)),
+                message=(
+                    f"Found invalid amino acid characters: {sorted(invalid_chars_found)}. "
+                    f"Valid amino acids are: {sorted(self.VALID_AMINO_ACIDS)}. "
+                    f"Example invalid sequences: {examples}"
+                )
             )
 
     def _validate_gene_columns(self, data: pd.DataFrame) -> None:
@@ -692,7 +703,7 @@ class AAPLZGraph(LZGraphBase):
             df.dropna(how="all", inplace=True)
 
         if df.empty and raise_error:
-            raise Exception("No gene data found in the edges for the given walk.")
+            raise GeneAnnotationError("No gene data found in the edges for the given walk.")
 
         # Example: add gene type and sum columns for clarity
         df["type"] = ["V" if "v" in idx.lower() else "J" for idx in df.index]
@@ -902,7 +913,10 @@ class AAPLZGraph(LZGraphBase):
             - 'sp': the LZ subpattern
         """
         if not self.genetic:
-            raise Exception("The LZGraph has no gene data.")
+            raise NoGeneDataError(
+                operation="gene_repertoire_per_subpattern",
+                message="Cannot compute gene repertoire: this LZGraph has no gene data (genetic=False)."
+            )
 
         encoded_a = self.encode_sequence(cdr3)
         n_v_genes = []

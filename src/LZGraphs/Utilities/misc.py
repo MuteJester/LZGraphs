@@ -16,6 +16,8 @@ from itertools import tee
 
 import numpy as np
 
+from ..Exceptions import EmptyDataError, InvalidProbabilityError
+
 
 def choice(options, probs):
     """Choose a single random variable from a list given a probability distribution.
@@ -32,20 +34,18 @@ def choice(options, probs):
     """
     # Validate inputs
     if len(options) == 0:
-        raise ValueError("options cannot be empty")
+        raise EmptyDataError("options cannot be empty")
 
     if len(options) != len(probs):
-        raise ValueError(
-            f"Length mismatch: options has {len(options)} elements, "
+        raise InvalidProbabilityError(
+            message=f"Length mismatch: options has {len(options)} elements, "
             f"probs has {len(probs)} elements"
         )
 
     # Validate probabilities sum to approximately 1
     prob_sum = sum(probs)
     if not (0.99 <= prob_sum <= 1.01):
-        raise ValueError(
-            f"Probabilities must sum to ~1.0, got {prob_sum:.4f}"
-        )
+        raise InvalidProbabilityError(prob_sum=prob_sum)
 
     x = np.random.rand()
     cum = 0

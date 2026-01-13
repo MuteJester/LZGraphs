@@ -22,6 +22,9 @@ from ..Mixins import GeneLogicMixin
 from ..Mixins import RandomWalkMixin
 from ..Mixins import GenePredictionMixin
 
+# Custom exceptions
+from ..Exceptions import UnsupportedFormatError
+
 # Create a logger for this module
 logger = logging.getLogger(__name__)
 
@@ -508,9 +511,7 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                 json.dump(data, f, indent=2, default=str)
 
         else:
-            raise ValueError(
-                f"Unsupported format '{format}'. Use 'pickle' or 'json'."
-            )
+            raise UnsupportedFormatError(format=format)
 
         logger.info(f"LZGraph saved to {filepath}")
 
@@ -565,8 +566,9 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             elif filepath.suffix == '.json':
                 format = 'json'
             else:
-                raise ValueError(
-                    f"Cannot determine format from extension '{filepath.suffix}'. "
+                raise UnsupportedFormatError(
+                    format=filepath.suffix,
+                    message=f"Cannot determine format from extension '{filepath.suffix}'. "
                     "Please specify format='pickle' or format='json'."
                 )
 
@@ -586,9 +588,7 @@ class LZGraphBase(GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             return cls._from_json_dict(data)
 
         else:
-            raise ValueError(
-                f"Unsupported format '{format}'. Use 'pickle' or 'json'."
-            )
+            raise UnsupportedFormatError(format=format)
 
     def _to_json_dict(self) -> dict:
         """
