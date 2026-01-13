@@ -21,6 +21,8 @@ Embark on your LZGraphs journey with a simple installation command:
 pip install LZGraphs
 ```
 
+**Requirements:** Python 3.9 or higher
+
 # Connect with Us
 Your insights and experiences with LZGraphs fuel our innovation. For inquiries, suggestions, or to share your LZGraphs journey, reach out to us:
 

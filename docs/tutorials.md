@@ -215,7 +215,7 @@ The `LZGraph` library provides a convenient function, `K1000_Diversity`, for cal
 Here's how you can use the `K1000_Diversity` function:
 
 ```python
-from LZGraphs.Metircs.Metrics import K1000_Diversity
+from LZGraphs.Metrics import K1000_Diversity
 from LZGraphs import AAPLZGraph
 
 # Assume we have a list of CDR3 sequences
@@ -386,7 +386,7 @@ to a given repertoire.
  that specific V/J.
 
 ```python
-from src.LZGraphs.Visualization.Visualize import sequence_genomic_edges_variability_plot
+from LZGraphs.Visualization.Visualize import sequence_genomic_edges_variability_plot
 
 sequence = 'CASTPGTASGYTF'
 sequence_genomic_edges_variability_plot(lzgraph, sequence)
@@ -402,8 +402,8 @@ Note that each instance of the BOW wrapper class has to fitted on a list of sequ
 can transform new lists of sequences into BOW vectors.
 
 ```python
-from src.LZGraphs import LZBOW
-from src.LZGraphs import NDPLZGraph
+from LZGraphs import LZBOW
+from LZGraphs import NDPLZGraph
 
 sequence_list = data.cdr3_rearrangement.to_list()
 

@@ -1,1 +1,1 @@
-::: src.LZGraphs.Visualization.Visualize
+::: LZGraphs.Visualization.Visualize
