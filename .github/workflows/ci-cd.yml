@@ -99,7 +99,7 @@ jobs:
       - name: Get version from package
         id: version
         run: |
-          VERSION=$(python -c "from src.LZGraphs import __version__; print(__version__)")
+          VERSION=$(grep -Po '(?<=__version__ = ")[^"]+' src/LZGraphs/__init__.py)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $VERSION"
 
