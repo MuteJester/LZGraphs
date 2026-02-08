@@ -76,7 +76,7 @@ graph = NDPLZGraph(data)  # data has 'cdr3_rearrangement' column
 
 ```python
 from LZGraphs import NaiveLZGraph
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # Create a fixed dictionary for consistent feature vectors
 dictionary = generate_kmer_dictionary(6)
@@ -176,7 +176,7 @@ Double position encoding provides finer resolution.
 ### NaiveLZGraph Encoding
 
 ```python
-from LZGraphs.Utilities import lempel_ziv_decomposition
+from LZGraphs.utilities import lempel_ziv_decomposition
 
 sequence = "TGTGCC"
 encoded = lempel_ziv_decomposition(sequence)

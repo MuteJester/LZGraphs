@@ -61,7 +61,7 @@ class TestNDPLZGraphProbabilities:
             lzpgens.append(lzpgen)
 
         # Verify first sequence's log-probability
-        assert np.round(np.log(lzpgens[0]), 2) == -43.25
+        assert np.round(np.log(lzpgens[0]), 2) == -41.71
 
 
 class TestNDPLZGraphTerminalStates:

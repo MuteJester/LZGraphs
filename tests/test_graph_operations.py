@@ -63,13 +63,13 @@ class TestIsDAG:
 
     def test_is_dag_returns_boolean(self, aap_lzgraph):
         """Verify is_dag returns a boolean."""
-        result = aap_lzgraph.is_dag()
+        result = aap_lzgraph.is_dag
         assert isinstance(result, bool)
 
     def test_typical_lzgraph_structure(self, aap_lzgraph):
         """Test is_dag on typical LZGraph."""
         # LZGraphs are generally not DAGs due to possible cycles in sequences
-        result = aap_lzgraph.is_dag()
+        result = aap_lzgraph.is_dag
         # Just verify it runs without error
         assert isinstance(result, bool)
 
@@ -79,7 +79,7 @@ class TestIsolates:
 
     def test_isolates_returns_iterable(self, aap_lzgraph):
         """Verify isolates() returns an iterable."""
-        result = aap_lzgraph.isolates()
+        result = aap_lzgraph.isolates
         # Should be convertible to list
         isolate_list = list(result)
         assert isinstance(isolate_list, list)
@@ -87,18 +87,18 @@ class TestIsolates:
     def test_drop_isolates_removes_isolates(self, aap_lzgraph):
         """Verify drop_isolates removes isolated nodes."""
         # Get initial isolate count
-        initial_isolates = list(aap_lzgraph.isolates())
+        initial_isolates = list(aap_lzgraph.isolates)
 
         if len(initial_isolates) > 0:
             aap_lzgraph.drop_isolates()
-            remaining_isolates = list(aap_lzgraph.isolates())
+            remaining_isolates = list(aap_lzgraph.isolates)
             assert len(remaining_isolates) == 0
 
     def test_drop_isolates_preserves_connected_nodes(self, aap_lzgraph):
         """Verify drop_isolates doesn't remove connected nodes."""
         # Count nodes with edges
         nodes_before = len(aap_lzgraph.nodes)
-        isolates_before = len(list(aap_lzgraph.isolates()))
+        isolates_before = len(list(aap_lzgraph.isolates))
 
         aap_lzgraph.drop_isolates()
 
@@ -138,7 +138,7 @@ class TestGraphUnion:
 
     def test_graph_union_basic(self, test_data_aap):
         """Verify basic graph union works."""
-        from LZGraphs.Utilities.graph_operations import graph_union
+        from LZGraphs.graphs.graph_operations import graph_union
 
         # Split data
         data1 = test_data_aap.iloc[:2500].copy()
@@ -158,7 +158,7 @@ class TestGraphUnion:
 
     def test_graph_union_different_types_raises(self, test_data_aap, test_data_ndp):
         """Verify union of different graph types raises error."""
-        from LZGraphs.Utilities.graph_operations import graph_union
+        from LZGraphs.graphs.graph_operations import graph_union
 
         graph_aap = AAPLZGraph(test_data_aap, verbose=False)
         graph_ndp = NDPLZGraph(test_data_ndp, verbose=False)
@@ -168,7 +168,7 @@ class TestGraphUnion:
 
     def test_graph_union_combines_initial_states(self, test_data_aap):
         """Verify union combines initial states."""
-        from LZGraphs.Utilities.graph_operations import graph_union
+        from LZGraphs.graphs.graph_operations import graph_union
 
         data1 = test_data_aap.iloc[:2500].copy()
         data2 = test_data_aap.iloc[2500:].copy()
@@ -215,3 +215,50 @@ class TestGraphSummary:
         assert result['Number of Edges'] >= 0
         assert result['Number of Isolates'] >= 0
         assert result['Chromatic Number'] >= 1  # At least 1 color needed
+
+
+class TestGraphUnionReturn:
+    """Tests that graph_union returns the modified graph (not None)."""
+
+    def test_graph_union_returns_graph(self, test_data_aap):
+        """Verify graph_union returns the graph object, not None."""
+        from LZGraphs.graphs.graph_operations import graph_union
+
+        data1 = test_data_aap.iloc[:2500].copy()
+        data2 = test_data_aap.iloc[2500:].copy()
+
+        graph1 = AAPLZGraph(data1, verbose=False)
+        graph2 = AAPLZGraph(data2, verbose=False)
+
+        result = graph_union(graph1, graph2)
+
+        assert result is not None
+        assert result is graph1
+
+
+class TestGraphUnionNaive:
+    """Tests for graph_union with NaiveLZGraph instances."""
+
+    def test_graph_union_naive(self, test_data_nucleotide, lz_dictionary):
+        """Verify graph_union works for NaiveLZGraph and produces a larger graph."""
+        from LZGraphs import NaiveLZGraph
+        from LZGraphs.graphs.graph_operations import graph_union
+
+        data1 = test_data_nucleotide['cdr3_rearrangement'].iloc[:2500]
+        data2 = test_data_nucleotide['cdr3_rearrangement'].iloc[2500:]
+
+        graph1 = NaiveLZGraph(data1, lz_dictionary, verbose=False)
+        graph2 = NaiveLZGraph(data2, lz_dictionary, verbose=False)
+
+        edges_1 = len(graph1.edges)
+        edges_2 = len(graph2.edges)
+        nodes_1 = len(graph1.nodes)
+        nodes_2 = len(graph2.nodes)
+
+        result = graph_union(graph1, graph2)
+
+        # The union graph should have at least as many edges/nodes as
+        # the larger of the two inputs
+        assert result is not None
+        assert len(result.edges) >= max(edges_1, edges_2)
+        assert len(result.nodes) >= max(nodes_1, nodes_2)

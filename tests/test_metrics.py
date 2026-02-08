@@ -19,7 +19,7 @@ Test Categories:
 import pytest
 import numpy as np
 from LZGraphs import NDPLZGraph
-from LZGraphs.Metrics.Metrics import (
+from LZGraphs.metrics.diversity import (
     LZCentrality,
     K_Diversity,
     K100_Diversity,
@@ -28,7 +28,7 @@ from LZGraphs.Metrics.Metrics import (
     K5000_Diversity,
     adaptive_K_Diversity,
 )
-from LZGraphs.Metrics.entropy import (
+from LZGraphs.metrics.entropy import (
     node_entropy,
     edge_entropy,
     graph_entropy,
@@ -245,6 +245,11 @@ class TestDistanceMetrics:
         jsd = jensen_shannon_divergence(aap_lzgraph, ndp_lzgraph)
         assert 0 <= jsd <= 1
 
+    def test_js_divergence_different_graphs_positive(self, aap_lzgraph, ndp_lzgraph):
+        """Verify JSD between different graph types is positive."""
+        jsd = jensen_shannon_divergence(aap_lzgraph, ndp_lzgraph)
+        assert jsd > 0
+
 
 class TestMetricRobustness:
     """Tests for metric robustness and edge cases."""
@@ -275,3 +280,24 @@ class TestMetricRobustness:
         # Entropy should still be computable
         ne = node_entropy(minimal_graph)
         assert ne >= 0
+
+
+class TestEdgeEntropyConditional:
+    """Tests for conditional entropy property: H(edges|nodes) <= H(nodes)."""
+
+    def test_edge_entropy_bounded_by_node_entropy(self, aap_lzgraph):
+        """Verify edge entropy (conditional) is bounded by node entropy.
+
+        The edge entropy in graph entropy decomposition represents the
+        conditional entropy H(Y|X) of transitions given source nodes.
+        By the chain rule, H(X,Y) = H(X) + H(Y|X), and since
+        H(Y|X) <= H(Y), edge entropy should not exceed node entropy
+        for a well-formed graph.
+        """
+        ne = node_entropy(aap_lzgraph)
+        ee = edge_entropy(aap_lzgraph)
+
+        assert ee <= ne, (
+            f"Edge entropy ({ee}) should be <= node entropy ({ne}) "
+            "since conditional entropy is bounded by marginal entropy"
+        )

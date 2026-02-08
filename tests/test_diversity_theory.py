@@ -27,13 +27,13 @@ import string
 from typing import List, Tuple
 
 from LZGraphs import AAPLZGraph
-from LZGraphs.Metrics.Metrics import (
+from LZGraphs.metrics.diversity import (
     K_Diversity,
     K100_Diversity,
     K500_Diversity,
     K1000_Diversity,
 )
-from LZGraphs.Metrics.entropy import (
+from LZGraphs.metrics.entropy import (
     node_entropy,
     edge_entropy,
     graph_entropy,
@@ -41,7 +41,7 @@ from LZGraphs.Metrics.entropy import (
     sequence_perplexity,
     repertoire_perplexity,
 )
-from LZGraphs.Utilities.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+from LZGraphs.metrics.saturation import NodeEdgeSaturationProbe
 
 
 # =============================================================================

@@ -48,13 +48,13 @@ from LZGraphs import (
 
 ```python
 from LZGraphs import LZBOW, NodeEdgeSaturationProbe
-from LZGraphs.Utilities import lempel_ziv_decomposition, generate_kmer_dictionary
+from LZGraphs.utilities import lempel_ziv_decomposition, generate_kmer_dictionary
 ```
 
 ### Visualization
 
 ```python
-from LZGraphs.Visualization import (
+from LZGraphs.visualization import (
     draw_graph,
     ancestors_descendants_curves_plot,
     sequence_possible_paths_plot,
@@ -115,19 +115,20 @@ print(LZGraphs.__version__)
 ```
 LZGraphs/
 ├── __init__.py           # Main exports
-├── Graphs/
-│   ├── AminoAcidPositional.py
-│   ├── NucleotideDoublePositional.py
-│   └── Naive.py
-├── Metrics/
-│   └── Metrics.py
-├── Utilities/
-│   ├── Utilities.py
-│   └── NodeEdgeSaturationProbe.py
-├── BagOfWords/
-│   └── LZBOW.py
-├── Visualization/
-│   └── Visualize.py
-└── Exceptions/
+├── graphs/
+│   ├── amino_acid_positional.py
+│   ├── nucleotide_double_positional.py
+│   └── naive.py
+├── metrics/
+│   ├── diversity.py
+│   └── entropy.py
+├── utilities/
+│   ├── utilities.py
+│   └── node_edge_saturation_probe.py
+├── bag_of_words/
+│   └── bow_encoder.py
+├── visualization/
+│   └── visualize.py
+└── exceptions/
     └── __init__.py
 ```

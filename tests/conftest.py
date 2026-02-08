@@ -16,6 +16,8 @@ Fixtures:
 """
 
 import os
+from copy import deepcopy
+
 import pytest
 import pandas as pd
 import numpy as np
@@ -190,6 +192,24 @@ def assert_log_probability_valid(log_prob):
         log_prob: The log-probability value to check
     """
     assert log_prob <= 0, f"Log-probability {log_prob} should be <= 0"
+
+
+@pytest.fixture
+def aap_lzgraph_copy(aap_lzgraph):
+    """Function-scoped deep copy of aap_lzgraph for tests that mutate the graph."""
+    return deepcopy(aap_lzgraph)
+
+
+@pytest.fixture
+def ndp_lzgraph_copy(ndp_lzgraph):
+    """Function-scoped deep copy of ndp_lzgraph for tests that mutate the graph."""
+    return deepcopy(ndp_lzgraph)
+
+
+@pytest.fixture
+def naive_lzgraph_copy(naive_lzgraph):
+    """Function-scoped deep copy of naive_lzgraph for tests that mutate the graph."""
+    return deepcopy(naive_lzgraph)
 
 
 def assert_entropy_valid(entropy_value, max_entropy=None):

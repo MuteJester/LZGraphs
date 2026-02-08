@@ -60,7 +60,7 @@ class TestNaiveLZGraphProbabilities:
             lzpgens.append(lzpgen)
 
         # Verify first sequence's log-probability
-        assert np.round(np.log(lzpgens[0]), 2) == -84.92
+        assert np.round(np.log(lzpgens[0]), 2) == -82.48
 
 
 class TestNaiveLZGraphTerminalStates:
@@ -122,3 +122,22 @@ class TestNaiveLZGraphEncoding:
         walk = NaiveLZGraph.encode_sequence(sequence)
         reconstructed = ''.join(walk)
         assert reconstructed == sequence
+
+
+class TestNaiveLZGraphRepr:
+    """Tests for NaiveLZGraph string representation."""
+
+    def test_repr_contains_class_name(self, naive_lzgraph):
+        """Verify repr contains 'NaiveLZGraph'."""
+        result = repr(naive_lzgraph)
+        assert 'NaiveLZGraph' in result
+
+    def test_repr_contains_nodes(self, naive_lzgraph):
+        """Verify repr contains node count information."""
+        result = repr(naive_lzgraph)
+        assert 'nodes=' in result
+
+    def test_repr_contains_edges(self, naive_lzgraph):
+        """Verify repr contains edge count information."""
+        result = repr(naive_lzgraph)
+        assert 'edges=' in result

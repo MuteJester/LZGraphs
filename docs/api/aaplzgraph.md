@@ -20,7 +20,7 @@ pgen = graph.walk_probability(encoded)
 
 ## Class Reference
 
-::: LZGraphs.Graphs.AminoAcidPositional.AAPLZGraph
+::: LZGraphs.graphs.amino_acid_positional.AAPLZGraph
     options:
       show_root_heading: true
       show_source: false

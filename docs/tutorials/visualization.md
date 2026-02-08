@@ -21,7 +21,7 @@ LZGraphs provides specialized visualization functions:
 ```python
 import pandas as pd
 from LZGraphs import AAPLZGraph
-from LZGraphs.Visualization import (
+from LZGraphs.visualization import (
     draw_graph,
     ancestors_descendants_curves_plot,
     sequence_possible_paths_plot,
@@ -246,7 +246,7 @@ plt.savefig("saturation_curve.png", dpi=300)
 import pandas as pd
 import matplotlib.pyplot as plt
 from LZGraphs import AAPLZGraph
-from LZGraphs.Visualization import (
+from LZGraphs.visualization import (
     ancestors_descendants_curves_plot,
     sequence_possible_paths_plot,
     sequence_genomic_node_variability_plot
