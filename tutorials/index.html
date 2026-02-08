@@ -6,25 +6,37 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="LZ76-based graph representations for T-cell receptor repertoire analysis">
       
       
-      
-        <link rel="prev" href="..">
-      
-      
-        <link rel="next" href="../metrics_reference/">
+        <meta name="author" content="Thomas Konstantinovsky">
       
       
-      <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.14">
+        <link rel="canonical" href="https://MuteJester.github.io/LZGraphs/tutorials/">
+      
+      
+        <link rel="prev" href="../getting-started/first-steps/">
+      
+      
+        <link rel="next" href="graph-construction/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../images/lzglogo2.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
     
     
       
-        <title>Tutorials for LZGraphs - LZGraph Documentation</title>
+        <title>Tutorials - LZGraphs Documentation</title>
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.10ba22f1.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
       
       
 
@@ -45,17 +57,25 @@
     
       <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
     
     
-    
   </head>
   
   
-    <body dir="ltr">
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
   
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
@@ -64,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tutorials-for-lzgraphs" class="md-skip">
+        <a href="#tutorials" class="md-skip">
           Skip to content
         </a>
       
@@ -73,71 +93,109 @@
       
     </div>
     
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
     
       
 
   
 
-<header class="md-header md-header--shadow" data-md-component="header">
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href=".." title="LZGraph Documentation" class="md-header__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
+    <a href=".." title="LZGraphs Documentation" class="md-header__button md-logo" aria-label="LZGraphs Documentation" data-md-component="logo">
       
-  
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+  <img src="../images/lzglogo2.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
       
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            LZGraph Documentation
+            LZGraphs Documentation
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Tutorials for LZGraphs
+              Tutorials
             
           </span>
         </div>
       </div>
     </div>
     
+      
+        <form class="md-header__option" data-md-component="palette">
+  
     
-      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
     
-      <label class="md-header__button md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
       </label>
-      <div class="md-search" data-md-component="search" role="dialog">
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
   <label class="md-search__overlay" for="__search"></label>
   <div class="md-search__inner" role="search">
     <form class="md-search__form" name="search">
       <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
       <label class="md-search__icon md-icon" for="__search">
         
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
         
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
       </label>
       <nav class="md-search__options" aria-label="Search">
         
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
         <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
           
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
       </nav>
       
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
     </form>
     <div class="md-search__output">
-      <div class="md-search__scrollwrap" data-md-scrollfix>
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
         <div class="md-search-result" data-md-component="search-result">
           <div class="md-search-result__meta">
             Initializing search
@@ -148,17 +206,211 @@
     </div>
   </div>
 </div>
+      
     
+    
+      <div class="md-header__source">
+        <a href="https://github.com/MuteJester/LZGraphs" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MuteJester/LZGraphs
+  </div>
+</a>
+      </div>
     
   </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../concepts/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../how-to/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  How-To Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../examples/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Examples
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../resources/faq/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Resources
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
   
 </header>
     
     <div class="md-container" data-md-component="container">
       
       
-        
-          
         
       
       <main class="md-main" data-md-component="main">
@@ -172,17 +424,30 @@
                     
 
 
-
-<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
-  <label class="md-nav__title" for="__drawer">
-    <a href=".." title="LZGraph Documentation" class="md-nav__button md-logo" aria-label="LZGraph Documentation" data-md-component="logo">
-      
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="LZGraphs Documentation" class="md-nav__button md-logo" aria-label="LZGraphs Documentation" data-md-component="logo">
+      
+  <img src="../images/lzglogo2.png" alt="logo">
 
     </a>
-    LZGraph Documentation
+    LZGraphs Documentation
   </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/MuteJester/LZGraphs" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    MuteJester/LZGraphs
+  </div>
+</a>
+    </div>
   
   <ul class="md-nav__list" data-md-scrollfix>
     
@@ -196,9 +461,16 @@
       <a href=".." class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Welcome to LZGraphs Documentation
+    
+  
+    Home
+  
+
+    
   </span>
+  
   
 
       </a>
@@ -210,300 +482,694 @@
       
   
   
+  
+  
     
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
+    
       
         
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
           
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../getting-started/" class="md-nav__link ">
+              
+  
   
   <span class="md-ellipsis">
-    Tutorials for LZGraphs
-  </span>
+    
+  
+    Getting Started
   
 
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/installation/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Tutorials for LZGraphs
+    
+  
+    Installation
+  
+
+    
   </span>
+  
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+    </li>
   
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/first-steps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First Steps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
   
   
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+  
+    
+    
       
-        <li class="md-nav__item">
-  <a href="#getting-started-with-graph-construction" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting Started with Graph Construction
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Getting Started with Graph Construction">
-      <ul class="md-nav__list">
         
-          <li class="md-nav__item">
-  <a href="#amino-acid-positional-and-nucleotide-double-positional-graphs" class="md-nav__link">
-    <span class="md-ellipsis">
-      Amino Acid Positional and Nucleotide Double Positional Graphs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Amino Acid Positional and Nucleotide Double Positional Graphs">
-      <ul class="md-nav__list">
+          
         
-          <li class="md-nav__item">
-  <a href="#essential-points" class="md-nav__link">
-    <span class="md-ellipsis">
-      Essential Points:
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#constructing-a-naive-lzgraph" class="md-nav__link">
-    <span class="md-ellipsis">
-      Constructing a Naive LZGraph
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
-        <li class="md-nav__item">
-  <a href="#exploring-graph-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Exploring Graph Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Exploring Graph Attributes">
-      <ul class="md-nav__list">
         
-          <li class="md-nav__item">
-  <a href="#amino-acid-positional-and-nucleotide-double-positional-graphs_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Amino Acid Positional and Nucleotide Double Positional Graphs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Amino Acid Positional and Nucleotide Double Positional Graphs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#exploring-graph-nodes-and-edges" class="md-nav__link">
-    <span class="md-ellipsis">
-      Exploring Graph Nodes and Edges
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#distribution-of-observed-sequence-lengths" class="md-nav__link">
-    <span class="md-ellipsis">
-      Distribution of Observed Sequence Lengths:
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#exploring-graph-initial-and-terminal-states" class="md-nav__link">
-    <span class="md-ellipsis">
-      Exploring Graph Initial and Terminal States:
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Exploring Graph Initial and Terminal States:">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#getting-all-the-initial-states" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting all the initial states
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#getting-all-the-terminal-states" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting all the terminal states
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#graph-v-and-j-marginal-distributions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Graph V and J Marginal Distributions:
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
-        <li class="md-nav__item">
-  <a href="#calculating-the-lzcentrality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Calculating the LZCentrality
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calculating-the-k1000-diversity-index" class="md-nav__link">
-    <span class="md-ellipsis">
-      Calculating the K1000 Diversity Index
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deriving-sequence-generation-probability-pgen" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deriving Sequence Generation Probability (Pgen)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#generating-new-sequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generating New Sequences
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#feature-vector-from-graph-eigen-centrality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Feature Vector From Graph (Eigen Centrality)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#plotting-graph-related-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      Plotting Graph Related Features
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Plotting Graph Related Features">
-      <ul class="md-nav__list">
         
-          <li class="md-nav__item">
-  <a href="#ancestors-descendants-curves-plot" class="md-nav__link">
-    <span class="md-ellipsis">
-      Ancestors Descendants Curves Plot
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sequence-possible-paths-plot" class="md-nav__link">
-    <span class="md-ellipsis">
-      Sequence Possible Paths Plot
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#node-genomic-variability-plot" class="md-nav__link">
-    <span class="md-ellipsis">
-      Node Genomic Variability Plot
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#edge-genomic-variability-plot" class="md-nav__link">
-    <span class="md-ellipsis">
-      Edge Genomic Variability Plot
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
-        <li class="md-nav__item">
-  <a href="#bow-vectorizer" class="md-nav__link">
-    <span class="md-ellipsis">
-      BOW Vectorizer
-    </span>
-  </a>
-  
-</li>
+        
       
-    </ul>
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="./" class="md-nav__link md-nav__link--active">
+              
   
-</nav>
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link md-nav__link--active" for="__nav_3" id="__nav_3_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="graph-construction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Construction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="sequence-analysis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sequence Analysis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="diversity-metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Diversity Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="visualization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../concepts/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Concepts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/lz76-algorithm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LZ76 Algorithm
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/graph-types/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Graph Types
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/probability-model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Probability Model
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../how-to/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-To Guides
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5" id="__nav_5_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-To Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Save & Load Graphs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/sequence-generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generate Sequences
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/repertoire-comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compare Repertoires
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
       
     </li>
   
@@ -516,12 +1182,19 @@
   
   
     <li class="md-nav__item">
-      <a href="../metrics_reference/" class="md-nav__link">
+      <a href="../examples/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    LZ Metrics
+    
+  
+    Examples
+  
+
+    
   </span>
+  
   
 
       </a>
@@ -535,16 +1208,252 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../misc_reference/" class="md-nav__link">
+    
+    
+      
         
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../api/" class="md-nav__link ">
+              
+  
   
   <span class="md-ellipsis">
-    Misc Functions
+    
+  
+    API Reference
+  
+
+    
   </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7" id="__nav_7_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/aaplzgraph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AAPLZGraph
+  
+
+    
+  </span>
+  
   
 
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/ndplzgraph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NDPLZGraph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/naivelzgraph/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NaiveLZGraph
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/metrics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/utilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Utilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/exceptions/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Exceptions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -555,136 +1464,149 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../visualize_reference/" class="md-nav__link">
+    
+    
+      
         
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
+            
+  
   
   <span class="md-ellipsis">
-    Visualize Functions
+    
+  
+    Resources
+  
+
+    
   </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Resources
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
   
 
       </a>
     </li>
   
 
-    
-      
-      
+              
+            
+              
+                
   
   
   
   
     <li class="md-nav__item">
-      <a href="../utilities_reference/" class="md-nav__link">
+      <a href="../resources/changelog/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Utilities Functions
+    
+  
+    Changelog
+  
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-    
-      
-      
+              
+            
+              
+                
   
   
   
   
     <li class="md-nav__item">
-      <a href="../nodedgesaturation_reference/" class="md-nav__link">
+      <a href="../resources/citation/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Node Edge Saturation Functions
+    
+  
+    Citation
+  
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-    
+              
+            
+          </ul>
+        </nav>
       
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../bowencoder_reference/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    BOW Encoder Functions
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../lzgraphbase_reference/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    LZGraph Base Class
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../ndplgraph_reference/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    NDPLZGraph Class
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../aaplzgraph_reference/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    AAPLZGraph Class
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -716,229 +1638,56 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#getting-started-with-graph-construction" class="md-nav__link">
+  <a href="#learning-path" class="md-nav__link">
     <span class="md-ellipsis">
-      Getting Started with Graph Construction
+      
+        Learning Path
+      
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Getting Started with Graph Construction">
+    <nav class="md-nav" aria-label="Learning Path">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#amino-acid-positional-and-nucleotide-double-positional-graphs" class="md-nav__link">
+  <a href="#1-graph-construction" class="md-nav__link">
     <span class="md-ellipsis">
-      Amino Acid Positional and Nucleotide Double Positional Graphs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Amino Acid Positional and Nucleotide Double Positional Graphs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#essential-points" class="md-nav__link">
-    <span class="md-ellipsis">
-      Essential Points:
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#constructing-a-naive-lzgraph" class="md-nav__link">
-    <span class="md-ellipsis">
-      Constructing a Naive LZGraph
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
       
-        <li class="md-nav__item">
-  <a href="#exploring-graph-attributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      Exploring Graph Attributes
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Exploring Graph Attributes">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#amino-acid-positional-and-nucleotide-double-positional-graphs_1" class="md-nav__link">
-    <span class="md-ellipsis">
-      Amino Acid Positional and Nucleotide Double Positional Graphs
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Amino Acid Positional and Nucleotide Double Positional Graphs">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#exploring-graph-nodes-and-edges" class="md-nav__link">
-    <span class="md-ellipsis">
-      Exploring Graph Nodes and Edges
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#distribution-of-observed-sequence-lengths" class="md-nav__link">
-    <span class="md-ellipsis">
-      Distribution of Observed Sequence Lengths:
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#exploring-graph-initial-and-terminal-states" class="md-nav__link">
-    <span class="md-ellipsis">
-      Exploring Graph Initial and Terminal States:
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Exploring Graph Initial and Terminal States:">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#getting-all-the-initial-states" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting all the initial states
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#getting-all-the-terminal-states" class="md-nav__link">
-    <span class="md-ellipsis">
-      Getting all the terminal states
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#graph-v-and-j-marginal-distributions" class="md-nav__link">
-    <span class="md-ellipsis">
-      Graph V and J Marginal Distributions:
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
+        1. Graph Construction
       
-        <li class="md-nav__item">
-  <a href="#calculating-the-lzcentrality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Calculating the LZCentrality
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#calculating-the-k1000-diversity-index" class="md-nav__link">
-    <span class="md-ellipsis">
-      Calculating the K1000 Diversity Index
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#deriving-sequence-generation-probability-pgen" class="md-nav__link">
-    <span class="md-ellipsis">
-      Deriving Sequence Generation Probability (Pgen)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#generating-new-sequences" class="md-nav__link">
-    <span class="md-ellipsis">
-      Generating New Sequences
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#feature-vector-from-graph-eigen-centrality" class="md-nav__link">
-    <span class="md-ellipsis">
-      Feature Vector From Graph (Eigen Centrality)
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#plotting-graph-related-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      Plotting Graph Related Features
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Plotting Graph Related Features">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ancestors-descendants-curves-plot" class="md-nav__link">
-    <span class="md-ellipsis">
-      Ancestors Descendants Curves Plot
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#sequence-possible-paths-plot" class="md-nav__link">
+  <a href="#2-sequence-analysis" class="md-nav__link">
     <span class="md-ellipsis">
-      Sequence Possible Paths Plot
+      
+        2. Sequence Analysis
+      
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#node-genomic-variability-plot" class="md-nav__link">
+  <a href="#3-diversity-metrics" class="md-nav__link">
     <span class="md-ellipsis">
-      Node Genomic Variability Plot
+      
+        3. Diversity Metrics
+      
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#edge-genomic-variability-plot" class="md-nav__link">
+  <a href="#4-visualization" class="md-nav__link">
     <span class="md-ellipsis">
-      Edge Genomic Variability Plot
+      
+        4. Visualization
+      
     </span>
   </a>
   
@@ -950,9 +1699,44 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#bow-vectorizer" class="md-nav__link">
+  <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
-      BOW Vectorizer
+      
+        Prerequisites
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sample-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sample Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
     </span>
   </a>
   
@@ -968,376 +1752,91 @@
           
           
             <div class="md-content" data-md-component="content">
+              
               <article class="md-content__inner md-typeset">
                 
                   
 
 
-<h1 id="tutorials-for-lzgraphs">Tutorials for LZGraphs</h1>
-<p>Welcome to the tutorials page for LZGraphs, where you will find step-by-step guides on leveraging the power of LZGraphs for T-cell receptor beta chain (TCRB) repertoire analysis. Whether you are constructing graphs or exploring advanced features, these tutorials are designed to enhance your understanding and utilization of LZGraphs in your research endeavors.</p>
-<h2 id="getting-started-with-graph-construction">Getting Started with Graph Construction</h2>
-<p>LZGraphs offers various graph types to suit your analysis needs, including Amino Acid Positional, Nucleotide Double Positional, and Naive graphs. Each graph type is tailored to specific aspects of TCRB repertoire analysis, providing a versatile toolkit for your research.</p>
-<h3 id="amino-acid-positional-and-nucleotide-double-positional-graphs">Amino Acid Positional and Nucleotide Double Positional Graphs</h3>
-<p>These graph types are pivotal for in-depth TCRB repertoire analysis. Follow the example below to construct an Amino Acid Positional graph. The process is analogous for Nucleotide Double Positional Graphs, with minor adjustments as noted.</p>
-<h4 id="essential-points">Essential Points:</h4>
-<ul>
-<li>For Nucleotide Double Positional Graphs, use "cdr3_rearrangement" as the column name for sequences.</li>
-<li>For Amino Acid Positional Graphs, the sequence column should be "cdr3_amino_acid".</li>
-<li>V and J genes/alleles are categorized under "V" and "J" columns, respectively. This genetic information enriches the graph and enhances sequence generation and genomic insights.</li>
-<li>Including V/J genes/alleles is optional but recommended for comprehensive analysis.</li>
+  
+  
+
+
+<h1 id="tutorials">Tutorials<a class="headerlink" href="#tutorials" title="Permanent link">&para;</a></h1>
+<p>Welcome to the LZGraphs tutorials. These step-by-step guides will help you master TCR repertoire analysis using LZGraphs.</p>
+<h2 id="learning-path">Learning Path<a class="headerlink" href="#learning-path" title="Permanent link">&para;</a></h2>
+<p>We recommend following these tutorials in order:</p>
+<div class="grid">
+<div class="card">
+<h3 id="1-graph-construction">1. <a href="graph-construction/">Graph Construction</a><a class="headerlink" href="#1-graph-construction" title="Permanent link">&para;</a></h3>
+<p><strong>Beginner</strong> · 15 minutes</p>
+<p>Learn to build AAPLZGraph, NDPLZGraph, and NaiveLZGraph from your data.</p>
+</div>
+<div class="card">
+<h3 id="2-sequence-analysis">2. <a href="sequence-analysis/">Sequence Analysis</a><a class="headerlink" href="#2-sequence-analysis" title="Permanent link">&para;</a></h3>
+<p><strong>Beginner</strong> · 20 minutes</p>
+<p>Calculate sequence probabilities, explore graph structure, and generate new sequences.</p>
+</div>
+<div class="card">
+<h3 id="3-diversity-metrics">3. <a href="diversity-metrics/">Diversity Metrics</a><a class="headerlink" href="#3-diversity-metrics" title="Permanent link">&para;</a></h3>
+<p><strong>Intermediate</strong> · 15 minutes</p>
+<p>Measure repertoire diversity using K1000, LZCentrality, and entropy metrics.</p>
+</div>
+<div class="card">
+<h3 id="4-visualization">4. <a href="visualization/">Visualization</a><a class="headerlink" href="#4-visualization" title="Permanent link">&para;</a></h3>
+<p><strong>Intermediate</strong> · 20 minutes</p>
+<p>Create publication-ready plots for sequence and repertoire analysis.</p>
+</div>
+</div>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>Before starting, ensure you have:</p>
+<ul class="task-list">
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Installed LZGraphs (<a href="../getting-started/installation/">Installation Guide</a>)</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Basic Python and pandas knowledge</li>
+<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Sample data to work with (or use our <a href="../examples/">example datasets</a>)</li>
 </ul>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span> <span class="nn">LZGraphs</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Load your data</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;/path/to/data/file.csv&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Construct the graph</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">lzgraph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</code></pre></div>
-Verbose:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Gene Information Loaded.. |  0.01  Seconds
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Graph Constructed.. |  0.94  Seconds
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>Graph Metadata Derived.. |  0.94  Seconds
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Individual Subpattern Empirical Probability Derived.. |  0.98  Seconds
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>Graph Edge Weight Normalized.. |  1.0  Seconds
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>Graph Edge Gene Weights Normalized.. |  1.13  Seconds
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>Terminal State Map Derived.. |  1.2  Seconds
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>Individual Subpattern Empirical Probability Derived.. |  1.37  Seconds
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>Terminal State Map Derived.. |  1.37  Seconds
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="gh">LZGraph Created Successfully.. |  1.37  Seconds</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="gh">==============================</span>
-</code></pre></div>
-The data file is a pandas DataFrame that includes the
-sequences under a column named "cdr3_amino_acid".
-Optionally, it can also have "V" and "J" columns containing 
-relevant genomic information such as Gene/Family/Allele.
-Any one of these columns can be used to create a graph, 
-with functionality constrained by the genetic information on the edges.</p>
-<p>Example of the input DataFrame:</p>
+<h2 id="sample-data">Sample Data<a class="headerlink" href="#sample-data" title="Permanent link">&para;</a></h2>
+<p>All tutorials use example data included with LZGraphs:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Load example TCR repertoire</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;Examples/ExampleData1.csv&quot;</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</span></code></pre></div>
+<h2 id="quick-reference">Quick Reference<a class="headerlink" href="#quick-reference" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>cdr3_amino_acid</th>
-<th>V</th>
-<th>J</th>
+<th>Tutorial</th>
+<th>Topics Covered</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>CASSLEPSGGTDTQYF</td>
-<td>TRBV16-1*01</td>
-<td>TRBJ1-2*01</td>
+<td><a href="graph-construction/">Graph Construction</a></td>
+<td>AAPLZGraph, NDPLZGraph, NaiveLZGraph, gene annotation</td>
 </tr>
 <tr>
-<td>CASSDTSGGTDTQYF</td>
-<td>TRBV1-1*01</td>
-<td>TRBJ1-5*01</td>
+<td><a href="sequence-analysis/">Sequence Analysis</a></td>
+<td>walk_probability, random_walk, encode_sequence, clean_node</td>
 </tr>
 <tr>
-<td>CASSLEPQTFTDTFFF</td>
-<td>TRBV16-1*01</td>
-<td>TRBJ2-7*01</td>
+<td><a href="diversity-metrics/">Diversity Metrics</a></td>
+<td>K1000_Diversity, LZCentrality, node_entropy, edge_entropy</td>
+</tr>
+<tr>
+<td><a href="visualization/">Visualization</a></td>
+<td>Ancestors/descendants plots, path variability, genomic heatmaps</td>
 </tr>
 </tbody>
 </table>
-<h3 id="constructing-a-naive-lzgraph">Constructing a Naive LZGraph</h3>
-<p>Below is an example of constructing a Naive LZGraph.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Graphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span> <span class="n">generate_dictionary</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">list_of_sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;TGTGCCAGCAGGGCGGGATACGCAGTATTT&#39;</span><span class="p">,</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                     <span class="s1">&#39;TGTGCCAGCAGCCAGCATCGTCGCAGTATTTT&#39;</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                     <span class="s1">&#39;TGTGCCAGCAGCCAGCAGGGCCGGGATACGCAGTATTTT&#39;</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                     <span class="o">...</span><span class="p">]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="c1"># generate all possible nodes with kmers up to length 6                 </span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_dictionary</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># construct a NaiveLZGraph from your list_of_sequences based on the generated dictionary</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">lzgraph</span> <span class="o">=</span> <span class="n">NaiveLZGraph</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</code></pre></div>
-Note:</p>
+<h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<p>After completing the tutorials:</p>
 <ul>
-<li>The <code>generate_dictionary</code> function takes an integer <code>(X)</code> and generates all possible patterns that can be constructed from <code>(X)</code> nucleotides. For CDR3 sequences, we suggest using <code>X=6</code> as the maximum observed sub-pattern length in the CDR3 region is 6.</li>
-<li>The dictionary can be replaced with any number of sub-patterns if not all combinations are desired.</li>
-<li>The Naive LZGraph is most relevant in the context of nucleotides, as amino acid CDR3 sequences result in sparse graphs.</li>
+<li>Explore <a href="../concepts/">Concepts</a> for deeper understanding</li>
+<li>Check <a href="../how-to/">How-To Guides</a> for specific tasks</li>
+<li>Browse <a href="../examples/">Examples</a> for complete notebooks</li>
 </ul>
-<hr />
-<h2 id="exploring-graph-attributes">Exploring Graph Attributes</h2>
-<p>After constructing an LZGraph, there are several attributes available to quickly infer repertoire statistical properties as well as explore the graph object itself, built above the networkx DiGraph class. Below are examples of how you can evaluate and explore those attributes.</p>
-<h3 id="amino-acid-positional-and-nucleotide-double-positional-graphs_1">Amino Acid Positional and Nucleotide Double Positional Graphs</h3>
-<h4 id="exploring-graph-nodes-and-edges">Exploring Graph Nodes and Edges</h4>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># Retrieving the list of all graph nodes / edges</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">node_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">edge_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span> 
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;First 10 Nodes: &#39;</span><span class="p">,</span><span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">nodes</span><span class="p">)[:</span><span class="mi">10</span><span class="p">])</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;First 10 Edges: &#39;</span><span class="p">,</span><span class="nb">list</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">edges</span><span class="p">)[:</span><span class="mi">10</span><span class="p">])</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>First 10 Nodes:  [&#39;C_1&#39;, &#39;A_2&#39;, &#39;S_3&#39;, &#39;SQ_5&#39;, &#39;Q_6&#39;, &#39;G_7&#39;, &#39;R_8&#39;, &#39;D_9&#39;, &#39;T_10&#39;, &#39;QY_12&#39;]
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>First 10 Edges:  [(&#39;C_1&#39;, &#39;A_2&#39;), (&#39;C_1&#39;, &#39;T_2&#39;), (&#39;C_1&#39;, &#39;V_2&#39;), (&#39;C_1&#39;, &#39;S_2&#39;), (&#39;C_1&#39;, &#39;R_2&#39;), (&#39;C_1&#39;, &#39;G_2&#39;), (&#39;C_1&#39;, &#39;D_2&#39;), (&#39;C_1&#39;, &#39;F_2&#39;), (&#39;C_1&#39;, &#39;I_2&#39;), (&#39;A_2&#39;, &#39;S_3&#39;)]
-</code></pre></div></p>
-<h4 id="distribution-of-observed-sequence-lengths">Distribution of Observed Sequence Lengths:</h4>
-<p>After fitting an LZGraph to a repertoire you can quickly access the
-distribution of different sequence lengths observed in the repertoire:</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">print</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">lengths</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="mi">13</span><span class="p">:</span> <span class="mi">2973</span><span class="p">,</span> <span class="mi">15</span><span class="p">:</span> <span class="mi">5075</span><span class="p">,</span> <span class="mi">14</span><span class="p">:</span> <span class="mi">4412</span><span class="p">,</span> <span class="mi">16</span><span class="p">:</span> <span class="mi">2862</span><span class="p">,</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a> <span class="mi">12</span><span class="p">:</span> <span class="mi">1147</span><span class="p">,</span> <span class="mi">17</span><span class="p">:</span> <span class="mi">1401</span><span class="p">,</span> <span class="mi">19</span><span class="p">:</span> <span class="mi">268</span><span class="p">,</span> <span class="mi">22</span><span class="p">:</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span> <span class="mi">108</span><span class="p">,</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a> <span class="mi">11</span><span class="p">:</span> <span class="mi">508</span><span class="p">,</span> <span class="mi">18</span><span class="p">:</span> <span class="mi">655</span><span class="p">,</span> <span class="mi">21</span><span class="p">:</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span> <span class="mi">72</span><span class="p">,</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a> <span class="mi">24</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">7</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span><span class="mi">8</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
-</code></pre></div>
-Note:
-The key of the dictionary is an observed sequence length, the value corresponds to the
-total number of sequences observed matching the key length.</p>
-<h4 id="exploring-graph-initial-and-terminal-states">Exploring Graph Initial and Terminal States:</h4>
-<p>Initial state is defined as the first sub-pattern observed in a sequence,
- Terminal state is the last sub-pattern observed in a sequence, the lists and counts
- of all observed initial and final states are saved in every LZGraph and can be 
- accessed:</p>
-<h5 id="getting-all-the-initial-states">Getting all the initial states</h5>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Getting all the initial states</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">init_states</span> <span class="o">=</span> <span class="n">lzgraph</span><span class="o">.</span><span class="n">initial_states</span>
-<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">init_states</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">C_1</span>    <span class="mi">19523</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">R_1</span>       <span class="mi">20</span>
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">dtype</span><span class="p">:</span> <span class="n">int64</span>
-</code></pre></div></p>
-<h5 id="getting-all-the-terminal-states">Getting all the terminal states</h5>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">term_states</span> <span class="o">=</span> <span class="n">lzgraph</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">terminal_states</span><span class="p">)</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">term_states</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">F_13</span>      <span class="mi">2672</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">F_15</span>      <span class="mi">4490</span>
-<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">F_14</span>      <span class="mi">3860</span>
-<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">F_16</span>      <span class="mi">2502</span>
-<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">F_12</span>      <span class="mi">1028</span>
-<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>          <span class="o">...</span> 
-<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">G_9</span>          <span class="mi">1</span>
-<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="n">AFF_12</span>       <span class="mi">1</span>
-<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">FF_11</span>        <span class="mi">1</span>
-<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="n">F_8</span>          <span class="mi">1</span>
-<a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="n">HF_22</span>        <span class="mi">1</span>
-<a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a><span class="n">Length</span><span class="p">:</span> <span class="mi">86</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">int64</span>
-</code></pre></div></p>
-<h4 id="graph-v-and-j-marginal-distributions">Graph V and J Marginal Distributions:</h4>
-<p>If V and J annotation were provided while constructing the graph,
-the genetic data was embedded into each edge of the graph.
-The marginal probability of each gene/allele can be observed by the following way:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># print(lzgraph.marginal_vgenes)</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">lzgraph</span><span class="o">.</span><span class="n">marginal_jgenes</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>TRBJ1-2*01    0.159804
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>TRBJ1-1*01    0.143588
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>TRBJ2-7*01    0.141951
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>TRBJ2-1*01    0.090081
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>TRBJ2-3*01    0.088086
-<a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>TRBJ1-5*01    0.076986
-<a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a>TRBJ2-5*01    0.075963
-<a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>TRBJ2-2*01    0.057343
-<a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>TRBJ1-4*01    0.050437
-<a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a>TRBJ1-6*01    0.047675
-<a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>TRBJ1-3*01    0.043787
-<a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>TRBJ2-6*01    0.015500
-<a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a>TRBJ2-4*01    0.008798
-<a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>Name: J, dtype: float64
-</code></pre></div></p>
-<h2 id="calculating-the-lzcentrality">Calculating the LZCentrality</h2>
-<p>The <code>LZGraph</code> library provides a function, <code>LZCentrality</code>, for calculating the LZCentrality of a given CDR3 sequence in a repertoire represented by an LZGraph. The LZCentrality is a measure of sequence centrality within a repertoire, as presented in our paper.</p>
-<p>Here's how you can use the <code>LZCentrality</code> function:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">from</span> <span class="nn">LZGraphs</span> <span class="kn">import</span> <span class="n">LZCentrality</span><span class="p">,</span> <span class="n">NDPLZGraph</span>
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="c1"># Assume we have a list of CDR3 sequences and a sequence of interest</span>
-<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sequence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence2&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence3&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">sequence_of_interest</span> <span class="o">=</span> <span class="s2">&quot;sequence1&quot;</span>
-<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
-<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Create an LZGraph</span>
-<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="p">(</span><span class="n">sequences</span><span class="p">)</span>
-<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
-<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Calculate the LZCentrality</span>
-<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="n">lzcentrality</span> <span class="o">=</span> <span class="n">LZCentrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">sequence_of_interest</span><span class="p">)</span>
-<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The LZCentrality of </span><span class="si">{</span><span class="n">sequence_of_interest</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">lzcentrality</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<p>In this example, <code>NDPLZGraph</code> is the LZGraph class used. You can replace it with any other LZGraph class, such as <code>AAPLZGraph</code>.</p>
-<p>This function provides an efficient and scalable way to calculate the LZCentrality, allowing you to gain important insights into the centrality of a sequence within a TCRB repertoire.</p>
-<h2 id="calculating-the-k1000-diversity-index">Calculating the K1000 Diversity Index</h2>
-<p>The <code>LZGraph</code> library provides a convenient function, <code>K1000_Diversity</code>, for calculating the K1000 Diversity index of a list of CDR3 sequences. This index, as presented in our paper, offers a new way to measure the diversity of a repertoire.</p>
-<p>Here's how you can use the <code>K1000_Diversity</code> function:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Metircs.Metrics</span> <span class="kn">import</span> <span class="n">K1000_Diversity</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span> <span class="nn">LZGraphs</span> <span class="kn">import</span> <span class="n">AAPLZGraph</span>
-<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Assume we have a list of CDR3 sequences</span>
-<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;sequence1&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence2&quot;</span><span class="p">,</span> <span class="s2">&quot;sequence3&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
-<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="c1"># Calculate the K1000 Diversity index</span>
-<a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="n">k1000</span> <span class="o">=</span> <span class="n">K1000_Diversity</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">,</span> <span class="n">draws</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
-<a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The K1000 Diversity index is </span><span class="si">{</span><span class="n">k1000</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<p>In this example, <code>AAPLZGraph.encode_sequence</code> is the LZGraph encoding function used. You can replace it with any other LZGraph encoding function, such as <code>NDPLZGraph.encode_sequence</code>.</p>
-<p>The <code>draws</code> parameter specifies the number of draws for the resampling test. The higher the value, the more realizations will be generated for the K1000 index, and the returned mean value will be a better approximation.</p>
-<p>The <code>K1000_Diversity</code> function works by resampling the list of sequences and building LZGraphs based on the provided encoding function. The resampling is performed <code>draws</code> number of times, with each resampled set containing 1000 unique sequences. For each resampled set, the K1000 Diversity index is calculated using the 'nodes' value of the last item in the result dictionary obtained from the NodeEdgeSaturationProbe's resampling test. The average K1000 Diversity index from all the resampling tests is then returned.</p>
-<p>This function provides an efficient and scalable way to calculate the K1000 Diversity index, allowing you to gain important insights into the diversity of a TCRB repertoire.</p>
-<h2 id="deriving-sequence-generation-probability-pgen">Deriving Sequence Generation Probability (Pgen)</h2>
-<p>After an LZGraph is derived for a given repertoire, one can assess the generation
-probability (Pgen) of a new sequence with respect to that repertoire (LZGraph).
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">new_sequence</span> <span class="o">=</span> <span class="s2">&quot;CASRGERGDNEQFF&quot;</span>
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># encode the sequence into relevant graph format</span>
-<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="n">encoded_sequence</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">new_sequence</span><span class="p">)</span>
-<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1">#output</span>
-<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="c1"># [&#39;C_1&#39;, &#39;A_2&#39;, &#39;S_3&#39;, &#39;R_4&#39;, &#39;G_5&#39;, &#39;E_6&#39;, &#39;RG_8&#39;, &#39;D_9&#39;, &#39;N_10&#39;, &#39;EQ_12&#39;, &#39;F_13&#39;, &#39;F_14&#39;]</span>
-<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
-<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">lzgraph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">encoded_sequence</span><span class="p">)</span>
-<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">new_sequence</span><span class="si">}</span><span class="s1"> Pgen: </span><span class="si">{</span><span class="n">pgen</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>CASRGERGDNEQFF Pgen: 6.692834748776949e-13
-</code></pre></div></p>
-<h2 id="generating-new-sequences">Generating New Sequences</h2>
-<p>An LZGraph constructed from a source repertoire can generate new sequences following
-the statistical properties observed in the source.
-Note that that if V and J genes were provided the generation function will be testing
-that the random sequence and their sub-pattern all are associated to initially random
-V and J genes selected before generating the sequence.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">generated_walk</span><span class="p">,</span><span class="n">selected_v</span><span class="p">,</span><span class="n">selected_j</span> <span class="o">=</span> <span class="n">lzgraph</span><span class="o">.</span><span class="n">genomic_random_walk</span><span class="p">()</span>
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="c1"># replace genomic_random_walk with random_walk() if annotation was not provided</span>
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">generated_walk</span><span class="p">,</span><span class="n">selected_v</span><span class="p">,</span><span class="n">selected_j</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>[&#39;C_1&#39;, &#39;S_2&#39;, &#39;A_3&#39;, &#39;T_4&#39;, &#39;G_5&#39;, &#39;GI_7&#39;, &#39;Q_8&#39;, &#39;Y_9&#39;, &#39;QE_11&#39;, &#39;TQ_13&#39;, &#39;YF_15&#39;],
-<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>&#39;TRBV29-1*01&#39;,
-<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>&#39;TRBJ2-5*01&#39;
-</code></pre></div>
-You can transform the resulting walk back into a sequence by cleaning each node and
-concatenating them into a single string.
-Each LZGraph has a "clean_node" method that accompanies the relevant "encode_sequence"
-method.
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">clean_sequence</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">clean_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span> <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">generated_walk</span><span class="p">])</span>
-<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="c1"># Note that AAPLZGraph needs to be replaced in case you used the NDPLZGraph</span>
-<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">clean_sequence</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>CASSPGTGGTGELFF
-</code></pre></div></p>
-<h2 id="feature-vector-from-graph-eigen-centrality">Feature Vector From Graph (Eigen Centrality)</h2>
-<p>One can derive a vector representation of an LZGraph in order to perform any
-modeling task. The resulting vector in a sense capture the structural dynamics of 
-a repertoire.
-Note that the number of features in the resulting vector equal the number of nodes
-in the graph, and the value in each node correspond to each node, so it is recommended
-using the Naive LZGraph, this allows to create LZGraphs to different repertoires while
-maintaining the same dictionary of sub-patterns (nodes).</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Graphs.Naive</span> <span class="kn">import</span> <span class="n">NaiveLZGraph</span><span class="p">,</span> <span class="n">generate_dictionary</span>
-<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
-<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="c1"># Create a dictionary that will be shared between all repertoires</span>
-<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_dictionary</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
-<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="c1"># create a graph, this can be done in a loop over many repertoires</span>
-<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="n">lzgraph</span> <span class="o">=</span> <span class="n">NaiveLZGraph</span><span class="p">(</span><span class="n">list_of_sequences</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="c1"># derive the feature vector</span>
-<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="n">feature_vector</span> <span class="o">=</span> <span class="n">lzgraph</span><span class="o">.</span><span class="n">eigenvector_centrality</span><span class="p">()</span>
-<a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="nb">print</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">feature_vector</span><span class="p">))</span>
-</code></pre></div>
-Output:
-<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>A         3.009520e-01
-<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>T         1.183398e-01
-<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>G         1.186366e-01
-<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>C         2.461758e-01
-<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>AA        1.252643e-01
-<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>              ...     
-<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>CCCCGC    5.252576e-10
-<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a>CCCCCA    5.252576e-10
-<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a>CCCCCT    5.252576e-10
-<a id="__codelineno-22-10" name="__codelineno-22-10" href="#__codelineno-22-10"></a>CCCCCG    5.252576e-10
-<a id="__codelineno-22-11" name="__codelineno-22-11" href="#__codelineno-22-11"></a>CCCCCC    5.252576e-10
-<a id="__codelineno-22-12" name="__codelineno-22-12" href="#__codelineno-22-12"></a>Length: 5460, dtype: float64
-</code></pre></div></p>
-<p>Note:
-The <code>generate_dictionary</code> function given the value 6 return <code>5460</code> sub-patterns,
-many of which may not exist in your graph, nonetheless this promises that all
-the repertoires encoded will produce the same feature vector dimension but the
-value across the different sub-pattern will be different.</p>
-<h2 id="plotting-graph-related-features">Plotting Graph Related Features</h2>
-<p>The library provides multiple plots that can be useful when analyzing sequence
-and comparing between sequences.</p>
-<h3 id="ancestors-descendants-curves-plot">Ancestors Descendants Curves Plot</h3>
-<p>In this chart you can examine at each sub-pattern of a given sequence
-the amount descendants nodes reachable at each node contained in your sequence,
-as well as the amount of ancestors at each node.
-Sequence with different attribute differ both by the slope and the convergence
-rate of these curve as well as by the intersection point between the curves.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">ancestors_descendants_curves_plot</span>
-<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>
-<a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
-<a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="n">ancestors_descendants_curves_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<img alt="alt text" src="../images/ad_curve_example.png" /></p>
-<h3 id="sequence-possible-paths-plot">Sequence Possible Paths Plot</h3>
-<p>In this chart we look at a reduced and immediate version of Descendants curve.
-For each sub-pattern derived from a given sequence and based on an LZGraph,
-We can examine the number of alternatives there are at each node, this indicates
-the rarity of a sequence and is correlated with the difference from the 
-mean Levenshtein distance of the repertoire as shown in the LZGraphs paper.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_possible_paths_plot</span>
-<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>
-<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
-<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="n">sequence_possible_paths_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<img alt="alt text" src="../images/sequence_path_number_example.png" /></p>
-<h3 id="node-genomic-variability-plot">Node Genomic Variability Plot</h3>
-<p>In this chart we look at the number of V and J genes/alleles per node in a given sequence with respect
-to a given repertoire.
-Not only can one infer the sub-patterns in a sequence that have the exceptional number of V and J alternatives
-but also when comparing between the same sequence in different repertoires (different LZGraphs) one can infer
-the amount difference at each sub-pattern between the two repertoires.</p>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">from</span> <span class="nn">LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_genomic_node_variability_plot</span>
-<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
-<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
-<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="n">sequence_genomic_node_variability_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<img alt="alt text" src="../images/number_of_vj_at_nodes_example.png" /></p>
-<h3 id="edge-genomic-variability-plot">Edge Genomic Variability Plot</h3>
-<p>In this chart we look at the number of V and J genes/alleles per edge in a given sequence with respect
-to a given repertoire.</p>
-<ul>
-<li>Allele/gene names colored in red signify that the allele/gene appeared in all the edges in the given sequence.</li>
-<li>Black cells signify that this spesific allele/gene wasnt observed at that edge.</li>
-<li>The color gradient at each cell represents the probability of choosing that edge under the constraint of having
- that specific V/J.</li>
-</ul>
-<p><div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs.Visualization.Visualize</span> <span class="kn">import</span> <span class="n">sequence_genomic_edges_variability_plot</span>
-<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>
-<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;CASTPGTASGYTF&#39;</span>
-<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="n">sequence_genomic_edges_variability_plot</span><span class="p">(</span><span class="n">lzgraph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
-</code></pre></div>
-Output:
-<img alt="alt text" src="../images/number_of_vj_at_edges_example.png" /></p>
-<h2 id="bow-vectorizer">BOW Vectorizer</h2>
-<p>The library also provides a convenient class implementing the BOW logic presented in the paper.
-Note that each instance of the BOW wrapper class has to fitted on a list of sequences (repertoire) before it
-can transform new lists of sequences into BOW vectors.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="kn">from</span> <span class="nn">src.LZGraphs</span> <span class="kn">import</span> <span class="n">LZBOW</span>
-<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="kn">from</span> <span class="nn">src.LZGraphs</span> <span class="kn">import</span> <span class="n">NDPLZGraph</span>
-<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>
-<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a><span class="n">sequence_list</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">cdr3_rearrangement</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
-<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>
-<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="c1"># create vectorizer and choose the Nucleotide Double Positional (ndp) encdoing function (default is Naive)</span>
-<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="n">vectorizer</span> <span class="o">=</span> <span class="n">LZBOW</span><span class="p">(</span><span class="n">encoding_function</span><span class="o">=</span><span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">)</span>
-<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a>
-<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="c1"># fit on sequence list</span>
-<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="n">vectorizer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">sequence_list</span><span class="p">)</span>
-<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a>
-<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="c1"># BOW dictionary</span>
-<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="n">vectorizer</span><span class="o">.</span><span class="n">dictionary</span>
-<a id="__codelineno-27-14" name="__codelineno-27-14" href="#__codelineno-27-14"></a>
-<a id="__codelineno-27-15" name="__codelineno-27-15" href="#__codelineno-27-15"></a><span class="n">bow_vector</span> <span class="o">=</span> <span class="n">vectorizer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">new_list_of_sequences</span><span class="p">)</span>
-</code></pre></div>
 
 
 
@@ -1355,8 +1854,16 @@ can transform new lists of sequences into BOW vectors.</p>
             </div>
           
           
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
 <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
         </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
         
       </main>
       
@@ -1366,10 +1873,36 @@ can transform new lists of sequences into BOW vectors.</p>
     <div class="md-footer-meta__inner md-grid">
       <div class="md-copyright">
   
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024 Thomas Konstantinovsky
+    </div>
   
-    Made with
-    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-      Material for MkDocs
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/MuteJester/LZGraphs" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/LZGraphs/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
     </a>
   
 </div>
@@ -1384,10 +1917,17 @@ can transform new lists of sequences into BOW vectors.</p>
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.bd41221c.min.js"></script>
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../javascripts/mathjax.js"></script>
+      
+        <script src="https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js"></script>
       
     
   </body>
