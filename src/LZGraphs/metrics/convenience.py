@@ -16,6 +16,8 @@ from .entropy import (
     jensen_shannon_divergence,
     cross_entropy,
     kl_divergence,
+    transition_predictability,
+    transition_jsd,
 )
 
 
@@ -36,6 +38,7 @@ def compare_repertoires(graph1, graph2):
     Returns:
         pd.Series: Named series containing comparison metrics:
             - js_divergence: Jensen-Shannon divergence (0=identical, 1=different)
+            - transition_jsd: Transition-level JSD (compares transition structure)
             - cross_entropy_1_2: Cross-entropy H(graph1, graph2)
             - cross_entropy_2_1: Cross-entropy H(graph2, graph1)
             - kl_divergence_1_2: KL divergence D_KL(graph1 || graph2)
@@ -44,6 +47,8 @@ def compare_repertoires(graph1, graph2):
             - node_entropy_2: Node entropy of graph2
             - edge_entropy_1: Edge entropy of graph1
             - edge_entropy_2: Edge entropy of graph2
+            - transition_predictability_1: Transition predictability of graph1
+            - transition_predictability_2: Transition predictability of graph2
             - shared_nodes: Number of nodes in common
             - shared_edges: Number of edges in common
             - jaccard_nodes: Jaccard similarity of node sets
@@ -68,6 +73,7 @@ def compare_repertoires(graph1, graph2):
 
     return pd.Series({
         'js_divergence': jensen_shannon_divergence(graph1, graph2),
+        'transition_jsd': transition_jsd(graph1, graph2),
         'cross_entropy_1_2': cross_entropy(graph1, graph2),
         'cross_entropy_2_1': cross_entropy(graph2, graph1),
         'kl_divergence_1_2': kl_divergence(graph1, graph2),
@@ -76,6 +82,8 @@ def compare_repertoires(graph1, graph2):
         'node_entropy_2': node_entropy(graph2),
         'edge_entropy_1': edge_entropy(graph1),
         'edge_entropy_2': edge_entropy(graph2),
+        'transition_predictability_1': transition_predictability(graph1),
+        'transition_predictability_2': transition_predictability(graph2),
         'shared_nodes': shared_nodes,
         'shared_edges': shared_edges,
         'jaccard_nodes': shared_nodes / union_nodes if union_nodes > 0 else 0.0,

@@ -2,67 +2,12 @@ from itertools import product
 
 import numpy as np
 
-from .misc import _is_v_gene, _is_j_gene
-
 
 __all__ = [
-    'restore_gene_counts',
-    'renormalize_edge_genes',
     'saturation_function',
     'weight_function',
     'generate_kmer_dictionary',
 ]
-
-
-def restore_gene_counts(column):
-    """ This function is used during the graph union operation, it converts the gene probability distribution at each
-        edge back to a count vector.
-                        Args:
-                            column (pandas Series): An LZGraph
-                        Returns:
-                            pandas Series: padnas series of v and j counts instead of probabilites
-      """
-    vgs, jgs = [], []
-    # total number of observed V genes/alleles
-    vsum = column['Vsum']
-    # total number of observed J genes/alleles
-    jsum = column['Jsum']
-    # extract v and j columns
-    for col in column.index:
-        if _is_v_gene(col):
-            vgs.append(col)
-        elif _is_j_gene(col):
-            jgs.append(col)
-
-    column[vgs] *= vsum
-    column[jgs] *= jsum
-
-    return column
-
-def renormalize_edge_genes(column):
-    """ This function is used during the graph union operation, it normalizes the gene counts by the total number
-    of observed v / j genes/alleles.
-                    Args:
-                        column (pandas Series): An LZGraph
-                    Returns:
-                        pandas Series: padnas series of v and j counts instead of probabilites
-              """
-    vgs, jgs = [], []
-    # total number of observed V genes/alleles
-    vsum = column['Vsum']
-    # total number of observed J genes/alleles
-    jsum = column['Jsum']
-    # extract v and j columns
-    for col in column.index:
-        if _is_v_gene(col):
-            vgs.append(col)
-        elif _is_j_gene(col):
-            jgs.append(col)
-
-    column[vgs] /= vsum
-    column[jgs] /= jsum
-
-    return column
 
 
 def saturation_function(x, h, k):
@@ -84,7 +29,7 @@ def saturation_function(x, h, k):
     return 1 / (1 + ((h / x) ** k))
 
 def weight_function(x, y, z):
-    return 1 - z['weight']
+    return 1 - z['data'].weight
 
 def generate_kmer_dictionary(max_length):
     """

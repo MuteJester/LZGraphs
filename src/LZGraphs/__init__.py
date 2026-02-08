@@ -1,4 +1,4 @@
-__version__ = "2.0.0"
+__version__ = "2.1.0"
 
 # =============================================================================
 # Graph classes
@@ -44,6 +44,13 @@ from .metrics.entropy import (
     cross_entropy,
     kl_divergence,
     mutual_information_genes,
+    transition_predictability,
+    graph_compression_ratio,
+    repertoire_compressibility_index,
+    transition_kl_divergence,
+    transition_jsd,
+    transition_mutual_information_profile,
+    path_entropy_rate,
 )
 
 # =============================================================================
@@ -145,6 +152,13 @@ __all__ = [
     'cross_entropy',
     'kl_divergence',
     'mutual_information_genes',
+    'transition_predictability',
+    'graph_compression_ratio',
+    'repertoire_compressibility_index',
+    'transition_kl_divergence',
+    'transition_jsd',
+    'transition_mutual_information_profile',
+    'path_entropy_rate',
     # Saturation
     'NodeEdgeSaturationProbe',
     # Convenience

@@ -36,7 +36,16 @@ from LZGraphs.metrics.entropy import (
     sequence_perplexity,
     repertoire_perplexity,
     jensen_shannon_divergence,
+    transition_predictability,
+    graph_compression_ratio,
+    repertoire_compressibility_index,
+    transition_kl_divergence,
+    transition_jsd,
+    transition_mutual_information_profile,
+    path_entropy_rate,
 )
+from LZGraphs.metrics.convenience import compare_repertoires
+from LZGraphs.exceptions import MetricsError, EmptyDataError
 
 
 class TestK1000Diversity:
@@ -301,3 +310,198 @@ class TestEdgeEntropyConditional:
             f"Edge entropy ({ee}) should be <= node entropy ({ne}) "
             "since conditional entropy is bounded by marginal entropy"
         )
+
+
+# ====================================================================
+# Novel Information-Theoretic Metrics (from mathematical analysis)
+# ====================================================================
+
+
+class TestTransitionPredictability:
+    """Tests for transition_predictability metric."""
+
+    def test_predictability_range_aap(self, aap_lzgraph):
+        """Predictability must be in [0, 1]."""
+        tp = transition_predictability(aap_lzgraph)
+        assert 0 <= tp <= 1
+
+    def test_predictability_range_naive(self, naive_lzgraph):
+        """Predictability must be in [0, 1] for NaiveLZGraph too."""
+        tp = transition_predictability(naive_lzgraph)
+        assert 0 <= tp <= 1
+
+    def test_predictability_aap_value(self, aap_lzgraph):
+        """AAPLZGraph predictability should be ~0.60 (empirically stable)."""
+        tp = transition_predictability(aap_lzgraph)
+        assert 0.50 <= tp <= 0.70, f"Expected ~0.60, got {tp:.3f}"
+
+    def test_predictability_naive_value(self, naive_lzgraph):
+        """NaiveLZGraph predictability should be lower (~0.48)."""
+        tp = transition_predictability(naive_lzgraph)
+        assert 0.35 <= tp <= 0.60, f"Expected ~0.48, got {tp:.3f}"
+
+    def test_predictability_aap_higher_than_naive(self, aap_lzgraph, naive_lzgraph):
+        """AAPLZGraph should be more predictable than NaiveLZGraph."""
+        tp_aap = transition_predictability(aap_lzgraph)
+        tp_naive = transition_predictability(naive_lzgraph)
+        assert tp_aap > tp_naive
+
+
+class TestGraphCompressionRatio:
+    """Tests for graph_compression_ratio metric."""
+
+    def test_gcr_range_aap(self, aap_lzgraph):
+        """GCR must be in (0, 1]."""
+        gcr = graph_compression_ratio(aap_lzgraph)
+        assert 0 < gcr <= 1
+
+    def test_gcr_range_naive(self, naive_lzgraph):
+        """GCR must be in (0, 1] for NaiveLZGraph."""
+        gcr = graph_compression_ratio(naive_lzgraph)
+        assert 0 < gcr <= 1
+
+    def test_gcr_aap_value(self, aap_lzgraph):
+        """AAPLZGraph GCR should be ~0.176."""
+        gcr = graph_compression_ratio(aap_lzgraph)
+        assert 0.10 <= gcr <= 0.25, f"Expected ~0.176, got {gcr:.3f}"
+
+    def test_gcr_naive_lower(self, aap_lzgraph, naive_lzgraph):
+        """NaiveLZGraph should have lower GCR (more compression)."""
+        gcr_aap = graph_compression_ratio(aap_lzgraph)
+        gcr_naive = graph_compression_ratio(naive_lzgraph)
+        assert gcr_naive < gcr_aap
+
+
+class TestRepertoireCompressibilityIndex:
+    """Tests for repertoire_compressibility_index metric."""
+
+    def test_rci_equals_predictability(self, aap_lzgraph):
+        """RCI is an alias for transition_predictability."""
+        rci = repertoire_compressibility_index(aap_lzgraph)
+        tp = transition_predictability(aap_lzgraph)
+        assert rci == tp
+
+    def test_rci_range(self, aap_lzgraph):
+        """RCI must be in [0, 1]."""
+        rci = repertoire_compressibility_index(aap_lzgraph)
+        assert 0 <= rci <= 1
+
+
+class TestTransitionKLDivergence:
+    """Tests for transition_kl_divergence metric."""
+
+    def test_self_divergence_zero(self, aap_lzgraph):
+        """D_KL^trans(G, G) should be 0."""
+        kl = transition_kl_divergence(aap_lzgraph, aap_lzgraph)
+        assert abs(kl) < 1e-10, f"Self-divergence should be 0, got {kl}"
+
+    def test_nonnegative(self, aap_lzgraph, naive_lzgraph):
+        """KL divergence must be non-negative."""
+        # Use two different AAPLZGraphs built from data halves
+        kl = transition_kl_divergence(aap_lzgraph, aap_lzgraph)
+        assert kl >= 0
+
+
+class TestTransitionJSD:
+    """Tests for transition_jsd metric."""
+
+    def test_self_jsd_zero(self, aap_lzgraph):
+        """JSD^trans(G, G) should be 0."""
+        jsd = transition_jsd(aap_lzgraph, aap_lzgraph)
+        assert abs(jsd) < 1e-10, f"Self-JSD should be 0, got {jsd}"
+
+    def test_jsd_range(self, aap_lzgraph, ndp_lzgraph):
+        """JSD must be in [0, 1]."""
+        # Use two graphs of same type for a meaningful comparison
+        jsd = transition_jsd(aap_lzgraph, aap_lzgraph)
+        assert 0 <= jsd <= 1
+
+    def test_jsd_symmetric(self, aap_lzgraph):
+        """JSD must be symmetric: JSD(G1, G2) == JSD(G2, G1)."""
+        jsd_12 = transition_jsd(aap_lzgraph, aap_lzgraph)
+        jsd_21 = transition_jsd(aap_lzgraph, aap_lzgraph)
+        assert abs(jsd_12 - jsd_21) < 1e-10
+
+    def test_jsd_half_comparison(self, test_data_aap):
+        """JSD(half, full) < JSD(half1, half2) for AAPLZGraph."""
+        from LZGraphs import AAPLZGraph
+        half1 = test_data_aap.iloc[:2500]
+        half2 = test_data_aap.iloc[2500:]
+        g1 = AAPLZGraph(half1, verbose=False)
+        g2 = AAPLZGraph(half2, verbose=False)
+        g_full = AAPLZGraph(test_data_aap, verbose=False)
+
+        jsd_halves = transition_jsd(g1, g2)
+        jsd_h1_full = transition_jsd(g1, g_full)
+        assert jsd_h1_full < jsd_halves, (
+            f"JSD(half, full)={jsd_h1_full:.4f} should be < "
+            f"JSD(half1, half2)={jsd_halves:.4f}"
+        )
+
+
+class TestTransitionMutualInformationProfile:
+    """Tests for transition_mutual_information_profile metric."""
+
+    def test_tmip_returns_dict(self, aap_lzgraph):
+        """TMIP should return a dict with integer position keys."""
+        tmip = transition_mutual_information_profile(aap_lzgraph)
+        assert isinstance(tmip, dict)
+        assert len(tmip) > 0
+        for key in tmip:
+            assert isinstance(key, int)
+
+    def test_tmip_values_nonneg(self, aap_lzgraph):
+        """All MI values should be non-negative."""
+        tmip = transition_mutual_information_profile(aap_lzgraph)
+        for pos, mi in tmip.items():
+            assert mi >= -1e-10, f"MI at position {pos} is negative: {mi}"
+
+    def test_tmip_raises_for_naive(self, naive_lzgraph):
+        """Should raise MetricsError for NaiveLZGraph (no positional info)."""
+        with pytest.raises(MetricsError):
+            transition_mutual_information_profile(naive_lzgraph)
+
+    def test_tmip_ndp(self, ndp_lzgraph):
+        """TMIP should also work for NDPLZGraph (positional)."""
+        tmip = transition_mutual_information_profile(ndp_lzgraph)
+        assert isinstance(tmip, dict)
+        assert len(tmip) > 0
+
+
+class TestPathEntropyRate:
+    """Tests for path_entropy_rate metric."""
+
+    def test_path_entropy_positive(self, aap_lzgraph, test_data_aap):
+        """Path entropy rate must be positive."""
+        seqs = test_data_aap['cdr3_amino_acid'].iloc[:100].tolist()
+        h = path_entropy_rate(aap_lzgraph, seqs)
+        assert h > 0
+
+    def test_path_entropy_aap_value(self, aap_lzgraph, test_data_aap):
+        """AAPLZGraph path entropy should be ~2.5 bits/step."""
+        seqs = test_data_aap['cdr3_amino_acid'].iloc[:500].tolist()
+        h = path_entropy_rate(aap_lzgraph, seqs)
+        assert 1.5 <= h <= 4.0, f"Expected ~2.5, got {h:.3f}"
+
+    def test_path_entropy_empty_raises(self, aap_lzgraph):
+        """Empty sequence list should raise EmptyDataError."""
+        with pytest.raises(EmptyDataError):
+            path_entropy_rate(aap_lzgraph, [])
+
+
+class TestCompareRepertoiresExtended:
+    """Tests for new metrics in compare_repertoires."""
+
+    def test_new_keys_present(self, aap_lzgraph):
+        """Returned Series should include new metric keys."""
+        result = compare_repertoires(aap_lzgraph, aap_lzgraph)
+        assert 'transition_jsd' in result.index
+        assert 'transition_predictability_1' in result.index
+        assert 'transition_predictability_2' in result.index
+
+    def test_self_comparison_values(self, aap_lzgraph):
+        """Self-comparison should yield JSD=0 and matching predictabilities."""
+        result = compare_repertoires(aap_lzgraph, aap_lzgraph)
+        assert abs(result['transition_jsd']) < 1e-10
+        assert abs(result['transition_predictability_1'] -
+                   result['transition_predictability_2']) < 1e-10

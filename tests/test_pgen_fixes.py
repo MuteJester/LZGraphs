@@ -130,8 +130,8 @@ class TestLaplaceSmoothing:
 
         # Pick an edge and verify weights differ
         edge = list(g_no_smooth.graph.edges())[0]
-        w_orig = g_no_smooth.graph[edge[0]][edge[1]]['weight']
-        w_smooth = g_smooth.graph[edge[0]][edge[1]]['weight']
+        w_orig = g_no_smooth.graph[edge[0]][edge[1]]['data'].weight
+        w_smooth = g_smooth.graph[edge[0]][edge[1]]['data'].weight
         assert w_orig != w_smooth
 
     def test_smoothed_weights_still_normalize(self, test_data_aap):
@@ -141,7 +141,7 @@ class TestLaplaceSmoothing:
         for node in list(g.graph.nodes())[:10]:
             successors = list(g.graph.successors(node))
             if successors:
-                total = sum(g.graph[node][s]['weight'] for s in successors)
+                total = sum(g.graph[node][s]['data'].weight for s in successors)
                 assert abs(total - 1.0) < 0.01, f"Node {node}: weights sum to {total}"
 
 

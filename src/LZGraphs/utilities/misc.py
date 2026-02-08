@@ -8,7 +8,6 @@ The module contains the following functions:
 
 - `choice(options,probs)` - choose a random element from a list given a probability distribution over the elements.
 - `window(iterable, size)` - Return a sliding window generator of size "size".
-- `get_dictionary_subkeys(target)` - Returns a list of all sub dictionary keys.
 - `chunkify(L, n)` - Yield successive n-sized chunks from L.
 """
 
@@ -18,7 +17,7 @@ import numpy as np
 
 from ..exceptions import EmptyDataError, InvalidProbabilityError
 
-__all__ = ["choice", "window", "get_dictionary_subkeys", "chunkify", "_is_v_gene", "_is_j_gene"]
+__all__ = ["choice", "window", "chunkify", "_is_v_gene", "_is_j_gene"]
 
 
 _GENE_META_KEYS = frozenset({'Vsum', 'Jsum', 'weight'})
@@ -109,18 +108,7 @@ def window(iterable, size):
         for each in iters[i:]:
             next(each, None)
     return zip(*iters)
-def get_dictionary_subkeys(target):
-    """Returns a list of all sub dictionary keys.
 
-          Args:
-              target (dict): a dictionary of dictionaries.
-          Returns:
-              list: a list of all the keys contained in the sub dictionaries.
-          """
-    subkeys = []
-    for key in target:
-        subkeys +=[*target[key]]
-    return subkeys
 def chunkify(L, n):
     """ Yield successive n-sized chunks from L.
 

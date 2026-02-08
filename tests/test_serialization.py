@@ -313,7 +313,7 @@ class TestNetworkXExport:
 
         # Check a few edge weights
         for u, v in list(aap_lzgraph.edges)[:5]:
-            original_weight = aap_lzgraph.graph[u][v]['weight']
+            original_weight = aap_lzgraph.graph[u][v]['data'].weight
             exported_weight = G[u][v]['weight']
             assert np.isclose(original_weight, exported_weight)
 

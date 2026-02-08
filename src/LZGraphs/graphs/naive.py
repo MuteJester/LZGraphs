@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .lz_graph_base import LZGraphBase
+from .edge_data import EdgeData
 from ..utilities import saturation_function, weight_function
 from ..utilities.decomposition import lempel_ziv_decomposition
 from ..utilities.misc import window
@@ -208,8 +209,10 @@ class NaiveLZGraph(LZGraphBase):
             if B_ not in self.graph:
                 self.graph.add_node(B_)
 
-            # Add or update the edge with the aggregated weight
-            self.graph.add_edge(A_, B_, weight=weight_val)
+            # Add the edge with EdgeData containing the aggregated count
+            ed = EdgeData()
+            ed.count = weight_val
+            self.graph.add_edge(A_, B_, data=ed)
 
     def random_walk(self, steps):
 

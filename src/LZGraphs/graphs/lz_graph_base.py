@@ -13,8 +13,11 @@ import numpy as np
 import pandas as pd
 
 # Utility functions
-from ..utilities.misc import choice, get_dictionary_subkeys, window
+from ..utilities.misc import choice, window
 from ..utilities.decomposition import lempel_ziv_decomposition
+
+# EdgeData
+from .edge_data import EdgeData
 
 # The three mixins
 from ..mixins import GeneLogicMixin
@@ -142,8 +145,8 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                     self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
                     B_ = f"{B}_{loc_b}"
                     self._insert_edge_and_information(A_, B_, v, j)
-                # ensure final node is counted
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0) + 1
+                # ensure final node exists in frequency dict
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
         else:
             for output in processing_stream:
                 steps, locations = output
@@ -152,17 +155,19 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                     self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
                     B_ = f"{B}_{loc_b}"
                     self._insert_edge_and_information_no_genes(A_, B_)
-                # ensure final node is counted
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0) + 1
+                # ensure final node exists in frequency dict
+                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
 
     def _insert_edge_and_information_no_genes(self, node_a, node_b):
         """
-        Insert or update an edge (node_a -> node_b) with no gene info, incrementing weight by 1.
+        Insert or update an edge (node_a -> node_b) with no gene info, incrementing count by 1.
         """
         if self.graph.has_edge(node_a, node_b):
-            self.graph[node_a][node_b]["weight"] += 1
+            self.graph[node_a][node_b]['data'].record()
         else:
-            self.graph.add_edge(node_a, node_b, weight=1)
+            ed = EdgeData()
+            ed.record()
+            self.graph.add_edge(node_a, node_b, data=ed)
         self.n_transitions += 1
 
     def _normalize_edge_weights(self):
@@ -176,44 +181,43 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         """
         alpha = self.smoothing_alpha
         if alpha == 0.0:
-            # Original fast path — no smoothing
             for edge_a, edge_b in self.graph.edges:
-                total = self.per_node_observed_frequency[edge_a]
-                if total > 0:
-                    self.graph[edge_a][edge_b]['weight'] /= total
+                ed = self.graph[edge_a][edge_b]['data']
+                total = self.per_node_observed_frequency.get(edge_a, 0)
+                ed.normalize(total)
         else:
-            # Laplace-smoothed normalization
             for node in self.graph.nodes():
                 successors = list(self.graph.successors(node))
                 if not successors:
                     continue
                 k = len(successors)
                 raw_total = self.per_node_observed_frequency.get(node, 0)
-                denom = raw_total + alpha * k
-                if denom > 0:
-                    for succ in successors:
-                        self.graph[node][succ]['weight'] = (
-                            self.graph[node][succ]['weight'] + alpha
-                        ) / denom
+                for succ in successors:
+                    self.graph[node][succ]['data'].normalize(raw_total, alpha, k)
 
     def _get_node_info_df(self, node_a, V=None, J=None, condition='and'):
         """
         Returns a DataFrame containing metadata for edges from node_a,
         optionally filtered by presence of V/J genes (with 'and'/'or' logic).
         """
+        node_data = self.graph[node_a]
         if V is None or J is None:
-            return pd.DataFrame(dict(self.graph[node_a]))
+            return pd.DataFrame({
+                nb: self.graph[node_a][nb]['data'].to_legacy_dict()
+                for nb in node_data
+            })
         else:
-            node_data = self.graph[node_a]
             if condition == 'and':
                 partial_dict = {
-                    pk: node_data[pk] for pk in node_data
-                    if V in node_data[pk] and J in node_data[pk]
+                    nb: self.graph[node_a][nb]['data'].to_legacy_dict()
+                    for nb in node_data
+                    if self.graph[node_a][nb]['data'].has_gene(V) and self.graph[node_a][nb]['data'].has_gene(J)
                 }
             else:
                 partial_dict = {
-                    pk: node_data[pk] for pk in node_data
-                    if V in node_data[pk] or J in node_data[pk]
+                    nb: self.graph[node_a][nb]['data'].to_legacy_dict()
+                    for nb in node_data
+                    if self.graph[node_a][nb]['data'].has_gene(V) or self.graph[node_a][nb]['data'].has_gene(J)
                 }
             return pd.DataFrame(partial_dict)
 
@@ -225,15 +229,20 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         node_data = self.graph[node_a]
         if V is None or J is None:
             # Return everything if V/J not specified
-            df = pd.DataFrame(dict(node_data))
-            return df if not asdict else df.to_dict()
+            result = {
+                nb: self.graph[node_a][nb]['data'].to_legacy_dict()
+                for nb in node_data
+            }
+            if asdict:
+                return result
+            return pd.DataFrame(result)
 
         # Filter edges to those containing V and J
-        partial_dict = {
-            pk: {feature: node_data[pk][feature]}
-            for pk in node_data
-            if V in node_data[pk] and J in node_data[pk]
-        }
+        partial_dict = {}
+        for nb in node_data:
+            ed = self.graph[node_a][nb]['data']
+            if ed.has_gene(V) and ed.has_gene(J):
+                partial_dict[nb] = {feature: ed.weight if feature == 'weight' else ed.to_legacy_dict().get(feature)}
         if asdict:
             return partial_dict
         else:
@@ -251,12 +260,12 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         if self.genetic:
             if selected_j is not None:
                 # Check whether we have neighbors that contain both selected_v and selected_j
-                edge_info = dict(self.graph[state])
-                observed_gene_paths = set(get_dictionary_subkeys(edge_info))
-                if len(set(observed_gene_paths) & {selected_v, selected_j}) != 2:
-                    neighbours = 0
-                else:
-                    neighbours = 2
+                neighbours = 0
+                for nb in self.graph[state]:
+                    ed = self.graph[state][nb]['data']
+                    if ed.has_gene(selected_v) and ed.has_gene(selected_j):
+                        neighbours = 2
+                        break
             else:
                 neighbours = self.graph.out_degree(state)
 
@@ -271,10 +280,12 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
     def _derive_subpattern_individual_probability(self):
         """
-        Summation of edge weights by source node -> yields empirical probabilities for each node.
+        Summation of edge counts by source node -> yields empirical probabilities for each node.
+        Uses raw counts (not normalized weights) so this can be called before or after normalization.
         """
-        weight_df = pd.Series(nx.get_edge_attributes(self.graph, 'weight')).reset_index()
-        self.subpattern_individual_probability = weight_df.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
+        counts = {(a, b): self.graph[a][b]['data'].count for a, b in self.graph.edges}
+        count_df = pd.Series(counts).reset_index()
+        self.subpattern_individual_probability = count_df.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
         self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
 
     def verbose_driver(self, message_number, verbose):
@@ -336,24 +347,123 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         if v is None and j is None:
             node_data = self.graph[node]
             states = list(node_data.keys())
-            probabilities = [node_data[s]['weight'] for s in states]
+            probabilities = [node_data[s]['data'].weight for s in states]
             return states, probabilities
         else:
-            df = pd.DataFrame(dict(self.graph[node])).T
+            result = {
+                nb: self.graph[node][nb]['data'].to_legacy_dict()
+                for nb in self.graph[node]
+            }
+            df = pd.DataFrame(result).T
             return df
-
-    def _batch_gene_weight_normalization(self, verbose=False):
-        """Normalize gene weights across all edges."""
-        edges_list = list(self.graph.edges)
-        if not edges_list:
-            return
-        self._normalize_gene_weights(edges_list)
 
     def _update_terminal_states(self, terminal_state):
         self.terminal_states[terminal_state] = self.terminal_states.get(terminal_state, 0) + 1
 
     def _update_initial_states(self, initial_state):
         self.initial_states[initial_state] = self.initial_states.get(initial_state, 0) + 1
+
+    def edge_data(self, a, b):
+        """Shortcut to access EdgeData for edge a->b."""
+        return self.graph[a][b]['data']
+
+    def outgoing_edges(self, node):
+        """Return {neighbor: EdgeData} for all outgoing edges from node."""
+        return {nb: self.graph[node][nb]['data'] for nb in self.graph[node]}
+
+    def recalculate(self):
+        """Recompute all derived attributes from raw counts.
+
+        Call this after modifying raw counts (e.g., after graph_union
+        or remove_sequence) to update all cached probabilities.
+        """
+        # Recompute per_node_observed_frequency from actual edge counts.
+        # freq[node] = sum of outgoing edge counts (matching construction convention).
+        self.per_node_observed_frequency = {}
+        for node in self.graph.nodes():
+            outgoing_sum = sum(
+                self.graph[node][succ]['data'].count
+                for succ in self.graph.successors(node)
+            )
+            if outgoing_sum > 0:
+                self.per_node_observed_frequency[node] = outgoing_sum
+
+        # Initial state probabilities
+        if isinstance(self.initial_states, pd.Series) and len(self.initial_states) > 0:
+            total = self.initial_states.sum()
+            if total > 0:
+                self.initial_states_probability = self.initial_states / total
+
+        # Length distribution probabilities
+        if isinstance(self.terminal_states, pd.Series) and len(self.terminal_states) > 0:
+            total = self.terminal_states.sum()
+            if total > 0:
+                self.length_distribution_proba = self.terminal_states / total
+
+        # Normalize edge weights
+        self._normalize_edge_weights()
+
+        # Derived probability tables
+        self._derive_subpattern_individual_probability()
+        self._derive_terminal_state_map()
+        self._derive_stop_probability_data()
+
+    def remove_sequence(self, sequence, v_gene=None, j_gene=None):
+        """Remove a single sequence's contribution from the graph.
+
+        Decrements edge counts along the sequence's path, updates node
+        frequencies, initial/terminal state counts, and recalculates all
+        derived probabilities.
+
+        Args:
+            sequence (str): The raw sequence to remove (amino acid or nucleotide).
+            v_gene (str, optional): V gene associated with this sequence.
+            j_gene (str, optional): J gene associated with this sequence.
+        """
+        walk = self.encode_sequence(sequence)
+        if len(walk) == 0:
+            return
+
+        # Decrement initial/terminal state counts
+        first_node, last_node = walk[0], walk[-1]
+        if first_node in self.initial_states.index:
+            self.initial_states[first_node] = max(0, self.initial_states[first_node] - 1)
+            if self.initial_states[first_node] <= 0:
+                self.initial_states = self.initial_states.drop(first_node)
+        if last_node in self.terminal_states.index:
+            self.terminal_states[last_node] = max(0, self.terminal_states[last_node] - 1)
+            if self.terminal_states[last_node] <= 0:
+                self.terminal_states = self.terminal_states.drop(last_node)
+
+        # Decrement edge counts
+        for a, b in window(walk, 2):
+            if self.graph.has_edge(a, b):
+                self.graph[a][b]['data'].unrecord(v_gene=v_gene, j_gene=j_gene)
+                if self.graph[a][b]['data'].count <= 0:
+                    self.graph.remove_edge(a, b)
+
+        # Remove isolated nodes (no edges left)
+        for node in walk:
+            if (node in self.graph
+                    and self.graph.in_degree(node) == 0
+                    and self.graph.out_degree(node) == 0):
+                self.graph.remove_node(node)
+
+        # Update length tracking
+        seq_len = len(sequence)
+        if seq_len in self.lengths:
+            self.lengths[seq_len] -= 1
+            if self.lengths[seq_len] <= 0:
+                del self.lengths[seq_len]
+
+        self.n_subpatterns = max(0, self.n_subpatterns - len(walk))
+        self.n_transitions = max(0, self.n_transitions - max(0, len(walk) - 1))
+
+        # Clear cached edges list
+        self.edges_list = None
+
+        # Recalculate derived state
+        self.recalculate()
 
     def _derive_terminal_state_map(self):
         """
@@ -427,7 +537,15 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         return self.terminal_states[mask].index.to_list()
 
     def eigenvector_centrality(self, max_iter=500):
-        return nx.algorithms.eigenvector_centrality(self.graph, weight='weight', max_iter=max_iter)
+        # Build a weight-attribute view for NetworkX algorithms
+        for a, b in self.graph.edges:
+            self.graph[a][b]['weight'] = self.graph[a][b]['data'].weight
+        result = nx.algorithms.eigenvector_centrality(self.graph, weight='weight', max_iter=max_iter)
+        # Clean up temporary attribute
+        for a, b in self.graph.edges:
+            if 'weight' in self.graph[a][b]:
+                del self.graph[a][b]['weight']
+        return result
 
     @property
     def isolates(self):
@@ -531,7 +649,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
             for step1, step2 in window(walk_, 2):
                 if self.graph.has_edge(step1, step2):
-                    log_edge_sum += np.log(self.graph[step1][step2]['weight'])
+                    log_edge_sum += np.log(self.graph[step1][step2]['data'].weight)
                     observed_count += 1
                 else:
                     if verbose:
@@ -563,7 +681,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
             for step1, step2 in window(walk_, 2):
                 if self.graph.has_edge(step1, step2):
-                    edge_product *= self.graph[step1][step2]['weight']
+                    edge_product *= self.graph[step1][step2]['data'].weight
                     observed_count += 1
                 else:
                     if verbose:
@@ -658,9 +776,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         trans_genes = {}
         for i in range(len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i + 1]):
-                edge_attrs = self.graph[walk[i]][walk[i + 1]].copy()
-                for remove_key in ("weight", "Vsum", "Jsum"):
-                    edge_attrs.pop(remove_key, None)
+                edge_attrs = self.graph[walk[i]][walk[i + 1]]['data'].gene_dict()
                 trans_genes[f"{walk[i]}->{walk[i + 1]}"] = edge_attrs
 
         df = pd.DataFrame(trans_genes)
@@ -746,11 +862,9 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             v_candidates = set()
             j_candidates = set()
             for ea, eb in in_edges:
-                ed = pd.Series(self.graph[ea][eb]).drop(
-                    ["Vsum", "Jsum", "weight"], errors="ignore"
-                )
-                v_candidates |= set(g for g in ed.index if "V" in g)
-                j_candidates |= set(g for g in ed.index if "J" in g)
+                ed = self.graph[ea][eb]['data']
+                v_candidates |= set(ed.v_genes.keys())
+                j_candidates |= set(ed.j_genes.keys())
 
             n_v.append(len(v_candidates))
             n_j.append(len(j_candidates))
@@ -918,8 +1032,19 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Returns:
             dict: A dictionary containing all graph data in JSON-compatible format.
         """
+        # Temporarily replace EdgeData objects with legacy dicts for JSON serialization
+        edge_data_backup = {}
+        for a, b in self.graph.edges:
+            ed = self.graph[a][b]['data']
+            edge_data_backup[(a, b)] = ed
+            self.graph[a][b]['data'] = ed.to_legacy_dict()
+
         # Convert NetworkX graph to node-link format
         graph_data = json_graph.node_link_data(self.graph)
+
+        # Restore EdgeData objects
+        for (a, b), ed in edge_data_backup.items():
+            self.graph[a][b]['data'] = ed
 
         # Helper to convert pandas objects
         def serialize_pandas(obj):
@@ -1011,6 +1136,25 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         # Restore NetworkX graph
         instance.graph = json_graph.node_link_graph(data['graph'])
 
+        # Convert edge dicts to EdgeData objects
+        per_node_freq = data.get('per_node_observed_frequency', {})
+        for a, b in list(instance.graph.edges):
+            edge_attrs = dict(instance.graph[a][b])
+            existing = edge_attrs.get('data')
+            if isinstance(existing, EdgeData):
+                continue  # Already an EdgeData (shouldn't happen from JSON, but be safe)
+            # Determine the legacy dict: either nested under 'data' key or at top level
+            if isinstance(existing, dict):
+                legacy = existing
+            else:
+                legacy = edge_attrs
+            node_freq = per_node_freq.get(a, 0)
+            ed = EdgeData.from_legacy_dict(legacy, node_freq)
+            # Clear old attrs and set EdgeData
+            for key in list(instance.graph[a][b].keys()):
+                del instance.graph[a][b][key]
+            instance.graph[a][b]['data'] = ed
+
         # Restore basic attributes
         instance.genetic = data.get('genetic', False)
         instance.genetic_walks_black_list = {}
@@ -1074,13 +1218,12 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         """
         Export the underlying graph as a pure NetworkX DiGraph.
 
-        This method returns a copy of the internal graph structure without the
-        LZGraph wrapper. Useful for custom graph analysis or integration with
-        other NetworkX-based tools.
+        This method returns a copy of the internal graph structure with
+        EdgeData objects converted to flat dictionaries (weight, count,
+        gene probabilities) for compatibility with standard NetworkX tools.
 
         Returns:
-            nx.DiGraph: A copy of the internal directed graph with all node
-                and edge attributes preserved.
+            nx.DiGraph: A directed graph with flat edge attribute dicts.
 
         Example:
             >>> lzgraph = AAPLZGraph(data)
@@ -1089,7 +1232,11 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             >>> nx.draw(G)
             >>> components = list(nx.weakly_connected_components(G))
         """
-        return self.graph.copy()
+        G = nx.DiGraph()
+        G.add_nodes_from(self.graph.nodes(data=True))
+        for a, b in self.graph.edges:
+            G.add_edge(a, b, **self.graph[a][b]['data'].to_legacy_dict())
+        return G
 
     def get_graph_metadata(self) -> dict:
         """

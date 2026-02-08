@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from ..utilities.misc import choice, _is_v_gene, _is_j_gene
+from ..graphs.edge_data import EdgeData
 from ..exceptions import NoGeneDataError, MetricsError
 
 class GeneLogicMixin:
@@ -75,7 +76,7 @@ class GeneLogicMixin:
     def _insert_edge_and_information(self, node_a: str, node_b: str, Vgene: str, Jgene: str) -> None:
         """
         Insert or update an edge (node_a -> node_b) with the relevant gene data.
-        This increments the 'weight' by 1, as well as the counters for V and J usage.
+        This increments the count by 1, as well as the counters for V and J usage.
 
         Args:
             node_a (str): The source node.
@@ -83,47 +84,12 @@ class GeneLogicMixin:
             Vgene (str): The V gene name.
             Jgene (str): The J gene name.
         """
-        try:
-            # If edge exists, update counts
-            edge_data = self.graph[node_a][node_b]
-            edge_data["weight"] += 1
-            edge_data[Vgene] = edge_data.get(Vgene, 0) + 1
-            edge_data[Jgene] = edge_data.get(Jgene, 0) + 1
-            edge_data["Vsum"] += 1
-            edge_data["Jsum"] += 1
-        except KeyError:
-            # Edge doesn't exist yet, create with initial counts
-            self.graph.add_edge(
-                node_a,
-                node_b,
-                weight=1,
-                Vsum=1,
-                Jsum=1,
-                **{Vgene: 1, Jgene: 1}
-            )
+        if self.graph.has_edge(node_a, node_b):
+            self.graph[node_a][node_b]['data'].record(v_gene=Vgene, j_gene=Jgene)
+        else:
+            ed = EdgeData()
+            ed.record(v_gene=Vgene, j_gene=Jgene)
+            self.graph.add_edge(node_a, node_b, data=ed)
 
         # Track a global transition count (if needed by the parent class)
         self.n_transitions += 1
-
-    def _normalize_gene_weights(self, edge_list) -> None:
-        """
-        For each edge in the given edge_list, normalize gene-based keys
-        so that V genes sum to 1 and J genes sum to 1. This also assumes
-        each edge has a 'Vsum' and 'Jsum' key that track the sum of all V and J counts.
-
-        Args:
-            edge_list (list[tuple[str, str]]): A list of edges (node_a, node_b).
-        """
-        for n_a, n_b in edge_list:
-            e_data = self.graph.get_edge_data(n_a, n_b)
-            vsum = e_data['Vsum']
-            jsum = e_data['Jsum']
-
-            # All keys besides 'weight', 'Vsum', and 'Jsum' are assumed to be gene counts
-            genes = set(e_data) - {'Vsum', 'Jsum', 'weight'}
-
-            for key in genes:
-                if _is_v_gene(key):
-                    e_data[key] /= vsum
-                elif _is_j_gene(key):
-                    e_data[key] /= jsum

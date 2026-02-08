@@ -320,3 +320,77 @@ class TestCompareRepertoires:
         assert result['node_entropy_2'] > 0
         assert result['edge_entropy_1'] > 0
         assert result['edge_entropy_2'] > 0
+
+
+# =========================================================================
+# Sequence Removal
+# =========================================================================
+
+class TestRemoveSequence:
+    """Tests for the remove_sequence method."""
+
+    def test_row_stochastic_after_removal(self, test_data_aap):
+        """Edge weights must sum to 1.0 for all nodes after removing sequences."""
+        g = AAPLZGraph(test_data_aap, verbose=False)
+
+        # Remove 20 sequences
+        for i in range(20):
+            row = test_data_aap.iloc[i]
+            g.remove_sequence(row['cdr3_amino_acid'],
+                              v_gene=row['V'], j_gene=row['J'])
+
+        for node in g.graph.nodes():
+            succs = list(g.graph.successors(node))
+            if succs:
+                row_sum = sum(g.graph[node][s]['data'].weight for s in succs)
+                assert abs(row_sum - 1.0) < 1e-10, (
+                    f"Node {node}: row_sum={row_sum}, expected 1.0"
+                )
+
+    def test_pgen_valid_after_removal(self, test_data_aap):
+        """PGEN should remain a valid non-negative value after removal."""
+        g = AAPLZGraph(test_data_aap, verbose=False)
+        seq = test_data_aap.iloc[0]['cdr3_amino_acid']
+        v, j = test_data_aap.iloc[0]['V'], test_data_aap.iloc[0]['J']
+
+        g.remove_sequence(seq, v_gene=v, j_gene=j)
+        pgen_after = g.walk_probability(seq, verbose=False)
+
+        assert pgen_after >= 0
+
+    def test_edge_removed_when_count_zero(self, test_data_aap):
+        """Edges with count=0 should be removed from the graph."""
+        g = AAPLZGraph(test_data_aap, verbose=False)
+
+        # Find a sequence whose walk has at least one unique edge (count=1)
+        for i in range(len(test_data_aap)):
+            seq = test_data_aap.iloc[i]['cdr3_amino_acid']
+            walk = g.encode_sequence(seq)
+            from LZGraphs.utilities.misc import window
+            for a, b in window(walk, 2):
+                if g.graph.has_edge(a, b) and g.graph[a][b]['data'].count == 1:
+                    # Remove this sequence - edge should disappear
+                    v, j = test_data_aap.iloc[i]['V'], test_data_aap.iloc[i]['J']
+                    g.remove_sequence(seq, v_gene=v, j_gene=j)
+                    assert not g.graph.has_edge(a, b), (
+                        f"Edge {a}->{b} should have been removed"
+                    )
+                    return
+        pytest.skip("No sequence with a unique edge found")
+
+    def test_freq_consistent_after_removal(self, test_data_aap):
+        """per_node_observed_frequency must equal sum of outgoing edge counts."""
+        g = AAPLZGraph(test_data_aap, verbose=False)
+
+        for i in range(10):
+            row = test_data_aap.iloc[i]
+            g.remove_sequence(row['cdr3_amino_acid'],
+                              v_gene=row['V'], j_gene=row['J'])
+
+        for node in g.graph.nodes():
+            succs = list(g.graph.successors(node))
+            outgoing_sum = sum(g.graph[node][s]['data'].count for s in succs)
+            freq = g.per_node_observed_frequency.get(node, 0)
+            assert freq == outgoing_sum, (
+                f"Node {node}: freq={freq}, outgoing_count={outgoing_sum}"
+            )

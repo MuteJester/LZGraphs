@@ -129,11 +129,6 @@ class NDPLZGraph(LZGraphBase):
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
 
-        # If gene data is present, batch-normalize gene weights
-        if self.genetic:
-            self._batch_gene_weight_normalization(verbose=verbose)
-            self.verbose_driver(4, verbose)
-
         # Additional map derivations
         self.edges_list = None
         self._derive_terminal_state_map()
@@ -315,15 +310,18 @@ class NDPLZGraph(LZGraphBase):
                 logger.warning(f"Current state {current_state} not found in graph; ending walk.")
                 break
 
-            edge_info = pd.DataFrame(dict(self.graph[current_state]))
+            # Get outgoing edges
+            edges = {nb: self.graph[current_state][nb]['data'] for nb in self.graph[current_state]}
             # Apply blacklisting
             if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
                 blacklisted_cols = self.genetic_walks_black_list[(current_state, selected_v, selected_j)]
-                edge_info = edge_info.drop(columns=blacklisted_cols, errors="ignore")
+                edges = {nb: ed for nb, ed in edges.items() if nb not in blacklisted_cols}
 
-            # Check if edges have both selected_v and selected_j
-            if not {selected_v, selected_j}.issubset(edge_info.index):
-                # If we can't find both genes among edges
+            # Filter to edges containing both V and J genes
+            valid_edges = {nb: ed for nb, ed in edges.items()
+                           if ed.has_gene(selected_v) and ed.has_gene(selected_j)}
+
+            if not valid_edges:
                 if len(walk) > 2:
                     prev_state = walk[-2]
                     self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
@@ -336,10 +334,10 @@ class NDPLZGraph(LZGraphBase):
                     selected_v, selected_j = self._select_random_vj_genes(vj_init)
                 continue
 
-            # If we do have them, filter by edges that contain V/J
-            sub_df = edge_info.T[[selected_v, selected_j]].dropna(how="any")
-            if sub_df.empty:
-                # No valid edges
+            nbs = list(valid_edges.keys())
+            weights = np.array([valid_edges[nb].weight for nb in nbs])
+            w_sum = weights.sum()
+            if w_sum == 0:
                 if len(walk) > 2:
                     prev_state = walk[-2]
                     self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
@@ -352,22 +350,8 @@ class NDPLZGraph(LZGraphBase):
                     selected_v, selected_j = self._select_random_vj_genes(vj_init)
                 continue
 
-            weights = edge_info.loc["weight", sub_df.index]
-            if weights.sum() == 0:
-                if len(walk) > 2:
-                    prev_state = walk[-2]
-                    self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
-                        self.genetic_walks_black_list.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
-                    current_state = prev_state
-                    walk.pop()
-                else:
-                    walk = [walk[0]]
-                    current_state = walk[0]
-                    selected_v, selected_j = self._select_random_vj_genes(vj_init)
-                continue
-
-            weights = weights / weights.sum()
-            current_state = np.random.choice(weights.index, p=weights.values)
+            weights /= w_sum
+            current_state = np.random.choice(nbs, p=weights)
             walk.append(current_state)
 
         return walk, selected_v, selected_j

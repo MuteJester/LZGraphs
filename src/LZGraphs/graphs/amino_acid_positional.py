@@ -144,11 +144,6 @@ class AAPLZGraph(LZGraphBase):
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
 
-        # If gene data is available, normalize gene weights in parallel
-        if self.genetic:
-            self._batch_gene_weight_normalization(verbose=verbose)
-            self.verbose_driver(4, verbose)
-
         # Additional map derivations
         self.edges_list = None
         self._derive_terminal_state_map()
@@ -416,16 +411,16 @@ class AAPLZGraph(LZGraphBase):
                 val = np.finfo(float).eps if use_epsilon else 0.0
                 return (val, val)
 
-            e_data = self.graph[step1][step2]
+            ed = self.graph[step1][step2]['data']
             # If these genes aren't on the edge, it's effectively 0
-            if v not in e_data or j not in e_data:
+            if not ed.has_gene(v) or not ed.has_gene(j):
                 if verbose:
                     logger.warning(f"Edge {step1}->{step2} missing {v} or {j}.")
                 val = np.finfo(float).eps if use_epsilon else 0.0
                 return (val, val)
 
-            proba_v *= e_data[v]
-            proba_j *= e_data[j]
+            proba_v *= ed.v_probability(v)
+            proba_j *= ed.j_probability(j)
 
         return proba_v, proba_j
 
@@ -484,19 +479,18 @@ class AAPLZGraph(LZGraphBase):
                     logger.warning(f"Current state {current_state} not in graph.")
                     break
 
-                edge_info = pd.DataFrame(dict(self.graph[current_state]))
+                # Get edges that have both selected V and J genes
+                edges = self.outgoing_edges(current_state)
                 # Apply blacklist if present
                 if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
                     blacklisted = self.genetic_walks_black_list[(current_state, selected_v, selected_j)]
-                    edge_info = edge_info.drop(columns=blacklisted, errors="ignore")
+                    edges = {nb: ed for nb, ed in edges.items() if nb not in blacklisted}
 
-                # Check for presence of selected V/J genes
-                # We'll consider edges that contain both selected_v and selected_j
-                # in the attribute keys
-                sub_df = edge_info.T[[selected_v, selected_j]].dropna(how="any") if \
-                    {selected_v, selected_j}.issubset(edge_info.index) else pd.DataFrame()
+                # Filter to edges containing both V and J genes
+                valid_edges = {nb: ed for nb, ed in edges.items()
+                               if ed.has_gene(selected_v) and ed.has_gene(selected_j)}
 
-                if sub_df.empty:
+                if not valid_edges:
                     # No valid edges
                     if len(walk) > 2:
                         prev_state = walk[-2]
@@ -510,10 +504,11 @@ class AAPLZGraph(LZGraphBase):
                         selected_v, selected_j = self._select_random_vj_genes(vj_init)
                     continue
 
-                # Weighted choice among these edges
-                w = edge_info.loc["weight", sub_df.index]
-                w /= w.sum()
-                if w.empty:
+                # Weighted choice among valid edges
+                nbs = list(valid_edges.keys())
+                weights = np.array([valid_edges[nb].weight for nb in nbs])
+                w_sum = weights.sum()
+                if w_sum == 0:
                     # Again, no valid edges
                     if len(walk) > 2:
                         prev_state = walk[-2]
@@ -527,7 +522,8 @@ class AAPLZGraph(LZGraphBase):
                         selected_v, selected_j = self._select_random_vj_genes(vj_init)
                     continue
 
-                current_state = np.random.choice(w.index, p=w.values)
+                weights /= w_sum
+                current_state = np.random.choice(nbs, p=weights)
                 walk.append(current_state)
 
             results.append((walk, selected_v, selected_j))
@@ -594,7 +590,8 @@ class AAPLZGraph(LZGraphBase):
 
         to_drop = []
         for src, dst, attrs in self.edges_list:
-            if (v not in attrs) or (j not in attrs):
+            ed = attrs.get('data')
+            if ed is None or not (ed.has_gene(v) and ed.has_gene(j)):
                 to_drop.append((src, dst))
 
         G = self.graph.copy()
@@ -632,31 +629,14 @@ class AAPLZGraph(LZGraphBase):
             self.genetic_walks_black_list = {}
 
         while current_state not in final_states:
-            edge_info = pd.DataFrame(dict(G[current_state]))
+            # Get outgoing edges from the gene subgraph
+            edges = {nb: G[current_state][nb]['data'] for nb in G[current_state]}
             # Apply blacklist
             if (selected_v, selected_j, current_state) in self.genetic_walks_black_list:
-                edge_info = edge_info.drop(
-                    columns=self.genetic_walks_black_list[(selected_v, selected_j, current_state)],
-                    errors="ignore"
-                )
+                blacklisted = self.genetic_walks_black_list[(selected_v, selected_j, current_state)]
+                edges = {nb: ed for nb, ed in edges.items() if nb not in blacklisted}
 
-            if edge_info.shape[1] == 0:
-                if len(walk) > 1:
-                    prev_state = walk[-2]
-                    blacklisted_cols = self.genetic_walks_black_list.get((selected_v, selected_j, prev_state), [])
-                    blacklisted_cols.append(current_state)
-                    self.genetic_walks_black_list[(selected_v, selected_j, prev_state)] = blacklisted_cols
-                    walk.pop()
-                    current_state = walk[-1]
-                else:
-                    # Stuck at the start
-                    break
-                continue
-
-            sub_df = edge_info.T[[selected_v, selected_j]].dropna(how="any") if \
-                {selected_v, selected_j}.issubset(edge_info.index) else pd.DataFrame()
-            if sub_df.empty:
-                # No valid edges — backtrack or break
+            if not edges:
                 if len(walk) > 1:
                     prev_state = walk[-2]
                     blacklisted_cols = self.genetic_walks_black_list.get((selected_v, selected_j, prev_state), [])
@@ -668,9 +648,25 @@ class AAPLZGraph(LZGraphBase):
                     break
                 continue
 
-            w = edge_info.loc["weight", sub_df.index]
-            w /= w.sum()
-            next_state = np.random.choice(w.index, p=w.values)
+            # Filter to edges containing both V and J genes
+            valid_edges = {nb: ed for nb, ed in edges.items()
+                           if ed.has_gene(selected_v) and ed.has_gene(selected_j)}
+            if not valid_edges:
+                if len(walk) > 1:
+                    prev_state = walk[-2]
+                    blacklisted_cols = self.genetic_walks_black_list.get((selected_v, selected_j, prev_state), [])
+                    blacklisted_cols.append(current_state)
+                    self.genetic_walks_black_list[(selected_v, selected_j, prev_state)] = blacklisted_cols
+                    walk.pop()
+                    current_state = walk[-1]
+                else:
+                    break
+                continue
+
+            nbs = list(valid_edges.keys())
+            weights = np.array([valid_edges[nb].weight for nb in nbs])
+            weights /= weights.sum()
+            next_state = np.random.choice(nbs, p=weights)
             walk.append(next_state)
             current_state = next_state
 

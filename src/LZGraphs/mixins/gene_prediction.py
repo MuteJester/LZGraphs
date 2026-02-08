@@ -11,15 +11,13 @@ class GenePredictionMixin:
 
     This mixin assumes:
     - `self.graph` is a networkx.DiGraph.
-    - Each edge may have:
-        - 'weight', 'Vsum', 'Jsum' as numeric keys.
-        - Additional keys representing probabilities or counts for specific V/J genes.
+    - Each edge has a 'data' attribute containing an EdgeData object.
     - A function `choice(options, weights)` is available for weighted selection.
     """
 
     def _max_sum_gene_prediction(self, walk, top_n=1):
         """
-        Aggregate the sum of each V or J gene count along the edges of the walk.
+        Aggregate the sum of each V or J gene probability along the edges of the walk.
         Then pick either the single best gene (top_n=1) or top_n genes.
 
         Args:
@@ -36,14 +34,11 @@ class GenePredictionMixin:
 
         for i in range(len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i+1]):
-                edge_data = self.graph[walk[i]][walk[i+1]]
-                # Accumulate for each gene that starts with 'V' or 'J'
-                for key, value in edge_data.items():
-                    if key not in {'weight', 'Vsum', 'Jsum'}:
-                        if _is_v_gene(key):
-                            v_gene_agg[key] = v_gene_agg.get(key, 0) + value
-                        elif _is_j_gene(key):
-                            j_gene_agg[key] = j_gene_agg.get(key, 0) + value
+                ed = self.graph[walk[i]][walk[i+1]]['data']
+                for gene, count in ed.v_genes.items():
+                    v_gene_agg[gene] = v_gene_agg.get(gene, 0) + ed.v_probability(gene)
+                for gene, count in ed.j_genes.items():
+                    j_gene_agg[gene] = j_gene_agg.get(gene, 0) + ed.j_probability(gene)
 
         if top_n == 1:
             best_v = max(v_gene_agg, key=v_gene_agg.get) if v_gene_agg else None
@@ -56,9 +51,7 @@ class GenePredictionMixin:
 
     def _max_product_gene_prediction(self, walk, top_n=1):
         """
-        Aggregate the product of each V or J gene count along the edges.
-        (Interpreted as probabilities, so we multiply them to get the overall
-         probability if edges are viewed as independent factors.)
+        Aggregate the product of each V or J gene probability along the edges.
 
         Args:
             walk (list): The list of node names representing the walk.
@@ -74,14 +67,13 @@ class GenePredictionMixin:
 
         for i in range(len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i+1]):
-                edge_data = self.graph[walk[i]][walk[i+1]]
-                for key, value in edge_data.items():
-                    if key not in {'weight', 'Vsum', 'Jsum'}:
-                        if _is_v_gene(key):
-                            # Use a product (start from 1)
-                            v_gene_agg[key] = v_gene_agg.get(key, 1.0) * value
-                        elif _is_j_gene(key):
-                            j_gene_agg[key] = j_gene_agg.get(key, 1.0) * value
+                ed = self.graph[walk[i]][walk[i+1]]['data']
+                for gene in ed.v_genes:
+                    prob = ed.v_probability(gene)
+                    v_gene_agg[gene] = v_gene_agg.get(gene, 1.0) * prob
+                for gene in ed.j_genes:
+                    prob = ed.j_probability(gene)
+                    j_gene_agg[gene] = j_gene_agg.get(gene, 1.0) * prob
 
         if top_n == 1:
             best_v = max(v_gene_agg, key=v_gene_agg.get) if v_gene_agg else None
@@ -95,14 +87,12 @@ class GenePredictionMixin:
     def _sampling_gene_prediction(self, walk, top_n=1, n_samples=25):
         """
         For each edge in the walk, sample a V gene and a J gene multiple times
-        according to the relative weights on that edge. Aggregate these samples
-        to find the most common V/J genes along the path.
+        according to the relative weights on that edge.
 
         Args:
             walk (list): The list of node names representing the walk.
             top_n (int): How many top genes to return.
-            n_samples (int): Number of times to sample from each edge's distribution
-                             to build up frequencies.
+            n_samples (int): Number of times to sample from each edge's distribution.
 
         Returns:
             tuple:
@@ -114,40 +104,14 @@ class GenePredictionMixin:
 
         for i in range(len(walk) - 1):
             if self.graph.has_edge(walk[i], walk[i+1]):
-                edge_data = self.graph[walk[i]][walk[i+1]]
-                # Separate V and J genes, ignoring 'weight','Vsum','Jsum'
-                v_keys = {}
-                j_keys = {}
-                for key, val in edge_data.items():
-                    if key not in {'weight', 'Vsum', 'Jsum'}:
-                        if _is_v_gene(key):
-                            v_keys[key] = val
-                        elif _is_j_gene(key):
-                            j_keys[key] = val
+                ed = self.graph[walk[i]][walk[i+1]]['data']
 
-                # Sampling from each edge distribution
-                if v_keys:
-                    v_names = list(v_keys.keys())
-                    v_vals = list(v_keys.values())
-                else:
-                    v_names = []
-                    v_vals = []
+                v_names = list(ed.v_genes.keys())
+                v_vals = [ed.v_probability(g) for g in v_names]
 
-                if j_keys:
-                    j_names = list(j_keys.keys())
-                    j_vals = list(j_keys.values())
-                else:
-                    j_names = []
-                    j_vals = []
+                j_names = list(ed.j_genes.keys())
+                j_vals = [ed.j_probability(g) for g in j_names]
 
-                # Normalize if needed
-                # For example:
-                # sum_v = sum(v_vals) if v_vals else 1
-                # v_probs = [x / sum_v for x in v_vals]
-                # sum_j = sum(j_vals) if j_vals else 1
-                # j_probs = [x / sum_j for x in j_vals]
-
-                # Then sample n_samples times
                 for _ in range(n_samples):
                     if v_names:
                         V_samples.append(self._choice_wrapper(v_names, v_vals))
@@ -168,12 +132,11 @@ class GenePredictionMixin:
 
     def _full_appearance_gene_prediction(self, walk, alpha=0):
         """
-        Returns all genes (V or J) that appear on *every* edge of the walk
-        (minus an alpha offset if desired).
+        Returns all genes (V or J) that appear on *every* edge of the walk.
 
         Args:
             walk (list): The list of node names representing the walk.
-            alpha (int): Optional offset (if you need to skip the last alpha edges, etc.).
+            alpha (int): Optional offset (skip the last alpha edges).
 
         Returns:
             tuple: (list_of_consistent_V_genes, list_of_consistent_J_genes)
@@ -181,21 +144,13 @@ class GenePredictionMixin:
         vgenes = []
         jgenes = []
 
-        # If alpha is 0, we use all edges from 0 to len(walk)-2
-        # If alpha is 1, we skip the last edge, etc.
-        # (Adjust logic as needed, depending on your definition.)
         end_index = len(walk) - 1 - alpha
         for i in range(end_index):
             if self.graph.has_edge(walk[i], walk[i + 1]):
-                edge_data = self.graph[walk[i]][walk[i+1]]
-                # Collect all V or J keys from this edge
-                current_v = [k for k in edge_data if _is_v_gene(k)]
-                current_j = [k for k in edge_data if _is_j_gene(k)]
+                ed = self.graph[walk[i]][walk[i+1]]['data']
+                vgenes.append(set(ed.v_genes.keys()))
+                jgenes.append(set(ed.j_genes.keys()))
 
-                vgenes.append(set(current_v))
-                jgenes.append(set(current_j))
-
-        # Intersect across all edges to find those that appear in every edge
         if vgenes:
             common_vs = set.intersection(*vgenes)
         else:
@@ -233,8 +188,6 @@ class GenePredictionMixin:
         elif mode == 'max_product':
             return self._max_product_gene_prediction(walk, top_n)
         elif mode == 'sampling':
-            # You can also pass n_samples if you wish, for example:
-            # return self._sampling_gene_prediction(walk, top_n, n_samples=25)
             return self._sampling_gene_prediction(walk, top_n)
         elif mode == 'full':
             return self._full_appearance_gene_prediction(walk, alpha)
@@ -247,21 +200,16 @@ class GenePredictionMixin:
     def _choice_wrapper(self, keys, values):
         """
         Utility to choose a gene from lists of keys and values.
-        You can adapt this if you have a custom choice function or you can do:
-           return np.random.choice(keys, p=normalized_weights)
 
         Args:
-            keys (list): The list of gene names (e.g. ['V1', 'V2', ...]).
-            values (list): The corresponding values for each key (counts or probabilities).
+            keys (list): The list of gene names.
+            values (list): The corresponding probabilities for each key.
 
         Returns:
-            The selected key (e.g. 'V1' or 'J3').
+            The selected key.
         """
-        # Here we assume 'choice' is a function that does weighted choice:
         total = sum(values)
         if total <= 0:
-            # fallback: pick randomly or return None
-            # raise an error, or just pick randomly among keys
             return None
         weights = [v / total for v in values]
         return choice(keys, weights)

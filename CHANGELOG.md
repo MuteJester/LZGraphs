@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Custom exceptions module with comprehensive exception hierarchy for better error handling
-- Information-theoretic metrics module (`LZGraphs.Metrics.entropy`)
+- Information-theoretic metrics module (`LZGraphs.metrics.entropy`)
   - `node_entropy()` - Shannon entropy of node probability distribution
   - `edge_entropy()` - Shannon entropy of edge transition probabilities
   - `graph_entropy()` - Combined graph entropy measure
