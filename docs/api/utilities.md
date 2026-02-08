@@ -9,7 +9,7 @@ Helper functions and classes for LZGraphs analysis.
 Decompose a sequence using LZ76 algorithm.
 
 ```python
-from LZGraphs.Utilities import lempel_ziv_decomposition
+from LZGraphs.utilities import lempel_ziv_decomposition
 
 patterns = lempel_ziv_decomposition("CASSLEPSGGTDTQYF")
 print(patterns)
@@ -21,7 +21,7 @@ print(patterns)
 Generate all possible patterns up to length k.
 
 ```python
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # For nucleotides
 dictionary = generate_kmer_dictionary(6)
@@ -151,7 +151,7 @@ plt.savefig('saturation.png')
 Visualize graph structure.
 
 ```python
-from LZGraphs.Visualization import draw_graph
+from LZGraphs.visualization import draw_graph
 
 draw_graph(graph, file_name='graph.png')
 ```
@@ -161,7 +161,7 @@ draw_graph(graph, file_name='graph.png')
 Plot ancestors and descendants along a sequence.
 
 ```python
-from LZGraphs.Visualization import ancestors_descendants_curves_plot
+from LZGraphs.visualization import ancestors_descendants_curves_plot
 
 ancestors_descendants_curves_plot(graph, "CASSLEPSGGTDTQYF")
 ```
@@ -171,7 +171,7 @@ ancestors_descendants_curves_plot(graph, "CASSLEPSGGTDTQYF")
 Plot branching factor at each position.
 
 ```python
-from LZGraphs.Visualization import sequence_possible_paths_plot
+from LZGraphs.visualization import sequence_possible_paths_plot
 
 sequence_possible_paths_plot(graph, "CASSLEPSGGTDTQYF")
 ```
@@ -181,7 +181,7 @@ sequence_possible_paths_plot(graph, "CASSLEPSGGTDTQYF")
 Plot V/J gene diversity per node.
 
 ```python
-from LZGraphs.Visualization import sequence_genomic_node_variability_plot
+from LZGraphs.visualization import sequence_genomic_node_variability_plot
 
 sequence_genomic_node_variability_plot(graph, "CASSLEPSGGTDTQYF")
 ```
@@ -191,7 +191,7 @@ sequence_genomic_node_variability_plot(graph, "CASSLEPSGGTDTQYF")
 Plot V/J gene associations per edge.
 
 ```python
-from LZGraphs.Visualization import sequence_genomic_edges_variability_plot
+from LZGraphs.visualization import sequence_genomic_edges_variability_plot
 
 sequence_genomic_edges_variability_plot(graph, "CASSLEPSGGTDTQYF")
 ```

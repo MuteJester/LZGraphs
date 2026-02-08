@@ -36,7 +36,7 @@ Result: [C, A, S, SL, E]
 LZGraphs uses this algorithm internally:
 
 ```python
-from LZGraphs.Utilities import lempel_ziv_decomposition
+from LZGraphs.utilities import lempel_ziv_decomposition
 
 # Basic decomposition
 sequence = "CASSLEPSGGTDTQYF"

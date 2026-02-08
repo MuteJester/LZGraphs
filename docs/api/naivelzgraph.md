@@ -6,7 +6,7 @@ Non-positional LZGraph for consistent feature extraction and cross-repertoire an
 
 ```python
 from LZGraphs import NaiveLZGraph
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # Create shared dictionary
 dictionary = generate_kmer_dictionary(6)
@@ -21,7 +21,7 @@ features = graph.eigenvector_centrality()
 
 ## Class Reference
 
-::: LZGraphs.Graphs.Naive.NaiveLZGraph
+::: LZGraphs.graphs.naive.NaiveLZGraph
     options:
       show_root_heading: true
       show_source: false
@@ -58,7 +58,7 @@ Unlike AAPLZGraph and NDPLZGraph:
 
 ```python
 from LZGraphs import NaiveLZGraph
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # Shared dictionary for all repertoires
 dictionary = generate_kmer_dictionary(6)
@@ -88,7 +88,7 @@ f2 = g2.eigenvector_centrality()
 ## Dictionary Generation
 
 ```python
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # All patterns up to length k
 dict_6 = generate_kmer_dictionary(6)  # 5460 patterns

@@ -125,7 +125,7 @@ Just the raw pattern, no position information.
 
 ```python
 from LZGraphs import NaiveLZGraph
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # Create shared dictionary
 dictionary = generate_kmer_dictionary(6)  # All patterns up to length 6

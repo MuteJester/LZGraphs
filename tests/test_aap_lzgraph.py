@@ -17,7 +17,7 @@ Test Categories:
 
 import pytest
 import numpy as np
-from LZGraphs import AAPLZGraph, NDPLZGraph, InvalidSequenceError, MissingColumnError
+from LZGraphs import AAPLZGraph, InvalidSequenceError, MissingColumnError
 
 
 class TestAAPLZGraphConstruction:
@@ -56,13 +56,12 @@ class TestAAPLZGraphProbabilities:
         """Verify walk probability calculation produces expected results."""
         lzpgens = []
         for sequence in test_data_aap['cdr3_amino_acid'].iloc[:15]:
-            # Note: Using NDPLZGraph.encode_sequence as per original test
-            walk = NDPLZGraph.encode_sequence(sequence)
+            walk = AAPLZGraph.encode_sequence(sequence)
             lzpgen = aap_lzgraph.walk_probability(walk, verbose=False)
             lzpgens.append(lzpgen)
 
         # Verify first sequence's log-probability
-        assert np.round(np.log(lzpgens[0]), 2) == -72.09
+        assert np.round(np.log(lzpgens[0]), 2) == -21.52
 
 
 class TestAAPLZGraphTerminalStates:
@@ -244,3 +243,73 @@ class TestAAPLZGraphValidation:
         """Verify that non-DataFrame input raises TypeError."""
         with pytest.raises(TypeError, match="DataFrame"):
             AAPLZGraph(['sequence1', 'sequence2'])
+
+
+class TestAAPLZGraphGenePrediction:
+    """Tests for V/J gene prediction from walks in AAPLZGraph."""
+
+    def test_predict_vj_genes_max_sum(self, aap_lzgraph):
+        """Verify predict_vj_genes with max_sum mode returns valid gene names."""
+        walk = aap_lzgraph.encode_sequence('CASSLGQAYEQYF')
+        v_gene, j_gene = aap_lzgraph.predict_vj_genes(walk, mode='max_sum')
+
+        assert v_gene is not None
+        assert j_gene is not None
+        assert isinstance(v_gene, str)
+        assert isinstance(j_gene, str)
+
+    def test_predict_vj_genes_max_product(self, aap_lzgraph):
+        """Verify predict_vj_genes with max_product mode returns valid gene names."""
+        walk = aap_lzgraph.encode_sequence('CASSLGQAYEQYF')
+        v_gene, j_gene = aap_lzgraph.predict_vj_genes(walk, mode='max_product')
+
+        assert v_gene is not None
+        assert j_gene is not None
+        assert isinstance(v_gene, str)
+        assert isinstance(j_gene, str)
+
+    def test_predict_vj_genes_sampling(self, aap_lzgraph):
+        """Verify predict_vj_genes with sampling mode returns valid gene names."""
+        walk = aap_lzgraph.encode_sequence('CASSLGQAYEQYF')
+        v_gene, j_gene = aap_lzgraph.predict_vj_genes(walk, mode='sampling')
+        assert v_gene is not None
+        assert j_gene is not None
+        assert isinstance(v_gene, str)
+        assert isinstance(j_gene, str)
+
+    def test_predict_vj_genes_full(self, aap_lzgraph):
+        """Verify predict_vj_genes with full mode returns lists of gene names."""
+        walk = aap_lzgraph.encode_sequence('CASSLGQAYEQYF')
+        v_genes, j_genes = aap_lzgraph.predict_vj_genes(walk, mode='full')
+
+        assert isinstance(v_genes, list)
+        assert isinstance(j_genes, list)
+        # All entries should be strings
+        for gene in v_genes:
+            assert isinstance(gene, str)
+        for gene in j_genes:
+            assert isinstance(gene, str)
+
+
+class TestAAPLZGraphRepr:
+    """Tests for AAPLZGraph string representation."""
+
+    def test_repr_contains_class_name(self, aap_lzgraph):
+        """Verify repr contains 'AAPLZGraph'."""
+        result = repr(aap_lzgraph)
+        assert 'AAPLZGraph' in result
+
+    def test_repr_contains_nodes(self, aap_lzgraph):
+        """Verify repr contains node count information."""
+        result = repr(aap_lzgraph)
+        assert 'nodes=' in result
+
+    def test_repr_contains_edges(self, aap_lzgraph):
+        """Verify repr contains edge count information."""
+        result = repr(aap_lzgraph)
+        assert 'edges=' in result
+
+    def test_repr_contains_genetic(self, aap_lzgraph):
+        """Verify repr contains genetic status information."""
+        result = repr(aap_lzgraph)
+        assert 'genetic' in result

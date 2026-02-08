@@ -17,7 +17,8 @@ Test Categories:
 import pytest
 import numpy as np
 from LZGraphs import generate_kmer_dictionary
-from LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
+from LZGraphs.utilities.decomposition import lempel_ziv_decomposition
+from LZGraphs.utilities.misc import _is_v_gene, _is_j_gene
 
 
 class TestKmerDictionary:
@@ -145,7 +146,7 @@ class TestNodeEdgeSaturationProbe:
     @pytest.fixture
     def saturation_probe(self):
         """Create a saturation probe instance."""
-        from LZGraphs.Utilities.NodeEdgeSaturationProbe import NodeEdgeSaturationProbe
+        from LZGraphs.metrics.saturation import NodeEdgeSaturationProbe
         return NodeEdgeSaturationProbe(node_function='aap')
 
     def test_saturation_curve_returns_dataframe(
@@ -241,3 +242,57 @@ class TestDecompositionEdgeCases:
         # Verify we can reconstruct
         reconstructed = ''.join(subpatterns)
         assert reconstructed == sequence
+
+
+class TestGeneNameDetection:
+    """Tests for _is_v_gene and _is_j_gene covering all IMGT nomenclature."""
+
+    # --- V gene tests ---
+    @pytest.mark.parametrize("gene_name", [
+        "V30",              # Simple naming
+        "TRBV5-1*01",       # TCR beta
+        "TRAV12-2*01",      # TCR alpha
+        "TRGV9*01",         # TCR gamma
+        "TRDV1*01",         # TCR delta
+        "IGHV3-23*01",      # BCR heavy
+        "IGKV1-39*01",      # BCR kappa
+        "IGLV2-14*01",      # BCR lambda
+    ])
+    def test_is_v_gene_positive(self, gene_name):
+        """V gene names from all chain types should be recognized."""
+        assert _is_v_gene(gene_name) is True
+
+    @pytest.mark.parametrize("gene_name", [
+        "Vsum", "Jsum", "weight",   # Meta keys
+        "TRBJ2-1*01",               # J gene, not V
+        "IGHJ4*02",                 # J gene, not V
+        "J2",                       # Simple J
+    ])
+    def test_is_v_gene_negative(self, gene_name):
+        """Non-V-gene keys should not be recognized as V genes."""
+        assert _is_v_gene(gene_name) is False
+
+    # --- J gene tests ---
+    @pytest.mark.parametrize("gene_name", [
+        "J2",               # Simple naming
+        "TRBJ2-1*01",       # TCR beta
+        "TRAJ40*01",        # TCR alpha
+        "TRGJ1*01",         # TCR gamma
+        "TRDJ1*01",         # TCR delta
+        "IGHJ4*02",         # BCR heavy
+        "IGKJ2*01",         # BCR kappa
+        "IGLJ3*01",         # BCR lambda
+    ])
+    def test_is_j_gene_positive(self, gene_name):
+        """J gene names from all chain types should be recognized."""
+        assert _is_j_gene(gene_name) is True
+
+    @pytest.mark.parametrize("gene_name", [
+        "Vsum", "Jsum", "weight",   # Meta keys
+        "TRBV5-1*01",               # V gene, not J
+        "IGHV3-23*01",              # V gene, not J
+        "V30",                      # Simple V
+    ])
+    def test_is_j_gene_negative(self, gene_name):
+        """Non-J-gene keys should not be recognized as J genes."""
+        assert _is_j_gene(gene_name) is False

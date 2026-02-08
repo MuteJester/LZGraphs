@@ -1,18 +1,85 @@
-__version__ = "1.2.0"
+__version__ = "2.0.0"
 
-from .Graphs.AminoAcidPositional import *
-from .BagOfWords.BOWEncoder import *
-from .Graphs.Naive import *
-from .Utilities.NodeEdgeSaturationProbe import *
-from .Graphs.NucleotideDoublePositional import *
-from .Utilities.Utilities import *
-from .Visualization.Visualize import *
-from .Utilities.decomposition import *
-from .Utilities.misc import *
-from .Metrics import *
+# =============================================================================
+# Graph classes
+# =============================================================================
+from .graphs.amino_acid_positional import AAPLZGraph
+from .graphs.nucleotide_double_positional import NDPLZGraph
+from .graphs.naive import NaiveLZGraph
 
-# Custom Exceptions
-from .Exceptions import (
+# =============================================================================
+# Graph operations
+# =============================================================================
+from .graphs.graph_operations import graph_union
+
+# =============================================================================
+# Bag of Words
+# =============================================================================
+from .bag_of_words.bow_encoder import LZBOW
+
+# =============================================================================
+# Metrics - Diversity
+# =============================================================================
+from .metrics.diversity import (
+    LZCentrality,
+    K_Diversity,
+    K100_Diversity,
+    K500_Diversity,
+    K1000_Diversity,
+    K5000_Diversity,
+    adaptive_K_Diversity,
+)
+
+# =============================================================================
+# Metrics - Entropy / Information Theory
+# =============================================================================
+from .metrics.entropy import (
+    node_entropy,
+    edge_entropy,
+    graph_entropy,
+    normalized_graph_entropy,
+    sequence_perplexity,
+    repertoire_perplexity,
+    jensen_shannon_divergence,
+    cross_entropy,
+    kl_divergence,
+    mutual_information_genes,
+)
+
+# =============================================================================
+# Metrics - Saturation
+# =============================================================================
+from .metrics.saturation import NodeEdgeSaturationProbe
+
+# =============================================================================
+# Metrics - Convenience
+# =============================================================================
+from .metrics.convenience import compare_repertoires
+
+# =============================================================================
+# Utilities
+# =============================================================================
+from .utilities.helpers import generate_kmer_dictionary
+from .utilities.decomposition import lempel_ziv_decomposition
+
+# =============================================================================
+# Visualization (optional dependency)
+# =============================================================================
+try:
+    from .visualization.visualize import (
+        sequence_genomic_edges_variability_plot,
+        sequence_genomic_node_variability_plot,
+        sequence_possible_paths_plot,
+        ancestors_descendants_curves_plot,
+        draw_graph,
+    )
+except ImportError:
+    pass  # Visualization features not available without matplotlib/seaborn
+
+# =============================================================================
+# Exceptions
+# =============================================================================
+from .exceptions import (
     # Base
     LZGraphError,
     # Input validation
@@ -48,3 +115,67 @@ from .Exceptions import (
     MetricsError,
     InsufficientDataError,
 )
+
+
+__all__ = [
+    # Graph classes
+    'AAPLZGraph',
+    'NDPLZGraph',
+    'NaiveLZGraph',
+    # Graph operations
+    'graph_union',
+    # Bag of Words
+    'LZBOW',
+    # Diversity metrics
+    'LZCentrality',
+    'K_Diversity',
+    'K100_Diversity',
+    'K500_Diversity',
+    'K1000_Diversity',
+    'K5000_Diversity',
+    'adaptive_K_Diversity',
+    # Entropy metrics
+    'node_entropy',
+    'edge_entropy',
+    'graph_entropy',
+    'normalized_graph_entropy',
+    'sequence_perplexity',
+    'repertoire_perplexity',
+    'jensen_shannon_divergence',
+    'cross_entropy',
+    'kl_divergence',
+    'mutual_information_genes',
+    # Saturation
+    'NodeEdgeSaturationProbe',
+    # Convenience
+    'compare_repertoires',
+    # Utilities
+    'generate_kmer_dictionary',
+    'lempel_ziv_decomposition',
+    # Exceptions
+    'LZGraphError',
+    'InputValidationError',
+    'EmptyDataError',
+    'MissingColumnError',
+    'InvalidSequenceError',
+    'InvalidProbabilityError',
+    'GraphConstructionError',
+    'EncodingError',
+    'GeneDataError',
+    'NoGeneDataError',
+    'GeneAnnotationError',
+    'WalkError',
+    'NoValidPathError',
+    'MissingNodeError',
+    'MissingEdgeError',
+    'SerializationError',
+    'UnsupportedFormatError',
+    'CorruptedFileError',
+    'BOWError',
+    'EncodingFunctionMismatchError',
+    'UnfittedBOWError',
+    'GraphOperationError',
+    'IncompatibleGraphsError',
+    'MetricsError',
+    'InsufficientDataError',
+]

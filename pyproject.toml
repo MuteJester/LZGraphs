@@ -47,12 +47,14 @@ dependencies = [
     "numpy>=1.24",
     "pandas>=1.5",
     "tqdm>=4.65",
-    "matplotlib>=3.7",
-    "seaborn>=0.12",
     "scipy>=1.10",
 ]
 
 [project.optional-dependencies]
+viz = [
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -79,7 +81,7 @@ Changelog = "https://github.com/MuteJester/LZGraphs/blob/master/CHANGELOG.md"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["LZGraphs", "LZGraphs.Graphs", "LZGraphs.Metrics", "LZGraphs.Utilities", "LZGraphs.Mixins", "LZGraphs.BagOfWords", "LZGraphs.Visualization", "LZGraphs.Exceptions"]
+packages = ["LZGraphs", "LZGraphs.graphs", "LZGraphs.metrics", "LZGraphs.utilities", "LZGraphs.mixins", "LZGraphs.bag_of_words", "LZGraphs.visualization", "LZGraphs.exceptions"]
 
 [tool.setuptools.dynamic]
 version = {attr = "LZGraphs.__version__"}

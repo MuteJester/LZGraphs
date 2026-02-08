@@ -12,8 +12,8 @@ Tests covering the LZBOW class for encoding repertoires as bag-of-words vectors:
 import pytest
 import numpy as np
 
-from LZGraphs.BagOfWords.BOWEncoder import LZBOW
-from LZGraphs.Utilities.decomposition import lempel_ziv_decomposition
+from LZGraphs.bag_of_words.bow_encoder import LZBOW
+from LZGraphs.utilities.decomposition import lempel_ziv_decomposition
 from LZGraphs import EncodingFunctionMismatchError
 
 
@@ -219,3 +219,89 @@ class TestLZBOWEncodingFunctions:
         # Should contain 3-mers
         assert "CAS" in bow.dictionary
         assert "ASS" in bow.dictionary
+
+
+class TestLZBOWDictionarySize:
+    """Tests for dictionary_size consistency after combining BOW objects."""
+
+    def test_combined_dictionary_size_matches_dictionary_length(self):
+        """Verify dictionary_size == len(dictionary) after combining BOW objects.
+
+        Regression test: ensures that the __add__ method correctly sets
+        dictionary_size to match the actual dictionary length.
+        """
+        bow1 = LZBOW()
+        bow1.fit(["CASSLGQAYEQYF", "CASSLDRGTEAFF"])
+
+        bow2 = LZBOW()
+        bow2.fit(["CASSPDRGSYEQYF", "CASSLKDYEQYF"])
+
+        combined = bow1 + bow2
+
+        assert combined.dictionary_size == len(combined.dictionary)
+
+    def test_combined_dictionary_size_positive(self):
+        """Verify combined dictionary_size is positive."""
+        bow1 = LZBOW()
+        bow1.fit("CASSLGQAYEQYF")
+
+        bow2 = LZBOW()
+        bow2.fit("CASSLDRGTEAFF")
+
+        combined = bow1 + bow2
+
+        assert combined.dictionary_size > 0
+
+
+class TestLZBOWPerSequenceTransform:
+    """Tests for per-sequence transform returning 2D array."""
+
+    @pytest.fixture
+    def fitted_bow(self, test_data_aap):
+        """Create a fitted BOW model."""
+        bow = LZBOW()
+        sequences = test_data_aap['cdr3_amino_acid'].iloc[:200].tolist()
+        bow.fit(sequences)
+        return bow
+
+    def test_per_sequence_transform_shape(self, fitted_bow, test_data_aap):
+        """Verify per_sequence=True returns 2D array with correct shape."""
+        sequences = test_data_aap['cdr3_amino_acid'].iloc[:10].tolist()
+        result = fitted_bow.transform(sequences, per_sequence=True)
+
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 2
+        assert result.shape == (10, fitted_bow.dictionary_size)
+
+    def test_per_sequence_transform_rows_non_negative(self, fitted_bow, test_data_aap):
+        """Verify all values in per-sequence transform are non-negative."""
+        sequences = test_data_aap['cdr3_amino_acid'].iloc[:5].tolist()
+        result = fitted_bow.transform(sequences, per_sequence=True)
+
+        assert (result >= 0).all()
+
+    def test_per_sequence_transform_each_row_has_counts(self, fitted_bow, test_data_aap):
+        """Verify each row has at least one non-zero count."""
+        sequences = test_data_aap['cdr3_amino_acid'].iloc[:5].tolist()
+        result = fitted_bow.transform(sequences, per_sequence=True)
+
+        for i in range(result.shape[0]):
+            assert result[i].sum() > 0
+
+
+class TestLZBOWRepr:
+    """Tests for LZBOW string representation."""
+
+    def test_repr_contains_class_name(self):
+        """Verify repr contains 'LZBOW'."""
+        bow = LZBOW()
+        bow.fit("CASSLGQAYEQYF")
+        result = repr(bow)
+        assert 'LZBOW' in result
+
+    def test_repr_contains_dictionary_size(self):
+        """Verify repr contains 'dictionary_size'."""
+        bow = LZBOW()
+        bow.fit("CASSLGQAYEQYF")
+        result = repr(bow)
+        assert 'dictionary_size' in result

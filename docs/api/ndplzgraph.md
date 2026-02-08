@@ -20,7 +20,7 @@ pgen = graph.walk_probability(encoded)
 
 ## Class Reference
 
-::: LZGraphs.Graphs.NucleotideDoublePositional.NDPLZGraph
+::: LZGraphs.graphs.nucleotide_double_positional.NDPLZGraph
     options:
       show_root_heading: true
       show_source: false

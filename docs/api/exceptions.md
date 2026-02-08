@@ -34,7 +34,7 @@ LZGraphError (base)
 ## Import
 
 ```python
-from LZGraphs.Exceptions import (
+from LZGraphs.exceptions import (
     LZGraphError,
     MissingColumnError,
     NoGeneDataError,
@@ -50,7 +50,7 @@ from LZGraphs.Exceptions import (
 Raised when a required column is missing.
 
 ```python
-from LZGraphs.Exceptions import MissingColumnError
+from LZGraphs.exceptions import MissingColumnError
 
 try:
     graph = AAPLZGraph(data)  # data missing 'cdr3_amino_acid'
@@ -64,7 +64,7 @@ except MissingColumnError as e:
 Raised when gene operations are used without gene data.
 
 ```python
-from LZGraphs.Exceptions import NoGeneDataError
+from LZGraphs.exceptions import NoGeneDataError
 
 try:
     walk, v, j = graph.genomic_random_walk()
@@ -79,7 +79,7 @@ except NoGeneDataError as e:
 Raised when a required node doesn't exist.
 
 ```python
-from LZGraphs.Exceptions import MissingNodeError
+from LZGraphs.exceptions import MissingNodeError
 
 try:
     pgen = graph.walk_probability(encoded_sequence)
@@ -93,7 +93,7 @@ except MissingNodeError as e:
 Raised when input data is empty.
 
 ```python
-from LZGraphs.Exceptions import EmptyDataError
+from LZGraphs.exceptions import EmptyDataError
 
 try:
     graph = AAPLZGraph(pd.DataFrame())
@@ -106,7 +106,7 @@ except EmptyDataError:
 ### Catch All LZGraphs Errors
 
 ```python
-from LZGraphs.Exceptions import LZGraphError
+from LZGraphs.exceptions import LZGraphError
 
 try:
     # Any LZGraphs operation
@@ -119,7 +119,7 @@ except LZGraphError as e:
 ### Specific Error Handling
 
 ```python
-from LZGraphs.Exceptions import (
+from LZGraphs.exceptions import (
     MissingColumnError,
     NoGeneDataError,
     MissingNodeError
@@ -158,7 +158,7 @@ print(f"Failed: {df['error'].notna().sum()}")
 
 ## Full Reference
 
-::: LZGraphs.Exceptions
+::: LZGraphs.exceptions
     options:
       show_root_heading: false
       show_source: false

@@ -151,7 +151,7 @@ The `NaiveLZGraph` uses pure LZ76 decomposition without positional encoding, mak
 
 ```python
 from LZGraphs import NaiveLZGraph
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 # Generate a shared dictionary
 dictionary = generate_kmer_dictionary(6)

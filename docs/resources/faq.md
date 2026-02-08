@@ -31,7 +31,7 @@ Yes! LZGraphs works with any string sequences. The library is optimized for TCR/
 ```python
 # Works with any strings
 from LZGraphs import NaiveLZGraph
-from LZGraphs.Utilities import generate_kmer_dictionary
+from LZGraphs.utilities import generate_kmer_dictionary
 
 dictionary = generate_kmer_dictionary(6)
 graph = NaiveLZGraph(my_custom_sequences, dictionary)
