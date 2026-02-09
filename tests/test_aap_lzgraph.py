@@ -60,35 +60,26 @@ class TestAAPLZGraphProbabilities:
             lzpgen = aap_lzgraph.walk_probability(walk, verbose=False)
             lzpgens.append(lzpgen)
 
-        # Verify first sequence's log-probability
-        assert np.round(np.log(lzpgens[0]), 2) == -21.52
+        # Verify first sequence's log-probability (MLE stop probability)
+        assert np.round(np.log(lzpgens[0]), 2) == -21.55
 
 
 class TestAAPLZGraphTerminalStates:
     """Tests for terminal state mapping in AAPLZGraph."""
 
-    def test_terminal_state_map_late_position(self, aap_lzgraph):
-        """Verify terminal state mapping for late sequence position."""
-        expected_terminals = ['F_19', 'F_21', 'F_20']
-        actual = aap_lzgraph.terminal_state_map['F_19']
-        assert set(actual) == set(expected_terminals)
+    def test_stop_probability_mle(self, aap_lzgraph):
+        """Verify MLE stop probability: P(stop|t) = T(t) / (T(t) + f(t))."""
+        for state in aap_lzgraph.terminal_state_data.index:
+            t_count = aap_lzgraph.terminal_states[state]
+            f_count = aap_lzgraph.per_node_observed_frequency.get(state, 0)
+            expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
+            actual = aap_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            assert abs(actual - expected) < 1e-10, f"State {state}: expected {expected}, got {actual}"
 
-    def test_terminal_state_map_mid_position(self, aap_lzgraph):
-        """Verify terminal state mapping for mid sequence position."""
-        expected_terminals = ['F_19', 'F_21', 'F_18', 'F_17', 'F_20']
-        actual = aap_lzgraph.terminal_state_map['F_17']
-        assert set(actual) == set(expected_terminals)
-
-    def test_terminal_state_map_complex(self, aap_lzgraph):
-        """Verify terminal state mapping with many terminal options."""
-        expected_terminals = [
-            'YF_18', 'TF_12', 'YF_17', 'F_16', 'FF_16', 'TF_17', 'TF_18',
-            'FF_15', 'TF_20', 'HF_19', 'FF_17', 'YF_16', 'F_17', 'F_22',
-            'TF_15', 'F_18', 'FF_18', 'HF_17', 'TF_21', 'F_19', 'F_21',
-            'YF_20', 'HF_20', 'YF_19', 'FF_19', 'TF_19', 'F_15', 'F_14', 'F_20'
-        ]
-        actual = aap_lzgraph.terminal_state_map['TF_12']
-        assert set(actual) == set(expected_terminals)
+    def test_stop_probability_range(self, aap_lzgraph):
+        """All stop probabilities must be in [0, 1]."""
+        for prob in aap_lzgraph.terminal_state_data['wsif/sep']:
+            assert 0 <= prob <= 1
 
     def test_terminal_states_count(self, aap_lzgraph):
         """Verify terminal state counts."""

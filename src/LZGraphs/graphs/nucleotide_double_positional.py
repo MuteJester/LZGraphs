@@ -1,5 +1,4 @@
 import logging
-import re
 import time
 from typing import List, Tuple, Union, Generator
 
@@ -131,11 +130,8 @@ class NDPLZGraph(LZGraphBase):
 
         # Additional map derivations
         self.edges_list = None
-        self._derive_terminal_state_map()
-        self.verbose_driver(7, verbose)
         self._derive_stop_probability_data()
-        self.verbose_driver(8, verbose)
-        self.verbose_driver(5, verbose)
+        self.verbose_driver(9, verbose)
 
         # Mark constructor end time
         self.constructor_end_time = time.time()
@@ -177,9 +173,11 @@ class NDPLZGraph(LZGraphBase):
     def clean_node(base: str) -> str:
         """
         Given a sub-pattern that looks like "ATG0_3", extract only the nucleotides ("ATG").
+        The format is {nucleotides}{frame_digit}_{position}, so split on '_' and
+        drop the trailing frame digit.
         """
-        match = re.search(r"[ATGC]+", base)
-        return match.group(0) if match else ""
+        prefix = base.split('_', 1)[0]
+        return prefix[:-1] if len(prefix) > 1 else prefix
 
     # --------------------------------------------------------------------------
     # Graph-Building Methods

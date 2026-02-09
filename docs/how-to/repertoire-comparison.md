@@ -271,9 +271,49 @@ print("Top V gene differences:")
 print(v_comp.sort_values('diff', key=abs, ascending=False).head())
 ```
 
+## Transition-Level Comparison
+
+Standard JSD compares which subpatterns are used. **Transition JSD** compares how they connect, detecting structural differences even when subpattern frequencies are similar.
+
+```python
+from LZGraphs import transition_jsd, transition_kl_divergence
+
+# Symmetric, bounded [0, 1] — recommended for most use cases
+jsd_t = transition_jsd(graph1, graph2)
+print(f"Transition JSD: {jsd_t:.4f}")
+
+# Asymmetric — use when you have a reference model
+kl_t = transition_kl_divergence(graph1, graph2)  # Can be infinite
+print(f"Transition KL(1||2): {kl_t}")
+```
+
+!!! tip "When to use transition-level metrics"
+    Use `transition_jsd` instead of `jensen_shannon_divergence` when you suspect two repertoires use the same subpatterns but connect them differently, e.g. after clonal expansion creates dominant transition paths without changing overall subpattern frequencies.
+
+## Quick Comparison with compare_repertoires
+
+The `compare_repertoires` function computes all relevant metrics in one call:
+
+```python
+from LZGraphs import compare_repertoires
+
+result = compare_repertoires(graph1, graph2)
+print(result)
+# Returns a pandas Series with 16 metrics including:
+# js_divergence, transition_jsd, cross_entropy, kl_divergence,
+# node/edge entropy, transition_predictability, Jaccard similarity
+```
+
 ## Complete Comparison Pipeline
 
 ```python
+from LZGraphs import (
+    AAPLZGraph, K1000_Diversity,
+    node_entropy, jensen_shannon_divergence,
+    transition_jsd, transition_predictability,
+    compare_repertoires,
+)
+
 def full_repertoire_comparison(data1, data2, name1="Rep1", name2="Rep2"):
     """Complete comparison of two repertoires."""
 
@@ -281,6 +321,9 @@ def full_repertoire_comparison(data1, data2, name1="Rep1", name2="Rep2"):
     print("Building graphs...")
     graph1 = AAPLZGraph(data1, verbose=False)
     graph2 = AAPLZGraph(data2, verbose=False)
+
+    # Quick comparison (all metrics at once)
+    result = compare_repertoires(graph1, graph2)
 
     # Basic stats
     print(f"\n{'='*50}")
@@ -293,8 +336,15 @@ def full_repertoire_comparison(data1, data2, name1="Rep1", name2="Rep2"):
     print(f"\n{'='*50}")
     print("DIVERGENCE")
     print(f"{'='*50}")
-    jsd = jensen_shannon_divergence(graph1, graph2)
-    print(f"Jensen-Shannon Divergence: {jsd:.4f}")
+    print(f"Node-level JSD:       {result['js_divergence']:.4f}")
+    print(f"Transition-level JSD: {result['transition_jsd']:.4f}")
+
+    # Predictability
+    print(f"\n{'='*50}")
+    print("TRANSITION PREDICTABILITY")
+    print(f"{'='*50}")
+    print(f"{name1}: {result['transition_predictability_1']:.3f}")
+    print(f"{name2}: {result['transition_predictability_2']:.3f}")
 
     # Diversity
     print(f"\n{'='*50}")
@@ -307,17 +357,10 @@ def full_repertoire_comparison(data1, data2, name1="Rep1", name2="Rep2"):
     print(f"{name1} K1000: {k1:.1f}")
     print(f"{name2} K1000: {k2:.1f}")
 
-    # Entropy
-    print(f"\n{'='*50}")
-    print("ENTROPY")
-    print(f"{'='*50}")
-    print(f"{name1} node entropy: {node_entropy(graph1):.2f}")
-    print(f"{name2} node entropy: {node_entropy(graph2):.2f}")
-
-    return graph1, graph2, jsd
+    return graph1, graph2, result
 
 # Run comparison
-g1, g2, jsd = full_repertoire_comparison(data1, data2, "Healthy", "Disease")
+g1, g2, metrics = full_repertoire_comparison(data1, data2, "Healthy", "Disease")
 ```
 
 ## Next Steps

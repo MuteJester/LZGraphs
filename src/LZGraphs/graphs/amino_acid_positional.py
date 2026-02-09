@@ -1,5 +1,4 @@
 import logging
-import re
 import time
 from typing import List, Tuple, Union, Optional, Generator
 
@@ -10,7 +9,7 @@ from tqdm.auto import tqdm
 
 from .lz_graph_base import LZGraphBase
 from ..utilities.decomposition import lempel_ziv_decomposition
-from ..utilities.misc import window, choice
+from ..utilities.misc import window
 from ..exceptions import (
     EmptyDataError,
     MissingColumnError,
@@ -146,11 +145,8 @@ class AAPLZGraph(LZGraphBase):
 
         # Additional map derivations
         self.edges_list = None
-        self._derive_terminal_state_map()
-        self.verbose_driver(7, verbose)
         self._derive_stop_probability_data()
-        self.verbose_driver(8, verbose)
-        self.verbose_driver(5, verbose)
+        self.verbose_driver(9, verbose)
 
         # Optionally compute the PGEN for each sequence
         if calculate_trainset_pgen:
@@ -301,8 +297,8 @@ class AAPLZGraph(LZGraphBase):
         """
         Given a sub-pattern that might look like "ABC_10", extract only the amino acids ("ABC").
         """
-        match = re.search(r'[A-Z]+', base)
-        return match.group(0) if match else ""
+        idx = base.rfind('_')
+        return base[:idx] if idx > 0 else base
 
     def _decomposed_sequence_generator(
         self,

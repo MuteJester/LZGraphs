@@ -22,7 +22,15 @@ from LZGraphs import (
     jensen_shannon_divergence,
     cross_entropy,
     kl_divergence,
-    mutual_information_genes
+    mutual_information_genes,
+    transition_predictability,
+    graph_compression_ratio,
+    repertoire_compressibility_index,
+    transition_kl_divergence,
+    transition_jsd,
+    transition_mutual_information_profile,
+    path_entropy_rate,
+    compare_repertoires,
 )
 ```
 
@@ -223,8 +231,151 @@ print(f"MI (V): {mi_v:.4f}, MI (J): {mi_j:.4f}")
 
 ---
 
+## Information-Theoretic Metrics
+
+### transition_predictability
+
+Measures how deterministic the graph transitions are relative to the maximum possible branching.
+
+```python
+from LZGraphs import transition_predictability
+
+tp = transition_predictability(graph)
+print(f"Transition predictability: {tp:.3f}")  # 0 to 1
+```
+
+!!! note "Function Signature"
+    `transition_predictability(lzgraph, base=2) -> float`
+
+    Returns a value in [0, 1]. Higher values indicate more deterministic transitions (restricted repertoire). Empirically stable at ~0.60 for AAPLZGraph across sample sizes.
+
+### graph_compression_ratio
+
+Measures how much the graph compresses repeated transitions into shared edges.
+
+```python
+from LZGraphs import graph_compression_ratio
+
+gcr = graph_compression_ratio(graph)
+print(f"Compression ratio: {gcr:.3f}")  # 0 to 1
+```
+
+!!! note "Function Signature"
+    `graph_compression_ratio(lzgraph) -> float`
+
+    Returns `n_edges / n_transitions`. Lower values indicate more path sharing. AAPLZGraph ~0.18, NaiveLZGraph ~0.05.
+
+### repertoire_compressibility_index
+
+Alias for `transition_predictability`, framed from a data compression perspective.
+
+```python
+from LZGraphs import repertoire_compressibility_index
+
+rci = repertoire_compressibility_index(graph)
+print(f"Compressibility: {rci:.3f}")  # 0 to 1
+```
+
+!!! note "Function Signature"
+    `repertoire_compressibility_index(lzgraph, base=2) -> float`
+
+    RCI = 1 means fully deterministic (compressible), RCI = 0 means maximally uncertain (incompressible).
+
+### path_entropy_rate
+
+Estimates the average information content per subpattern step across actual sequences.
+
+```python
+from LZGraphs import path_entropy_rate
+
+sequences = data['cdr3_amino_acid'].tolist()
+h = path_entropy_rate(graph, sequences)
+print(f"Entropy rate: {h:.3f} bits/step")
+```
+
+!!! note "Function Signature"
+    `path_entropy_rate(lzgraph, sequences, base=2) -> float`
+
+    Uses `walk_log_probability()` internally. AAPLZGraph ~2.5 bits/step, NaiveLZGraph ~3.5 bits/step.
+
+---
+
+## Transition-Level Divergence
+
+### transition_kl_divergence
+
+Transition-level KL divergence — compares the transition structure, not just node distributions.
+
+```python
+from LZGraphs import transition_kl_divergence
+
+kl = transition_kl_divergence(graph1, graph2)
+print(f"Transition KL: {kl:.4f}")
+```
+
+!!! note "Function Signature"
+    `transition_kl_divergence(lzgraph_p, lzgraph_q) -> float`
+
+    Asymmetric, can be infinite. Use `transition_jsd` for a bounded alternative.
+
+### transition_jsd
+
+Transition-level Jensen-Shannon divergence — always finite, symmetric.
+
+```python
+from LZGraphs import transition_jsd
+
+jsd_t = transition_jsd(graph1, graph2)
+print(f"Transition JSD: {jsd_t:.4f}")  # 0 to 1
+```
+
+!!! note "Function Signature"
+    `transition_jsd(lzgraph1, lzgraph2) -> float`
+
+    Symmetric and bounded [0, 1]. Recommended for comparing repertoire transition structures.
+
+### transition_mutual_information_profile
+
+Position-specific mutual information along the CDR3 sequence.
+
+```python
+from LZGraphs import transition_mutual_information_profile
+
+tmip = transition_mutual_information_profile(graph)
+for pos in sorted(tmip):
+    print(f"Position {pos}: MI = {tmip[pos]:.3f} bits")
+```
+
+!!! note "Function Signature"
+    `transition_mutual_information_profile(lzgraph) -> dict`
+
+    Returns `{position: mutual_information}`. Only works with positional graphs (AAPLZGraph, NDPLZGraph). Raises `MetricsError` for NaiveLZGraph.
+
+---
+
+## Convenience
+
+### compare_repertoires
+
+All-in-one repertoire comparison returning a pandas Series of metrics.
+
+```python
+from LZGraphs import compare_repertoires
+
+result = compare_repertoires(graph1, graph2)
+print(result)
+```
+
+!!! note "Function Signature"
+    `compare_repertoires(graph1, graph2) -> pd.Series`
+
+    Returns: `js_divergence`, `transition_jsd`, `cross_entropy_1_2`, `cross_entropy_2_1`, `kl_divergence_1_2`, `kl_divergence_2_1`, `node_entropy_1`, `node_entropy_2`, `edge_entropy_1`, `edge_entropy_2`, `transition_predictability_1`, `transition_predictability_2`, `shared_nodes`, `shared_edges`, `jaccard_nodes`, `jaccard_edges`.
+
+---
+
 ## See Also
 
 - [Tutorials: Diversity Metrics](../tutorials/diversity-metrics.md)
 - [How-To: Compare Repertoires](../how-to/repertoire-comparison.md)
 - [Concepts: Probability Model](../concepts/probability-model.md)
+- [Example: Information-Theoretic Analysis](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Information-Theoretic%20Analysis.ipynb)

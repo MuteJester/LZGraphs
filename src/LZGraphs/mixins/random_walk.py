@@ -117,21 +117,18 @@ class RandomWalkMixin:
 
         current_state = initial_state or self._random_initial_state()
         walk = [current_state]
+        graph = self.graph
 
         while not self.is_stop_condition(current_state):
-            edge_info = self._get_node_feature_info_df(
-                current_state,
-                'weight',
-                asdict=True
-            )
+            # Build edge_info directly from graph (avoid legacy dict conversion)
+            neighbors = list(graph[current_state].keys())
 
             # Apply blacklist if there's an entry for this state
             if current_state in self.genetic_walks_black_list:
-                blacklist_edges = self.genetic_walks_black_list[current_state]
-                for col in blacklist_edges:
-                    edge_info.pop(col, None)
+                blacklist_edges = set(self.genetic_walks_black_list[current_state])
+                neighbors = [nb for nb in neighbors if nb not in blacklist_edges]
 
-            if len(edge_info) == 0:
+            if len(neighbors) == 0:
                 # If no edges remain, attempt backtracking or reset
                 if len(walk) > 2:
                     last_state = walk[-2]
@@ -146,9 +143,9 @@ class RandomWalkMixin:
                 continue
 
             # Pick next state based on edge weights
-            weights = np.array([edge_info[i]['weight'] for i in edge_info])
+            weights = np.array([graph[current_state][nb]['data'].weight for nb in neighbors])
             weights /= weights.sum()
-            current_state = choice(list(edge_info.keys()), weights)
+            current_state = choice(neighbors, weights)
             walk.append(current_state)
 
         return walk

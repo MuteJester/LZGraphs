@@ -12,6 +12,11 @@ LZGraphs provides several approaches to quantify repertoire diversity:
 | **LZCentrality** | Sequence position in repertoire | Sequence rarity |
 | **Entropy** | Information content | Graph complexity |
 | **Perplexity** | Prediction uncertainty | Model quality |
+| **Transition Predictability** | Determinism of transitions | Repertoire constraint |
+| **Graph Compression Ratio** | Path sharing efficiency | Structural compression |
+| **Path Entropy Rate** | Information per step | Per-sequence complexity |
+| **Transition JSD** | Transition structure divergence | Repertoire comparison |
+| **TMIP** | Position-specific mutual information | Recombination profiling |
 
 ---
 
@@ -311,6 +316,89 @@ print(f"K1000:    {K1000_Diversity(seq1, AAPLZGraph.encode_sequence):.0f} vs "
 print(f"Entropy:  {node_entropy(g1):.2f} vs {node_entropy(g2):.2f}")
 print(f"JS Div:   {jensen_shannon_divergence(g1, g2):.4f}")
 ```
+
+---
+
+---
+
+## Information-Theoretic Metrics
+
+LZGraphs v2.1 introduces a suite of information-theoretic metrics that capture the **structural complexity** of immune repertoires at the transition level.
+
+### Transition Predictability
+
+Measures how deterministic the graph transitions are. Stable across sample sizes, making it an intrinsic property of the repertoire.
+
+```python
+from LZGraphs import transition_predictability
+
+tp = transition_predictability(graph)
+print(f"Transition predictability: {tp:.3f}")
+# AAPLZGraph: ~0.60 (healthy repertoire)
+# Higher = more restricted, Lower = more diverse
+```
+
+!!! info "Clinical interpretation"
+    - **High TP** (~0.8+): Restricted repertoire, possible clonal expansion
+    - **Normal TP** (~0.55-0.65): Healthy polyclonal repertoire
+    - **Low TP** (~0.3-0.4): Highly diverse or aberrant transition patterns
+
+### Graph Compression Ratio
+
+Measures how efficiently sequences share structural paths through the graph.
+
+```python
+from LZGraphs import graph_compression_ratio
+
+gcr = graph_compression_ratio(graph)
+print(f"Compression ratio: {gcr:.3f}")
+# Lower = more path sharing
+```
+
+### Path Entropy Rate
+
+Average information content per subpattern step across actual sequences.
+
+```python
+from LZGraphs import path_entropy_rate
+
+sequences = data['cdr3_amino_acid'].tolist()
+h = path_entropy_rate(graph, sequences)
+print(f"Entropy rate: {h:.3f} bits/step")
+```
+
+### Transition Mutual Information Profile (TMIP)
+
+Reveals where along the CDR3 sequence transitions are most/least predictable. Only works with positional graphs (AAPLZGraph, NDPLZGraph).
+
+```python
+from LZGraphs import transition_mutual_information_profile
+
+tmip = transition_mutual_information_profile(graph)
+for pos in sorted(tmip):
+    print(f"Position {pos}: MI = {tmip[pos]:.3f} bits")
+```
+
+!!! tip "Biological insight"
+    - **High MI positions**: Germline-encoded boundaries (V-gene exit, J-gene entry)
+    - **Low MI positions**: Junctional diversity region (N-insertions)
+
+### Comparing Repertoires at the Transition Level
+
+```python
+from LZGraphs import transition_jsd, compare_repertoires
+
+# Symmetric, bounded [0, 1]
+jsd_t = transition_jsd(graph1, graph2)
+print(f"Transition JSD: {jsd_t:.4f}")
+
+# All-in-one comparison
+result = compare_repertoires(graph1, graph2)
+print(result)
+```
+
+For a complete walkthrough of all information-theoretic metrics with visualizations, see the
+[Information-Theoretic Analysis notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Information-Theoretic%20Analysis.ipynb).
 
 ---
 

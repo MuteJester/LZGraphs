@@ -61,33 +61,25 @@ class TestNDPLZGraphProbabilities:
             lzpgens.append(lzpgen)
 
         # Verify first sequence's log-probability
-        assert np.round(np.log(lzpgens[0]), 2) == -41.71
+        assert np.round(np.log(lzpgens[0]), 2) == -40.60
 
 
 class TestNDPLZGraphTerminalStates:
     """Tests for terminal state mapping in NDPLZGraph."""
 
-    def test_terminal_state_map_mid_sequence(self, ndp_lzgraph):
-        """Verify terminal state mapping for mid-sequence position."""
-        expected_terminals = [
-            'C2_54', 'T2_57', 'TTT0_60', 'TTC0_54', 'TC1_51', 'C2_57',
-            'T2_54', 'T2_60', 'TT1_57', 'TT1_60', 'TTT0_57', 'TC1_60',
-            'C2_60', 'TTT0_63', 'TTC0_57', 'TTC0_60', 'T2_63'
-        ]
-        actual = ndp_lzgraph.terminal_state_map['TC1_51']
-        assert set(actual) == set(expected_terminals)
+    def test_stop_probability_mle(self, ndp_lzgraph):
+        """Verify MLE stop probability: P(stop|t) = T(t) / (T(t) + f(t))."""
+        for state in ndp_lzgraph.terminal_state_data.index:
+            t_count = ndp_lzgraph.terminal_states[state]
+            f_count = ndp_lzgraph.per_node_observed_frequency.get(state, 0)
+            expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
+            actual = ndp_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            assert abs(actual - expected) < 1e-10
 
-    def test_terminal_state_map_late_sequence(self, ndp_lzgraph):
-        """Verify terminal state mapping for late sequence position."""
-        expected_terminals = ['TC1_60', 'TTT0_63', 'T2_63']
-        actual = ndp_lzgraph.terminal_state_map['TC1_60']
-        assert set(actual) == set(expected_terminals)
-
-    def test_terminal_state_map_short_list(self, ndp_lzgraph):
-        """Verify terminal state mapping with few terminal options."""
-        expected_terminals = ['TT1_45', 'TTT0_51', 'TTT0_48']
-        actual = ndp_lzgraph.terminal_state_map['TT1_45']
-        assert set(actual) == set(expected_terminals)
+    def test_stop_probability_range(self, ndp_lzgraph):
+        """All stop probabilities must be in [0, 1]."""
+        for prob in ndp_lzgraph.terminal_state_data['wsif/sep']:
+            assert 0 <= prob <= 1
 
     def test_terminal_states_count(self, ndp_lzgraph):
         """Verify terminal state counts."""

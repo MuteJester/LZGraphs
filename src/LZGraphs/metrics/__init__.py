@@ -37,6 +37,11 @@ from .convenience import (
     compare_repertoires,
 )
 
+from .pgen_distribution import (
+    LZPgenDistribution,
+    compare_lzpgen_distributions,
+)
+
 __all__ = [
     # Diversity metrics
     'LZCentrality',
@@ -69,4 +74,7 @@ __all__ = [
     'get_k1000_diversity',
     # Convenience
     'compare_repertoires',
+    # PGen distribution
+    'LZPgenDistribution',
+    'compare_lzpgen_distributions',
 ]

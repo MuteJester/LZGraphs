@@ -1,4 +1,4 @@
-__version__ = "2.1.0"
+__version__ = "2.1.1"
 
 # =============================================================================
 # Graph classes
@@ -62,6 +62,11 @@ from .metrics.saturation import NodeEdgeSaturationProbe
 # Metrics - Convenience
 # =============================================================================
 from .metrics.convenience import compare_repertoires
+
+# =============================================================================
+# Metrics - PGen Distribution
+# =============================================================================
+from .metrics.pgen_distribution import LZPgenDistribution, compare_lzpgen_distributions
 
 # =============================================================================
 # Utilities
@@ -163,6 +168,9 @@ __all__ = [
     'NodeEdgeSaturationProbe',
     # Convenience
     'compare_repertoires',
+    # PGen distribution
+    'LZPgenDistribution',
+    'compare_lzpgen_distributions',
     # Utilities
     'generate_kmer_dictionary',
     'lempel_ziv_decomposition',

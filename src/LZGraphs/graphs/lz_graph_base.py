@@ -69,6 +69,28 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         self.smoothing_alpha = 0.0
         self.initial_state_threshold = 0
 
+        # Fast stop probability lookup (populated by _derive_stop_probability_data)
+        self._terminal_stop_dict = {}
+        # Walk cache for simulate() (built lazily)
+        self._walk_cache = None
+
+    def __getattr__(self, name):
+        """Backward compatibility for attributes added after v2.0.0.
+
+        Handles old pickled graphs that lack ``_terminal_stop_dict`` or
+        ``_walk_cache``.
+        """
+        if name == '_terminal_stop_dict':
+            if hasattr(self, 'terminal_state_data') and hasattr(self.terminal_state_data, 'columns') and 'wsif/sep' in self.terminal_state_data.columns:
+                self._terminal_stop_dict = self.terminal_state_data['wsif/sep'].to_dict()
+            else:
+                self._terminal_stop_dict = {}
+            return self._terminal_stop_dict
+        if name == '_walk_cache':
+            self._walk_cache = None
+            return None
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
     def __eq__(self, other):
         """
         This method tests whether two LZGraphs are equal, i.e. have the same node, edges,
@@ -254,29 +276,28 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         If `self.genetic` is True, we check V/J constraints plus
         a random stop probability.
         """
-        if state not in self.terminal_states:
+        stop_prob = self._terminal_stop_dict.get(state)
+        if stop_prob is None:
             return False
 
         if self.genetic:
             if selected_j is not None:
                 # Check whether we have neighbors that contain both selected_v and selected_j
-                neighbours = 0
+                has_compatible = False
                 for nb in self.graph[state]:
                     ed = self.graph[state][nb]['data']
                     if ed.has_gene(selected_v) and ed.has_gene(selected_j):
-                        neighbours = 2
+                        has_compatible = True
                         break
             else:
-                neighbours = self.graph.out_degree(state)
+                has_compatible = self.graph.out_degree(state) > 0
 
-            if neighbours == 0:
+            if not has_compatible:
                 return True
             else:
-                stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
-                return (np.random.binomial(1, stop_probability) == 1)
+                return np.random.random() < stop_prob
         else:
-            stop_probability = self.terminal_state_data.loc[state, 'wsif/sep']
-            return (np.random.binomial(1, stop_probability) == 1)
+            return np.random.random() < stop_prob
 
     def _derive_subpattern_individual_probability(self):
         """
@@ -310,16 +331,10 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             logger.info(f"[{elapsed:.2f}s] Graph Metadata Derived.")
         elif message_number == 3:
             logger.info(f"[{elapsed:.2f}s] Graph Edge Weights Normalized.")
-        elif message_number == 4:
-            logger.info(f"[{elapsed:.2f}s] Graph Edge Gene Weights Normalized.")
-        elif message_number == 5:
-            logger.info(f"[{elapsed:.2f}s] Terminal State Map Derived.")
         elif message_number == 6:
             # We assume there's a self.constructor_end_time set somewhere
             total_time = round(self.constructor_end_time - self.constructor_start_time, 2)
             logger.info(f"[{total_time:.2f}s] LZGraph Created Successfully.")
-        elif message_number == 7:
-            logger.info(f"[{elapsed:.2f}s] Terminal State Map Derived (Event 7).")
         elif message_number == 8:
             logger.info(f"[{elapsed:.2f}s] Individual Subpattern Empirical Probability Derived.")
         elif message_number == 9:
@@ -405,8 +420,10 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
         # Derived probability tables
         self._derive_subpattern_individual_probability()
-        self._derive_terminal_state_map()
         self._derive_stop_probability_data()
+
+        # Invalidate walk cache (if it exists)
+        self._walk_cache = None
 
     def remove_sequence(self, sequence, v_gene=None, j_gene=None):
         """Remove a single sequence's contribution from the graph.
@@ -465,69 +482,36 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         # Recalculate derived state
         self.recalculate()
 
-    def _derive_terminal_state_map(self):
-        """
-        For each terminal state, run a DFS from it to find other terminal
-        states reachable from that node. Store the results in `self.terminal_state_map`.
-        """
-        terminal_states_set = set(self.terminal_states.index)
-        reachability_dict = {}
-
-        for terminal in self.terminal_states.index:
-            visited = nx.dfs_preorder_nodes(self.graph, source=terminal)
-            reachable_terminals = list(set(visited) & terminal_states_set)
-            reachability_dict[terminal] = reachable_terminals
-
-        self.terminal_state_map = pd.Series(reachability_dict, index=self.terminal_states.index)
-
     def _derive_stop_probability_data(self):
+        """Compute MLE stop probabilities at terminal states.
+
+        For each terminal state *t*, the stop probability is the Maximum
+        Likelihood Estimator of a Bernoulli process:
+
+            P(stop | t) = T(t) / (T(t) + f(t))
+
+        where T(t) is the number of sequences that ended at *t*
+        (``terminal_states[t]``) and f(t) is the number of outgoing edge
+        traversals from *t* (``per_node_observed_frequency[t]``).
+
+        Properties:
+        - Always in [0, 1] by construction (no clamping needed).
+        - Preserves the Markov property (depends only on local node counts).
+        - O(|T|) computation cost.
         """
-        Example logic for computing stop probabilities at terminal states.
-        (This logic might be specialized, but it's carried over from your original class.)
-        """
+        stop_probs = {}
+        for state in self.terminal_states.index:
+            t_count = self.terminal_states[state]
+            f_count = self.per_node_observed_frequency.get(state, 0)
+            denominator = t_count + f_count
+            stop_probs[state] = t_count / denominator if denominator > 0 else 1.0
 
-        def freq_normalize(target):
-            D = self.length_distribution_proba.loc[target].copy()
-            D /= D.sum()
-            return D
-
-        def wont_stop_at_future_states(state, es):
-            D = freq_normalize(es.decendent_end_states[state])
-            current_freq = D.pop(state)
-            if len(D) >= 1:
-                D = 1 - D
-                return D.product()
-            else:
-                return 1
-
-        def didnt_stop_at_past(state, es):
-            D = freq_normalize(es.ancestor_end_state[state])
-            if state in D:
-                D.pop(state)
-            if len(D) >= 1:
-                D = 1 - D
-                return D.product()
-            else:
-                return 1
-
-        es = self.terminal_state_map.to_frame().rename(columns={0: 'decendent_end_states'})
-        es['n_alternative'] = es['decendent_end_states'].apply(lambda x: len(x) - 1)
-        es['end_freq'] = self.length_distribution_proba
-
-        es['wont_stop_in_future'] = es.index.to_series().apply(lambda x: wont_stop_at_future_states(x, es))
-        es['state_end_proba'] = es.index.to_series().apply(lambda x: freq_normalize(es.decendent_end_states[x])[x])
-        es['ancestor_end_state'] = es.index.to_series().apply(
-            lambda x: list({ax for ax, i in zip(es.index, es['decendent_end_states']) if x in i})
-        )
-        es['state_end_proba_ancestor'] = es.index.to_series().apply(
-            lambda x: freq_normalize(es.ancestor_end_state[x])[x]
-        )
-        es['didnt_stop_at_past'] = es.index.to_series().apply(lambda x: didnt_stop_at_past(x, es))
-
-        es['wsif/sep'] = es['state_end_proba'] / es['wont_stop_in_future']
-        es.loc[es['wsif/sep'] >= 1, 'wsif/sep'] = 1
-
-        self.terminal_state_data = es
+        self.terminal_state_data = pd.DataFrame({
+            'terminal_count': pd.Series({s: self.terminal_states[s] for s in self.terminal_states.index}),
+            'outgoing_count': pd.Series({s: self.per_node_observed_frequency.get(s, 0) for s in self.terminal_states.index}),
+            'wsif/sep': pd.Series(stop_probs),
+        })
+        self._terminal_stop_dict = self.terminal_state_data['wsif/sep'].to_dict()
 
     def _length_specific_terminal_state(self, length):
         """
@@ -559,6 +543,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Remove isolates (nodes with zero edges) from the graph.
         """
         self.graph.remove_nodes_from(self.isolates)
+        self._walk_cache = None
 
     @property
     def is_dag(self):
@@ -736,14 +721,14 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         random_init = self._random_initial_state()
         current_state = random_init
         walk = [random_init]
-        sequence = self.clean_node(random_init)
+        parts = [self.clean_node(random_init)]
 
         while not self.is_stop_condition(current_state):
             current_state = self.random_step(current_state)
             walk.append(current_state)
-            sequence += self.clean_node(current_state)
+            parts.append(self.clean_node(current_state))
 
-        return walk, sequence
+        return walk, ''.join(parts)
 
     def sequence_variation_curve(self, cdr3_sample):
         """
@@ -876,6 +861,591 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             "sp": lz_subpatterns + lz_subpatterns,
         })
         return df
+
+    # =========================================================================
+    # Fast Simulation
+    # =========================================================================
+
+    def _build_walk_cache(self, seed=None):
+        """Build pre-computed numpy arrays for fast random walks.
+
+        Returns a dict with the cache data, stored as ``self._walk_cache``.
+        """
+        graph = self.graph
+        nodes = list(graph.nodes())
+        n = len(nodes)
+
+        node_to_id = {name: i for i, name in enumerate(nodes)}
+        id_to_node = np.array(nodes, dtype=object)
+
+        # Pre-compute clean labels for all nodes
+        clean_labels = np.array([self.clean_node(name) for name in nodes], dtype=object)
+
+        # Per-node neighbor IDs and weights
+        neighbor_ids = [None] * n
+        neighbor_weights = [None] * n
+        for i, name in enumerate(nodes):
+            succs = list(graph.successors(name))
+            if succs:
+                ids = np.array([node_to_id[s] for s in succs], dtype=np.intp)
+                wts = np.array([graph[name][s]['data'].weight for s in succs], dtype=np.float64)
+                wts /= wts.sum()  # ensure normalization
+                neighbor_ids[i] = ids
+                neighbor_weights[i] = wts
+
+        # Stop probabilities: NaN for non-terminal nodes
+        stop_probs = np.full(n, np.nan, dtype=np.float64)
+        for state, prob in self._terminal_stop_dict.items():
+            if state in node_to_id:
+                stop_probs[node_to_id[state]] = prob
+
+        # Initial state arrays
+        init_states = self.initial_states_probability.index.tolist()
+        init_probs = self.initial_states_probability.values.astype(np.float64)
+        init_probs = init_probs / init_probs.sum()  # ensure normalization
+        initial_ids = np.array([node_to_id[s] for s in init_states], dtype=np.intp)
+
+        rng = np.random.default_rng(seed)
+
+        self._walk_cache = {
+            'node_to_id': node_to_id,
+            'id_to_node': id_to_node,
+            'clean_labels': clean_labels,
+            'neighbor_ids': neighbor_ids,
+            'neighbor_weights': neighbor_weights,
+            'stop_probs': stop_probs,
+            'initial_ids': initial_ids,
+            'initial_probs': init_probs,
+            'rng': rng,
+        }
+        return self._walk_cache
+
+    def simulate(self, n, seed=None, return_walks=False):
+        """Generate *n* sequences via optimized random walks.
+
+        Uses a pre-computed walk cache for maximum throughput.
+        The cache is built lazily on first call and invalidated when the
+        graph is modified (``recalculate()``, ``drop_isolates()``).
+
+        Args:
+            n (int): Number of sequences to generate.
+            seed (int, optional): RNG seed for reproducibility. If given,
+                the cache is rebuilt with this seed.
+            return_walks (bool): If True, return ``(walk, sequence)`` tuples
+                instead of plain strings.
+
+        Returns:
+            list[str] or list[tuple[list[str], str]]: Generated sequences,
+                or ``(walk, sequence)`` pairs if *return_walks* is True.
+        """
+        # Build or rebuild cache
+        if self._walk_cache is None or seed is not None:
+            self._build_walk_cache(seed)
+
+        cache = self._walk_cache
+        rng = cache['rng']
+        initial_ids = cache['initial_ids']
+        initial_probs = cache['initial_probs']
+        stop_probs = cache['stop_probs']
+        neighbor_ids = cache['neighbor_ids']
+        neighbor_weights = cache['neighbor_weights']
+        clean_labels = cache['clean_labels']
+        id_to_node = cache['id_to_node']
+
+        results = []
+        for _ in range(n):
+            # Pick initial state
+            current = rng.choice(initial_ids, p=initial_probs)
+            parts = [clean_labels[current]]
+            walk_ids = [current] if return_walks else None
+
+            while True:
+                # Check stop condition
+                stop_p = stop_probs[current]
+                if not np.isnan(stop_p):
+                    if rng.random() < stop_p:
+                        break
+
+                # Check for dead-end (no outgoing edges)
+                nb_ids = neighbor_ids[current]
+                if nb_ids is None:
+                    break
+
+                # Take a step
+                current = rng.choice(nb_ids, p=neighbor_weights[current])
+                parts.append(clean_labels[current])
+                if return_walks:
+                    walk_ids.append(current)
+
+            sequence = ''.join(parts)
+            if return_walks:
+                walk = [id_to_node[wid] for wid in walk_ids]
+                results.append((walk, sequence))
+            else:
+                results.append(sequence)
+
+        return results
+
+    # =========================================================================
+    # LZPgen Distribution Methods
+    # =========================================================================
+
+    def lzpgen_distribution(self, n=100_000, seed=None):
+        """Compute the empirical LZPgen distribution via Monte Carlo.
+
+        Generates *n* random walks from the graph's generative model and
+        computes the log-probability (LZPgen) for each walk simultaneously.
+        This gives the probability-weighted distribution of generation
+        probabilities *directly from the graph structure*, without needing
+        the original input sequences.
+
+        The log-probability for each walk is computed as::
+
+            log P(init) + sum(log P(edge_i)) + log P(stop | last_node)
+
+        consistent with :meth:`walk_log_probability`.
+
+        Args:
+            n (int): Number of sequences to sample.  Default 100,000.
+            seed (int, optional): RNG seed for reproducibility.
+
+        Returns:
+            numpy.ndarray: Array of shape ``(n,)`` with log-probability values.
+
+        Example::
+
+            log_probs = graph.lzpgen_distribution(n=50_000, seed=42)
+            plt.hist(log_probs, bins=100, density=True)
+            plt.xlabel('log P(seq)')
+            plt.ylabel('Density')
+        """
+        if n <= 0:
+            return np.empty(0, dtype=np.float64)
+
+        # Build / rebuild cache
+        if self._walk_cache is None or seed is not None:
+            self._build_walk_cache(seed)
+
+        cache = self._walk_cache
+        rng = cache['rng']
+        initial_ids = cache['initial_ids']
+        initial_probs = cache['initial_probs']
+        stop_probs = cache['stop_probs']
+        neighbor_ids = cache['neighbor_ids']
+        neighbor_weights = cache['neighbor_weights']
+
+        # Pre-compute log values for zero per-step overhead
+        eps = np.finfo(np.float64).eps
+        initial_log_probs = np.log(np.maximum(initial_probs, eps))
+
+        n_nodes = len(cache['id_to_node'])
+        stop_log_probs = np.where(
+            np.isnan(stop_probs), np.nan,
+            np.log(np.maximum(stop_probs, eps))
+        )
+
+        neighbor_log_weights = [None] * n_nodes
+        for i in range(n_nodes):
+            if neighbor_weights[i] is not None:
+                neighbor_log_weights[i] = np.log(
+                    np.maximum(neighbor_weights[i], eps)
+                )
+
+        log_probs = np.empty(n, dtype=np.float64)
+        n_initial = len(initial_ids)
+
+        for seq_idx in range(n):
+            # Pick initial state
+            init_idx = rng.choice(n_initial, p=initial_probs)
+            current = initial_ids[init_idx]
+            log_p = initial_log_probs[init_idx]
+
+            while True:
+                # Check stop condition
+                stop_p = stop_probs[current]
+                if not np.isnan(stop_p):
+                    if rng.random() < stop_p:
+                        log_p += stop_log_probs[current]
+                        break
+
+                # Dead-end check
+                nb_ids = neighbor_ids[current]
+                if nb_ids is None:
+                    log_p += np.log(eps)
+                    break
+
+                # Take a step
+                n_nb = len(nb_ids)
+                step_idx = rng.choice(n_nb, p=neighbor_weights[current])
+                log_p += neighbor_log_weights[current][step_idx]
+                current = nb_ids[step_idx]
+
+            log_probs[seq_idx] = log_p
+
+        return log_probs
+
+    def lzpgen_moments(self):
+        """Compute exact moments of the LZPgen distribution via forward propagation.
+
+        For DAG-structured graphs (AAPLZGraph, NDPLZGraph), this computes the
+        *exact* mean and variance of the log-probability distribution by
+        propagating probability mass and moment accumulators through the graph
+        in topological order.  This runs in O(|E|) time and gives deterministic
+        results with no sampling required.
+
+        The computed moments correspond to the distribution of
+        :meth:`walk_log_probability` values over all possible walks, weighted
+        by their generative probability.
+
+        The forward propagation tracks five quantities per node:
+
+        - **m0**: total probability mass arriving at the node
+        - **m1**: first moment (mass-weighted sum of log-probabilities)
+        - **m2**: second moment (mass-weighted sum of squared log-probabilities)
+        - **m3**: third moment (for skewness)
+        - **m4**: fourth moment (for kurtosis)
+
+        At each terminal node, the stopping mass contributes to the overall
+        distribution moments.  Continue-mass propagates forward via edge
+        transitions.
+
+        Returns:
+            dict: Keys ``'mean'``, ``'variance'``, ``'std'``, ``'skewness'``,
+                ``'kurtosis'``, ``'total_mass'``.
+                ``total_mass`` should be close to 1.0 for a well-formed model.
+
+        Raises:
+            RuntimeError: If the graph contains cycles (use
+                :meth:`lzpgen_distribution` for cyclic graphs instead).
+
+        Example::
+
+            moments = graph.lzpgen_moments()
+            print(f"E[log P] = {moments['mean']:.4f}")
+            print(f"Std[log P] = {moments['std']:.4f}")
+        """
+        try:
+            topo_order = list(nx.topological_sort(self.graph))
+        except nx.NetworkXUnfeasible:
+            raise RuntimeError(
+                "lzpgen_moments() requires a DAG-structured graph. "
+                "Use lzpgen_distribution() for graphs with cycles."
+            )
+
+        eps = np.finfo(np.float64).eps
+        n_nodes = len(topo_order)
+
+        # Moment accumulators per node (indexed by topological position)
+        m0 = np.zeros(n_nodes)
+        m1 = np.zeros(n_nodes)
+        m2 = np.zeros(n_nodes)
+        m3 = np.zeros(n_nodes)
+        m4 = np.zeros(n_nodes)
+
+        node_to_idx = {node: i for i, node in enumerate(topo_order)}
+
+        # Seed initial states
+        for state in self.initial_states_probability.index:
+            if state in node_to_idx:
+                idx = node_to_idx[state]
+                p = self.initial_states_probability[state]
+                lp = np.log(max(p, eps))
+                lp2 = lp * lp
+                m0[idx] += p
+                m1[idx] += p * lp
+                m2[idx] += p * lp2
+                m3[idx] += p * lp2 * lp
+                m4[idx] += p * lp2 * lp2
+
+        # Terminal accumulators
+        T0 = T1 = T2 = T3 = T4 = 0.0
+
+        graph = self.graph
+
+        for u in topo_order:
+            ui = node_to_idx[u]
+            if m0[ui] == 0:
+                continue
+
+            # Terminal contribution: mass that stops here
+            stop_prob = self._terminal_stop_dict.get(u)
+            if stop_prob is not None and stop_prob > 0:
+                ls = np.log(max(stop_prob, eps))
+                ls2 = ls * ls
+                ls3 = ls2 * ls
+                ls4 = ls3 * ls
+
+                T0 += stop_prob * m0[ui]
+                T1 += stop_prob * (m1[ui] + ls * m0[ui])
+                T2 += stop_prob * (m2[ui] + 2 * ls * m1[ui] + ls2 * m0[ui])
+                T3 += stop_prob * (
+                    m3[ui] + 3 * ls * m2[ui]
+                    + 3 * ls2 * m1[ui] + ls3 * m0[ui]
+                )
+                T4 += stop_prob * (
+                    m4[ui] + 4 * ls * m3[ui] + 6 * ls2 * m2[ui]
+                    + 4 * ls3 * m1[ui] + ls4 * m0[ui]
+                )
+                continue_factor = 1.0 - stop_prob
+            else:
+                continue_factor = 1.0
+
+            if continue_factor < eps:
+                continue
+
+            # Propagate to successors (binomial moment expansion)
+            for v in graph.successors(u):
+                vi = node_to_idx[v]
+                w = graph[u][v]['data'].weight
+                lw = np.log(max(w, eps))
+                lw2 = lw * lw
+                lw3 = lw2 * lw
+                lw4 = lw3 * lw
+                f = continue_factor * w
+
+                m0[vi] += f * m0[ui]
+                m1[vi] += f * (m1[ui] + lw * m0[ui])
+                m2[vi] += f * (m2[ui] + 2 * lw * m1[ui] + lw2 * m0[ui])
+                m3[vi] += f * (
+                    m3[ui] + 3 * lw * m2[ui]
+                    + 3 * lw2 * m1[ui] + lw3 * m0[ui]
+                )
+                m4[vi] += f * (
+                    m4[ui] + 4 * lw * m3[ui] + 6 * lw2 * m2[ui]
+                    + 4 * lw3 * m1[ui] + lw4 * m0[ui]
+                )
+
+        if T0 < eps:
+            raise RuntimeError("No probability mass reached terminal states")
+
+        # Raw moments about origin
+        mu1 = T1 / T0
+        mu2 = T2 / T0
+        mu3 = T3 / T0
+        mu4 = T4 / T0
+
+        # Cumulants
+        k1 = mu1
+        k2 = mu2 - mu1 ** 2
+        k3 = mu3 - 3 * mu2 * mu1 + 2 * mu1 ** 3
+        k4 = (mu4 - 4 * mu3 * mu1 - 3 * mu2 ** 2
+              + 12 * mu2 * mu1 ** 2 - 6 * mu1 ** 4)
+
+        variance = max(k2, 0.0)
+        std = np.sqrt(variance)
+
+        return {
+            'mean': float(k1),
+            'variance': float(variance),
+            'std': float(std),
+            'skewness': float(k3 / k2 ** 1.5) if k2 > 0 else 0.0,
+            'kurtosis': float(k4 / k2 ** 2) if k2 > 0 else 0.0,
+            'total_mass': float(T0),
+        }
+
+    def lzpgen_analytical_distribution(self):
+        """Derive a full analytical LZPgen distribution from graph structure.
+
+        Combines two complementary techniques:
+
+        1. **Length-conditional Gaussian mixture** — one Normal component per
+           walk length, with exact per-length (weight, mean, variance) computed
+           by length-stratified forward propagation.
+        2. **Saddlepoint approximation** — exact kappa_1 … kappa_4 computed by
+           extending the moment propagation to m3 and m4, enabling the
+           Lugannani-Rice PDF/CDF.
+
+        All parameters are derived deterministically from the graph's adjacency
+        matrix, edge weights, and stop probabilities.  No Monte Carlo sampling.
+
+        Time complexity: O(|E| * K_max) where K_max is the maximum walk length
+        (typically 5–25).
+
+        Returns:
+            LZPgenDistribution: A scipy-like distribution object with
+                ``.pdf()``, ``.cdf()``, ``.ppf()``, ``.rvs()``,
+                ``.confidence_interval()``, ``.saddlepoint_pdf()``,
+                ``.saddlepoint_cdf()``, ``.mean()``, ``.var()``,
+                ``.skewness()``, ``.kurtosis()``, and ``.summary()``.
+
+        Raises:
+            RuntimeError: If the graph contains cycles.
+
+        Example::
+
+            dist = graph.lzpgen_analytical_distribution()
+            print(dist.summary())
+
+            x = np.linspace(-35, -10, 500)
+            plt.plot(x, dist.pdf(x), label='Gaussian mixture')
+            plt.plot(x, dist.saddlepoint_pdf(x), '--', label='Saddlepoint')
+        """
+        from ..metrics.pgen_distribution import LZPgenDistribution
+
+        try:
+            topo_order = list(nx.topological_sort(self.graph))
+        except nx.NetworkXUnfeasible:
+            raise RuntimeError(
+                "lzpgen_analytical_distribution() requires a DAG. "
+                "Use lzpgen_distribution() for graphs with cycles."
+            )
+
+        eps = np.finfo(np.float64).eps
+        n_nodes = len(topo_order)
+        node_to_idx = {node: i for i, node in enumerate(topo_order)}
+
+        # ── Accumulators: m0…m4 per node ──
+        m0 = np.zeros(n_nodes)
+        m1 = np.zeros(n_nodes)
+        m2 = np.zeros(n_nodes)
+        m3 = np.zeros(n_nodes)
+        m4 = np.zeros(n_nodes)
+
+        # ── Depth per node (= walk edge-count from any initial state) ──
+        depth = np.full(n_nodes, -1, dtype=np.int32)
+
+        # Seed initial states
+        for state in self.initial_states_probability.index:
+            if state in node_to_idx:
+                idx = node_to_idx[state]
+                p = self.initial_states_probability[state]
+                lp = np.log(max(p, eps))
+                lp2 = lp * lp
+                lp3 = lp2 * lp
+                lp4 = lp3 * lp
+                m0[idx] += p
+                m1[idx] += p * lp
+                m2[idx] += p * lp2
+                m3[idx] += p * lp3
+                m4[idx] += p * lp4
+                depth[idx] = 0
+
+        # ── Per-length terminal accumulators ──
+        # {walk_length: [tm0, tm1, tm2]}
+        per_length = {}
+        # Global terminal accumulators for cumulants
+        T0 = T1 = T2 = T3 = T4 = 0.0
+
+        graph = self.graph
+
+        for u in topo_order:
+            ui = node_to_idx[u]
+            if m0[ui] == 0:
+                continue
+
+            # Terminal contribution
+            stop_prob = self._terminal_stop_dict.get(u)
+            if stop_prob is not None and stop_prob > 0:
+                ls = np.log(max(stop_prob, eps))
+                ls2 = ls * ls
+                ls3 = ls2 * ls
+                ls4 = ls3 * ls
+
+                sm0 = stop_prob * m0[ui]
+                sm1 = stop_prob * (m1[ui] + ls * m0[ui])
+                sm2 = stop_prob * (m2[ui] + 2 * ls * m1[ui] + ls2 * m0[ui])
+                sm3 = stop_prob * (
+                    m3[ui] + 3 * ls * m2[ui]
+                    + 3 * ls2 * m1[ui] + ls3 * m0[ui]
+                )
+                sm4 = stop_prob * (
+                    m4[ui] + 4 * ls * m3[ui] + 6 * ls2 * m2[ui]
+                    + 4 * ls3 * m1[ui] + ls4 * m0[ui]
+                )
+
+                T0 += sm0; T1 += sm1; T2 += sm2; T3 += sm3; T4 += sm4
+
+                # Per-length accumulation
+                d = int(depth[ui])
+                if d not in per_length:
+                    per_length[d] = [0.0, 0.0, 0.0]
+                per_length[d][0] += sm0
+                per_length[d][1] += sm1
+                per_length[d][2] += sm2
+
+                continue_factor = 1.0 - stop_prob
+            else:
+                continue_factor = 1.0
+
+            if continue_factor < eps:
+                continue
+
+            # Propagate to successors
+            for v in graph.successors(u):
+                vi = node_to_idx[v]
+                w = graph[u][v]['data'].weight
+                lw = np.log(max(w, eps))
+                lw2 = lw * lw
+                lw3 = lw2 * lw
+                lw4 = lw3 * lw
+                f = continue_factor * w
+
+                m0[vi] += f * m0[ui]
+                m1[vi] += f * (m1[ui] + lw * m0[ui])
+                m2[vi] += f * (m2[ui] + 2 * lw * m1[ui] + lw2 * m0[ui])
+                m3[vi] += f * (
+                    m3[ui] + 3 * lw * m2[ui]
+                    + 3 * lw2 * m1[ui] + lw3 * m0[ui]
+                )
+                m4[vi] += f * (
+                    m4[ui] + 4 * lw * m3[ui] + 6 * lw2 * m2[ui]
+                    + 4 * lw3 * m1[ui] + lw4 * m0[ui]
+                )
+
+                # Propagate depth
+                if depth[vi] == -1:
+                    depth[vi] = depth[ui] + 1
+
+        if T0 < eps:
+            raise RuntimeError("No probability mass reached terminal states")
+
+        # ── Build cumulants from global moments ──
+        mu1 = T1 / T0
+        mu2 = T2 / T0
+        mu3 = T3 / T0
+        mu4 = T4 / T0
+
+        k1 = mu1
+        k2 = mu2 - mu1 ** 2
+        k3 = mu3 - 3 * mu2 * mu1 + 2 * mu1 ** 3
+        k4 = mu4 - 4 * mu3 * mu1 - 3 * mu2 ** 2 + 12 * mu2 * mu1 ** 2 - 6 * mu1 ** 4
+
+        cumulants = {
+            'kappa_1': float(k1),
+            'kappa_2': float(max(k2, 0.0)),
+            'kappa_3': float(k3),
+            'kappa_4': float(k4),
+            'skewness': float(k3 / k2 ** 1.5) if k2 > 0 else 0.0,
+            'kurtosis': float(k4 / k2 ** 2) if k2 > 0 else 0.0,
+            'total_mass': float(T0),
+        }
+
+        # ── Build Gaussian mixture from per-length terminal data ──
+        sorted_lengths = sorted(per_length.keys())
+        weights = []
+        means = []
+        stds = []
+        walk_lengths = []
+
+        for d in sorted_lengths:
+            pm0, pm1, pm2 = per_length[d]
+            if pm0 < 1e-12:
+                continue
+            wt = pm0 / T0
+            mu_d = pm1 / pm0
+            var_d = pm2 / pm0 - mu_d ** 2
+            weights.append(wt)
+            means.append(mu_d)
+            stds.append(np.sqrt(max(var_d, 0.0)))
+            walk_lengths.append(d)
+
+        return LZPgenDistribution(
+            weights=weights,
+            means=means,
+            stds=stds,
+            walk_lengths=walk_lengths,
+            cumulants=cumulants,
+        )
 
     # =========================================================================
     # Serialization Methods
@@ -1089,8 +1659,6 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                 data['observed_jgenes'] = list(self.observed_jgenes)
 
         # Terminal state data
-        if hasattr(self, 'terminal_state_map'):
-            data['terminal_state_map'] = serialize_pandas(self.terminal_state_map)
         if hasattr(self, 'terminal_state_data'):
             data['terminal_state_data'] = serialize_pandas(self.terminal_state_data)
 
@@ -1201,10 +1769,17 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                 instance.observed_jgenes = set(data['observed_jgenes'])
 
         # Restore terminal state data
-        if 'terminal_state_map' in data:
-            instance.terminal_state_map = deserialize_pandas(data['terminal_state_map'])
         if 'terminal_state_data' in data:
             instance.terminal_state_data = deserialize_pandas(data['terminal_state_data'])
+
+        # Build _terminal_stop_dict from terminal_state_data
+        if hasattr(instance, 'terminal_state_data') and 'wsif/sep' in instance.terminal_state_data.columns:
+            instance._terminal_stop_dict = instance.terminal_state_data['wsif/sep'].to_dict()
+        else:
+            instance._terminal_stop_dict = {}
+
+        # Walk cache (rebuilt lazily, not serialized)
+        instance._walk_cache = None
 
         # Convert initial/terminal states to Series if they're dicts
         if isinstance(instance.initial_states, dict):

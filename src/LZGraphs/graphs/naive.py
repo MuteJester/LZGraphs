@@ -99,10 +99,8 @@ class NaiveLZGraph(LZGraphBase):
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
 
-        self._derive_terminal_state_map()
-        self.verbose_driver(7, verbose)
         self._derive_stop_probability_data()
-        self.verbose_driver(8, verbose)
+        self.verbose_driver(9, verbose)
 
         self.constructor_end_time = time()
         self.verbose_driver(6, verbose)

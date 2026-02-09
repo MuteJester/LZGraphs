@@ -54,6 +54,17 @@ Use NaiveLZGraph for consistent feature vectors and cross-repertoire analysis.
 [:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/NaiveLZGraph%20Example.ipynb){ .md-button }
 </div>
 
+<div class="example-card" markdown>
+
+### Information-Theoretic Analysis
+
+**Advanced repertoire characterization**
+
+Transition predictability, compression ratio, path entropy rate, transition JSD, mutual information profiles, and repertoire fingerprinting.
+
+[:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Information-Theoretic%20Analysis.ipynb){ .md-button }
+</div>
+
 </div>
 
 ## Running Notebooks Locally
@@ -148,6 +159,7 @@ print(f"V: {v_gene}, J: {j_gene}")
 | NDPLZGraph | Nucleotide encoding, double positions, gene analysis |
 | Metrics | K-diversity, entropy, perplexity, JS divergence |
 | NaiveLZGraph | Fixed dictionaries, eigenvector centrality, ML features |
+| Information-Theoretic Analysis | Transition predictability, compression ratio, path entropy, TMIP, transition JSD |
 
 ## Next Steps
 

@@ -60,27 +60,25 @@ class TestNaiveLZGraphProbabilities:
             lzpgens.append(lzpgen)
 
         # Verify first sequence's log-probability
-        assert np.round(np.log(lzpgens[0]), 2) == -82.48
+        assert np.round(np.log(lzpgens[0]), 2) == -83.53
 
 
 class TestNaiveLZGraphTerminalStates:
     """Tests for terminal state mapping in NaiveLZGraph."""
 
-    def test_terminal_state_map_single_char(self, naive_lzgraph):
-        """Verify terminal state mapping for single character."""
-        expected_terminals = [
-            'C', 'TTT', 'T', 'TT', 'TTC', 'TC', 'CTTT', 'CTTC', 'TTTT'
-        ]
-        actual = naive_lzgraph.terminal_state_map['C']
-        assert set(actual) == set(expected_terminals)
+    def test_stop_probability_mle(self, naive_lzgraph):
+        """Verify MLE stop probability: P(stop|t) = T(t) / (T(t) + f(t))."""
+        for state in naive_lzgraph.terminal_state_data.index:
+            t_count = naive_lzgraph.terminal_states[state]
+            f_count = naive_lzgraph.per_node_observed_frequency.get(state, 0)
+            expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
+            actual = naive_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            assert abs(actual - expected) < 1e-10
 
-    def test_terminal_state_map_four_char(self, naive_lzgraph):
-        """Verify terminal state mapping for four-character pattern."""
-        expected_terminals = [
-            'C', 'TTT', 'T', 'TT', 'TTC', 'TC', 'CTTT', 'CTTC', 'TTTT'
-        ]
-        actual = naive_lzgraph.terminal_state_map['TTTT']
-        assert set(actual) == set(expected_terminals)
+    def test_stop_probability_range(self, naive_lzgraph):
+        """All stop probabilities must be in [0, 1]."""
+        for prob in naive_lzgraph.terminal_state_data['wsif/sep']:
+            assert 0 <= prob <= 1
 
 
 class TestNaiveLZGraphRandomWalks:

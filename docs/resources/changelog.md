@@ -6,13 +6,38 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [2.1.0] - 2026
 
 ### Added
+- **Information-theoretic metrics** for advanced repertoire characterization:
+    - `transition_predictability` — measures transition determinism, stable across sample sizes (~0.60 for AAPLZGraph)
+    - `graph_compression_ratio` — quantifies path sharing efficiency (edge reuse)
+    - `repertoire_compressibility_index` — compression-framed alias for transition predictability
+    - `path_entropy_rate` — average bits per subpattern step via Monte Carlo
+    - `transition_kl_divergence` — transition-level KL divergence between two graphs
+    - `transition_jsd` — symmetric, bounded transition-level Jensen-Shannon divergence
+    - `transition_mutual_information_profile` — position-specific MI along the CDR3 sequence
+- `compare_repertoires` now includes `transition_jsd`, `transition_predictability_1`, and `transition_predictability_2`
+- New example notebook: **Information-Theoretic Analysis** with full walkthrough and visualizations
+
+---
+
+## [2.0.0] - 2026
+
+### Changed
+- **Breaking**: All internal modules renamed to snake_case (graphs/, metrics/, utilities/, mixins/, etc.)
+- Complete `EdgeData` refactor — raw counts as source of truth
+- `graph_union` rewritten to merge via `EdgeData.merge()` + `recalculate()`
+- Walk probability model consolidated into LZGraphBase
+- Laplace smoothing via `smoothing_alpha` parameter
+
+### Added
+- `remove_sequence()` method on LZGraphBase
+- `recalculate()` method to recompute all derived state from raw counts
+- `to_networkx()` for external tool compatibility
+- `walk_log_probability` on all graph types
 - Professional documentation with MkDocs Material theme
-- Comprehensive tutorials and how-to guides
-- API reference documentation
-- FAQ and troubleshooting guide
+- Comprehensive tutorials, how-to guides, and API reference
 
 ---
 
@@ -67,9 +92,15 @@ For the complete version history, see the [GitHub Releases](https://github.com/M
 
 ## Migration Guides
 
-### Upgrading to 1.1.x
+### Upgrading to 2.1.x
 
-No breaking changes. New features are additive.
+No breaking changes from 2.0. New information-theoretic metrics are additive.
+
+### Upgrading from 1.x to 2.0
+
+- All internal module paths changed to snake_case (e.g., `LZGraphs.graphs.amino_acid_positional`)
+- Edge data now uses `EdgeData` objects: access via `graph[a][b]['data'].weight`
+- Public class/function names unchanged — imports like `from LZGraphs import AAPLZGraph` still work
 
 ### Upgrading from Pre-1.0
 
