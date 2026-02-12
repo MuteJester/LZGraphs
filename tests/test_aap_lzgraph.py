@@ -30,11 +30,11 @@ class TestAAPLZGraphConstruction:
     def test_initial_states_populated(self, aap_lzgraph):
         """Verify initial states are correctly counted with position."""
         # C at position 1 is the canonical start for CDR3 sequences
-        assert aap_lzgraph.initial_states['C_1'] == 4996
+        assert aap_lzgraph.initial_state_counts['C_1'] == 4996
 
     def test_node_frequency_tracking(self, aap_lzgraph):
         """Verify per-node frequency is correctly tracked."""
-        assert aap_lzgraph.per_node_observed_frequency['SG_5'] == 89
+        assert aap_lzgraph.node_outgoing_counts['SG_5'] == 89
 
 
 class TestAAPLZGraphProbabilities:
@@ -43,13 +43,13 @@ class TestAAPLZGraphProbabilities:
     def test_subpattern_probability_common_position(self, aap_lzgraph):
         """Verify probability for a common positional pattern."""
         expected = 0.0031496933193346966
-        actual = aap_lzgraph.subpattern_individual_probability.loc['Y_9', 'proba']
+        actual = aap_lzgraph.node_probability['Y_9']
         assert actual == expected
 
     def test_subpattern_probability_rare_position(self, aap_lzgraph):
         """Verify probability for a rare positional pattern."""
         expected = 0.00014735407341916708
-        actual = aap_lzgraph.subpattern_individual_probability.loc['Y_5', 'proba']
+        actual = aap_lzgraph.node_probability['Y_5']
         assert actual == expected
 
     def test_walk_probability_calculation(self, aap_lzgraph, test_data_aap):
@@ -69,21 +69,21 @@ class TestAAPLZGraphTerminalStates:
 
     def test_stop_probability_mle(self, aap_lzgraph):
         """Verify MLE stop probability: P(stop|t) = T(t) / (T(t) + f(t))."""
-        for state in aap_lzgraph.terminal_state_data.index:
-            t_count = aap_lzgraph.terminal_states[state]
-            f_count = aap_lzgraph.per_node_observed_frequency.get(state, 0)
+        for state in aap_lzgraph.terminal_state_data:
+            t_count = aap_lzgraph.terminal_state_counts[state]
+            f_count = aap_lzgraph.node_outgoing_counts.get(state, 0)
             expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
-            actual = aap_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            actual = aap_lzgraph.terminal_state_data[state]['stop_probability']
             assert abs(actual - expected) < 1e-10, f"State {state}: expected {expected}, got {actual}"
 
     def test_stop_probability_range(self, aap_lzgraph):
         """All stop probabilities must be in [0, 1]."""
-        for prob in aap_lzgraph.terminal_state_data['wsif/sep']:
+        for prob in (v['stop_probability'] for v in aap_lzgraph.terminal_state_data.values()):
             assert 0 <= prob <= 1
 
     def test_terminal_states_count(self, aap_lzgraph):
         """Verify terminal state counts."""
-        assert aap_lzgraph.terminal_states['F_17'] == 308
+        assert aap_lzgraph.terminal_state_counts['F_17'] == 308
 
 
 class TestAAPLZGraphRandomWalks:
@@ -120,7 +120,7 @@ class TestAAPLZGraphGeneData:
 
     def test_marginal_vgene_probability(self, aap_lzgraph):
         """Verify marginal V gene probability."""
-        assert aap_lzgraph.marginal_vgenes['TRBV19-1*01'] == 0.0774
+        assert aap_lzgraph.marginal_v_genes['TRBV19-1*01'] == 0.0774
 
     def test_length_distribution_common(self, aap_lzgraph):
         """Verify length distribution for common length."""
@@ -230,10 +230,10 @@ class TestAAPLZGraphValidation:
         with pytest.raises(MissingColumnError, match="cdr3_amino_acid"):
             AAPLZGraph(bad_data)
 
-    def test_non_dataframe_raises_error(self):
-        """Verify that non-DataFrame input raises TypeError."""
-        with pytest.raises(TypeError, match="DataFrame"):
-            AAPLZGraph(['sequence1', 'sequence2'])
+    def test_unsupported_type_raises_error(self):
+        """Verify that unsupported input types raise TypeError."""
+        with pytest.raises(TypeError, match="must be a DataFrame"):
+            AAPLZGraph(12345)
 
 
 class TestAAPLZGraphGenePrediction:

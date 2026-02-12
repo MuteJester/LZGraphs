@@ -65,12 +65,7 @@ dev = [
     "build>=1.0",
     "twine>=4.0",
 ]
-docs = [
-    "mkdocs>=1.5",
-    "mkdocs-material>=9.0",
-    "mkdocstrings[python]>=0.24",
-    "pymdown-extensions>=10.0",
-]
+docs = []
 
 [project.urls]
 Homepage = "https://github.com/MuteJester/LZGraphs"

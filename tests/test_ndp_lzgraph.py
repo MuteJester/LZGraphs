@@ -30,11 +30,11 @@ class TestNDPLZGraphConstruction:
     def test_initial_states_populated(self, ndp_lzgraph):
         """Verify initial states are correctly counted with position."""
         # T at position 1 should be the most common initial state
-        assert ndp_lzgraph.initial_states['T0_1'] == 4991
+        assert ndp_lzgraph.initial_state_counts['T0_1'] == 4991
 
     def test_node_frequency_tracking(self, ndp_lzgraph):
         """Verify per-node frequency is correctly tracked."""
-        assert ndp_lzgraph.per_node_observed_frequency['AC0_14'] == 69
+        assert ndp_lzgraph.node_outgoing_counts['AC0_14'] == 69
 
 
 class TestNDPLZGraphProbabilities:
@@ -43,13 +43,13 @@ class TestNDPLZGraphProbabilities:
     def test_subpattern_probability_rare_pattern(self, ndp_lzgraph):
         """Verify probability for a rare positional pattern."""
         expected = 0.0005410062716652975
-        actual = ndp_lzgraph.subpattern_individual_probability.loc['A0_19', 'proba']
+        actual = ndp_lzgraph.node_probability['A0_19']
         assert actual == expected
 
     def test_subpattern_probability_common_pattern(self, ndp_lzgraph):
         """Verify probability for a common positional pattern."""
         expected = 0.04535435910794077
-        actual = ndp_lzgraph.subpattern_individual_probability.loc['CA2_7', 'proba']
+        actual = ndp_lzgraph.node_probability['CA2_7']
         assert actual == expected
 
     def test_walk_probability_calculation(self, ndp_lzgraph, test_data_ndp):
@@ -69,21 +69,21 @@ class TestNDPLZGraphTerminalStates:
 
     def test_stop_probability_mle(self, ndp_lzgraph):
         """Verify MLE stop probability: P(stop|t) = T(t) / (T(t) + f(t))."""
-        for state in ndp_lzgraph.terminal_state_data.index:
-            t_count = ndp_lzgraph.terminal_states[state]
-            f_count = ndp_lzgraph.per_node_observed_frequency.get(state, 0)
+        for state in ndp_lzgraph.terminal_state_data:
+            t_count = ndp_lzgraph.terminal_state_counts[state]
+            f_count = ndp_lzgraph.node_outgoing_counts.get(state, 0)
             expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
-            actual = ndp_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            actual = ndp_lzgraph.terminal_state_data[state]['stop_probability']
             assert abs(actual - expected) < 1e-10
 
     def test_stop_probability_range(self, ndp_lzgraph):
         """All stop probabilities must be in [0, 1]."""
-        for prob in ndp_lzgraph.terminal_state_data['wsif/sep']:
+        for prob in (v['stop_probability'] for v in ndp_lzgraph.terminal_state_data.values()):
             assert 0 <= prob <= 1
 
     def test_terminal_states_count(self, ndp_lzgraph):
         """Verify terminal state counts."""
-        assert ndp_lzgraph.terminal_states['C2_42'] == 316
+        assert ndp_lzgraph.terminal_state_counts['C2_42'] == 316
 
 
 class TestNDPLZGraphRandomWalks:
@@ -120,7 +120,7 @@ class TestNDPLZGraphGeneData:
 
     def test_marginal_vgene_probability(self, ndp_lzgraph):
         """Verify marginal V gene probability."""
-        assert ndp_lzgraph.marginal_vgenes['TRBV2-1*01'] == 0.0502
+        assert ndp_lzgraph.marginal_v_genes['TRBV2-1*01'] == 0.0502
 
     def test_length_distribution_common(self, ndp_lzgraph):
         """Verify length distribution for common length."""

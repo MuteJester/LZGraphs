@@ -21,13 +21,15 @@ class EdgeData:
         v_genes (dict): {gene_name: raw_count} for V genes.
         j_genes (dict): {gene_name: raw_count} for J genes.
     """
-    __slots__ = ('count', '_weight', 'v_genes', 'j_genes')
+    __slots__ = ('count', '_weight', 'v_genes', 'j_genes', '_vsum', '_jsum')
 
     def __init__(self):
         self.count = 0
         self._weight = 0.0
         self.v_genes = {}
         self.j_genes = {}
+        self._vsum = 0
+        self._jsum = 0
 
     @property
     def weight(self):
@@ -37,30 +39,34 @@ class EdgeData:
     @property
     def vsum(self):
         """Total count of V gene observations on this edge."""
-        return sum(self.v_genes.values())
+        return self._vsum
 
     @property
     def jsum(self):
         """Total count of J gene observations on this edge."""
-        return sum(self.j_genes.values())
+        return self._jsum
 
     @property
     def is_genetic(self):
         """Whether this edge has any gene data."""
         return bool(self.v_genes or self.j_genes)
 
-    def record(self, v_gene=None, j_gene=None):
-        """Record one traversal during graph construction.
+    def record(self, v_gene=None, j_gene=None, count=1):
+        """Record traversal(s) during graph construction.
 
         Args:
             v_gene (str, optional): V gene to record.
             j_gene (str, optional): J gene to record.
+            count (int): Number of traversals to record (abundance weight).
+                Defaults to 1 for backward compatibility.
         """
-        self.count += 1
+        self.count += count
         if v_gene is not None:
-            self.v_genes[v_gene] = self.v_genes.get(v_gene, 0) + 1
+            self.v_genes[v_gene] = self.v_genes.get(v_gene, 0) + count
+            self._vsum += count
         if j_gene is not None:
-            self.j_genes[j_gene] = self.j_genes.get(j_gene, 0) + 1
+            self.j_genes[j_gene] = self.j_genes.get(j_gene, 0) + count
+            self._jsum += count
 
     def unrecord(self, v_gene=None, j_gene=None):
         """Remove one traversal (for sequence removal).
@@ -72,10 +78,12 @@ class EdgeData:
         self.count = max(0, self.count - 1)
         if v_gene is not None and v_gene in self.v_genes:
             self.v_genes[v_gene] -= 1
+            self._vsum -= 1
             if self.v_genes[v_gene] <= 0:
                 del self.v_genes[v_gene]
         if j_gene is not None and j_gene in self.j_genes:
             self.j_genes[j_gene] -= 1
+            self._jsum -= 1
             if self.j_genes[j_gene] <= 0:
                 del self.j_genes[j_gene]
 
@@ -88,8 +96,10 @@ class EdgeData:
         self.count += other.count
         for g, c in other.v_genes.items():
             self.v_genes[g] = self.v_genes.get(g, 0) + c
+        self._vsum += other._vsum
         for g, c in other.j_genes.items():
             self.j_genes[g] = self.j_genes.get(g, 0) + c
+        self._jsum += other._jsum
 
     def normalize(self, node_frequency, alpha=0.0, n_successors=0):
         """Compute and cache transition probability from raw count.
@@ -177,6 +187,8 @@ class EdgeData:
                 edge.v_genes[key] = int(round(val * vsum))
             elif _is_j_gene(key) and jsum > 0:
                 edge.j_genes[key] = int(round(val * jsum))
+        edge._vsum = sum(edge.v_genes.values()) if edge.v_genes else 0
+        edge._jsum = sum(edge.j_genes.values()) if edge.j_genes else 0
         return edge
 
     def __getstate__(self):
@@ -184,6 +196,8 @@ class EdgeData:
 
     def __setstate__(self, state):
         self.count, self._weight, self.v_genes, self.j_genes = state
+        self._vsum = sum(self.v_genes.values()) if self.v_genes else 0
+        self._jsum = sum(self.j_genes.values()) if self.j_genes else 0
 
     def __eq__(self, other):
         if not isinstance(other, EdgeData):

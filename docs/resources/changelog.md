@@ -6,6 +6,23 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.1.2] - 2026
+
+### Changed
+- **Naming convention cleanup** across the entire public API for consistency:
+    - Functions: `LZCentrality` -> `lz_centrality`, `K_Diversity` -> `k_diversity`, `K100_Diversity` -> `k100_diversity`, `K500_Diversity` -> `k500_diversity`, `K1000_Diversity` -> `k1000_diversity`, `K5000_Diversity` -> `k5000_diversity`, `adaptive_K_Diversity` -> `adaptive_k_diversity`
+    - Attributes: `.genetic` -> `.has_gene_data`, `.subpattern_individual_probability` -> `.node_probability`, `.terminal_states` -> `.terminal_state_counts`, `.initial_states` -> `.initial_state_counts`, `.initial_states_probability` -> `.initial_state_probabilities`, `.length_distribution` -> `.length_counts`, `.length_distribution_proba` -> `.length_probabilities`, `.per_node_observed_frequency` -> `.node_outgoing_counts`, `.marginal_vgenes` -> `.marginal_v_genes`, `.marginal_jgenes` -> `.marginal_j_genes`, `.n_subpatterns` -> `.num_subpatterns`, `.n_transitions` -> `.num_transitions`, `.initial_state_threshold` -> `.min_initial_state_count`
+    - Methods: `clean_node()` -> `extract_subpattern()`, `cac_random_gene_walk()` -> `vj_combination_random_walk()`
+    - Visualization: `draw_graph` -> `plot_graph`, `sequence_genomic_edges_variability_plot` -> `plot_gene_edge_variability`, `sequence_genomic_node_variability_plot` -> `plot_gene_node_variability`, `sequence_possible_paths_plot` -> `plot_possible_paths`, `ancestors_descendants_curves_plot` -> `plot_ancestor_descendant_curves`
+    - Parameters: `Vgene=` -> `v_gene=`, `Jgene=` -> `j_gene=`
+    - Internal dict keys: `'wsif/sep'` -> `'stop_probability'`
+
+### Added
+- **Sequence abundance weighting** documentation: all three graph types (AAPLZGraph, NDPLZGraph, NaiveLZGraph) support weighting sequences by clonotype abundance during graph construction
+- New tutorial section on abundance weighting in the Graph Construction guide
+
+---
+
 ## [2.1.0] - 2026
 
 ### Added
@@ -18,7 +35,10 @@ This project follows [Semantic Versioning](https://semver.org/).
     - `transition_jsd` — symmetric, bounded transition-level Jensen-Shannon divergence
     - `transition_mutual_information_profile` — position-specific MI along the CDR3 sequence
 - `compare_repertoires` now includes `transition_jsd`, `transition_predictability_1`, and `transition_predictability_2`
-- New example notebook: **Information-Theoretic Analysis** with full walkthrough and visualizations
+- `LZPgenDistribution` — analytical Pgen distribution as a Gaussian mixture (no sampling needed)
+- `compare_lzpgen_distributions` — compare two empirical log-probability distributions
+- `simulate(n, seed, return_walks)` method for fast batch sequence generation with pre-computed walk cache
+- New example notebooks: **Information-Theoretic Analysis**, **LZPgen Example**, **Advanced Features**
 
 ---
 
@@ -91,6 +111,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 For the complete version history, see the [GitHub Releases](https://github.com/MuteJester/LZGraphs/releases) page.
 
 ## Migration Guides
+
+### Upgrading to 2.1.2
+
+v2.1.2 renames many public API names to follow consistent snake_case conventions. **This is a clean break — old names are removed, not deprecated.** Key changes: `LZCentrality` -> `lz_centrality`, `K1000_Diversity` -> `k1000_diversity`, `clean_node()` -> `extract_subpattern()`, `.initial_states` -> `.initial_state_counts`, `.terminal_states` -> `.terminal_state_counts`, `.marginal_vgenes` -> `.marginal_v_genes`, visualization functions renamed (e.g., `draw_graph` -> `plot_graph`). Pickle/JSON files saved with old names are handled automatically via migration logic. See the full rename table in the v2.1.2 changelog entry above.
 
 ### Upgrading to 2.1.x
 

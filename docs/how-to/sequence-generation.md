@@ -5,14 +5,17 @@ Learn how to generate new sequences that follow your repertoire's statistical pa
 ## Quick Reference
 
 ```python
-# Basic generation
+# Fast batch generation (recommended)
+sequences = graph.simulate(1000)
+
+# Single random walk
 walk = graph.random_walk()
 
 # With gene constraints
 walk, v_gene, j_gene = graph.genomic_random_walk()
 
-# Convert to sequence
-sequence = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+# Convert walk to sequence
+sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
 ```
 
 ## Basic Sequence Generation
@@ -34,7 +37,7 @@ walk = graph.random_walk()
 print(f"Walk: {walk}")
 
 # Convert to sequence
-sequence = ''.join([AAPLZGraph.clean_node(node) for node in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(node) for node in walk])
 print(f"Sequence: {sequence}")
 ```
 
@@ -44,12 +47,40 @@ print(f"Sequence: {sequence}")
 generated = []
 for _ in range(100):
     walk = graph.random_walk()
-    seq = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+    seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
     generated.append(seq)
 
 print(f"Generated {len(generated)} sequences")
 print(f"Example: {generated[0]}")
 ```
+
+## Batch Generation with simulate()
+
+For generating many sequences efficiently, use `simulate()` which uses a pre-computed
+walk cache for maximum throughput:
+
+```python
+# Generate 1000 sequences
+sequences = graph.simulate(1000)
+print(f"Generated {len(sequences)} sequences")
+print(f"Example: {sequences[0]}")
+
+# Reproducible generation with a seed
+sequences = graph.simulate(1000, seed=42)
+
+# Get both walks and sequences
+walks_and_seqs = graph.simulate(100, return_walks=True)
+for walk, seq in walks_and_seqs[:3]:
+    print(f"{seq} (walk length: {len(walk)})")
+```
+
+!!! tip "simulate() vs random_walk()"
+    Use `simulate()` when generating many sequences — it's significantly faster than
+    calling `random_walk()` in a loop because it pre-computes numpy arrays for all
+    transition probabilities. Use `random_walk()` or `genomic_random_walk()` when you
+    need single walks or gene-constrained generation.
+
+---
 
 ## Gene-Constrained Generation
 
@@ -61,7 +92,7 @@ Generate sequences consistent with V/J gene usage:
 # Generate with gene constraints
 walk, v_gene, j_gene = graph.genomic_random_walk()
 
-sequence = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
 print(f"Sequence: {sequence}")
 print(f"V gene: {v_gene}")
 print(f"J gene: {j_gene}")
@@ -90,7 +121,7 @@ print(df['v_gene'].value_counts(normalize=True).head())
 
 # Compare to original
 print("\nOriginal V gene distribution:")
-print(graph.marginal_vgenes.head())
+print(graph.marginal_v_genes.head())
 ```
 
 ## Advanced Generation
@@ -103,7 +134,7 @@ Filter generated sequences by length:
 def generate_with_length(graph, target_length, max_attempts=1000):
     for _ in range(max_attempts):
         walk = graph.random_walk()
-        seq = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+        seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
         if len(seq) == target_length:
             return seq, walk
     return None, None
@@ -121,7 +152,7 @@ Start from a specific initial state:
 ```python
 # Check available initial states
 print("Initial states:")
-print(graph.initial_states)
+print(graph.initial_state_counts)
 
 # Note: random_walk starts from initial states by default
 # The initial state is chosen based on observed frequencies
@@ -144,7 +175,7 @@ def generate_repertoire(graph, n_sequences, use_genes=True):
             walk = graph.random_walk()
             v, j = None, None
 
-        seq = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+        seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
         results.append({
             'sequence': seq,
             'length': len(seq),
@@ -166,11 +197,10 @@ print(synthetic.describe())
 ```python
 # Generate a sequence
 walk, v, j = graph.genomic_random_walk()
-sequence = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
 
 # Calculate its probability
-encoded = AAPLZGraph.encode_sequence(sequence)
-pgen = graph.walk_probability(encoded, use_log=True)
+pgen = graph.walk_probability(sequence, use_log=True)
 
 print(f"Generated: {sequence}")
 print(f"log P(gen): {pgen:.2f}")
@@ -234,19 +264,13 @@ null_seqs = generate_null_repertoire(graph, 10000)
 
 # Test a specific sequence against null
 test_seq = "CASSLEPSGGTDTQYF"
-test_pgen = graph.walk_probability(
-    AAPLZGraph.encode_sequence(test_seq),
-    use_log=True
-)
+test_pgen = graph.walk_probability(test_seq, use_log=True)
 
 # Calculate p-value
 null_pgens = []
 for seq in null_seqs['sequence']:
     try:
-        pgen = graph.walk_probability(
-            AAPLZGraph.encode_sequence(seq),
-            use_log=True
-        )
+        pgen = graph.walk_probability(seq, use_log=True)
         null_pgens.append(pgen)
     except:
         pass

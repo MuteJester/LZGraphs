@@ -143,8 +143,7 @@ except MissingNodeError as e:
 results = []
 for seq in sequences:
     try:
-        encoded = AAPLZGraph.encode_sequence(seq)
-        pgen = graph.walk_probability(encoded)
+        pgen = graph.walk_probability(seq)
         results.append({'sequence': seq, 'pgen': pgen, 'error': None})
     except MissingNodeError as e:
         results.append({'sequence': seq, 'pgen': 0, 'error': str(e)})

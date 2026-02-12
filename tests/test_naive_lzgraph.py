@@ -27,26 +27,26 @@ class TestNaiveLZGraphConstruction:
 
     def test_initial_states_populated(self, naive_lzgraph):
         """Verify initial states are correctly counted."""
-        assert naive_lzgraph.initial_states['T'] == 4994
+        assert naive_lzgraph.initial_state_counts['T'] == 4994
 
     def test_node_frequency_tracking(self, naive_lzgraph):
         """Verify per-node frequency is correctly tracked."""
-        assert naive_lzgraph.per_node_observed_frequency['AGT'] == 406
+        assert naive_lzgraph.node_outgoing_counts['AGT'] == 406
 
 
 class TestNaiveLZGraphProbabilities:
     """Tests for probability calculations in NaiveLZGraph."""
 
-    def test_subpattern_individual_probability_single_char(self, naive_lzgraph):
+    def test_node_probability_single_char(self, naive_lzgraph):
         """Verify single-character subpattern probability."""
         expected = 0.050210381498478625
-        actual = naive_lzgraph.subpattern_individual_probability.loc['C', 'proba']
+        actual = naive_lzgraph.node_probability['C']
         assert actual == expected
 
-    def test_subpattern_individual_probability_two_char(self, naive_lzgraph):
+    def test_node_probability_two_char(self, naive_lzgraph):
         """Verify two-character subpattern probability."""
         expected = 0.048503228527530355
-        actual = naive_lzgraph.subpattern_individual_probability.loc['CA', 'proba']
+        actual = naive_lzgraph.node_probability['CA']
         assert actual == expected
 
     def test_walk_probability_calculation(
@@ -68,16 +68,16 @@ class TestNaiveLZGraphTerminalStates:
 
     def test_stop_probability_mle(self, naive_lzgraph):
         """Verify MLE stop probability: P(stop|t) = T(t) / (T(t) + f(t))."""
-        for state in naive_lzgraph.terminal_state_data.index:
-            t_count = naive_lzgraph.terminal_states[state]
-            f_count = naive_lzgraph.per_node_observed_frequency.get(state, 0)
+        for state in naive_lzgraph.terminal_state_data:
+            t_count = naive_lzgraph.terminal_state_counts[state]
+            f_count = naive_lzgraph.node_outgoing_counts.get(state, 0)
             expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
-            actual = naive_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            actual = naive_lzgraph.terminal_state_data[state]['stop_probability']
             assert abs(actual - expected) < 1e-10
 
     def test_stop_probability_range(self, naive_lzgraph):
         """All stop probabilities must be in [0, 1]."""
-        for prob in naive_lzgraph.terminal_state_data['wsif/sep']:
+        for prob in (v['stop_probability'] for v in naive_lzgraph.terminal_state_data.values()):
             assert 0 <= prob <= 1
 
 

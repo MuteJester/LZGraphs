@@ -1,4 +1,4 @@
-__version__ = "2.1.1"
+__version__ = "2.1.2"
 
 # =============================================================================
 # Graph classes
@@ -21,13 +21,13 @@ from .bag_of_words.bow_encoder import LZBOW
 # Metrics - Diversity
 # =============================================================================
 from .metrics.diversity import (
-    LZCentrality,
-    K_Diversity,
-    K100_Diversity,
-    K500_Diversity,
-    K1000_Diversity,
-    K5000_Diversity,
-    adaptive_K_Diversity,
+    lz_centrality,
+    k_diversity,
+    k100_diversity,
+    k500_diversity,
+    k1000_diversity,
+    k5000_diversity,
+    adaptive_k_diversity,
 )
 
 # =============================================================================
@@ -79,11 +79,11 @@ from .utilities.decomposition import lempel_ziv_decomposition
 # =============================================================================
 try:
     from .visualization.visualize import (
-        sequence_genomic_edges_variability_plot,
-        sequence_genomic_node_variability_plot,
-        sequence_possible_paths_plot,
-        ancestors_descendants_curves_plot,
-        draw_graph,
+        plot_gene_edge_variability,
+        plot_gene_node_variability,
+        plot_possible_paths,
+        plot_ancestor_descendant_curves,
+        plot_graph,
     )
 except ImportError:
     pass  # Visualization features not available without matplotlib/seaborn
@@ -139,13 +139,13 @@ __all__ = [
     # Bag of Words
     'LZBOW',
     # Diversity metrics
-    'LZCentrality',
-    'K_Diversity',
-    'K100_Diversity',
-    'K500_Diversity',
-    'K1000_Diversity',
-    'K5000_Diversity',
-    'adaptive_K_Diversity',
+    'lz_centrality',
+    'k_diversity',
+    'k100_diversity',
+    'k500_diversity',
+    'k1000_diversity',
+    'k5000_diversity',
+    'adaptive_k_diversity',
     # Entropy metrics
     'node_entropy',
     'edge_entropy',

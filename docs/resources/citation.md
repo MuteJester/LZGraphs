@@ -7,53 +7,26 @@ If you use LZGraphs in your research, please cite our work.
 ### BibTeX
 
 ```bibtex
-@article{lzgraphs2024,
-  title={LZGraphs: A Novel Approach for T-Cell Receptor Repertoire Analysis
-         Using Lempel-Ziv Compression-Based Graph Representations},
-  author={Konstantinovsky, Thomas and others},
-  journal={...},
-  year={2024},
-  doi={...}
+@article{konstantinovsky2023novel,
+  title={A novel approach to T-cell receptor beta chain ({TCRB}) repertoire encoding using lossless string compression},
+  author={Konstantinovsky, Thomas and Yaari, Gur},
+  journal={Bioinformatics},
+  volume={39},
+  number={7},
+  pages={btad426},
+  year={2023},
+  publisher={Oxford University Press},
+  doi={10.1093/bioinformatics/btad426}
 }
 ```
 
 ### APA Format
 
-Konstantinovsky, T., et al. (2024). LZGraphs: A Novel Approach for T-Cell Receptor Repertoire Analysis Using Lempel-Ziv Compression-Based Graph Representations. *Journal Name*.
+Konstantinovsky, T., & Yaari, G. (2023). A novel approach to T-cell receptor beta chain (TCRB) repertoire encoding using lossless string compression. *Bioinformatics*, *39*(7), btad426. https://doi.org/10.1093/bioinformatics/btad426
 
 ### Chicago Format
 
-Konstantinovsky, Thomas, et al. "LZGraphs: A Novel Approach for T-Cell Receptor Repertoire Analysis Using Lempel-Ziv Compression-Based Graph Representations." *Journal Name* (2024).
-
----
-
-## Citing Specific Features
-
-### K1000 Diversity Index
-
-If you specifically use the K1000 diversity metric:
-
-```bibtex
-@article{lzgraphs2024,
-  title={LZGraphs: A Novel Approach for T-Cell Receptor Repertoire Analysis},
-  author={Konstantinovsky, Thomas and others},
-  note={K1000 diversity metric for repertoire characterization},
-  year={2024}
-}
-```
-
-### LZCentrality
-
-For the LZCentrality sequence centrality measure:
-
-```bibtex
-@article{lzgraphs2024,
-  title={LZGraphs: A Novel Approach for T-Cell Receptor Repertoire Analysis},
-  author={Konstantinovsky, Thomas and others},
-  note={LZCentrality for sequence centrality analysis},
-  year={2024}
-}
-```
+Konstantinovsky, Thomas, and Gur Yaari. "A Novel Approach to T-Cell Receptor Beta Chain (TCRB) Repertoire Encoding Using Lossless String Compression." *Bioinformatics* 39, no. 7 (2023): btad426. https://doi.org/10.1093/bioinformatics/btad426.
 
 ---
 
@@ -66,8 +39,8 @@ For citing the software itself:
   author = {Konstantinovsky, Thomas},
   title = {LZGraphs: LZ76-Based Graphs for TCR Repertoire Analysis},
   url = {https://github.com/MuteJester/LZGraphs},
-  version = {1.1.1},
-  year = {2024}
+  version = {2.1.2},
+  year = {2026}
 }
 ```
 
@@ -77,25 +50,7 @@ For citing the software itself:
 
 ### Foundational Work
 
-- Lempel, A., & Ziv, J. (1976). On the complexity of finite sequences. *IEEE Transactions on Information Theory*.
-
-### TCR Repertoire Analysis
-
-- [Related immunology papers using similar approaches]
-
----
-
-## Acknowledgments
-
-LZGraphs was developed at [Institution/Lab Name].
-
-### Contributors
-
-- Thomas Konstantinovsky - Lead developer
-
-### Funding
-
-[Funding acknowledgments if applicable]
+- Lempel, A., & Ziv, J. (1976). On the complexity of finite sequences. *IEEE Transactions on Information Theory*, *22*(1), 75-81.
 
 ---
 

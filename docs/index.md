@@ -37,8 +37,13 @@ Three specialized graph types for different analysis needs: **AAPLZGraph** for a
 </div>
 
 <div class="card" markdown>
-### :material-chart-line: Diversity Metrics
-Novel diversity indices including **K1000** and **LZCentrality** that capture repertoire complexity through graph topology.
+### :material-dice-multiple: Sequence Generation
+Generate novel sequences via random walks or gene-conditioned walks (`simulate()`), with full probability models for computing P(gen) of any sequence.
+</div>
+
+<div class="card" markdown>
+### :material-chart-line: Diversity & Information Metrics
+Novel diversity indices (**k1000_diversity**, **lz_centrality**) and a full information-theoretic toolkit (entropy, perplexity, JSD, mutual information) for repertoire characterization.
 </div>
 
 <div class="card" markdown>
@@ -49,6 +54,11 @@ Built-in V/J gene annotation support for genomic-aware sequence generation and g
 <div class="card" markdown>
 ### :material-chart-scatter-plot: Visualization
 Publication-ready plots for sequence analysis, including path variability, genomic heatmaps, and saturation curves.
+</div>
+
+<div class="card" markdown>
+### :material-scale-balance: Abundance Weighting
+Optionally weight sequences by clonotype abundance during graph construction, so the graph reflects the expanded state of the repertoire.
 </div>
 
 </div>
@@ -82,8 +92,7 @@ data = pd.DataFrame({
 graph = AAPLZGraph(data, verbose=True)
 
 # Calculate sequence probability
-sequence = "CASSLEPSGGTDTQYF"
-pgen = graph.walk_probability(AAPLZGraph.encode_sequence(sequence))
+pgen = graph.walk_probability("CASSLEPSGGTDTQYF")
 print(f"P(gen) = {pgen:.2e}")
 ```
 
@@ -117,18 +126,7 @@ Complete reference for all classes and functions.
 
 ## Citation
 
-If you use LZGraphs in your research, please cite our paper:
-
-```bibtex
-@article{lzgraphs2024,
-  title={LZGraphs: A Novel Approach for T-Cell Receptor Repertoire Analysis},
-  author={Konstantinovsky, Thomas and others},
-  journal={...},
-  year={2024}
-}
-```
-
-See the [Citation page](resources/citation.md) for more details.
+If you use LZGraphs in your research, please cite our paper. See the [Citation page](resources/citation.md) for BibTeX entries and details.
 
 ---
 

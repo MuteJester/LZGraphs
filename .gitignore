@@ -141,3 +141,8 @@ main.py
 
 # Private local analysis
 .private/
+
+# Docusaurus
+website/node_modules/
+website/build/
+website/.docusaurus/

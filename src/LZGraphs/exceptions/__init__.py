@@ -487,7 +487,7 @@ class InsufficientDataError(MetricsError):
     - Statistical tests need more data points
 
     Example:
-        >>> K_Diversity(sequences, k=1000, draws=100)  # Raises if < 1000 sequences
+        >>> k_diversity(sequences, k=1000, draws=100)  # Raises if < 1000 sequences
     """
 
     def __init__(self, required: int = None, available: int = None, message: str = None):

@@ -110,8 +110,6 @@ extra:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/LZGraphs/
   generator: false
-  version:
-    provider: mike
 
 extra_css:
   - stylesheets/extra.css

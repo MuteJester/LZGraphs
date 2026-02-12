@@ -9,8 +9,8 @@ class RandomWalkMixin:
     Requirements:
         - The parent class must define:
             self.graph (networkx.DiGraph)
-            self.genetic_walks_black_list (dict)
-            self.genetic (bool)
+            self._walk_exclusions (dict)
+            self.has_gene_data (bool)
             self.is_stop_condition(state, selected_v=None, selected_j=None) -> bool
             self._select_random_vj_genes(vj_init) -> (str, str)
             self._raise_genetic_mode_error() -> None
@@ -25,7 +25,7 @@ class RandomWalkMixin:
         Clear the genetic walks blacklist to free memory.
         Call this after completing a batch of random walks or when memory usage is a concern.
         """
-        self.genetic_walks_black_list = {}
+        self._walk_exclusions = {}
 
     def genomic_random_walk(self, initial_state=None, vj_init='marginal', clear_blacklist=False):
         """
@@ -47,10 +47,10 @@ class RandomWalkMixin:
                 - selected_v (str): The chosen V gene for this walk.
                 - selected_j (str): The chosen J gene for this walk.
         """
-        self._raise_genetic_mode_error()  # Raises error if self.genetic == False
+        self._raise_genetic_mode_error()  # Raises error if self.has_gene_data == False
 
         if clear_blacklist:
-            self.genetic_walks_black_list = {}
+            self._walk_exclusions = {}
 
         selected_v, selected_j = self._select_random_vj_genes(vj_init)
 
@@ -68,8 +68,8 @@ class RandomWalkMixin:
             )
 
             # Apply black list for (current_state, selected_v, selected_j)
-            if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
-                blacklist_edges = self.genetic_walks_black_list[(current_state, selected_v, selected_j)]
+            if (current_state, selected_v, selected_j) in self._walk_exclusions:
+                blacklist_edges = self._walk_exclusions[(current_state, selected_v, selected_j)]
                 for col in blacklist_edges:
                     edge_info.pop(col, None)
 
@@ -79,8 +79,8 @@ class RandomWalkMixin:
                 if len(walk) > 2:
                     last_state = walk[-2]
                     # Mark the current edge in the blacklist from last_state -> current_state
-                    self.genetic_walks_black_list[(last_state, selected_v, selected_j)] = \
-                        self.genetic_walks_black_list.get((last_state, selected_v, selected_j), []) + [walk[-1]]
+                    self._walk_exclusions[(last_state, selected_v, selected_j)] = \
+                        self._walk_exclusions.get((last_state, selected_v, selected_j), []) + [walk[-1]]
                     current_state = last_state
                     walk.pop()
                 else:
@@ -113,7 +113,7 @@ class RandomWalkMixin:
             list[str]: The sequence of nodes visited.
         """
         if clear_blacklist:
-            self.genetic_walks_black_list = {}
+            self._walk_exclusions = {}
 
         current_state = initial_state or self._random_initial_state()
         walk = [current_state]
@@ -124,16 +124,16 @@ class RandomWalkMixin:
             neighbors = list(graph[current_state].keys())
 
             # Apply blacklist if there's an entry for this state
-            if current_state in self.genetic_walks_black_list:
-                blacklist_edges = set(self.genetic_walks_black_list[current_state])
+            if current_state in self._walk_exclusions:
+                blacklist_edges = set(self._walk_exclusions[current_state])
                 neighbors = [nb for nb in neighbors if nb not in blacklist_edges]
 
             if len(neighbors) == 0:
                 # If no edges remain, attempt backtracking or reset
                 if len(walk) > 2:
                     last_state = walk[-2]
-                    self.genetic_walks_black_list[last_state] = \
-                        self.genetic_walks_black_list.get(last_state, []) + [walk[-1]]
+                    self._walk_exclusions[last_state] = \
+                        self._walk_exclusions.get(last_state, []) + [walk[-1]]
                     current_state = last_state
                     walk.pop()
                 else:

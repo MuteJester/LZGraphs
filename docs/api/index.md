@@ -34,9 +34,9 @@ from LZGraphs import AAPLZGraph, NDPLZGraph, NaiveLZGraph
 
 ```python
 from LZGraphs import (
-    K1000_Diversity,
-    K_Diversity,
-    LZCentrality,
+    k1000_diversity,
+    k_diversity,
+    lz_centrality,
     node_entropy,
     edge_entropy,
     graph_entropy,
@@ -55,11 +55,11 @@ from LZGraphs.utilities import lempel_ziv_decomposition, generate_kmer_dictionar
 
 ```python
 from LZGraphs.visualization import (
-    draw_graph,
-    ancestors_descendants_curves_plot,
-    sequence_possible_paths_plot,
-    sequence_genomic_node_variability_plot,
-    sequence_genomic_edges_variability_plot
+    plot_graph,
+    plot_ancestor_descendant_curves,
+    plot_possible_paths,
+    plot_gene_node_variability,
+    plot_gene_edge_variability
 )
 ```
 
@@ -68,7 +68,7 @@ from LZGraphs.visualization import (
 ```
 LZGraphBase (abstract)
 ├── AAPLZGraph - Amino acid positional
-├── NDPLZGraph - Nucleotide double positional
+├── NDPLZGraph - Nucleotide reading frame positional
 └── NaiveLZGraph - No positional encoding
 
 LZBOW - Bag of Words encoder
@@ -96,12 +96,14 @@ All graph classes share these methods:
 
 | Method | Description |
 |--------|-------------|
-| `walk_probability(walk)` | Calculate sequence probability |
+| `walk_probability(walk)` | Calculate sequence probability (accepts raw string or encoded list) |
 | `random_walk()` | Generate a random sequence |
+| `simulate(n)` | Batch-generate sequences with pre-computed cache |
 | `save(filepath)` | Save graph to disk |
 | `load(filepath)` | Load graph from disk |
-| `encode_sequence(seq)` | Encode sequence to walk |
-| `clean_node(node)` | Extract pattern from node |
+| `encode_sequence(seq)` | Encode sequence to walk (static) |
+| `extract_subpattern(node)` | Extract pattern from node (static) |
+| `graph_summary()` | Summary statistics (nodes, edges, degree) |
 
 ## Version Information
 
@@ -118,13 +120,22 @@ LZGraphs/
 ├── graphs/
 │   ├── amino_acid_positional.py
 │   ├── nucleotide_double_positional.py
-│   └── naive.py
+│   ├── naive.py
+│   ├── lz_graph_base.py
+│   └── graph_operations.py
 ├── metrics/
 │   ├── diversity.py
-│   └── entropy.py
+│   ├── entropy.py
+│   ├── saturation.py
+│   ├── convenience.py
+│   └── pgen_distribution.py
+├── mixins/
+│   ├── gene_logic.py
+│   └── random_walk.py
 ├── utilities/
-│   ├── utilities.py
-│   └── node_edge_saturation_probe.py
+│   ├── decomposition.py
+│   ├── helpers.py
+│   └── misc.py
 ├── bag_of_words/
 │   └── bow_encoder.py
 ├── visualization/

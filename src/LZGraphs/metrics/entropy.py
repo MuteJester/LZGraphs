@@ -61,10 +61,10 @@ def node_entropy(lzgraph, base: float = 2) -> float:
         >>> h = node_entropy(graph)
         >>> print(f"Node entropy: {h:.2f} bits")
     """
-    if not hasattr(lzgraph, 'subpattern_individual_probability'):
+    if not hasattr(lzgraph, 'node_probability'):
         raise MetricsError("LZGraph does not have subpattern probability data")
 
-    probs = lzgraph.subpattern_individual_probability['proba'].values
+    probs = np.array(list(lzgraph.node_probability.values()))
     # Filter out zeros to avoid log(0)
     probs = probs[probs > 0]
 
@@ -80,7 +80,7 @@ def edge_entropy(lzgraph, base: float = 2) -> float:
 
     For each node, compute the Shannon entropy of its outgoing transition
     distribution. Then weight by the node's probability (from
-    subpattern_individual_probability) to get the overall conditional entropy:
+    node_probability) to get the overall conditional entropy:
 
         H(transition|node) = sum_i P(node_i) * H(outgoing edges of node_i)
 
@@ -102,7 +102,7 @@ def edge_entropy(lzgraph, base: float = 2) -> float:
     if lzgraph.graph.number_of_edges() == 0:
         return 0.0
 
-    node_probs = lzgraph.subpattern_individual_probability.get('proba', {})
+    node_probs = lzgraph.node_probability
     if not len(node_probs):
         return 0.0
 
@@ -326,8 +326,8 @@ def jensen_shannon_divergence(lzgraph1, lzgraph2) -> float:
         return 0.0
 
     # Build probability vectors
-    prob1 = lzgraph1.subpattern_individual_probability.get('proba', {})
-    prob2 = lzgraph2.subpattern_individual_probability.get('proba', {})
+    prob1 = lzgraph1.node_probability
+    prob2 = lzgraph2.node_probability
 
     p1 = np.array([prob1.get(n, 0) for n in all_nodes])
     p2 = np.array([prob2.get(n, 0) for n in all_nodes])
@@ -371,8 +371,8 @@ def cross_entropy(lzgraph_model, lzgraph_test) -> float:
         >>> print(f"Cross-entropy: {ce:.2f} bits")
     """
     # Get test distribution
-    test_prob = lzgraph_test.subpattern_individual_probability.get('proba', {})
-    model_prob = lzgraph_model.subpattern_individual_probability.get('proba', {})
+    test_prob = lzgraph_test.node_probability
+    model_prob = lzgraph_model.node_probability
 
     if not len(test_prob) or not len(model_prob):
         return float('inf')
@@ -410,8 +410,8 @@ def kl_divergence(lzgraph_p, lzgraph_q) -> float:
         >>> kl = kl_divergence(graph_empirical, graph_model)
         >>> print(f"KL divergence: {kl:.3f} bits")
     """
-    p_prob = lzgraph_p.subpattern_individual_probability.get('proba', {})
-    q_prob = lzgraph_q.subpattern_individual_probability.get('proba', {})
+    p_prob = lzgraph_p.node_probability
+    q_prob = lzgraph_q.node_probability
 
     if not len(p_prob):
         return 0.0
@@ -453,7 +453,7 @@ def mutual_information_genes(lzgraph, gene_type: str = 'V',
         >>> mi_v = mutual_information_genes(graph, gene_type='V')
         >>> print(f"I(Path; V) = {mi_v:.3f} bits")
     """
-    if not lzgraph.genetic:
+    if not lzgraph.has_gene_data:
         raise NoGeneDataError(
             operation="mutual_information_genes",
             message="LZGraph must have genetic information for mutual information calculation"
@@ -461,14 +461,14 @@ def mutual_information_genes(lzgraph, gene_type: str = 'V',
 
     # Get marginal gene distribution
     if gene_type == 'V':
-        marginal = lzgraph.marginal_vgenes
+        marginal = lzgraph.marginal_v_genes
     elif gene_type == 'J':
-        marginal = lzgraph.marginal_jgenes
+        marginal = lzgraph.marginal_j_genes
     else:
         raise MetricsError("gene_type must be 'V' or 'J'")
 
     # Marginal entropy H(Gene)
-    h_gene = scipy_entropy(marginal.values, base=2)
+    h_gene = scipy_entropy(list(marginal.values()), base=2)
 
     # Estimate conditional entropy H(Gene|Path) via sampling
     # This is complex to compute exactly, so we use a simple approximation
@@ -527,7 +527,7 @@ def _max_conditional_entropy(lzgraph, base: float = 2) -> float:
     Returns:
         float: Maximum conditional entropy given the topology.
     """
-    node_probs = lzgraph.subpattern_individual_probability.get('proba', {})
+    node_probs = lzgraph.node_probability
     if not len(node_probs):
         return 0.0
 
@@ -602,7 +602,7 @@ def graph_compression_ratio(lzgraph) -> float:
     sharing is limited, yielding higher GCR (~0.18).
 
     Args:
-        lzgraph: An LZGraph instance with n_transitions attribute.
+        lzgraph: An LZGraph instance with num_transitions attribute.
 
     Returns:
         float: Compression ratio in range (0, 1]. Lower = more compression.
@@ -613,7 +613,7 @@ def graph_compression_ratio(lzgraph) -> float:
         >>> print(f"Graph compression ratio: {gcr:.3f}")
     """
     n_edges = lzgraph.graph.number_of_edges()
-    n_transitions = getattr(lzgraph, 'n_transitions', 0)
+    n_transitions = getattr(lzgraph, 'num_transitions', 0)
 
     if n_transitions <= 0:
         # Fall back to summing raw edge counts (e.g. NaiveLZGraph
@@ -693,7 +693,7 @@ def transition_kl_divergence(lzgraph_p, lzgraph_q) -> float:
         >>> kl_t = transition_kl_divergence(graph_empirical, graph_model)
         >>> print(f"Transition KL divergence: {kl_t:.3f} bits")
     """
-    p_node_probs = lzgraph_p.subpattern_individual_probability.get('proba', {})
+    p_node_probs = lzgraph_p.node_probability
     if not len(p_node_probs):
         return 0.0
 
@@ -757,8 +757,8 @@ def transition_jsd(lzgraph1, lzgraph2) -> float:
         >>> jsd_t = transition_jsd(graph_healthy, graph_disease)
         >>> print(f"Transition JSD: {jsd_t:.3f}")
     """
-    mu1 = lzgraph1.subpattern_individual_probability.get('proba', {})
-    mu2 = lzgraph2.subpattern_individual_probability.get('proba', {})
+    mu1 = lzgraph1.node_probability
+    mu2 = lzgraph2.node_probability
 
     if not len(mu1) and not len(mu2):
         return 0.0
@@ -869,7 +869,7 @@ def transition_mutual_information_profile(lzgraph) -> dict:
             "(AAPLZGraph or NDPLZGraph). NaiveLZGraph nodes have no position information."
         )
 
-    node_probs = lzgraph.subpattern_individual_probability.get('proba', {})
+    node_probs = lzgraph.node_probability
     if not len(node_probs):
         return {}
 

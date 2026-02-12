@@ -128,7 +128,7 @@ The `_N` suffix indicates the **ending position** of each pattern:
 
 ### NDPLZGraph Encoding
 
-NDPLZGraph uses double positions (start and end):
+NDPLZGraph uses reading frame and position encoding:
 
 ```python
 from LZGraphs import NDPLZGraph
@@ -136,8 +136,11 @@ from LZGraphs import NDPLZGraph
 sequence = "TGTGCC"
 encoded = NDPLZGraph.encode_sequence(sequence)
 print(encoded)
-# ['T_1_1', 'G_2_2', 'T_3_3', 'G_4_4', 'C_5_5', 'C_6_6']
+# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'C2_6']
 ```
+
+Each node has the format `{subpattern}{reading_frame}_{position}`, where the reading frame
+(0, 1, or 2) indicates the codon position.
 
 ## Why Position Matters
 

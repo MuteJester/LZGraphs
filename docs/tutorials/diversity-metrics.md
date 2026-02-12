@@ -9,7 +9,7 @@ LZGraphs provides several approaches to quantify repertoire diversity:
 | Metric | What it Measures | Use Case |
 |--------|------------------|----------|
 | **K1000** | Unique patterns in 1000 sequences | Overall diversity |
-| **LZCentrality** | Sequence position in repertoire | Sequence rarity |
+| **lz_centrality** | Sequence position in repertoire | Sequence rarity |
 | **Entropy** | Information content | Graph complexity |
 | **Perplexity** | Prediction uncertainty | Model quality |
 | **Transition Predictability** | Determinism of transitions | Repertoire constraint |
@@ -29,17 +29,17 @@ K-diversity measures how many unique LZ76 patterns appear when sampling K sequen
 The most common diversity measure:
 
 ```python
-from LZGraphs import K1000_Diversity, AAPLZGraph
+from LZGraphs import k1000_diversity, AAPLZGraph
 import pandas as pd
 
 # Load data
-data = pd.read_csv("Examples/ExampleData1.csv")
+data = pd.read_csv("Examples/ExampleData3.csv")
 sequences = data['cdr3_amino_acid'].tolist()
 
 # Calculate K1000
-k1000 = K1000_Diversity(
+k1000 = k1000_diversity(
     sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
+    AAPLZGraph.encode_sequence,
     draws=30  # Number of resampling rounds
 )
 print(f"K1000 Diversity: {k1000:.1f}")
@@ -51,13 +51,13 @@ print(f"K1000 Diversity: {k1000:.1f}")
 ### Other K-Diversity Variants
 
 ```python
-from LZGraphs import K100_Diversity, K500_Diversity, K5000_Diversity
+from LZGraphs import k100_diversity, k500_diversity, k5000_diversity
 
 # For smaller repertoires
-k100 = K100_Diversity(sequences, AAPLZGraph.encode_sequence)
+k100 = k100_diversity(sequences, AAPLZGraph.encode_sequence)
 
 # For larger repertoires
-k5000 = K5000_Diversity(sequences, AAPLZGraph.encode_sequence)
+k5000 = k5000_diversity(sequences, AAPLZGraph.encode_sequence)
 
 print(f"K100:  {k100:.1f}")
 print(f"K5000: {k5000:.1f}")
@@ -68,9 +68,9 @@ print(f"K5000: {k5000:.1f}")
 Automatically select K based on repertoire size:
 
 ```python
-from LZGraphs import adaptive_K_Diversity
+from LZGraphs import adaptive_k_diversity
 
-k_adaptive = adaptive_K_Diversity(sequences, AAPLZGraph.encode_sequence)
+k_adaptive = adaptive_k_diversity(sequences, AAPLZGraph.encode_sequence)
 print(f"Adaptive K-Diversity: {k_adaptive:.1f}")
 ```
 
@@ -79,39 +79,39 @@ print(f"Adaptive K-Diversity: {k_adaptive:.1f}")
 Get confidence intervals:
 
 ```python
-from LZGraphs import K_Diversity
+from LZGraphs import k_diversity
 
-result = K_Diversity(
+mean, std, ci_lower, ci_upper = k_diversity(
     sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
+    AAPLZGraph.encode_sequence,
     sample_size=1000,
     draws=100,
     return_stats=True
 )
 
-print(f"Mean: {result['mean']:.1f}")
-print(f"Std:  {result['std']:.2f}")
-print(f"CI:   [{result['ci_low']:.1f}, {result['ci_high']:.1f}]")
+print(f"Mean: {mean:.1f}")
+print(f"Std:  {std:.2f}")
+print(f"CI:   [{ci_lower:.1f}, {ci_upper:.1f}]")
 ```
 
 ---
 
-## LZCentrality
+## lz_centrality
 
-LZCentrality measures how central a sequence is within the repertoire structure.
+lz_centrality measures how central a sequence is within the repertoire structure.
 
 ```python
-from LZGraphs import LZCentrality, AAPLZGraph
+from LZGraphs import lz_centrality, AAPLZGraph
 import pandas as pd
 
 # Build graph
-data = pd.read_csv("Examples/ExampleData1.csv")
+data = pd.read_csv("Examples/ExampleData3.csv")
 graph = AAPLZGraph(data, verbose=False)
 
 # Calculate centrality for a sequence
 sequence = "CASSLEPSGGTDTQYF"
-centrality = LZCentrality(graph, sequence)
-print(f"LZCentrality of {sequence}: {centrality:.4f}")
+centrality = lz_centrality(graph, sequence)
+print(f"lz_centrality of {sequence}: {centrality:.4f}")
 ```
 
 ### Comparing Sequence Centrality
@@ -125,13 +125,13 @@ sequences = [
 
 for seq in sequences:
     try:
-        cent = LZCentrality(graph, seq)
+        cent = lz_centrality(graph, seq)
         print(f"{seq}: {cent:.4f}")
     except:
         print(f"{seq}: Not in graph")
 ```
 
-!!! tip "LZCentrality interpretation"
+!!! tip "lz_centrality interpretation"
     - Higher values = more central (common patterns)
     - Lower values = more peripheral (rare patterns)
     - Zero = sequence not representable in graph
@@ -222,8 +222,8 @@ Measure similarity between two repertoires:
 from LZGraphs import jensen_shannon_divergence
 
 # Build two graphs from different repertoires
-data1 = pd.read_csv("Examples/ExampleData1.csv")
-data2 = pd.read_csv("Examples/ExampleData2.csv")
+data1 = pd.read_csv("repertoire1.csv")
+data2 = pd.read_csv("repertoire2.csv")
 
 graph1 = AAPLZGraph(data1, verbose=False)
 graph2 = AAPLZGraph(data2, verbose=False)
@@ -261,27 +261,29 @@ Analyze how diversity grows with sample size.
 ```python
 from LZGraphs import NodeEdgeSaturationProbe
 
-# Create saturation curve
-probe = NodeEdgeSaturationProbe()
-curve = probe.saturation_curve(
-    sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
-    steps=50
-)
+# Create a probe with the AAP encoding
+probe = NodeEdgeSaturationProbe(node_function='aap')
 
+# Compute the saturation curve
+curve = probe.saturation_curve(sequences, log_every=100)
 print(curve.head())
+# Columns: n_sequences, nodes, edges
 ```
 
 ### Key Saturation Metrics
 
 ```python
 # Half-saturation point (sequences needed for 50% of nodes)
-half_sat = probe.half_saturation_point(curve)
+half_sat = probe.half_saturation_point(sequences)
 print(f"Half-saturation: {half_sat} sequences")
 
-# Area under saturation curve
-ausc = probe.area_under_curve(curve)
-print(f"AUSC: {ausc:.2f}")
+# Area under saturation curve (normalized 0-1)
+ausc = probe.area_under_saturation_curve(sequences, normalize=True)
+print(f"AUSC: {ausc:.3f}")
+
+# Full diversity profile in one call
+profile = probe.diversity_profile(sequences)
+print(profile.T)
 ```
 
 ---
@@ -292,14 +294,14 @@ Compare diversity between two repertoires:
 
 ```python
 from LZGraphs import (
-    AAPLZGraph, K1000_Diversity,
+    AAPLZGraph, k1000_diversity,
     node_entropy, jensen_shannon_divergence
 )
 import pandas as pd
 
 # Load two repertoires
-rep1 = pd.read_csv("Examples/ExampleData1.csv")
-rep2 = pd.read_csv("Examples/ExampleData2.csv")
+rep1 = pd.read_csv("repertoire1.csv")
+rep2 = pd.read_csv("repertoire2.csv")
 
 # Build graphs
 g1 = AAPLZGraph(rep1, verbose=False)
@@ -311,13 +313,11 @@ seq2 = rep2['cdr3_amino_acid'].tolist()
 
 print("Repertoire 1 vs Repertoire 2")
 print("-" * 40)
-print(f"K1000:    {K1000_Diversity(seq1, AAPLZGraph.encode_sequence):.0f} vs "
-      f"{K1000_Diversity(seq2, AAPLZGraph.encode_sequence):.0f}")
+print(f"K1000:    {k1000_diversity(seq1, AAPLZGraph.encode_sequence):.0f} vs "
+      f"{k1000_diversity(seq2, AAPLZGraph.encode_sequence):.0f}")
 print(f"Entropy:  {node_entropy(g1):.2f} vs {node_entropy(g2):.2f}")
 print(f"JS Div:   {jensen_shannon_divergence(g1, g2):.4f}")
 ```
-
----
 
 ---
 

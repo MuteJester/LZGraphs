@@ -125,14 +125,14 @@ plt.savefig('repertoire_heatmap.png', dpi=300)
 ### K1000 Comparison
 
 ```python
-from LZGraphs import K1000_Diversity, AAPLZGraph
+from LZGraphs import k1000_diversity, AAPLZGraph
 
 def compare_diversity(data1, data2, name1="Rep1", name2="Rep2"):
     seqs1 = data1['cdr3_amino_acid'].tolist()
     seqs2 = data2['cdr3_amino_acid'].tolist()
 
-    k1000_1 = K1000_Diversity(seqs1, AAPLZGraph.encode_sequence, draws=30)
-    k1000_2 = K1000_Diversity(seqs2, AAPLZGraph.encode_sequence, draws=30)
+    k1000_1 = k1000_diversity(seqs1, AAPLZGraph.encode_sequence, draws=30)
+    k1000_2 = k1000_diversity(seqs2, AAPLZGraph.encode_sequence, draws=30)
 
     print(f"{name1} K1000: {k1000_1:.1f}")
     print(f"{name2} K1000: {k1000_2:.1f}")
@@ -176,9 +176,8 @@ def cross_probability(sequences, source_graph, target_graph):
 
     for seq in sequences:
         try:
-            encoded = AAPLZGraph.encode_sequence(seq)
-            source_prob = source_graph.walk_probability(encoded, use_log=True)
-            target_prob = target_graph.walk_probability(encoded, use_log=True)
+            source_prob = source_graph.walk_probability(seq, use_log=True)
+            target_prob = target_graph.walk_probability(seq, use_log=True)
 
             results.append({
                 'sequence': seq,
@@ -210,9 +209,8 @@ def find_specific_sequences(sequences, graph1, graph2, threshold=-5):
 
     for seq in sequences:
         try:
-            enc = AAPLZGraph.encode_sequence(seq)
-            p1 = graph1.walk_probability(enc, use_log=True)
-            p2 = graph2.walk_probability(enc, use_log=True)
+            p1 = graph1.walk_probability(seq, use_log=True)
+            p2 = graph2.walk_probability(seq, use_log=True)
 
             # Specific if much more likely in graph1
             if p1 - p2 > threshold:
@@ -242,8 +240,8 @@ def compare_gene_usage(graph1, graph2, name1="Rep1", name2="Rep2"):
     """Compare V/J gene usage between repertoires."""
 
     # V genes
-    v1 = graph1.marginal_vgenes
-    v2 = graph2.marginal_vgenes
+    v1 = graph1.marginal_v_genes
+    v2 = graph2.marginal_v_genes
 
     # Align indices
     all_v = set(v1.index) | set(v2.index)
@@ -254,8 +252,8 @@ def compare_gene_usage(graph1, graph2, name1="Rep1", name2="Rep2"):
     v_comparison['diff'] = v_comparison[name1] - v_comparison[name2]
 
     # J genes
-    j1 = graph1.marginal_jgenes
-    j2 = graph2.marginal_jgenes
+    j1 = graph1.marginal_j_genes
+    j2 = graph2.marginal_j_genes
 
     all_j = set(j1.index) | set(j2.index)
     j_comparison = pd.DataFrame({
@@ -308,7 +306,7 @@ print(result)
 
 ```python
 from LZGraphs import (
-    AAPLZGraph, K1000_Diversity,
+    AAPLZGraph, k1000_diversity,
     node_entropy, jensen_shannon_divergence,
     transition_jsd, transition_predictability,
     compare_repertoires,
@@ -352,8 +350,8 @@ def full_repertoire_comparison(data1, data2, name1="Rep1", name2="Rep2"):
     print(f"{'='*50}")
     seqs1 = data1['cdr3_amino_acid'].tolist()
     seqs2 = data2['cdr3_amino_acid'].tolist()
-    k1 = K1000_Diversity(seqs1, AAPLZGraph.encode_sequence, draws=30)
-    k2 = K1000_Diversity(seqs2, AAPLZGraph.encode_sequence, draws=30)
+    k1 = k1000_diversity(seqs1, AAPLZGraph.encode_sequence, draws=30)
+    k2 = k1000_diversity(seqs2, AAPLZGraph.encode_sequence, draws=30)
     print(f"{name1} K1000: {k1:.1f}")
     print(f"{name2} K1000: {k2:.1f}")
 

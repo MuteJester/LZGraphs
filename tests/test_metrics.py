@@ -4,14 +4,14 @@ Tests for Diversity Metrics and Information-Theoretic Measures
 
 Tests covering the metrics module including:
 - K-diversity family (K100, K500, K1000, K5000, adaptive)
-- LZCentrality
+- lz_centrality
 - Entropy measures (node, edge, graph entropy)
 - Perplexity scores
 - Distance metrics (JS divergence, cross-entropy, KL divergence)
 
 Test Categories:
 - K1000 diversity index with statistical robustness
-- LZCentrality calculation
+- lz_centrality calculation
 - Entropy metric calculations
 - Repertoire comparison metrics
 """
@@ -20,13 +20,13 @@ import pytest
 import numpy as np
 from LZGraphs import NDPLZGraph
 from LZGraphs.metrics.diversity import (
-    LZCentrality,
-    K_Diversity,
-    K100_Diversity,
-    K500_Diversity,
-    K1000_Diversity,
-    K5000_Diversity,
-    adaptive_K_Diversity,
+    lz_centrality,
+    k_diversity,
+    k100_diversity,
+    k500_diversity,
+    k1000_diversity,
+    k5000_diversity,
+    adaptive_k_diversity,
 )
 from LZGraphs.metrics.entropy import (
     node_entropy,
@@ -53,7 +53,7 @@ class TestK1000Diversity:
 
     def test_k1000_ndp_encoding_within_bounds(self, test_data_ndp):
         """Verify K1000 with NDP encoding returns value in expected range."""
-        k1000 = K1000_Diversity(
+        k1000 = k1000_diversity(
             list_of_sequences=test_data_ndp['cdr3_rearrangement'].to_list(),
             lzgraph_encoding_function='ndp',
             draws=50
@@ -63,7 +63,7 @@ class TestK1000Diversity:
 
     def test_k1000_aap_encoding_within_bounds(self, test_data_aap):
         """Verify K1000 with AAP encoding returns value in expected range."""
-        k1000 = K1000_Diversity(
+        k1000 = k1000_diversity(
             list_of_sequences=test_data_aap['cdr3_amino_acid'].to_list(),
             lzgraph_encoding_function='aap',
             draws=50
@@ -79,7 +79,7 @@ class TestK1000Diversity:
         # Run twice with same seeds (copy list to avoid mutation issues)
         np.random.seed(42)
         random.seed(42)
-        k1 = K1000_Diversity(
+        k1 = k1000_diversity(
             list_of_sequences=sequences.copy(),
             lzgraph_encoding_function='ndp',
             draws=10
@@ -87,7 +87,7 @@ class TestK1000Diversity:
 
         np.random.seed(42)
         random.seed(42)
-        k2 = K1000_Diversity(
+        k2 = k1000_diversity(
             list_of_sequences=sequences.copy(),
             lzgraph_encoding_function='ndp',
             draws=10
@@ -102,15 +102,15 @@ class TestKDiversityFamily:
     """Tests for the K-diversity family of functions."""
 
     def test_k_diversity_returns_positive_value(self, test_data_ndp):
-        """Verify K_Diversity returns positive value."""
+        """Verify k_diversity returns positive value."""
         sequences = test_data_ndp['cdr3_rearrangement'].to_list()
-        k = K_Diversity(sequences, 'ndp', sample_size=500, draws=10)
+        k = k_diversity(sequences, 'ndp', sample_size=500, draws=10)
         assert k > 0
 
     def test_k_diversity_with_stats(self, test_data_ndp):
-        """Verify K_Diversity returns statistics when requested."""
+        """Verify k_diversity returns statistics when requested."""
         sequences = test_data_ndp['cdr3_rearrangement'].to_list()
-        result = K_Diversity(
+        result = k_diversity(
             sequences, 'ndp',
             sample_size=500, draws=10,
             return_stats=True
@@ -125,44 +125,44 @@ class TestKDiversityFamily:
         assert ci_lower <= mean <= ci_upper
 
     def test_k100_diversity(self, test_data_aap):
-        """Verify K100_Diversity works for small sample size."""
+        """Verify k100_diversity works for small sample size."""
         sequences = test_data_aap['cdr3_amino_acid'].to_list()
-        k100 = K100_Diversity(sequences, 'aap', draws=10)
+        k100 = k100_diversity(sequences, 'aap', draws=10)
         assert k100 > 0
 
     def test_adaptive_k_diversity(self, test_data_ndp):
-        """Verify adaptive_K_Diversity auto-selects appropriate sample size."""
+        """Verify adaptive_k_diversity auto-selects appropriate sample size."""
         sequences = test_data_ndp['cdr3_rearrangement'].to_list()
-        # adaptive_K_Diversity returns (sample_size, mean) tuple
-        sample_size, k = adaptive_K_Diversity(sequences, 'ndp', draws=10)
+        # adaptive_k_diversity returns (sample_size, mean) tuple
+        sample_size, k = adaptive_k_diversity(sequences, 'ndp', draws=10)
         assert k > 0
         # For 5000 sequences, should use K1000
         assert sample_size == 1000
 
 
-class TestLZCentrality:
-    """Tests for LZCentrality metric."""
+class Testlz_centrality:
+    """Tests for lz_centrality metric."""
 
     def test_lz_centrality_calculation(self, ndp_lzgraph):
-        """Verify LZCentrality calculation produces expected result."""
+        """Verify lz_centrality calculation produces expected result."""
         test_sequence = 'TGTGCCTGCGTAACACAGGGGGTTTGGTATGGCTACACCTTC'
-        lzc = LZCentrality(ndp_lzgraph, test_sequence)
+        lzc = lz_centrality(ndp_lzgraph, test_sequence)
 
         assert lzc == 14.105263157894736
 
     def test_lz_centrality_positive(self, ndp_lzgraph, test_data_ndp):
-        """Verify LZCentrality is always positive."""
+        """Verify lz_centrality is always positive."""
         sequence = test_data_ndp['cdr3_rearrangement'].iloc[0]
-        lzc = LZCentrality(ndp_lzgraph, sequence)
+        lzc = lz_centrality(ndp_lzgraph, sequence)
         assert lzc > 0
 
     def test_lz_centrality_different_sequences(self, ndp_lzgraph, test_data_ndp):
-        """Verify different sequences can have different LZCentrality."""
+        """Verify different sequences can have different lz_centrality."""
         seq1 = test_data_ndp['cdr3_rearrangement'].iloc[0]
         seq2 = test_data_ndp['cdr3_rearrangement'].iloc[1]
 
-        lzc1 = LZCentrality(ndp_lzgraph, seq1)
-        lzc2 = LZCentrality(ndp_lzgraph, seq2)
+        lzc1 = lz_centrality(ndp_lzgraph, seq1)
+        lzc2 = lz_centrality(ndp_lzgraph, seq2)
 
         # Different sequences should generally have different centrality
         # (though not guaranteed for all sequences)
@@ -269,7 +269,7 @@ class TestMetricRobustness:
         small_repertoire = test_data_aap['cdr3_amino_acid'].iloc[:100].tolist()
 
         # Should auto-adjust sample size and still work
-        k = K_Diversity(small_repertoire, 'aap', sample_size=1000, draws=5)
+        k = k_diversity(small_repertoire, 'aap', sample_size=1000, draws=5)
         assert k > 0
 
     def test_entropy_with_single_sequence_graph(self):

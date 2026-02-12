@@ -1,11 +1,11 @@
 from .diversity import (
-    LZCentrality,
-    K_Diversity,
-    K100_Diversity,
-    K500_Diversity,
-    K1000_Diversity,
-    K5000_Diversity,
-    adaptive_K_Diversity,
+    lz_centrality,
+    k_diversity,
+    k100_diversity,
+    k500_diversity,
+    k1000_diversity,
+    k5000_diversity,
+    adaptive_k_diversity,
 )
 
 from .entropy import (
@@ -44,13 +44,13 @@ from .pgen_distribution import (
 
 __all__ = [
     # Diversity metrics
-    'LZCentrality',
-    'K_Diversity',
-    'K100_Diversity',
-    'K500_Diversity',
-    'K1000_Diversity',
-    'K5000_Diversity',
-    'adaptive_K_Diversity',
+    'lz_centrality',
+    'k_diversity',
+    'k100_diversity',
+    'k500_diversity',
+    'k1000_diversity',
+    'k5000_diversity',
+    'adaptive_k_diversity',
     # Entropy metrics
     'node_entropy',
     'edge_entropy',

@@ -25,7 +25,7 @@ Build graphs, calculate probabilities, generate sequences, and visualize results
 
 **Nucleotide sequence analysis**
 
-Work with nucleotide CDR3 sequences using double positional encoding.
+Work with nucleotide CDR3 sequences using reading frame + position encoding.
 
 [:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/NDPLZGraph%20Example.ipynb){ .md-button }
 </div>
@@ -37,7 +37,7 @@ Work with nucleotide CDR3 sequences using double positional encoding.
 
 **Diversity and entropy analysis**
 
-Calculate K1000, LZCentrality, entropy metrics, and compare repertoires.
+Calculate k1000_diversity, lz_centrality, entropy metrics, and compare repertoires.
 
 [:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Metrics%20Example.ipynb){ .md-button }
 </div>
@@ -63,6 +63,39 @@ Use NaiveLZGraph for consistent feature vectors and cross-repertoire analysis.
 Transition predictability, compression ratio, path entropy rate, transition JSD, mutual information profiles, and repertoire fingerprinting.
 
 [:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Information-Theoretic%20Analysis.ipynb){ .md-button }
+</div>
+
+<div class="example-card" markdown>
+
+### LZPgen Example
+
+**Analytical generation probability**
+
+Compute the full Pgen distribution analytically using `LZPgenDistribution` — no sampling needed.
+
+[:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/LZPgen%20Example.ipynb){ .md-button }
+</div>
+
+<div class="example-card" markdown>
+
+### Advanced Features
+
+**Abundance weighting, batch simulation, and more**
+
+Abundance-weighted graph construction, fast batch generation with `simulate()`, and serialization.
+
+[:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Advanced%20Features.ipynb){ .md-button }
+</div>
+
+<div class="example-card" markdown>
+
+### LZBOW Example
+
+**Bag-of-Words feature extraction**
+
+Extract fixed-size feature vectors from sequences using the LZ bag-of-words representation.
+
+[:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/LZBOW%20Example.ipynb){ .md-button }
 </div>
 
 </div>
@@ -94,20 +127,20 @@ jupyter notebook
 
 The examples use these datasets included in the repository:
 
-| File | Description | Sequences |
-|------|-------------|-----------|
-| `ExampleData1.csv` | TCR repertoire sample 1 | ~20,000 |
-| `ExampleData2.csv` | TCR repertoire sample 2 | ~15,000 |
-| `ExampleData3.csv` | TCR repertoire sample 3 | ~10,000 |
+| File | Columns | Sequences | Use with |
+|------|---------|-----------|----------|
+| `ExampleData1.csv` | `cdr3_rearrangement` | 5,000 | NDPLZGraph (no genes) |
+| `ExampleData2.csv` | `cdr3_rearrangement`, `V`, `J` | 5,000 | NDPLZGraph (with genes) |
+| `ExampleData3.csv` | `cdr3_amino_acid`, `V`, `J` | 5,000 | AAPLZGraph (with genes) |
 
 ### Data Format
 
 ```python
 import pandas as pd
 
-data = pd.read_csv("Examples/ExampleData1.csv")
+data = pd.read_csv("Examples/ExampleData3.csv")
 print(data.columns.tolist())
-# ['cdr3_amino_acid', 'cdr3_rearrangement', 'V', 'J']
+# ['cdr3_amino_acid', 'V', 'J']
 
 print(data.head())
 ```
@@ -120,8 +153,8 @@ print(data.head())
 import pandas as pd
 from LZGraphs import AAPLZGraph
 
-# Load example data
-data = pd.read_csv("Examples/ExampleData1.csv")
+# Load example data (ExampleData3 has amino acid + gene columns)
+data = pd.read_csv("Examples/ExampleData3.csv")
 
 # Build graph
 graph = AAPLZGraph(data, verbose=True)
@@ -134,10 +167,10 @@ print(f"Edges: {graph.graph.number_of_edges()}")
 ### Calculate Diversity
 
 ```python
-from LZGraphs import K1000_Diversity, AAPLZGraph
+from LZGraphs import k1000_diversity, AAPLZGraph
 
 sequences = data['cdr3_amino_acid'].tolist()
-k1000 = K1000_Diversity(sequences, AAPLZGraph.encode_sequence, draws=30)
+k1000 = k1000_diversity(sequences, AAPLZGraph.encode_sequence, draws=30)
 print(f"K1000: {k1000:.1f}")
 ```
 
@@ -146,7 +179,7 @@ print(f"K1000: {k1000:.1f}")
 ```python
 # Generate with gene constraints
 walk, v_gene, j_gene = graph.genomic_random_walk()
-sequence = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
 print(f"Generated: {sequence}")
 print(f"V: {v_gene}, J: {j_gene}")
 ```
@@ -156,10 +189,13 @@ print(f"V: {v_gene}, J: {j_gene}")
 | Notebook | Topics |
 |----------|--------|
 | AAPLZGraph | Graph construction, probabilities, random walks, visualization |
-| NDPLZGraph | Nucleotide encoding, double positions, gene analysis |
+| NDPLZGraph | Nucleotide encoding, reading frame + position, gene analysis |
 | Metrics | K-diversity, entropy, perplexity, JS divergence |
 | NaiveLZGraph | Fixed dictionaries, eigenvector centrality, ML features |
 | Information-Theoretic Analysis | Transition predictability, compression ratio, path entropy, TMIP, transition JSD |
+| LZPgen | Analytical Pgen distribution, Gaussian mixture model |
+| Advanced Features | Abundance weighting, batch simulation, serialization |
+| LZBOW | Bag-of-words feature extraction |
 
 ## Next Steps
 

@@ -8,9 +8,10 @@ A sequence's probability is the product of:
 
 1. **Initial probability**: Likelihood of starting with the first pattern
 2. **Transition probabilities**: Likelihood of each pattern-to-pattern transition
+3. **Stop probability**: Likelihood of terminating at the last node
 
 \[
-P(\text{sequence}) = P(\text{start}) \times \prod_{i=1}^{n-1} P(\text{node}_{i+1} | \text{node}_i)
+P(\text{sequence}) = P(\text{start}) \times \prod_{i=1}^{n-1} P(\text{node}_{i+1} | \text{node}_i) \times P(\text{stop} | \text{node}_n)
 \]
 
 ## How It Works
@@ -32,23 +33,26 @@ The probability of starting with `C_1`:
 
 ```python
 # Initial state probability
-p_start = graph.subpattern_individual_probability.loc['C_1', 'proba']
+p_start = graph.initial_state_probabilities['C_1']
 print(f"P(start with C_1) = {p_start:.4f}")
 ```
 
 ### Step 3: Multiply Edge Weights
 
-For each transition, get the edge weight:
+For each transition, get the edge weight from the `EdgeData` object:
 
 ```python
 # Transition probabilities (edge weights)
-p_C1_A2 = graph.graph['C_1']['A_2']['weight']
-p_A2_S3 = graph.graph['A_2']['S_3']['weight']
-p_S3_SL5 = graph.graph['S_3']['SL_5']['weight']
-p_SL5_E6 = graph.graph['SL_5']['E_6']['weight']
+p_C1_A2 = graph.graph['C_1']['A_2']['data'].weight
+p_A2_S3 = graph.graph['A_2']['S_3']['data'].weight
+p_S3_SL5 = graph.graph['S_3']['SL_5']['data'].weight
+p_SL5_E6 = graph.graph['SL_5']['E_6']['data'].weight
+
+# Stop probability at the last node
+p_stop = graph._stop_probability_cache.get('E_6', 0)
 
 # Total probability
-pgen = p_start * p_C1_A2 * p_A2_S3 * p_S3_SL5 * p_SL5_E6
+pgen = p_start * p_C1_A2 * p_A2_S3 * p_S3_SL5 * p_SL5_E6 * p_stop
 print(f"P(CASSLE) = {pgen:.2e}")
 ```
 
@@ -75,7 +79,7 @@ This ensures outgoing edges from any node sum to 1:
 # Check normalization
 node = 'C_1'
 successors = list(graph.graph.successors(node))
-total_weight = sum(graph.graph[node][s]['weight'] for s in successors)
+total_weight = sum(graph.graph[node][s]['data'].weight for s in successors)
 print(f"Sum of weights from {node}: {total_weight:.4f}")  # Should be ~1.0
 ```
 
@@ -96,7 +100,7 @@ print(f"log P = {log_pgen:.2f}")
 ### Mathematical Relationship
 
 \[
-\log P = \log P(\text{start}) + \sum_{i=1}^{n-1} \log P(\text{edge}_i)
+\log P = \log P(\text{start}) + \sum_{i=1}^{n-1} \log P(\text{edge}_i) + \log P(\text{stop} | \text{node}_n)
 \]
 
 ### When to Use Log Probability
@@ -108,13 +112,14 @@ print(f"log P = {log_pgen:.2f}")
 
 ## Gene-Constrained Probability
 
-When V/J genes are annotated, edges also carry gene information:
+When V/J genes are annotated, edges carry gene information via the `EdgeData` object:
 
 ```python
-# Edge has gene distribution
-edge_data = graph.graph['C_1']['A_2']
-print(edge_data.keys())
-# dict_keys(['weight', 'gene_weight', 'V', 'J'])
+# Access edge data
+edge = graph.graph['C_1']['A_2']['data']
+print(f"Weight: {edge.weight}")
+print(f"V genes: {edge.v_genes}")   # dict of {gene_name: count}
+print(f"J genes: {edge.j_genes}")   # dict of {gene_name: count}
 ```
 
 ### Gene-Weighted Walks
@@ -167,8 +172,7 @@ sequences = ['CASSLEPSGGTDTQYF', 'CASSLGQGSTEAFF', 'CASSXYZRARESEQ']
 probs = []
 for seq in sequences:
     try:
-        enc = AAPLZGraph.encode_sequence(seq)
-        log_p = graph.walk_probability(enc, use_log=True)
+        log_p = graph.walk_probability(seq, use_log=True)
         probs.append((seq, log_p))
     except:
         probs.append((seq, float('-inf')))
@@ -191,14 +195,14 @@ Perplexity is derived from probability:
 
 Where n is the sequence length. Lower perplexity means the sequence "fits" the model better.
 
-### LZCentrality
+### lz_centrality
 
-LZCentrality combines probability with graph structure:
+lz_centrality combines probability with graph structure:
 
 ```python
-from LZGraphs import LZCentrality
+from LZGraphs import lz_centrality
 
-centrality = LZCentrality(graph, sequence)
+centrality = lz_centrality(graph, sequence)
 ```
 
 ### Entropy
@@ -226,8 +230,7 @@ test_sequences = [
 
 results = []
 for seq in test_sequences:
-    enc = AAPLZGraph.encode_sequence(seq)
-    log_pgen = graph.walk_probability(enc, use_log=True)
+    log_pgen = graph.walk_probability(seq, use_log=True)
     results.append({
         'sequence': seq,
         'length': len(seq),

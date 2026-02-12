@@ -43,7 +43,7 @@ class TestFromAIRR:
 
         assert graph.graph.number_of_nodes() > 0
         assert graph.graph.number_of_edges() > 0
-        assert graph.genetic is True
+        assert graph.has_gene_data is True
 
     def test_from_airr_ndp(self, test_data_ndp):
         """Verify NDPLZGraph.from_airr maps AIRR columns correctly."""
@@ -56,7 +56,7 @@ class TestFromAIRR:
         graph = NDPLZGraph.from_airr(airr_df, verbose=False)
 
         assert graph.graph.number_of_nodes() > 0
-        assert graph.genetic is True
+        assert graph.has_gene_data is True
 
     def test_from_airr_custom_column_map(self, test_data_aap):
         """Verify from_airr works with custom column mappings."""
@@ -76,7 +76,7 @@ class TestFromAIRR:
         graph = AAPLZGraph.from_airr(custom_df, column_map=custom_map, verbose=False)
 
         assert graph.graph.number_of_nodes() > 0
-        assert graph.genetic is True
+        assert graph.has_gene_data is True
 
     def test_from_airr_no_gene_columns(self, test_data_aap):
         """Verify from_airr works without gene columns."""
@@ -87,7 +87,7 @@ class TestFromAIRR:
         graph = AAPLZGraph.from_airr(airr_df, verbose=False)
 
         assert graph.graph.number_of_nodes() > 0
-        assert graph.genetic is False
+        assert graph.has_gene_data is False
 
     def test_from_airr_preserves_existing_columns(self, test_data_aap):
         """Verify from_airr doesn't rename columns that already match."""
@@ -379,7 +379,7 @@ class TestRemoveSequence:
         pytest.skip("No sequence with a unique edge found")
 
     def test_freq_consistent_after_removal(self, test_data_aap):
-        """per_node_observed_frequency must equal sum of outgoing edge counts."""
+        """node_outgoing_counts must equal sum of outgoing edge counts."""
         g = AAPLZGraph(test_data_aap, verbose=False)
 
         for i in range(10):
@@ -390,7 +390,7 @@ class TestRemoveSequence:
         for node in g.graph.nodes():
             succs = list(g.graph.successors(node))
             outgoing_sum = sum(g.graph[node][s]['data'].count for s in succs)
-            freq = g.per_node_observed_frequency.get(node, 0)
+            freq = g.node_outgoing_counts.get(node, 0)
             assert freq == outgoing_sum, (
                 f"Node {node}: freq={freq}, outgoing_count={outgoing_sum}"
             )

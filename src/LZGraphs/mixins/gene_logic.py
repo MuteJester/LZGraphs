@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from ..utilities.misc import choice, _is_v_gene, _is_j_gene
 from ..graphs.edge_data import EdgeData
 from ..exceptions import NoGeneDataError, MetricsError
@@ -12,8 +11,8 @@ class GeneLogicMixin:
     Requirements:
         - The parent class must define:
             self.graph (networkx.DiGraph)
-            self.n_transitions (int)
-            self.genetic (bool)
+            self.num_transitions (int)
+            self.has_gene_data (bool)
         - A function `choice(options, weights)` that picks one item from `options`
           with probability distribution `weights`.
     """
@@ -22,37 +21,39 @@ class GeneLogicMixin:
         """
         Raise an error if genetic mode is off but a genetic function is called.
         """
-        if not self.genetic:
+        if not self.has_gene_data:
             raise NoGeneDataError(
                 message="Genomic data function requires gene annotation data, "
-                "but `self.genetic` is False."
+                "but `self.has_gene_data` is False."
             )
 
-    def _load_gene_data(self, data: pd.DataFrame) -> None:
+    def _load_gene_data(self, data) -> None:
         """
         Load V and J gene data from the input DataFrame into
         marginal frequency distributions. Also track the combined frequency
         of V-J pairs (VJ).
 
         Args:
-            data (pd.DataFrame): Must contain columns ['V', 'J'] at minimum,
-                                 representing observed V/J genes for each sequence.
+            data: Must contain columns ['V', 'J'] at minimum,
+                  representing observed V/J genes for each sequence.
         """
         # Unique sets of V and J
-        self.observed_vgenes = list(set(data['V']))
-        self.observed_jgenes = list(set(data['J']))
+        self.observed_v_genes = list(set(data['V']))
+        self.observed_j_genes = list(set(data['J']))
 
-        # Marginal distributions (normalized)
-        self.marginal_vgenes = data['V'].value_counts(normalize=True)
-        self.marginal_jgenes = data['J'].value_counts(normalize=True)
+        # Marginal distributions (normalized) — stored as plain dicts
+        self.marginal_v_genes = dict(data['V'].value_counts(normalize=True))
+        self.marginal_j_genes = dict(data['J'].value_counts(normalize=True))
 
         # Combined VJ distribution
-        self.vj_probabilities = (data['V'] + '_' + data['J']).value_counts(normalize=True)
+        self.vj_probabilities = dict(
+            (data['V'] + '_' + data['J']).value_counts(normalize=True)
+        )
 
     def _select_random_vj_genes(self, mode='marginal') -> tuple[str, str]:
         """
         Select random (V, J) genes based on:
-            - 'marginal': pick V from marginal_vgenes, and J from marginal_jgenes, independently
+            - 'marginal': pick V from marginal_v_genes, and J from marginal_j_genes, independently
             - 'combined': pick a single 'V_J' from vj_probabilities
 
         Args:
@@ -63,33 +64,33 @@ class GeneLogicMixin:
         """
         self._raise_genetic_mode_error()
         if mode == 'marginal':
-            V = choice(self.marginal_vgenes.index, self.marginal_vgenes.values)
-            J = choice(self.marginal_jgenes.index, self.marginal_jgenes.values)
+            V = choice(list(self.marginal_v_genes.keys()), list(self.marginal_v_genes.values()))
+            J = choice(list(self.marginal_j_genes.keys()), list(self.marginal_j_genes.values()))
             return V, J
         elif mode == 'combined':
-            VJ = choice(self.vj_probabilities.index, self.vj_probabilities.values)
+            VJ = choice(list(self.vj_probabilities.keys()), list(self.vj_probabilities.values()))
             V, J = VJ.split('_')
             return V, J
         else:
             raise MetricsError(f"Unknown mode: {mode}. Use 'marginal' or 'combined'.")
 
-    def _insert_edge_and_information(self, node_a: str, node_b: str, Vgene: str, Jgene: str) -> None:
+    def _insert_edge_and_information(self, node_a: str, node_b: str, v_gene: str, j_gene: str, count: int = 1) -> None:
         """
         Insert or update an edge (node_a -> node_b) with the relevant gene data.
-        This increments the count by 1, as well as the counters for V and J usage.
 
         Args:
             node_a (str): The source node.
             node_b (str): The target node.
-            Vgene (str): The V gene name.
-            Jgene (str): The J gene name.
+            v_gene (str): The V gene name.
+            j_gene (str): The J gene name.
+            count (int): Number of traversals (abundance weight). Default 1.
         """
         if self.graph.has_edge(node_a, node_b):
-            self.graph[node_a][node_b]['data'].record(v_gene=Vgene, j_gene=Jgene)
+            self.graph[node_a][node_b]['data'].record(v_gene=v_gene, j_gene=j_gene, count=count)
         else:
             ed = EdgeData()
-            ed.record(v_gene=Vgene, j_gene=Jgene)
+            ed.record(v_gene=v_gene, j_gene=j_gene, count=count)
             self.graph.add_edge(node_a, node_b, data=ed)
 
         # Track a global transition count (if needed by the parent class)
-        self.n_transitions += 1
+        self.num_transitions += count

@@ -20,8 +20,8 @@ The `AAPLZGraph` is optimized for amino acid CDR3 sequences with positional enco
 from LZGraphs import AAPLZGraph
 import pandas as pd
 
-# Load your data
-data = pd.read_csv("Examples/ExampleData1.csv")
+# Load your data (ExampleData3 has amino acid + gene columns)
+data = pd.read_csv("Examples/ExampleData3.csv")
 
 # Build the graph
 graph = AAPLZGraph(data, verbose=True)
@@ -89,11 +89,11 @@ print(graph.lengths)
 ```python
 # Initial states (first subpattern of sequences)
 print("Initial states:")
-print(graph.initial_states)
+print(graph.initial_state_counts)
 
 # Terminal states (last subpattern of sequences)
 print("\nTerminal states (top 5):")
-print(graph.terminal_states.head())
+print(graph.terminal_state_counts.head())
 ```
 
 ### V/J Gene Distributions
@@ -101,18 +101,18 @@ print(graph.terminal_states.head())
 ```python
 # Marginal V gene probabilities
 print("V gene distribution:")
-print(graph.marginal_vgenes)
+print(graph.marginal_v_genes)
 
 # Marginal J gene probabilities
 print("\nJ gene distribution:")
-print(graph.marginal_jgenes)
+print(graph.marginal_j_genes)
 ```
 
 ---
 
-## Nucleotide Double Positional Graph (NDPLZGraph)
+## Nucleotide Reading Frame Positional Graph (NDPLZGraph)
 
-The `NDPLZGraph` is designed for nucleotide sequences with double positional encoding.
+The `NDPLZGraph` is designed for nucleotide sequences with reading frame + position encoding.
 
 ### Construction
 
@@ -136,10 +136,11 @@ graph = NDPLZGraph(data, verbose=True)
 sequence = "TGTGCCAGC"
 encoded = NDPLZGraph.encode_sequence(sequence)
 print(encoded)
-# ['T_1_1', 'G_2_2', 'T_3_3', 'G_4_4', 'C_5_5', 'C_6_6', 'A_7_7', 'G_8_8', 'C_9_9']
+# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'CA2_7', 'GC1_9']
 ```
 
-The double position encoding (`_start_end`) captures subpattern boundaries precisely.
+Each node has the format `{subpattern}{reading_frame}_{position}`, where the reading frame
+(0, 1, or 2) indicates the codon position and the suffix is the cumulative sequence position.
 
 ---
 
@@ -191,6 +192,81 @@ AA        1.252643e-01
 
 ---
 
+## Sequence Abundance Weighting
+
+All three graph types support **sequence abundance weighting**, which allows you to incorporate clonotype frequency information into the graph construction. Instead of treating each unique sequence equally, abundance weighting ensures that sequences observed more frequently contribute proportionally more to edge weights and transition probabilities.
+
+### Why Use Abundance Weighting?
+
+- **More accurate probability estimates** that reflect true clonal frequencies
+- **Better representation of clonal expansion patterns** in the repertoire
+- **More realistic sequence generation** via `simulate()` -- generated sequences follow the abundance-weighted distribution
+- **Probability models that account for how frequently each sequence was observed**, not just whether it was observed
+
+### AAPLZGraph and NDPLZGraph
+
+For `AAPLZGraph` and `NDPLZGraph`, include an `abundance` column in your input DataFrame. Each sequence will be weighted by its abundance count during graph construction.
+
+```python
+import pandas as pd
+from LZGraphs import AAPLZGraph
+
+# DataFrame with abundance counts
+df = pd.DataFrame({
+    'cdr3_amino_acid': ['CASSLAPGATNEKLFF', 'CASSLGQAYEQYF', 'CASSQETQYF'],
+    'V': ['TRBV5-1*01', 'TRBV7-2*01', 'TRBV3-1*01'],
+    'J': ['TRBJ1-4*01', 'TRBJ2-7*01', 'TRBJ2-5*01'],
+    'abundance': [15, 3, 42]  # clonotype counts
+})
+
+graph = AAPLZGraph(df)
+# Edge weights now reflect abundance-weighted frequencies
+```
+
+The same approach works for `NDPLZGraph`:
+
+```python
+from LZGraphs import NDPLZGraph
+
+df = pd.DataFrame({
+    'cdr3_rearrangement': ['TGTGCCAGCAGTTTAGAG...', 'TGTGCCAGCAGTGACACT...'],
+    'V': ['TRBV16-1*01', 'TRBV1-1*01'],
+    'J': ['TRBJ1-2*01', 'TRBJ1-5*01'],
+    'abundance': [10, 5]
+})
+
+graph = NDPLZGraph(df)
+```
+
+### NaiveLZGraph
+
+For `NaiveLZGraph`, pass the `abundances` parameter as a list of integers (one per sequence):
+
+```python
+from LZGraphs import NaiveLZGraph
+from LZGraphs.utilities import generate_kmer_dictionary
+
+sequences = ['ACGTACGT', 'TGCATGCA', 'GGCCTTAA']
+abundances = [10, 5, 20]
+dictionary = generate_kmer_dictionary(4)
+
+graph = NaiveLZGraph(sequences, dictionary, abundances=abundances)
+```
+
+### Effect on Downstream Analysis
+
+When abundance weighting is used:
+
+- **Edge weights** reflect the total abundance-weighted transitions, not just the number of unique sequences sharing an edge
+- **`walk_probability()`** returns probabilities that account for clonal expansion
+- **`simulate()`** generates sequences with frequencies matching the abundance-weighted model
+- **Diversity metrics** computed on the graph reflect the true clonal distribution
+
+!!! tip "When to use abundance weighting"
+    Use abundance weighting when your dataset includes clonotype counts and you want the graph to model the **observed repertoire** (including clonal expansions). Omit it when you want to model the **unique sequence diversity** regardless of how many times each sequence was observed.
+
+---
+
 ## Construction Options
 
 ### Verbose Mode
@@ -210,9 +286,7 @@ graph = AAPLZGraph(data, verbose=True)
 Get a quick overview of your graph:
 
 ```python
-from LZGraphs import graph_summary
-
-summary = graph_summary(graph)
+summary = graph.graph_summary()
 print(summary)
 ```
 

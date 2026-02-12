@@ -40,17 +40,25 @@ This includes additional tools for testing and code quality.
 
 ## Dependencies
 
-LZGraphs automatically installs these dependencies:
+LZGraphs automatically installs these core dependencies:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `networkx` | ≥3.0 | Graph data structures |
 | `numpy` | ≥1.24 | Numerical operations |
 | `pandas` | ≥1.5 | Data manipulation |
-| `matplotlib` | ≥3.7 | Visualization |
-| `seaborn` | ≥0.12 | Statistical plots |
 | `scipy` | ≥1.10 | Scientific computing |
 | `tqdm` | ≥4.65 | Progress bars |
+
+### Optional: Visualization
+
+For plotting functions (`plot_graph`, `plot_possible_paths`, etc.), install the visualization extras:
+
+```bash
+pip install "LZGraphs[viz]"
+```
+
+This adds `matplotlib` (≥3.7) and `seaborn` (≥0.12).
 
 ## Verify Installation
 

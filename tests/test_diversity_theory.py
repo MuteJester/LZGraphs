@@ -28,10 +28,10 @@ from typing import List, Tuple
 
 from LZGraphs import AAPLZGraph
 from LZGraphs.metrics.diversity import (
-    K_Diversity,
-    K100_Diversity,
-    K500_Diversity,
-    K1000_Diversity,
+    k_diversity,
+    k100_diversity,
+    k500_diversity,
+    k1000_diversity,
 )
 from LZGraphs.metrics.entropy import (
     node_entropy,
@@ -227,8 +227,8 @@ class TestK1000DiversityOrdering:
         A repertoire with only 3 templates should have much lower K1000 than
         a repertoire with mostly unique sequences.
         """
-        k1000_low = K1000_Diversity(low_diversity_repertoire, 'aap', draws=20)
-        k1000_high = K1000_Diversity(high_diversity_repertoire, 'aap', draws=20)
+        k1000_low = k1000_diversity(low_diversity_repertoire, 'aap', draws=20)
+        k1000_high = k1000_diversity(high_diversity_repertoire, 'aap', draws=20)
 
         # High diversity should have significantly higher K1000
         assert k1000_high > k1000_low, \
@@ -248,9 +248,9 @@ class TestK1000DiversityOrdering:
         """
         Verify medium diversity repertoire has K1000 between low and high.
         """
-        k1000_low = K1000_Diversity(low_diversity_repertoire, 'aap', draws=15)
-        k1000_med = K1000_Diversity(medium_diversity_repertoire, 'aap', draws=15)
-        k1000_high = K1000_Diversity(high_diversity_repertoire, 'aap', draws=15)
+        k1000_low = k1000_diversity(low_diversity_repertoire, 'aap', draws=15)
+        k1000_med = k1000_diversity(medium_diversity_repertoire, 'aap', draws=15)
+        k1000_high = k1000_diversity(high_diversity_repertoire, 'aap', draws=15)
 
         assert k1000_low < k1000_med < k1000_high, \
             f"Expected ordering: {k1000_low:.1f} < {k1000_med:.1f} < {k1000_high:.1f}"
@@ -266,7 +266,7 @@ class TestK1000DiversityOrdering:
         template_counts = []
 
         for name, sequences, n_templates in diversity_gradient:
-            k1000 = K_Diversity(sequences, 'aap', sample_size=500, draws=15)
+            k1000 = k_diversity(sequences, 'aap', sample_size=500, draws=15)
             k1000_values.append(k1000)
             template_counts.append(n_templates)
 
@@ -295,10 +295,10 @@ class TestK1000StatisticalProperties:
         (more consistent sampling) while high diversity repertoires
         may show more variance.
         """
-        _, std_low, _, _ = K1000_Diversity(
+        _, std_low, _, _ = k1000_diversity(
             low_diversity_repertoire, 'aap', draws=25, return_stats=True
         )
-        _, std_high, _, _ = K1000_Diversity(
+        _, std_high, _, _ = k1000_diversity(
             high_diversity_repertoire, 'aap', draws=25, return_stats=True
         )
 
@@ -315,10 +315,10 @@ class TestK1000StatisticalProperties:
         If two repertoires are sufficiently different in diversity, their
         95% confidence intervals should not overlap.
         """
-        mean_low, _, ci_low_lower, ci_low_upper = K1000_Diversity(
+        mean_low, _, ci_low_lower, ci_low_upper = k1000_diversity(
             low_diversity_repertoire, 'aap', draws=30, return_stats=True
         )
-        mean_high, _, ci_high_lower, ci_high_upper = K1000_Diversity(
+        mean_high, _, ci_high_lower, ci_high_upper = k1000_diversity(
             high_diversity_repertoire, 'aap', draws=30, return_stats=True
         )
 
@@ -585,7 +585,7 @@ class TestDiversityMetricsRobustness:
         """
         A repertoire of near-identical sequences should have minimal K diversity.
 
-        We use the saturation probe directly since K_Diversity requires
+        We use the saturation probe directly since k_diversity requires
         enough unique sequences for meaningful sampling.
         """
         # Near-identical sequences (minimal variation)
@@ -609,7 +609,7 @@ class TestDiversityMetricsRobustness:
             for _ in range(1000)
         ]
 
-        k500 = K_Diversity(random_repertoire, 'aap', sample_size=500, draws=10)
+        k500 = k_diversity(random_repertoire, 'aap', sample_size=500, draws=10)
 
         # Should be relatively high
         assert k500 > 200, f"Random repertoire K diversity ({k500}) should be high"
@@ -624,8 +624,8 @@ class TestDiversityMetricsRobustness:
         # Variable length
         variable_length = generate_diverse_repertoire(1000, length=14, length_variation=3, seed=42)
 
-        k_fixed = K_Diversity(fixed_length, 'aap', sample_size=500, draws=10)
-        k_variable = K_Diversity(variable_length, 'aap', sample_size=500, draws=10)
+        k_fixed = k_diversity(fixed_length, 'aap', sample_size=500, draws=10)
+        k_variable = k_diversity(variable_length, 'aap', sample_size=500, draws=10)
 
         # Variable length should have higher or equal diversity
         assert k_variable >= k_fixed * 0.9, \
@@ -645,7 +645,7 @@ class TestCorrelationBetweenMetrics:
 
         for name, sequences, n_templates in diversity_gradient:
             # Calculate K diversity
-            k = K_Diversity(sequences[:1000], 'aap', sample_size=500, draws=10)
+            k = k_diversity(sequences[:1000], 'aap', sample_size=500, draws=10)
             k_values.append(k)
 
             # Calculate graph entropy
@@ -674,7 +674,7 @@ class TestCorrelationBetweenMetrics:
         node_counts = []
 
         for name, sequences, n_templates in diversity_gradient:
-            k = K_Diversity(sequences[:1000], 'aap', sample_size=500, draws=10)
+            k = k_diversity(sequences[:1000], 'aap', sample_size=500, draws=10)
             k_values.append(k)
 
             curve = probe.saturation_curve(sequences[:1000], log_every=200)

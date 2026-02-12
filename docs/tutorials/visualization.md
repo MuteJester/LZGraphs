@@ -8,11 +8,11 @@ LZGraphs provides specialized visualization functions:
 
 | Function | Purpose |
 |----------|---------|
-| `draw_graph` | Visualize graph structure |
-| `ancestors_descendants_curves_plot` | Trace sequence path through graph |
-| `sequence_possible_paths_plot` | Show branching at each position |
-| `sequence_genomic_node_variability_plot` | V/J gene diversity per node |
-| `sequence_genomic_edges_variability_plot` | V/J gene diversity per edge |
+| `plot_graph` | Visualize graph structure |
+| `plot_ancestor_descendant_curves` | Trace sequence path through graph |
+| `plot_possible_paths` | Show branching at each position |
+| `plot_gene_node_variability` | V/J gene diversity per node |
+| `plot_gene_edge_variability` | V/J gene diversity per edge |
 
 ---
 
@@ -22,15 +22,15 @@ LZGraphs provides specialized visualization functions:
 import pandas as pd
 from LZGraphs import AAPLZGraph
 from LZGraphs.visualization import (
-    draw_graph,
-    ancestors_descendants_curves_plot,
-    sequence_possible_paths_plot,
-    sequence_genomic_node_variability_plot,
-    sequence_genomic_edges_variability_plot
+    plot_graph,
+    plot_ancestor_descendant_curves,
+    plot_possible_paths,
+    plot_gene_node_variability,
+    plot_gene_edge_variability
 )
 
 # Build a graph
-data = pd.read_csv("Examples/ExampleData1.csv")
+data = pd.read_csv("Examples/ExampleData3.csv")
 graph = AAPLZGraph(data, verbose=False)
 ```
 
@@ -41,7 +41,7 @@ graph = AAPLZGraph(data, verbose=False)
 Visualize the graph structure:
 
 ```python
-draw_graph(graph, file_name='my_lzgraph.png')
+plot_graph(graph, file_name='my_lzgraph.png')
 ```
 
 This generates a PNG image showing the graph structure with nodes representing LZ76 patterns and edges showing observed transitions.
@@ -57,7 +57,7 @@ This plot shows how the number of ancestors (predecessors) and descendants (succ
 
 ```python
 sequence = 'CASTPGTASGYTF'
-ancestors_descendants_curves_plot(graph, sequence)
+plot_ancestor_descendant_curves(graph, sequence)
 ```
 
 ![Ancestors Descendants Curve](../images/ad_curve_example.png)
@@ -82,7 +82,7 @@ Shows the number of alternative paths (branching factor) at each position:
 
 ```python
 sequence = 'CASTPGTASGYTF'
-sequence_possible_paths_plot(graph, sequence)
+plot_possible_paths(graph, sequence)
 ```
 
 ![Possible Paths Plot](../images/sequence_path_number_example.png)
@@ -98,7 +98,7 @@ sequence_possible_paths_plot(graph, sequence)
 Sequences with consistently low path counts are rare in the repertoire and tend to have:
 - Lower generation probability
 - Higher Levenshtein distance from repertoire mean
-- Lower LZCentrality
+- Lower lz_centrality
 
 ---
 
@@ -108,7 +108,7 @@ Shows V and J gene diversity at each node in a sequence:
 
 ```python
 sequence = 'CASTPGTASGYTF'
-sequence_genomic_node_variability_plot(graph, sequence)
+plot_gene_node_variability(graph, sequence)
 ```
 
 ![Node Variability Plot](../images/number_of_vj_at_nodes_example.png)
@@ -131,7 +131,7 @@ Shows V and J gene associations for each edge transition:
 
 ```python
 sequence = 'CASTPGTASGYTF'
-sequence_genomic_edges_variability_plot(graph, sequence)
+plot_gene_edge_variability(graph, sequence)
 ```
 
 ![Edge Variability Plot](../images/number_of_vj_at_edges_example.png)
@@ -160,7 +160,7 @@ sequence_genomic_edges_variability_plot(graph, sequence)
 import matplotlib.pyplot as plt
 
 # Create the plot
-fig = sequence_possible_paths_plot(graph, sequence)
+fig = plot_possible_paths(graph, sequence)
 
 # Customize and save
 plt.title("Path Variability Analysis")
@@ -179,7 +179,7 @@ sequences = [
 ]
 
 for i, seq in enumerate(sequences):
-    ancestors_descendants_curves_plot(graph, seq)
+    plot_ancestor_descendant_curves(graph, seq)
     plt.savefig(f"ad_curve_{i}.png", dpi=150)
     plt.close()
 ```
@@ -199,7 +199,7 @@ fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 for ax, seq in zip(axes, sequences):
     plt.sca(ax)
-    sequence_possible_paths_plot(graph, seq)
+    plot_possible_paths(graph, seq)
     ax.set_title(seq)
 
 plt.tight_layout()
@@ -217,19 +217,15 @@ from LZGraphs import NodeEdgeSaturationProbe
 import matplotlib.pyplot as plt
 
 sequences = data['cdr3_amino_acid'].tolist()
-probe = NodeEdgeSaturationProbe()
+probe = NodeEdgeSaturationProbe(node_function='aap')
 
 # Generate curve
-curve = probe.saturation_curve(
-    sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
-    steps=50
-)
+curve = probe.saturation_curve(sequences, log_every=100)
 
 # Plot
 plt.figure(figsize=(10, 6))
-plt.plot(curve['sequences'], curve['nodes'], label='Nodes')
-plt.plot(curve['sequences'], curve['edges'], label='Edges')
+plt.plot(curve['n_sequences'], curve['nodes'], label='Nodes')
+plt.plot(curve['n_sequences'], curve['edges'], label='Edges')
 plt.xlabel('Number of Sequences')
 plt.ylabel('Count')
 plt.title('Node/Edge Saturation Curve')
@@ -247,13 +243,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from LZGraphs import AAPLZGraph
 from LZGraphs.visualization import (
-    ancestors_descendants_curves_plot,
-    sequence_possible_paths_plot,
-    sequence_genomic_node_variability_plot
+    plot_ancestor_descendant_curves,
+    plot_possible_paths,
+    plot_gene_node_variability
 )
 
 # Load and build
-data = pd.read_csv("Examples/ExampleData1.csv")
+data = pd.read_csv("Examples/ExampleData3.csv")
 graph = AAPLZGraph(data, verbose=False)
 
 # Analyze a sequence
@@ -264,17 +260,17 @@ fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
 # Panel 1: Ancestors/Descendants
 plt.sca(axes[0])
-ancestors_descendants_curves_plot(graph, sequence)
+plot_ancestor_descendant_curves(graph, sequence)
 axes[0].set_title("Ancestors & Descendants")
 
 # Panel 2: Possible Paths
 plt.sca(axes[1])
-sequence_possible_paths_plot(graph, sequence)
+plot_possible_paths(graph, sequence)
 axes[1].set_title("Path Variability")
 
 # Panel 3: Gene Variability
 plt.sca(axes[2])
-sequence_genomic_node_variability_plot(graph, sequence)
+plot_gene_node_variability(graph, sequence)
 axes[2].set_title("V/J Gene Diversity")
 
 plt.suptitle(f"Analysis of {sequence}", fontsize=14)

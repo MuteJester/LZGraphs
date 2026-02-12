@@ -48,7 +48,7 @@ class TestGraphEquality:
         data_no_genes = test_data_aap[['cdr3_amino_acid']].copy()
         # AAPLZGraph requires V and J columns, so we skip this test
         # This is expected behavior - can't compare genetic vs non-genetic
-        assert graph_genetic.genetic is True
+        assert graph_genetic.has_gene_data is True
 
     def test_equality_symmetric(self, test_data_aap):
         """Verify equality is symmetric: a == b implies b == a."""
@@ -148,13 +148,13 @@ class TestGraphUnion:
         graph2 = AAPLZGraph(data2, verbose=False)
 
         # Record initial values
-        initial_subpatterns = graph1.n_subpatterns
+        initial_subpatterns = graph1.num_subpatterns
 
         # Perform union
         result = graph_union(graph1, graph2)
 
         # graph1 should be modified in place
-        assert graph1.n_subpatterns == initial_subpatterns + graph2.n_subpatterns
+        assert graph1.num_subpatterns == initial_subpatterns + graph2.num_subpatterns
 
     def test_graph_union_different_types_raises(self, test_data_aap, test_data_ndp):
         """Verify union of different graph types raises error."""
@@ -176,12 +176,12 @@ class TestGraphUnion:
         graph1 = AAPLZGraph(data1, verbose=False)
         graph2 = AAPLZGraph(data2, verbose=False)
 
-        initial_states_1 = graph1.initial_states.sum()
+        initial_states_1 = sum(graph1.initial_state_counts.values())
 
         graph_union(graph1, graph2)
 
         # Initial states should be combined
-        assert graph1.initial_states.sum() > initial_states_1
+        assert sum(graph1.initial_state_counts.values()) > initial_states_1
 
 
 class TestGraphSummary:

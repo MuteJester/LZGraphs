@@ -8,11 +8,12 @@ LZGraphs provides three graph types, each optimized for different analysis scena
 |---------|------------|------------|--------------|
 | **Input** | Amino acids | Nucleotides | Any strings |
 | **Column** | `cdr3_amino_acid` | `cdr3_rearrangement` | List of strings |
-| **Position encoding** | Single (end) | Double (start, end) | None |
+| **Position encoding** | Single (end) | Reading frame + position | None |
 | **V/J gene support** | Yes | Yes | No |
 | **Alphabet size** | 20 AA | 4 NT | Configurable |
 | **Graph density** | Medium | Low | Configurable |
 | **Memory usage** | Medium | High | Configurable |
+| **Abundance weighting** | `abundance` column | `abundance` column | `abundances` parameter |
 | **Best for** | Most TCR analysis | Nucleotide-level | ML features |
 
 ## AAPLZGraph
@@ -54,12 +55,13 @@ graph = AAPLZGraph(data, verbose=True)
 - **Position-aware**: Same pattern at different positions = different nodes
 - **Gene-aware**: Edges carry V/J gene annotations
 - **Compact**: 20-letter alphabet keeps graph manageable
+- **Abundance support**: Include an `abundance` column in the DataFrame to weight sequences by clonotype frequency
 
 ---
 
 ## NDPLZGraph
 
-**Nucleotide Double Positional LZGraph**
+**Nucleotide Reading Frame Positional LZGraph**
 
 ### When to Use
 
@@ -71,10 +73,10 @@ graph = AAPLZGraph(data, verbose=True)
 ### Node Format
 
 ```
-<pattern>_<start_position>_<end_position>
+<pattern><reading_frame>_<position>
 ```
 
-Example: `TG_3_4` means pattern "TG" from position 3 to 4.
+Example: `TG2_4` means pattern "TG" at reading frame 2, ending at position 4.
 
 ### Example
 
@@ -96,9 +98,10 @@ graph = NDPLZGraph(data, verbose=True)
 
 ### Key Features
 
-- **Double position**: Captures exact pattern boundaries
+- **Reading frame + position**: Captures codon context and pattern boundaries
 - **Higher resolution**: Better for sequence-level analysis
 - **Larger graphs**: 4-letter alphabet but more positions
+- **Abundance support**: Include an `abundance` column in the DataFrame to weight sequences by clonotype frequency
 
 ---
 
@@ -147,6 +150,7 @@ features2 = graph2.eigenvector_centrality()
 - **Fixed dictionary**: Same nodes across all repertoires
 - **Consistent dimensions**: Ideal for ML pipelines
 - **No position info**: Simpler but less detailed
+- **Abundance support**: Pass the `abundances` parameter (list of ints) to weight sequences by frequency
 
 ---
 
@@ -228,9 +232,7 @@ naive_graph = NaiveLZGraph(
 
 ```python
 # Same repertoire, different representations
-pgen_aa = aa_graph.walk_probability(
-    AAPLZGraph.encode_sequence(sequence)
-)
+pgen_aa = aa_graph.walk_probability(sequence)
 pgen_naive = naive_graph.walk_probability(
     lempel_ziv_decomposition(sequence)
 )

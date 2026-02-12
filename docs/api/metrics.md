@@ -6,13 +6,13 @@ Functions for measuring repertoire diversity, entropy, and similarity.
 
 ```python
 from LZGraphs import (
-    K1000_Diversity,
-    K_Diversity,
-    K100_Diversity,
-    K500_Diversity,
-    K5000_Diversity,
-    adaptive_K_Diversity,
-    LZCentrality,
+    k1000_diversity,
+    k_diversity,
+    k100_diversity,
+    k500_diversity,
+    k5000_diversity,
+    adaptive_k_diversity,
+    lz_centrality,
     node_entropy,
     edge_entropy,
     graph_entropy,
@@ -31,81 +31,79 @@ from LZGraphs import (
     transition_mutual_information_profile,
     path_entropy_rate,
     compare_repertoires,
+    LZPgenDistribution,
+    compare_lzpgen_distributions,
 )
 ```
 
 ## K-Diversity Functions
 
-### K1000_Diversity
+### k1000_diversity
 
 Calculate K1000 diversity index.
 
 ```python
-from LZGraphs import K1000_Diversity, AAPLZGraph
+from LZGraphs import k1000_diversity, AAPLZGraph
 
 sequences = data['cdr3_amino_acid'].tolist()
-k1000 = K1000_Diversity(
-    sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
-    draws=30
-)
+k1000 = k1000_diversity(sequences, AAPLZGraph.encode_sequence, draws=30)
 print(f"K1000: {k1000:.1f}")
 ```
 
 !!! note "Function Signature"
-    `K1000_Diversity(sequences, encoding_function, draws=30) -> float`
+    `k1000_diversity(list_of_sequences, lzgraph_encoding_function, draws=25, return_stats=False, confidence_level=0.95)`
 
-    Returns the mean K1000 diversity index across multiple resampling draws.
+    Returns the mean K1000 diversity index. When `return_stats=True`, returns a tuple `(mean, std, ci_lower, ci_upper)`.
 
-### K_Diversity
+### k_diversity
 
 General K-diversity with configurable parameters.
 
 ```python
-from LZGraphs import K_Diversity
+from LZGraphs import k_diversity
 
-result = K_Diversity(
+mean, std, ci_lower, ci_upper = k_diversity(
     sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
+    AAPLZGraph.encode_sequence,
     sample_size=1000,
     draws=100,
     return_stats=True
 )
-print(f"Mean: {result['mean']:.1f}, CI: [{result['ci_low']:.1f}, {result['ci_high']:.1f}]")
+print(f"Mean: {mean:.1f}, CI: [{ci_lower:.1f}, {ci_upper:.1f}]")
 ```
 
 !!! note "Function Signature"
-    `K_Diversity(sequences, encoding_function, sample_size=1000, draws=30, return_stats=False)`
+    `k_diversity(list_of_sequences, lzgraph_encoding_function, sample_size=1000, draws=25, return_stats=False, confidence_level=0.95)`
 
-    General K-diversity calculation with configurable sample size. When `return_stats=True`, returns a dictionary with mean, std, ci_low, and ci_high.
+    General K-diversity calculation with configurable sample size. When `return_stats=True`, returns a tuple `(mean, std, ci_lower, ci_upper)`. When `return_stats=False`, returns a single float (mean).
 
 ### Other K-Diversity Variants
 
 | Function | Sample Size | Use Case |
 |----------|-------------|----------|
-| `K100_Diversity` | 100 | Small repertoires |
-| `K500_Diversity` | 500 | Medium repertoires |
-| `K1000_Diversity` | 1000 | Standard analysis |
-| `K5000_Diversity` | 5000 | Large repertoires |
-| `adaptive_K_Diversity` | Auto | Automatic selection |
+| `k100_diversity` | 100 | Small repertoires |
+| `k500_diversity` | 500 | Medium repertoires |
+| `k1000_diversity` | 1000 | Standard analysis |
+| `k5000_diversity` | 5000 | Large repertoires |
+| `adaptive_k_diversity` | Auto | Automatic selection |
 
 ---
 
-## LZCentrality
+## lz_centrality
 
 Measure sequence centrality within a repertoire.
 
 ```python
-from LZGraphs import LZCentrality
+from LZGraphs import lz_centrality
 
-centrality = LZCentrality(graph, "CASSLEPSGGTDTQYF")
+centrality = lz_centrality(graph, "CASSLEPSGGTDTQYF")
 print(f"Centrality: {centrality:.4f}")
 ```
 
 !!! note "Function Signature"
-    `LZCentrality(graph, sequence) -> float`
+    `lz_centrality(graph, sequence) -> float`
 
-    Calculates the LZCentrality of a sequence within the given graph's structure.
+    Calculates the lz_centrality of a sequence within the given graph's structure.
 
 ---
 
@@ -373,9 +371,51 @@ print(result)
 
 ---
 
+## Analytical Pgen Distribution
+
+### LZPgenDistribution
+
+Analytical generation probability distribution derived from graph structure, represented as a Gaussian mixture model. No Monte Carlo sampling needed.
+
+```python
+from LZGraphs import LZPgenDistribution
+
+# Compute from a graph
+dist = graph.lzpgen_analytical_distribution()
+
+# PDF and CDF
+import numpy as np
+x = np.linspace(-35, -10, 500)
+pdf_values = dist.pdf(x)
+cdf_values = dist.cdf(x)
+
+# Confidence interval
+ci_low, ci_high = dist.confidence_interval(0.05)
+print(f"95% CI: [{ci_low:.2f}, {ci_high:.2f}]")
+
+# Attributes
+print(f"Components: {dist.n_components}")
+print(f"Cumulants: {dist.cumulants}")
+```
+
+### compare_lzpgen_distributions
+
+Compare two empirical log-probability distributions.
+
+```python
+from LZGraphs import compare_lzpgen_distributions
+
+metrics = compare_lzpgen_distributions(log_probs_1, log_probs_2)
+# Returns dict with: ks_statistic, ks_pvalue, jsd, overlap_coefficient,
+# mean_diff, median_diff, effect_size
+```
+
+---
+
 ## See Also
 
 - [Tutorials: Diversity Metrics](../tutorials/diversity-metrics.md)
 - [How-To: Compare Repertoires](../how-to/repertoire-comparison.md)
 - [Concepts: Probability Model](../concepts/probability-model.md)
+- [Example: LZPgen](https://github.com/MuteJester/LZGraphs/blob/master/Examples/LZPgen%20Example.ipynb)
 - [Example: Information-Theoretic Analysis](https://github.com/MuteJester/LZGraphs/blob/master/Examples/Information-Theoretic%20Analysis.ipynb)

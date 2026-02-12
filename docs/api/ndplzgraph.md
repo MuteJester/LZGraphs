@@ -1,21 +1,18 @@
 # NDPLZGraph
 
-Nucleotide Double Positional LZGraph for analyzing nucleotide CDR3 sequences.
+Nucleotide Reading Frame Positional LZGraph for analyzing nucleotide CDR3 sequences.
 
 ## Quick Example
 
 ```python
 from LZGraphs import NDPLZGraph
-import pandas as pd
 
-# Build graph
-data = pd.read_csv("repertoire.csv")
-graph = NDPLZGraph(data, verbose=True)
+# Build from a plain list of nucleotide sequences
+sequences = ["TGTGCCAGCAGTTTCAAGAT", "TGTGCCAGCAGCCAAAGCAG", ...]
+graph = NDPLZGraph(sequences, verbose=True)
 
-# Calculate probability
-sequence = "TGTGCCAGCAGT"
-encoded = NDPLZGraph.encode_sequence(sequence)
-pgen = graph.walk_probability(encoded)
+# Calculate probability (accepts raw strings)
+pgen = graph.walk_probability("TGTGCCAGCAGT")
 ```
 
 ## Class Reference
@@ -29,11 +26,13 @@ pgen = graph.walk_probability(encoded)
         - walk_probability
         - random_walk
         - genomic_random_walk
+        - simulate
         - encode_sequence
-        - clean_node
+        - extract_subpattern
         - save
         - load
         - eigenvector_centrality
+        - graph_summary
       heading_level: 3
 
 ## Constructor
@@ -42,39 +41,39 @@ pgen = graph.walk_probability(encoded)
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `data` | `pd.DataFrame` | DataFrame with `cdr3_rearrangement` column |
+| `data` | `list[str]`, `pd.Series`, or `pd.DataFrame` | Nucleotide CDR3 sequences |
+| `abundances` | `list[int]` | Per-sequence abundance counts *(list/Series input only)* |
+| `v_genes` | `list[str]` | V gene annotations *(list/Series input only)* |
+| `j_genes` | `list[str]` | J gene annotations *(list/Series input only)* |
 | `verbose` | `bool` | Print progress messages (default: `True`) |
 
-### Required Columns
-
-- `cdr3_rearrangement` - Nucleotide CDR3 sequences
-
-### Optional Columns
-
-- `V` - V gene/allele annotations
-- `J` - J gene/allele annotations
+When `data` is a **list** or **Series**, use the keyword arguments above to attach metadata.
+When `data` is a **DataFrame**, metadata columns should be in the DataFrame itself (`cdr3_rearrangement`, and optionally `V`, `J`, `abundance`).
 
 ## Node Format
 
-NDPLZGraph uses double positional encoding:
+NDPLZGraph uses reading frame and position encoding:
 
 ```
-<pattern>_<start>_<end>
+<pattern><reading_frame>_<position>
 ```
+
+Where `reading_frame` is 0, 1, or 2 (codon position) and `position` is the ending position.
 
 Example:
 ```python
 encoded = NDPLZGraph.encode_sequence("TGTGCC")
-# ['T_1_1', 'G_2_2', 'T_3_3', 'G_4_4', 'C_5_5', 'C_6_6']
+# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'C2_6']
 ```
 
 ## Key Methods
 
 ### walk_probability
 
+Accepts a raw sequence string or a pre-encoded walk list.
+
 ```python
-encoded = NDPLZGraph.encode_sequence("TGTGCCAGCAGT")
-pgen = graph.walk_probability(encoded, use_log=True)
+pgen = graph.walk_probability("TGTGCCAGCAGT", use_log=True)
 print(f"log P(gen) = {pgen:.2f}")
 ```
 
@@ -82,14 +81,20 @@ print(f"log P(gen) = {pgen:.2f}")
 
 ```python
 encoded = NDPLZGraph.encode_sequence("TGTGCC")
-# Returns: ['T_1_1', 'G_2_2', 'T_3_3', 'G_4_4', 'C_5_5', 'C_6_6']
+# Returns: ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'C2_6']
 ```
 
-### clean_node (static)
+### extract_subpattern (static)
 
 ```python
-pattern = NDPLZGraph.clean_node("TG_3_4")
+pattern = NDPLZGraph.extract_subpattern("TG2_4")
 # Returns: "TG"
+```
+
+### simulate
+
+```python
+sequences = graph.simulate(1000, seed=42)
 ```
 
 ## Comparison with AAPLZGraph
@@ -97,7 +102,7 @@ pattern = NDPLZGraph.clean_node("TG_3_4")
 | Feature | NDPLZGraph | AAPLZGraph |
 |---------|------------|------------|
 | Sequence type | Nucleotides | Amino acids |
-| Position encoding | Double (start, end) | Single (end) |
+| Position encoding | Reading frame + position | Single (end position) |
 | Alphabet size | 4 | 20 |
 | Graph size | Larger | Smaller |
 | Resolution | Higher | Lower |

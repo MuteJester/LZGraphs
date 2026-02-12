@@ -412,7 +412,7 @@ def get_k1000_diversity(list_of_sequences: List[str],
     """
     Legacy function for computing K1000 diversity.
 
-    Deprecated: Use K1000_Diversity from LZGraphs.metrics instead for
+    Deprecated: Use k1000_diversity from LZGraphs.metrics instead for
     better functionality including confidence intervals.
 
     Args:
@@ -425,7 +425,7 @@ def get_k1000_diversity(list_of_sequences: List[str],
     """
     import warnings
     warnings.warn(
-        "get_k1000_diversity is deprecated. Use K1000_Diversity from "
+        "get_k1000_diversity is deprecated. Use k1000_diversity from "
         "LZGraphs.metrics instead for confidence intervals and adaptive sampling.",
         DeprecationWarning,
         stacklevel=2

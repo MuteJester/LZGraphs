@@ -10,7 +10,7 @@ Build a graph first:
 import pandas as pd
 from LZGraphs import AAPLZGraph
 
-data = pd.read_csv("Examples/ExampleData1.csv")
+data = pd.read_csv("Examples/ExampleData3.csv")
 graph = AAPLZGraph(data, verbose=True)
 ```
 
@@ -41,7 +41,7 @@ Each node has the format `<subpattern>_<position>`.
 
 ```python
 # Clean each node to get the original subpattern
-clean_nodes = [AAPLZGraph.clean_node(node) for node in encoded]
+clean_nodes = [AAPLZGraph.extract_subpattern(node) for node in encoded]
 print(clean_nodes)
 
 # Reconstruct the sequence
@@ -60,15 +60,10 @@ The generation probability quantifies how likely a sequence is given the reperto
 
 ```python
 sequence = "CASRGERGDNEQFF"
-encoded = AAPLZGraph.encode_sequence(sequence)
 
-pgen = graph.walk_probability(encoded)
+# walk_probability accepts a raw sequence string or a pre-encoded list
+pgen = graph.walk_probability(sequence)
 print(f"{sequence}: P(gen) = {pgen:.2e}")
-```
-
-**Output:**
-```
-CASRGERGDNEQFF: P(gen) = 6.69e-13
 ```
 
 ### Log Probability
@@ -76,7 +71,7 @@ CASRGERGDNEQFF: P(gen) = 6.69e-13
 For very small probabilities, use log-space to avoid numerical underflow:
 
 ```python
-log_pgen = graph.walk_probability(encoded, use_log=True)
+log_pgen = graph.walk_probability(sequence, use_log=True)
 print(f"log P(gen) = {log_pgen:.2f}")
 ```
 
@@ -111,7 +106,7 @@ Generate without gene constraints:
 
 ```python
 walk = graph.random_walk()
-sequence = ''.join([AAPLZGraph.clean_node(node) for node in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(node) for node in walk])
 print(f"Generated: {sequence}")
 ```
 
@@ -123,7 +118,7 @@ Generate sequences consistent with specific V/J genes:
 # Generate with random V/J selection
 walk, v_gene, j_gene = graph.genomic_random_walk()
 
-sequence = ''.join([AAPLZGraph.clean_node(node) for node in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(node) for node in walk])
 print(f"Sequence: {sequence}")
 print(f"V gene: {v_gene}")
 print(f"J gene: {j_gene}")
@@ -142,7 +137,7 @@ J gene: TRBJ2-5*01
 generated = []
 for _ in range(100):
     walk, v, j = graph.genomic_random_walk()
-    seq = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+    seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
     generated.append({'sequence': seq, 'v_gene': v, 'j_gene': j})
 
 df = pd.DataFrame(generated)
@@ -179,7 +174,7 @@ if graph.graph.has_edge("C_1", "A_2"):
 
 ```python
 # Get probability of a subpattern at a position
-proba_df = graph.subpattern_individual_probability
+proba_df = graph.node_probability
 print(proba_df.head())
 ```
 
@@ -191,22 +186,12 @@ Terminal states are the final subpatterns of sequences:
 
 ```python
 # All terminal states with counts
-print(graph.terminal_states.head(10))
+print(graph.terminal_state_counts.head(10))
 
 # Check if a node is terminal
 node = "F_15"
-is_terminal = node in graph.terminal_states.index
+is_terminal = node in graph.terminal_state_counts.index
 print(f"{node} is terminal: {is_terminal}")
-```
-
-### Terminal State Map
-
-Get terminal states reachable from any position:
-
-```python
-# Get terminal states for position 12
-terminals_at_12 = graph.terminal_states_map.get(12, {})
-print(f"Terminal states at position 12: {list(terminals_at_12.keys())[:5]}")
 ```
 
 ---
@@ -225,8 +210,7 @@ sequences = [
 results = []
 for seq in sequences:
     try:
-        encoded = AAPLZGraph.encode_sequence(seq)
-        pgen = graph.walk_probability(encoded, use_log=True)
+        pgen = graph.walk_probability(seq, use_log=True)
         results.append({'sequence': seq, 'log_pgen': pgen})
     except Exception as e:
         results.append({'sequence': seq, 'log_pgen': float('-inf')})

@@ -18,19 +18,18 @@ print(patterns)
 
 ### generate_kmer_dictionary
 
-Generate all possible patterns up to length k.
+Generate all possible DNA k-mer patterns up to length k.
 
 ```python
 from LZGraphs.utilities import generate_kmer_dictionary
 
-# For nucleotides
+# All DNA k-mers up to length 6
 dictionary = generate_kmer_dictionary(6)
 print(f"Patterns: {len(dictionary)}")  # 5460
-
-# For amino acids (custom alphabet)
-aa_alphabet = "ACDEFGHIKLMNPQRSTVWY"
-aa_dict = generate_kmer_dictionary(4, alphabet=aa_alphabet)
 ```
+
+!!! note
+    Uses a hardcoded DNA alphabet (`A`, `T`, `G`, `C`). Designed for use with `NaiveLZGraph`.
 
 ---
 
@@ -91,28 +90,33 @@ combined = bow1 + bow2
 Analyze how diversity grows with sample size.
 
 ```python
-from LZGraphs import NodeEdgeSaturationProbe, AAPLZGraph
+from LZGraphs import NodeEdgeSaturationProbe
 
-probe = NodeEdgeSaturationProbe()
+# Create probe with encoding type
+probe = NodeEdgeSaturationProbe(node_function='aap')
 
 # Generate saturation curve
-curve = probe.saturation_curve(
-    sequences,
-    encoding_function=AAPLZGraph.encode_sequence,
-    steps=50
-)
-
+curve = probe.saturation_curve(sequences, log_every=100)
 print(curve.head())
+# Columns: n_sequences, nodes, edges
 ```
+
+### Constructor
+
+```python
+NodeEdgeSaturationProbe(node_function='naive', log_level=1, verbose=False)
+```
+
+`node_function` can be `'naive'`, `'ndp'`, `'aap'`, or a custom callable.
 
 ### Methods
 
 | Method | Description |
 |--------|-------------|
-| `saturation_curve()` | Generate node/edge counts vs sample size |
-| `half_saturation_point()` | Find 50% saturation point |
-| `area_under_curve()` | Calculate AUSC metric |
-| `diversity_profile()` | Full diversity profile |
+| `saturation_curve(sequence_list, log_every=100)` | Generate node/edge counts vs sample size |
+| `half_saturation_point(sequence_list, log_every=50, metric='nodes')` | Find 50% saturation point |
+| `area_under_saturation_curve(sequence_list, log_every=100, normalize=True, metric='nodes')` | Calculate AUSC metric |
+| `diversity_profile(sequence_list, log_every=100)` | Full diversity profile |
 
 ### Example
 
@@ -120,95 +124,86 @@ print(curve.head())
 from LZGraphs import NodeEdgeSaturationProbe
 import matplotlib.pyplot as plt
 
-probe = NodeEdgeSaturationProbe()
-curve = probe.saturation_curve(sequences, AAPLZGraph.encode_sequence)
+probe = NodeEdgeSaturationProbe(node_function='aap')
+curve = probe.saturation_curve(sequences, log_every=100)
 
 # Plot
 plt.figure(figsize=(10, 6))
-plt.plot(curve['sequences'], curve['nodes'], label='Nodes')
-plt.plot(curve['sequences'], curve['edges'], label='Edges')
+plt.plot(curve['n_sequences'], curve['nodes'], label='Nodes')
+plt.plot(curve['n_sequences'], curve['edges'], label='Edges')
 plt.xlabel('Number of Sequences')
 plt.ylabel('Count')
 plt.legend()
 plt.savefig('saturation.png')
 ```
 
-!!! note "Class: NodeEdgeSaturationProbe"
-    Analyzes how graph complexity grows with sample size.
-
-    **Methods:**
-
-    - `saturation_curve(sequences, encoding_function, steps)` - Generate saturation data
-    - `half_saturation_point(curve)` - Find 50% saturation
-    - `area_under_curve(curve)` - Calculate AUSC metric
-
 ---
 
 ## Visualization Functions
 
-### draw_graph
+### plot_graph
 
 Visualize graph structure.
 
 ```python
-from LZGraphs.visualization import draw_graph
+from LZGraphs.visualization import plot_graph
 
-draw_graph(graph, file_name='graph.png')
+plot_graph(graph, file_name='graph.png')
 ```
 
-### ancestors_descendants_curves_plot
+### plot_ancestor_descendant_curves
 
 Plot ancestors and descendants along a sequence.
 
 ```python
-from LZGraphs.visualization import ancestors_descendants_curves_plot
+from LZGraphs.visualization import plot_ancestor_descendant_curves
 
-ancestors_descendants_curves_plot(graph, "CASSLEPSGGTDTQYF")
+plot_ancestor_descendant_curves(graph, "CASSLEPSGGTDTQYF")
 ```
 
-### sequence_possible_paths_plot
+### plot_possible_paths
 
 Plot branching factor at each position.
 
 ```python
-from LZGraphs.visualization import sequence_possible_paths_plot
+from LZGraphs.visualization import plot_possible_paths
 
-sequence_possible_paths_plot(graph, "CASSLEPSGGTDTQYF")
+plot_possible_paths(graph, "CASSLEPSGGTDTQYF")
 ```
 
-### sequence_genomic_node_variability_plot
+### plot_gene_node_variability
 
 Plot V/J gene diversity per node.
 
 ```python
-from LZGraphs.visualization import sequence_genomic_node_variability_plot
+from LZGraphs.visualization import plot_gene_node_variability
 
-sequence_genomic_node_variability_plot(graph, "CASSLEPSGGTDTQYF")
+plot_gene_node_variability(graph, "CASSLEPSGGTDTQYF")
 ```
 
-### sequence_genomic_edges_variability_plot
+### plot_gene_edge_variability
 
 Plot V/J gene associations per edge.
 
 ```python
-from LZGraphs.visualization import sequence_genomic_edges_variability_plot
+from LZGraphs.visualization import plot_gene_edge_variability
 
-sequence_genomic_edges_variability_plot(graph, "CASSLEPSGGTDTQYF")
+plot_gene_edge_variability(graph, "CASSLEPSGGTDTQYF")
 ```
 
 ---
 
 ## Graph Operations
 
-### graph_summary
+### graph_summary (method)
 
-Get summary statistics for a graph.
+Get summary statistics for a graph. This is a **method** on all graph classes, not an importable function.
 
 ```python
-from LZGraphs import graph_summary
-
-summary = graph_summary(graph)
+summary = graph.graph_summary()
 print(summary)
+# Returns pd.Series with: Chromatic Number, Number of Isolates,
+# Max In Deg, Max Out Deg, Number of Edges
 ```
 
 ### graph_union

@@ -22,7 +22,7 @@ LZGraphs works with any dataset size, but:
 - **Recommended:** 1,000+ sequences for reliable diversity metrics
 - **K1000 requirement:** At least 1,000 unique sequences
 
-For small datasets, consider `K100_Diversity` instead of `K1000_Diversity`.
+For small datasets, consider `k100_diversity` instead of `k1000_diversity`.
 
 ### Can I use LZGraphs for non-TCR sequences?
 
@@ -43,20 +43,25 @@ graph = NaiveLZGraph(my_custom_sequences, dictionary)
 
 ### Why is my sequence probability zero?
 
-A probability of zero means the sequence contains patterns or transitions not observed in the training data:
+A probability of zero (or a `MissingNodeError`/`MissingEdgeError`) means the sequence contains patterns or transitions not observed in the training data:
 
 ```python
-# Check for missing nodes
+# Debug: check which nodes/edges are missing
 encoded = AAPLZGraph.encode_sequence(sequence)
 for node in encoded:
     if not graph.graph.has_node(node):
         print(f"Missing node: {node}")
 
-# Check for missing edges
 for i in range(len(encoded) - 1):
     if not graph.graph.has_edge(encoded[i], encoded[i+1]):
         print(f"Missing edge: {encoded[i]} -> {encoded[i+1]}")
 ```
+
+!!! tip
+    `walk_probability` accepts raw strings directly — no need to call `encode_sequence` yourself:
+    ```python
+    pgen = graph.walk_probability("CASSLEPSGGTDTQYF", use_log=True)
+    ```
 
 ### How do I interpret K1000?
 

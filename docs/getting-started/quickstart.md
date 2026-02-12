@@ -29,19 +29,45 @@ Example data format:
 
 ## Step 2: Build a Graph
 
-```python
-# Build the graph (with gene annotation)
-graph = AAPLZGraph(data, verbose=True)
-```
+=== "List of sequences"
 
-Output:
-```
-Gene Information Loaded.. |  0.01  Seconds
-Graph Constructed.. |  0.94  Seconds
-Graph Metadata Derived.. |  0.94  Seconds
-...
-LZGraph Created Successfully.. |  1.37  Seconds
-```
+    ```python
+    # Pass a plain list — no DataFrame needed
+    sequences = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...]
+    graph = AAPLZGraph(sequences, verbose=True)
+    ```
+
+=== "List + abundance"
+
+    ```python
+    # Weight each sequence by its clonotype count
+    sequences = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...]
+    counts    = [150, 42, ...]
+    graph = AAPLZGraph(sequences, abundances=counts, verbose=True)
+    ```
+
+=== "List + V/J genes"
+
+    ```python
+    # Provide gene annotations alongside sequences
+    sequences = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...]
+    v_genes   = ["TRBV16-1*01", "TRBV1-1*01", ...]
+    j_genes   = ["TRBJ1-2*01", "TRBJ1-5*01", ...]
+    graph = AAPLZGraph(sequences, v_genes=v_genes, j_genes=j_genes, verbose=True)
+    print(f"Gene data available: {graph.has_gene_data}")  # True
+    ```
+
+=== "pandas DataFrame"
+
+    ```python
+    # Traditional DataFrame input (all columns in one table)
+    data = pd.read_csv("repertoire.csv")
+    # Expected columns: cdr3_amino_acid, (optional) V, J, abundance
+    graph = AAPLZGraph(data, verbose=True)
+    ```
+
+!!! info "When do you need V/J genes?"
+    Gene columns are only required for gene-aware methods like `genomic_random_walk()` and `vj_combination_random_walk()`. All core features — probability, generation, diversity — work without them.
 
 ## Step 3: Explore the Graph
 
@@ -61,19 +87,18 @@ print(graph.lengths)
 Every sequence has a generation probability based on the repertoire:
 
 ```python
-# Encode a sequence
-sequence = "CASSLEPSGGTDTQYF"
-encoded = AAPLZGraph.encode_sequence(sequence)
-print(f"Encoded: {encoded}")
-
-# Calculate probability
-pgen = graph.walk_probability(encoded)
+# Calculate probability (accepts a raw sequence string)
+pgen = graph.walk_probability("CASSLEPSGGTDTQYF")
 print(f"P(gen) = {pgen:.2e}")
 
 # Use log probability for very small values
-log_pgen = graph.walk_probability(encoded, use_log=True)
+log_pgen = graph.walk_probability("CASSLEPSGGTDTQYF", use_log=True)
 print(f"log P(gen) = {log_pgen:.2f}")
 ```
+
+!!! tip "Encoding under the hood"
+    `walk_probability` accepts either a raw sequence string or a pre-encoded list of nodes
+    (from `AAPLZGraph.encode_sequence()`). Passing a string is simpler for most use cases.
 
 ## Step 5: Generate New Sequences
 
@@ -86,18 +111,18 @@ print(f"Generated walk: {walk}")
 print(f"V gene: {v_gene}, J gene: {j_gene}")
 
 # Convert back to sequence
-sequence = ''.join([AAPLZGraph.clean_node(node) for node in walk])
+sequence = ''.join([AAPLZGraph.extract_subpattern(node) for node in walk])
 print(f"Generated sequence: {sequence}")
 ```
 
 ## Step 6: Calculate Diversity
 
 ```python
-from LZGraphs import K1000_Diversity
+from LZGraphs import k1000_diversity
 
 # Calculate K1000 diversity index
 sequences = data['cdr3_amino_acid'].tolist()
-k1000 = K1000_Diversity(sequences, AAPLZGraph.encode_sequence, draws=30)
+k1000 = k1000_diversity(sequences, AAPLZGraph.encode_sequence, draws=30)
 print(f"K1000 Diversity: {k1000:.1f}")
 ```
 
@@ -107,7 +132,7 @@ Here's everything together:
 
 ```python
 import pandas as pd
-from LZGraphs import AAPLZGraph, K1000_Diversity
+from LZGraphs import AAPLZGraph, k1000_diversity
 
 # Load data
 data = pd.read_csv("repertoire.csv")
@@ -117,16 +142,16 @@ graph = AAPLZGraph(data, verbose=True)
 
 # Analyze a sequence
 seq = "CASSLEPSGGTDTQYF"
-pgen = graph.walk_probability(AAPLZGraph.encode_sequence(seq))
+pgen = graph.walk_probability(seq)
 print(f"\n{seq}: P(gen) = {pgen:.2e}")
 
 # Generate new sequence
 walk, v, j = graph.genomic_random_walk()
-new_seq = ''.join([AAPLZGraph.clean_node(n) for n in walk])
+new_seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
 print(f"Generated: {new_seq} ({v}, {j})")
 
 # Calculate diversity
-k1000 = K1000_Diversity(data['cdr3_amino_acid'].tolist(),
+k1000 = k1000_diversity(data['cdr3_amino_acid'].tolist(),
                         AAPLZGraph.encode_sequence, draws=30)
 print(f"K1000: {k1000:.1f}")
 ```

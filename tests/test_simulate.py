@@ -10,7 +10,7 @@ Tests covering:
 5. Save/load cycle
 6. All graph types
 7. MLE stop probability correctness
-8. clean_node() optimization equivalence
+8. extract_subpattern() optimization equivalence
 """
 
 import os
@@ -67,7 +67,7 @@ class TestSimulateBasic:
         results = aap_lzgraph.simulate(10, seed=42, return_walks=True)
         for walk, seq in results:
             # Reconstruct sequence from walk
-            reconstructed = ''.join(aap_lzgraph.clean_node(node) for node in walk)
+            reconstructed = ''.join(aap_lzgraph.extract_subpattern(node) for node in walk)
             assert seq == reconstructed
 
     def test_simulate_zero(self, aap_lzgraph):
@@ -163,23 +163,23 @@ class TestMLEStopProbability:
 
     def test_mle_formula(self, aap_lzgraph):
         """P(stop|t) = T(t) / (T(t) + f(t)) for all terminal states."""
-        for state in aap_lzgraph.terminal_state_data.index:
-            t_count = aap_lzgraph.terminal_states[state]
-            f_count = aap_lzgraph.per_node_observed_frequency.get(state, 0)
+        for state in aap_lzgraph.terminal_state_data:
+            t_count = aap_lzgraph.terminal_state_counts[state]
+            f_count = aap_lzgraph.node_outgoing_counts.get(state, 0)
             expected = t_count / (t_count + f_count) if (t_count + f_count) > 0 else 1.0
-            actual = aap_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+            actual = aap_lzgraph.terminal_state_data[state]['stop_probability']
             assert abs(actual - expected) < 1e-10
 
     def test_range_zero_one(self, aap_lzgraph):
         """All stop probabilities in [0, 1] by construction."""
-        probs = aap_lzgraph.terminal_state_data['wsif/sep'].values
+        probs = np.array([v['stop_probability'] for v in aap_lzgraph.terminal_state_data.values()])
         assert np.all(probs >= 0)
         assert np.all(probs <= 1)
 
     def test_effective_probs_sum_to_one(self, aap_lzgraph):
         """At each terminal: edge_weights * (1 - p_stop) + p_stop = 1."""
-        for state in aap_lzgraph.terminal_state_data.index:
-            p_stop = aap_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+        for state in aap_lzgraph.terminal_state_data:
+            p_stop = aap_lzgraph.terminal_state_data[state]['stop_probability']
             succs = list(aap_lzgraph.graph.successors(state))
             if succs:
                 edge_sum = sum(
@@ -189,37 +189,37 @@ class TestMLEStopProbability:
                 assert abs(effective_sum - 1.0) < 0.01, \
                     f"State {state}: effective sum = {effective_sum}"
 
-    def test_terminal_stop_dict_matches(self, aap_lzgraph):
-        """_terminal_stop_dict should match terminal_state_data['wsif/sep']."""
-        for state in aap_lzgraph.terminal_state_data.index:
+    def test_stop_probability_cache_matches(self, aap_lzgraph):
+        """_stop_probability_cache should match terminal_state_data['stop_probability']."""
+        for state in aap_lzgraph.terminal_state_data:
             assert abs(
-                aap_lzgraph._terminal_stop_dict[state]
-                - aap_lzgraph.terminal_state_data.loc[state, 'wsif/sep']
+                aap_lzgraph._stop_probability_cache[state]
+                - aap_lzgraph.terminal_state_data[state]['stop_probability']
             ) < 1e-15
 
 
 # =========================================================================
-# clean_node optimization tests
+# extract_subpattern optimization tests
 # =========================================================================
 
 
 class TestCleanNodeOptimization:
-    """Verify optimized clean_node produces same results as regex version."""
+    """Verify optimized extract_subpattern produces same results as regex version."""
 
-    def test_aap_clean_node(self, aap_lzgraph):
-        """AAPLZGraph.clean_node matches regex version for all nodes."""
+    def test_aap_extract_subpattern(self, aap_lzgraph):
+        """AAPLZGraph.extract_subpattern matches regex version for all nodes."""
         import re
         for node in aap_lzgraph.graph.nodes():
-            optimized = AAPLZGraph.clean_node(node)
+            optimized = AAPLZGraph.extract_subpattern(node)
             match = re.search(r'[A-Z]+', node)
             regex_result = match.group(0) if match else ""
             assert optimized == regex_result, f"Mismatch on '{node}': '{optimized}' vs '{regex_result}'"
 
-    def test_ndp_clean_node(self, ndp_lzgraph):
-        """NDPLZGraph.clean_node matches regex version for all nodes."""
+    def test_ndp_extract_subpattern(self, ndp_lzgraph):
+        """NDPLZGraph.extract_subpattern matches regex version for all nodes."""
         import re
         for node in ndp_lzgraph.graph.nodes():
-            optimized = NDPLZGraph.clean_node(node)
+            optimized = NDPLZGraph.extract_subpattern(node)
             match = re.search(r'[ATGC]+', node)
             regex_result = match.group(0) if match else ""
             assert optimized == regex_result, f"Mismatch on '{node}': '{optimized}' vs '{regex_result}'"

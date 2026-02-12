@@ -1,6 +1,3 @@
-import numpy as np
-import pandas as pd
-
 from .edge_data import EdgeData
 from ..exceptions import IncompatibleGraphsError
 
@@ -54,15 +51,13 @@ def graph_union(graphA, graphB):
             graphA.graph.add_node(node)
 
     # 2. Merge sequence-level counts
-    # (per_node_observed_frequency is recomputed in recalculate())
-    graphA.initial_states = graphA.initial_states.combine(
-        graphB.initial_states, lambda x, y: x + y, fill_value=0
-    )
-    graphA.terminal_states = graphA.terminal_states.combine(
-        graphB.terminal_states, lambda x, y: x + y, fill_value=0
-    )
-    graphA.n_subpatterns += graphB.n_subpatterns
-    graphA.n_transitions += graphB.n_transitions
+    # (node_outgoing_counts is recomputed in recalculate())
+    for k, v in graphB.initial_state_counts.items():
+        graphA.initial_state_counts[k] = graphA.initial_state_counts.get(k, 0) + v
+    for k, v in graphB.terminal_state_counts.items():
+        graphA.terminal_state_counts[k] = graphA.terminal_state_counts.get(k, 0) + v
+    graphA.num_subpatterns += graphB.num_subpatterns
+    graphA.num_transitions += graphB.num_transitions
 
     # Merge lengths
     if hasattr(graphB, 'lengths'):
@@ -70,46 +65,51 @@ def graph_union(graphA, graphB):
             graphA.lengths[length] = graphA.lengths.get(length, 0) + count
 
     # 4. Merge gene-level data (if genetic)
-    if graphA.genetic and graphB.genetic:
+    if graphA.has_gene_data and graphB.has_gene_data:
         # Weighted average of marginal gene distributions
-        nA = graphA.initial_states.sum()
-        nB = graphB.initial_states.sum()
+        nA = sum(graphA.initial_state_counts.values())
+        nB = sum(graphB.initial_state_counts.values())
         nTotal = nA + nB
         if nTotal > 0:
-            graphA.marginal_vgenes = (
-                graphA.marginal_vgenes.combine(graphB.marginal_vgenes,
-                    lambda x, y: x * nA / nTotal + y * nB / nTotal, fill_value=0)
-            )
-            graphA.marginal_jgenes = (
-                graphA.marginal_jgenes.combine(graphB.marginal_jgenes,
-                    lambda x, y: x * nA / nTotal + y * nB / nTotal, fill_value=0)
-            )
-            graphA.vj_probabilities = (
-                graphA.vj_probabilities.combine(graphB.vj_probabilities,
-                    lambda x, y: x * nA / nTotal + y * nB / nTotal, fill_value=0)
-            )
+            all_v = set(graphA.marginal_v_genes) | set(graphB.marginal_v_genes)
+            graphA.marginal_v_genes = {
+                g: graphA.marginal_v_genes.get(g, 0) * nA / nTotal
+                   + graphB.marginal_v_genes.get(g, 0) * nB / nTotal
+                for g in all_v
+            }
+            all_j = set(graphA.marginal_j_genes) | set(graphB.marginal_j_genes)
+            graphA.marginal_j_genes = {
+                g: graphA.marginal_j_genes.get(g, 0) * nA / nTotal
+                   + graphB.marginal_j_genes.get(g, 0) * nB / nTotal
+                for g in all_j
+            }
+            all_vj = set(graphA.vj_probabilities) | set(graphB.vj_probabilities)
+            graphA.vj_probabilities = {
+                g: graphA.vj_probabilities.get(g, 0) * nA / nTotal
+                   + graphB.vj_probabilities.get(g, 0) * nB / nTotal
+                for g in all_vj
+            }
 
         # Merge length_distribution counts
-        if hasattr(graphA, 'length_distribution') and hasattr(graphB, 'length_distribution'):
-            graphA.length_distribution = graphA.length_distribution.combine(
-                graphB.length_distribution, lambda x, y: x + y, fill_value=0
-            )
+        if hasattr(graphA, 'length_counts') and hasattr(graphB, 'length_counts'):
+            for k, v in graphB.length_counts.items():
+                graphA.length_counts[k] = graphA.length_counts.get(k, 0) + v
 
         # Merge observed gene sets
-        if hasattr(graphB, 'observed_vgenes'):
-            graphA.observed_vgenes = list(
-                set(graphA.observed_vgenes) | set(graphB.observed_vgenes)
+        if hasattr(graphB, 'observed_v_genes'):
+            graphA.observed_v_genes = list(
+                set(graphA.observed_v_genes) | set(graphB.observed_v_genes)
             )
-        if hasattr(graphB, 'observed_jgenes'):
-            graphA.observed_jgenes = list(
-                set(graphA.observed_jgenes) | set(graphB.observed_jgenes)
+        if hasattr(graphB, 'observed_j_genes'):
+            graphA.observed_j_genes = list(
+                set(graphA.observed_j_genes) | set(graphB.observed_j_genes)
             )
 
     # 5. Recalculate ALL derived state from raw counts
     graphA.recalculate()
 
     # Clear cached edges list
-    if hasattr(graphA, 'edges_list'):
-        graphA.edges_list = None
+    if hasattr(graphA, '_edges_cache'):
+        graphA._edges_cache = None
 
     return graphA

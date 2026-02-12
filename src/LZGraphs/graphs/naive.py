@@ -4,7 +4,6 @@ from time import time
 
 import networkx as nx
 import numpy as np
-import pandas as pd
 
 from .lz_graph_base import LZGraphBase
 from .edge_data import EdgeData
@@ -70,13 +69,15 @@ class NaiveLZGraph(LZGraphBase):
 
     """
 
-    def __init__(self, cdr3_list, dictionary, verbose=True, smoothing_alpha=0.0):
+    def __init__(self, cdr3_list, dictionary, verbose=True, smoothing_alpha=0.0, abundances=None):
         """
         in order to derive the dictionary you can use the heleper function "generate_dictionary"
         :param cdr3_list: a list of nucleotide sequence
         :param dictionary: a list of strings, where each string is a sub-pattern that will be converted into a node
         :param verbose:
         :param smoothing_alpha: Laplace smoothing parameter for edge weights. 0.0 means no smoothing.
+        :param abundances: optional list of int abundance counts, one per sequence.
+            If provided, each sequence contributes its abundance count rather than 1.
         """
         super().__init__()
         self.smoothing_alpha = smoothing_alpha
@@ -85,16 +86,22 @@ class NaiveLZGraph(LZGraphBase):
         # Pre-populate graph with dictionary nodes
         self.graph.add_nodes_from(self.dictionary)
 
-        self._naive_graph_construction(cdr3_list)
+        self._naive_graph_construction(cdr3_list, abundances=abundances)
         self.verbose_driver(1, verbose)
 
-        self.terminal_states = pd.Series(self.terminal_states)
-        self.initial_states = pd.Series(self.initial_states)
-        self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
-        self.initial_states_probability = self.initial_states / self.initial_states.sum()
+        total_terminal = sum(self.terminal_state_counts.values())
+        self.length_probabilities = (
+            {k: v / total_terminal for k, v in self.terminal_state_counts.items()}
+            if total_terminal > 0 else {}
+        )
+        total_initial = sum(self.initial_state_counts.values())
+        self.initial_state_probabilities = (
+            {k: v / total_initial for k, v in self.initial_state_counts.items()}
+            if total_initial > 0 else {}
+        )
         self.verbose_driver(2, verbose)
 
-        self._derive_subpattern_individual_probability()
+        self._derive_node_probability()
         self.verbose_driver(8, verbose)
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
@@ -113,28 +120,18 @@ class NaiveLZGraph(LZGraphBase):
     def __eq__(self, other):
         if not isinstance(other, NaiveLZGraph):
             return NotImplemented
-        if nx.utils.graphs_equal(self.graph, other.graph):
-            aux = 0
-            aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
-            aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
-
-            # test final_state
-            aux += not other.terminal_states.round(3).equals(self.terminal_states.round(3))
-
-            # test length_distribution_proba
-            aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
-
-            # test subpattern_individual_probability
-            aux += not other.subpattern_individual_probability['proba'].round(3).equals(
-                self.subpattern_individual_probability['proba'].round(3))
-
-            if aux == 0:
-                return True
-            else:
-                return False
-
-        else:
+        if not nx.utils.graphs_equal(self.graph, other.graph):
             return False
+
+        from .lz_graph_base import _dicts_close
+        aux = 0
+        aux += not _dicts_close(self.terminal_state_counts, other.terminal_state_counts, decimals=3)
+        aux += not _dicts_close(self.initial_state_counts, other.initial_state_counts, decimals=3)
+        aux += not _dicts_close(self.length_probabilities, other.length_probabilities, decimals=3)
+        aux += not _dicts_close(self.node_probability,
+                                other.node_probability, decimals=3)
+
+        return aux == 0
 
     @staticmethod
     def encode_sequence(cdr3):
@@ -158,7 +155,7 @@ class NaiveLZGraph(LZGraphBase):
         return iter([])
 
     @staticmethod
-    def clean_node(node: str) -> str:
+    def extract_subpattern(node: str) -> str:
         """
         Return the clean subpattern from a node.
 
@@ -173,31 +170,42 @@ class NaiveLZGraph(LZGraphBase):
         """
         return node
 
-    def _naive_graph_construction(self, data):
+    def _naive_graph_construction(self, data, abundances=None):
         """Build the graph from a list of nucleotide sequences.
 
         Performs LZ decomposition on each sequence and constructs edges
         between consecutive subpatterns, tracking edge counts, node
         frequencies, and initial/terminal states.
+
+        Args:
+            data: Iterable of nucleotide sequences.
+            abundances: Optional iterable of int abundance counts (one per sequence).
+                If provided, each sequence contributes its abundance count rather than 1.
         """
         edge_counts = defaultdict(int)  # (A_, B_) -> count
 
         # First pass: collect all edges and frequencies
-        for cdr3 in data:
+        if abundances is not None:
+            seq_iter = zip(data, abundances)
+        else:
+            seq_iter = ((cdr3, 1) for cdr3 in data)
+
+        for cdr3, abundance in seq_iter:
+            count = int(abundance)
             lz_components = lempel_ziv_decomposition(cdr3)
             edges = window(lz_components, 2)
             for (A, B) in edges:
-                edge_counts[(A, B)] += 1
-                self.per_node_observed_frequency[A] = self.per_node_observed_frequency.get(A, 0) + 1
+                edge_counts[(A, B)] += count
+                self.node_outgoing_counts[A] = self.node_outgoing_counts.get(A, 0) + count
 
             # Ensure the last node appears in frequency counts
             last_subpattern = lz_components[-1]
-            self.per_node_observed_frequency[last_subpattern] = \
-                self.per_node_observed_frequency.get(last_subpattern, 0)
+            self.node_outgoing_counts[last_subpattern] = \
+                self.node_outgoing_counts.get(last_subpattern, 0)
 
             # Track terminal and initial states
-            self._update_terminal_states(lz_components[-1])
-            self._update_initial_states(lz_components[0])
+            self._update_terminal_states(lz_components[-1], count=count)
+            self._update_initial_states(lz_components[0], count=count)
 
         # Second pass: insert into the graph in bulk
         for (A_, B_), weight_val in edge_counts.items():
@@ -236,10 +244,10 @@ class NaiveLZGraph(LZGraphBase):
                 logger.warning(f"random_walk exceeded {MAX_TOLERANCE} retries, returning current walk")
                 break
 
-            w = pd.Series(self.graph[current_state])
+            neighbors = self.graph[current_state]
 
-            # if terminal state
-            if len(w) == 0:
+            # if terminal state (no outgoing edges)
+            if len(neighbors) == 0:
                 value = value[:np.random.randint(1, max(len(value), 2))]
                 tolerance += 1
                 current_state = value[-1]
@@ -250,14 +258,14 @@ class NaiveLZGraph(LZGraphBase):
             value.append(current_state)
             seq += current_state
 
-            if current_state in self.terminal_states and len(value) == steps and len(seq) % 3 == 0:
+            if current_state in self.terminal_state_counts and len(value) == steps and len(seq) % 3 == 0:
                 return value, seq
-            elif len(value) == steps and current_state not in self.terminal_states:
+            elif len(value) == steps and current_state not in self.terminal_state_counts:
                 value = value[:np.random.randint(1, max(len(value), 2))]
                 tolerance += 1
                 current_state = value[-1]
                 seq = ''.join(value)
-            elif len(value) == steps and current_state in self.terminal_states and len(seq) % 3 != 0:
+            elif len(value) == steps and current_state in self.terminal_state_counts and len(seq) % 3 != 0:
                 value = value[:np.random.randint(1, max(len(value), 2))]
                 tolerance += 1
                 current_state = value[-1]
@@ -296,10 +304,10 @@ class NaiveLZGraph(LZGraphBase):
                 logger.warning(f"random_walk_ber_shortest exceeded {MAX_TOLERANCE} retries, returning current walk")
                 break
 
-            w = pd.Series(self.graph[current_state])
+            neighbors = self.graph[current_state]
 
-            # if terminal state
-            if len(w) == 0:
+            # if terminal state (no outgoing edges)
+            if len(neighbors) == 0:
                 value = value[:np.random.randint(1, max(len(value), 2))]
                 tolerance += 1
                 current_state = value[-1]
@@ -319,14 +327,14 @@ class NaiveLZGraph(LZGraphBase):
                 value.append(current_state)
                 seq += current_state
 
-            if current_state in self.terminal_states and len(value) == steps and len(seq) % 3 == 0:
+            if current_state in self.terminal_state_counts and len(value) == steps and len(seq) % 3 == 0:
                 return value, seq
-            elif len(value) == steps and current_state not in self.terminal_states:
+            elif len(value) == steps and current_state not in self.terminal_state_counts:
                 value = value[:np.random.randint(1, max(len(value), 2))]
                 tolerance += 1
                 current_state = value[-1]
                 seq = ''.join(value)
-            elif len(value) == steps and current_state in self.terminal_states and len(seq) % 3 != 0:
+            elif len(value) == steps and current_state in self.terminal_state_counts and len(seq) % 3 != 0:
                 value = value[:np.random.randint(1, max(len(value), 2))]
                 tolerance += 1
                 current_state = value[-1]

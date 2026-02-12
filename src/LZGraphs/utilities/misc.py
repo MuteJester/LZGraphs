@@ -70,13 +70,13 @@ def choice(options, probs):
     Raises:
         ValueError: If options is empty, lengths don't match, or probabilities invalid.
     """
-    # Validate inputs
-    if len(options) == 0:
+    n = len(options)
+    if n == 0:
         raise EmptyDataError("options cannot be empty")
 
-    if len(options) != len(probs):
+    if n != len(probs):
         raise InvalidProbabilityError(
-            message=f"Length mismatch: options has {len(options)} elements, "
+            message=f"Length mismatch: options has {n} elements, "
             f"probs has {len(probs)} elements"
         )
 
@@ -85,14 +85,25 @@ def choice(options, probs):
     if not (0.99 <= prob_sum <= 1.01):
         raise InvalidProbabilityError(prob_sum=prob_sum)
 
+    # Fast path for single option
+    if n == 1:
+        return options[0]
+
     x = np.random.rand()
+
+    # For large neighbor lists, use numpy searchsorted (O(log n) vs O(n))
+    if n > 8:
+        cum = np.cumsum(probs)
+        idx = np.searchsorted(cum, x)
+        return options[min(idx, n - 1)]
+
+    # For small lists, linear scan is faster (no numpy overhead)
     cum = 0
-    i = None
     for i, p in enumerate(probs):
         cum += p
         if x < cum:
-            break
-    return options[i]
+            return options[i]
+    return options[-1]
 def window(iterable, size):
     """Return a sliding window generator of size "size".
 

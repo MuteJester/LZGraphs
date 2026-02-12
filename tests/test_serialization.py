@@ -89,7 +89,7 @@ class TestPickleSerialization:
             loaded = AAPLZGraph.load(filepath)
 
         # Check a specific initial state
-        assert loaded.initial_states['C_1'] == aap_lzgraph.initial_states['C_1']
+        assert loaded.initial_state_counts['C_1'] == aap_lzgraph.initial_state_counts['C_1']
 
     def test_pickle_preserves_probabilities(self, aap_lzgraph):
         """Verify subpattern probabilities are preserved."""
@@ -99,13 +99,13 @@ class TestPickleSerialization:
             loaded = AAPLZGraph.load(filepath)
 
         # Check probability data is the same
-        original_prob = aap_lzgraph.subpattern_individual_probability
-        loaded_prob = loaded.subpattern_individual_probability
+        original_prob = aap_lzgraph.node_probability
+        loaded_prob = loaded.node_probability
 
-        assert original_prob.shape == loaded_prob.shape
+        assert set(original_prob.keys()) == set(loaded_prob.keys())
         assert np.allclose(
-            original_prob['proba'].values,
-            loaded_prob['proba'].values,
+            list(original_prob.values()),
+            list(loaded_prob.values()),
             rtol=1e-10
         )
 
@@ -393,7 +393,9 @@ class TestDataIntegrityAfterRoundTrip:
             loaded = AAPLZGraph.load(filepath)
 
         # Check marginal V gene probabilities
-        assert loaded.marginal_vgenes.equals(aap_lzgraph.marginal_vgenes)
+        assert set(loaded.marginal_v_genes.keys()) == set(aap_lzgraph.marginal_v_genes.keys())
+        for k in aap_lzgraph.marginal_v_genes:
+            assert np.isclose(loaded.marginal_v_genes[k], aap_lzgraph.marginal_v_genes[k], rtol=1e-10)
 
         # Check length distribution
         assert loaded.lengths == aap_lzgraph.lengths
@@ -406,4 +408,4 @@ class TestDataIntegrityAfterRoundTrip:
             loaded = AAPLZGraph.load(filepath)
 
         # Check terminal states match
-        assert loaded.terminal_states.equals(aap_lzgraph.terminal_states)
+        assert loaded.terminal_state_counts == aap_lzgraph.terminal_state_counts

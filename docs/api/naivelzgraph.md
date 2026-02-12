@@ -28,10 +28,13 @@ features = graph.eigenvector_centrality()
       members:
         - __init__
         - walk_probability
+        - random_walk
+        - simulate
         - eigenvector_centrality
         - save
         - load
-        - clean_node
+        - extract_subpattern
+        - graph_summary
       heading_level: 3
 
 ## Constructor
@@ -40,17 +43,20 @@ features = graph.eigenvector_centrality()
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `sequences` | `list[str]` | List of sequences |
-| `dictionary` | `list[str]` | List of allowed patterns |
+| `cdr3_list` | `list[str]` | List of sequences |
+| `dictionary` | `list[str]` | List of allowed patterns (use `generate_kmer_dictionary`) |
 | `verbose` | `bool` | Print progress (default: `True`) |
+| `smoothing_alpha` | `float` | Laplace smoothing for edge weights (default: `0.0`) |
+| `abundances` | `list[int]` | Optional abundance counts per sequence |
 
 ## Key Differences
 
 Unlike AAPLZGraph and NDPLZGraph:
 
-- **No positional encoding** - Nodes are just patterns
-- **Fixed dictionary** - Consistent nodes across repertoires
-- **No gene support** - No V/J annotation
+- **No positional encoding** — Nodes are just patterns
+- **Fixed dictionary** — Consistent nodes across repertoires
+- **No gene support** — No V/J annotation
+- **`random_walk(steps)`** — Requires a `steps` parameter (number of subpattern steps), returns `(walk, sequence)` tuple
 
 ## Primary Use Cases
 

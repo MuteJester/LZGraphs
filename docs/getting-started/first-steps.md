@@ -6,13 +6,13 @@ This guide helps you understand the fundamentals of LZGraphs and choose the righ
 
 LZGraphs works with CDR3 sequences from T-cell receptor repertoires. Your data should be in a pandas DataFrame with at minimum a sequence column.
 
-### Required Columns
+### Required Input
 
-| Graph Type | Sequence Column | Description |
-|------------|-----------------|-------------|
-| **AAPLZGraph** | `cdr3_amino_acid` | Amino acid sequences |
-| **NDPLZGraph** | `cdr3_rearrangement` | Nucleotide sequences |
-| **NaiveLZGraph** | Any | List of strings |
+| Graph Type | Input | Description |
+|------------|-------|-------------|
+| **AAPLZGraph** | DataFrame with `cdr3_amino_acid` column | Amino acid sequences |
+| **NDPLZGraph** | DataFrame with `cdr3_rearrangement` column | Nucleotide sequences |
+| **NaiveLZGraph** | List of strings + a dictionary | Any string sequences |
 
 ### Optional Columns
 
@@ -20,6 +20,12 @@ LZGraphs works with CDR3 sequences from T-cell receptor repertoires. Your data s
 |--------|---------|
 | `V` | V gene/allele annotation (e.g., `TRBV16-1*01`) |
 | `J` | J gene/allele annotation (e.g., `TRBJ1-2*01`) |
+| `abundance` | Clonotype count for abundance-weighted graph construction |
+
+!!! tip "Abundance weighting"
+    When an `abundance` column is present, edge and node statistics are weighted by
+    clonotype count, so the graph reflects the expanded state of the repertoire rather
+    than treating every unique sequence equally.
 
 ## Choosing the Right Graph Type
 
@@ -54,7 +60,7 @@ graph = AAPLZGraph(data)  # data has 'cdr3_amino_acid' column
 - Compact graphs for amino acid alphabets
 - Ideal for most TCR analysis tasks
 
-### NDPLZGraph (Nucleotide Double Positional)
+### NDPLZGraph (Nucleotide Reading Frame Positional)
 
 **Best for:** Nucleotide CDR3 sequences with fine-grained positional information
 
@@ -168,10 +174,11 @@ from LZGraphs import NDPLZGraph
 sequence = "TGTGCC"
 encoded = NDPLZGraph.encode_sequence(sequence)
 print(encoded)
-# ['T_1_1', 'G_2_2', 'T_3_3', 'G_4_4', 'C_5_5', 'C_6_6']
+# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'C2_6']
 ```
 
-Double position encoding provides finer resolution.
+Each node has the format `{subpattern}{reading_frame}_{position}`, where the reading frame
+(0, 1, or 2) indicates the codon position and the suffix is the cumulative sequence position.
 
 ### NaiveLZGraph Encoding
 

@@ -9,26 +9,26 @@ from ..exceptions import EmptyDataError, InsufficientDataError
 
 
 __all__ = [
-    'LZCentrality',
-    'K_Diversity',
-    'K100_Diversity',
-    'K500_Diversity',
-    'K1000_Diversity',
-    'K5000_Diversity',
-    'adaptive_K_Diversity',
+    'lz_centrality',
+    'k_diversity',
+    'k100_diversity',
+    'k500_diversity',
+    'k1000_diversity',
+    'k5000_diversity',
+    'adaptive_k_diversity',
 ]
 
 
-def LZCentrality(lzgraph, sequence: str) -> float:
+def lz_centrality(lzgraph, sequence: str) -> float:
     """
-    Calculates the LZCentrality of a given CDR3 sequence in a repertoire represented by an LZGraph.
+    Calculates the lz_centrality of a given CDR3 sequence in a repertoire represented by an LZGraph.
 
     Args:
         lzgraph (LZGraph): The LZGraph representing the repertoire.
-        sequence (str): The CDR3 sequence for which LZCentrality needs to be calculated.
+        sequence (str): The CDR3 sequence for which lz_centrality needs to be calculated.
 
     Returns:
-        float: The LZCentrality value for the given sequence.
+        float: The lz_centrality value for the given sequence.
 
     Calculates the out degree at each node of the given sequence using the `sequence_variation_curve` method
     of the lzgraph object. Missing nodes are penalized by assigning a value of -1. The average of the out degrees
@@ -37,7 +37,7 @@ def LZCentrality(lzgraph, sequence: str) -> float:
     Example:
        >>> graph = NDPLZGraph(Repertoire)
        >>> sequence = "ACCGACAGGATTTACGT"
-       >>> lzcentrality = LZCentrality(graph, sequence)
+       >>> lzcentrality = lz_centrality(graph, sequence)
        >>> print(lzcentrality)
     """
     # calculate out degree at each node of the sequence
@@ -47,7 +47,7 @@ def LZCentrality(lzgraph, sequence: str) -> float:
     return np.mean(svc)
 
 
-def K_Diversity(
+def k_diversity(
     list_of_sequences: List[str],
     lzgraph_encoding_function: Callable,
     sample_size: int = 1000,
@@ -85,9 +85,9 @@ def K_Diversity(
         >>> sequences = df['cdr3_amino_acid'].tolist()
         >>> encoding_function = AAPLZGraph.encode_sequence
         >>> # Simple usage
-        >>> k_div = K_Diversity(sequences, encoding_function, sample_size=1000)
+        >>> k_div = k_diversity(sequences, encoding_function, sample_size=1000)
         >>> # With statistics
-        >>> mean, std, ci_low, ci_high = K_Diversity(
+        >>> mean, std, ci_low, ci_high = k_diversity(
         ...     sequences, encoding_function, sample_size=1000, return_stats=True
         ... )
     """
@@ -158,7 +158,7 @@ def K_Diversity(
     return (mean, std, ci_lower, ci_upper)
 
 
-def K1000_Diversity(
+def k1000_diversity(
     list_of_sequences: List[str],
     lzgraph_encoding_function: Callable,
     draws: int = 25,
@@ -188,16 +188,16 @@ def K1000_Diversity(
     Example:
         >>> sequences = ["CASSLGIRRTNTEAFF", "CASSLEGKYEQYF", ...]
         >>> encoding_function = AAPLZGraph.encode_sequence
-        >>> diversity = K1000_Diversity(sequences, encoding_function, draws=30)
+        >>> diversity = k1000_diversity(sequences, encoding_function, draws=30)
         >>> print(diversity)
 
         >>> # With confidence intervals
-        >>> mean, std, ci_low, ci_high = K1000_Diversity(
+        >>> mean, std, ci_low, ci_high = k1000_diversity(
         ...     sequences, encoding_function, return_stats=True
         ... )
         >>> print(f"K1000 = {mean:.1f} +/- {1.96*std:.1f}")
     """
-    return K_Diversity(
+    return k_diversity(
         list_of_sequences,
         lzgraph_encoding_function,
         sample_size=1000,
@@ -207,7 +207,7 @@ def K1000_Diversity(
     )
 
 
-def K100_Diversity(
+def k100_diversity(
     list_of_sequences: List[str],
     lzgraph_encoding_function: Callable,
     draws: int = 25,
@@ -230,7 +230,7 @@ def K100_Diversity(
     Returns:
         float or tuple: Mean K100 Diversity index, or statistics tuple if return_stats=True.
     """
-    return K_Diversity(
+    return k_diversity(
         list_of_sequences,
         lzgraph_encoding_function,
         sample_size=100,
@@ -240,7 +240,7 @@ def K100_Diversity(
     )
 
 
-def K500_Diversity(
+def k500_diversity(
     list_of_sequences: List[str],
     lzgraph_encoding_function: Callable,
     draws: int = 25,
@@ -262,7 +262,7 @@ def K500_Diversity(
     Returns:
         float or tuple: Mean K500 Diversity index, or statistics tuple if return_stats=True.
     """
-    return K_Diversity(
+    return k_diversity(
         list_of_sequences,
         lzgraph_encoding_function,
         sample_size=500,
@@ -272,7 +272,7 @@ def K500_Diversity(
     )
 
 
-def K5000_Diversity(
+def k5000_diversity(
     list_of_sequences: List[str],
     lzgraph_encoding_function: Callable,
     draws: int = 25,
@@ -295,7 +295,7 @@ def K5000_Diversity(
     Returns:
         float or tuple: Mean K5000 Diversity index, or statistics tuple if return_stats=True.
     """
-    return K_Diversity(
+    return k_diversity(
         list_of_sequences,
         lzgraph_encoding_function,
         sample_size=5000,
@@ -305,7 +305,7 @@ def K5000_Diversity(
     )
 
 
-def adaptive_K_Diversity(
+def adaptive_k_diversity(
     list_of_sequences: List[str],
     lzgraph_encoding_function: Callable,
     draws: int = 25,
@@ -337,7 +337,7 @@ def adaptive_K_Diversity(
             The sample_size indicates which K-diversity was computed.
 
     Example:
-        >>> sample_size, k_div = adaptive_K_Diversity(sequences, encode_fn)
+        >>> sample_size, k_div = adaptive_k_diversity(sequences, encode_fn)
         >>> print(f"Used K{sample_size}, diversity = {k_div:.1f}")
     """
     n = len(set(list_of_sequences))
@@ -351,7 +351,7 @@ def adaptive_K_Diversity(
     else:
         sample_size = 5000
 
-    result = K_Diversity(
+    result = k_diversity(
         list_of_sequences,
         lzgraph_encoding_function,
         sample_size=sample_size,

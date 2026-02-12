@@ -26,7 +26,7 @@ Calculate sequence probabilities, explore graph structure, and generate new sequ
 ### 3. [Diversity Metrics](diversity-metrics.md)
 **Intermediate** · 15 minutes
 
-Measure repertoire diversity using K1000, LZCentrality, and entropy metrics.
+Measure repertoire diversity using k1000_diversity, lz_centrality, and entropy metrics.
 </div>
 
 <div class="card" markdown>
@@ -53,9 +53,11 @@ All tutorials use example data included with LZGraphs:
 ```python
 import pandas as pd
 
-# Load example TCR repertoire
-data = pd.read_csv("Examples/ExampleData1.csv")
-print(data.head())
+# Amino acid sequences with gene annotations (for AAPLZGraph)
+data = pd.read_csv("Examples/ExampleData3.csv")
+
+# Nucleotide sequences (for NDPLZGraph)
+data_nt = pd.read_csv("Examples/ExampleData2.csv")
 ```
 
 ## Quick Reference
@@ -63,8 +65,8 @@ print(data.head())
 | Tutorial | Topics Covered |
 |----------|----------------|
 | [Graph Construction](graph-construction.md) | AAPLZGraph, NDPLZGraph, NaiveLZGraph, gene annotation |
-| [Sequence Analysis](sequence-analysis.md) | walk_probability, random_walk, encode_sequence, clean_node |
-| [Diversity Metrics](diversity-metrics.md) | K1000_Diversity, LZCentrality, node_entropy, edge_entropy |
+| [Sequence Analysis](sequence-analysis.md) | walk_probability, random_walk, encode_sequence, extract_subpattern |
+| [Diversity Metrics](diversity-metrics.md) | k1000_diversity, lz_centrality, node_entropy, edge_entropy |
 | [Visualization](visualization.md) | Ancestors/descendants plots, path variability, genomic heatmaps |
 
 ## Next Steps

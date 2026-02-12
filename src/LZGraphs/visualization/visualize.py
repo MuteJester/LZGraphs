@@ -22,7 +22,7 @@ def _check_viz_deps():
         )
 
 
-def sequence_genomic_edges_variability_plot(graph, cdr3_sample, threshold=None, figsize=None, show=True):
+def plot_gene_edge_variability(graph, cdr3_sample, threshold=None, figsize=None, show=True):
     """Generate a heatmap showing V and J gene distribution at each edge.
 
     This plot shows which V and J genes are associated with each edge transition
@@ -48,7 +48,7 @@ def sequence_genomic_edges_variability_plot(graph, cdr3_sample, threshold=None, 
     fig = plt.figure(figsize=(15, 8) if figsize is None else figsize)
     plt.subplot(1, 2, 1)
     ax = sns.heatmap(jgene_table.iloc[:, :-2],
-                     xticklabels=[graph.clean_node(i.split('->')[0]) + '->' + graph.clean_node(i.split('->')[1]) for i in
+                     xticklabels=[graph.extract_subpattern(i.split('->')[0]) + '->' + graph.extract_subpattern(i.split('->')[1]) for i in
                                   jgene_table.columns[:-2]],
                      cmap='coolwarm', linewidths=3)
     ax.set_facecolor('xkcd:black')
@@ -60,7 +60,7 @@ def sequence_genomic_edges_variability_plot(graph, cdr3_sample, threshold=None, 
 
     plt.subplot(1, 2, 2)
     ax2 = sns.heatmap(vgene_table.iloc[:, :-2],
-                     xticklabels=[graph.clean_node(i.split('->')[0]) + '->' + graph.clean_node(i.split('->')[1]) for i in
+                     xticklabels=[graph.extract_subpattern(i.split('->')[0]) + '->' + graph.extract_subpattern(i.split('->')[1]) for i in
                                   jgene_table.columns[:-2]],
                      cmap='coolwarm', linewidths=3, yticklabels=vgene_table.index)
 
@@ -78,7 +78,7 @@ def sequence_genomic_edges_variability_plot(graph, cdr3_sample, threshold=None, 
     return fig, (ax, ax2)
 
 
-def sequence_genomic_node_variability_plot(graph, cdr3, figsize=None, show=True):
+def plot_gene_node_variability(graph, cdr3, figsize=None, show=True):
     """Generate a bar plot showing V and J gene counts at each node.
 
     This plot shows how many unique V and J genes/alleles are associated
@@ -109,7 +109,7 @@ def sequence_genomic_node_variability_plot(graph, cdr3, figsize=None, show=True)
         plt.show()
     return fig, ax
 
-def sequence_possible_paths_plot(graph, sequence, figsize=None, show=True):
+def plot_possible_paths(graph, sequence, figsize=None, show=True):
     """Generate a Matplotlib plot showing the number of alternative paths at each node.
 
     This plot shows how many outgoing edges exist at each node in the sequence's
@@ -129,8 +129,8 @@ def sequence_possible_paths_plot(graph, sequence, figsize=None, show=True):
     curvec = [(graph.graph.out_degree(i)) for i in encoded_nodes]
 
     # Generate clean labels for x-axis
-    if hasattr(graph, 'clean_node'):
-        labels = [graph.clean_node(node) for node in encoded_nodes]
+    if hasattr(graph, 'extract_subpattern'):
+        labels = [graph.extract_subpattern(node) for node in encoded_nodes]
     else:
         # Fallback for NaiveLZGraph which uses raw LZ decomposition as nodes
         labels = encoded_nodes
@@ -147,7 +147,7 @@ def sequence_possible_paths_plot(graph, sequence, figsize=None, show=True):
         plt.show()
     return fig, ax
 
-def ancestors_descendants_curves_plot(graph, sequence, figsize=None, show=True):
+def plot_ancestor_descendant_curves(graph, sequence, figsize=None, show=True):
     """Generate a Matplotlib plot showing ancestors and descendants at each node.
 
     This plot shows how many ancestor and descendant nodes exist for each node
@@ -178,8 +178,8 @@ def ancestors_descendants_curves_plot(graph, sequence, figsize=None, show=True):
     descendants_curve = np.array(descendants_curve)
 
     # Generate clean labels for x-axis
-    if hasattr(graph, 'clean_node'):
-        labels = [graph.clean_node(node) for node in encoded_nodes]
+    if hasattr(graph, 'extract_subpattern'):
+        labels = [graph.extract_subpattern(node) for node in encoded_nodes]
     else:
         # Fallback for NaiveLZGraph which uses raw LZ decomposition as nodes
         labels = encoded_nodes
@@ -203,7 +203,7 @@ def ancestors_descendants_curves_plot(graph, sequence, figsize=None, show=True):
         plt.show()
     return fig, (ax, ax2)
 
-def draw_graph(graph, file_name='LZGraph.png', figsize=None, show=False):
+def plot_graph(graph, file_name='LZGraph.png', figsize=None, show=False):
     """Generate a plot of a given graph and save it to a file.
 
     Args:

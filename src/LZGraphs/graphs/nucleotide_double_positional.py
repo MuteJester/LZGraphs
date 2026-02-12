@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Tuple, Union, Generator
+from typing import List, Tuple, Union, Optional, Generator
 
 import numpy as np
 import pandas as pd
@@ -65,42 +65,59 @@ class NDPLZGraph(LZGraphBase):
 
     def __init__(
         self,
-        data: pd.DataFrame,
+        data: Union[pd.DataFrame, List[str], pd.Series],
+        *,
+        abundances: Optional[List[int]] = None,
+        v_genes: Optional[List[str]] = None,
+        j_genes: Optional[List[str]] = None,
         verbose: bool = True,
         calculate_trainset_pgen: bool = False,
         smoothing_alpha: float = 0.0,
-        initial_state_threshold: int = 5,
+        min_initial_state_count: int = 5,
     ):
         """
-        Constructor for NDPLZGraph.
+        Create a nucleotide reading-frame-positional LZGraph.
+
+        *data* can be a pandas DataFrame with a ``cdr3_rearrangement``
+        column, a plain list of nucleotide sequences, or a pandas Series.
+
+        When *data* is a list or Series the optional keyword arguments
+        *abundances*, *v_genes* and *j_genes* may be used to supply
+        additional per-sequence information.  When *data* is a DataFrame
+        these must be ``None`` — use DataFrame columns instead.
 
         Args:
-            data (pd.DataFrame): Must include at least a column 'cdr3_rearrangement'
-                with the nucleotide sequences. If 'V' and 'J' columns exist, we embed
-                gene information (self.genetic=True).
-            verbose (bool): Whether to log progress info.
-            calculate_trainset_pgen (bool): If True, compute the walk_probability for
+            data: Sequence data.  DataFrame (with ``cdr3_rearrangement``
+                column), list of strings, or pandas Series.
+            abundances: Per-sequence abundance counts (list input only).
+            v_genes: Per-sequence V gene annotations (list input only).
+            j_genes: Per-sequence J gene annotations (list input only).
+            verbose: Whether to log progress info.
+            calculate_trainset_pgen: If True, compute the walk_probability for
                 each sequence in the dataset, storing results in self.train_pgen.
-            smoothing_alpha (float): Laplace smoothing parameter for edge weights.
+            smoothing_alpha: Laplace smoothing parameter for edge weights.
                 0.0 means no smoothing (default).
-            initial_state_threshold (int): Minimum observation count for initial states.
+            min_initial_state_count: Minimum observation count for initial states.
                 States observed fewer times than this are excluded. Default is 5.
         """
         super().__init__()
 
+        # Normalize flexible input → DataFrame
+        data = self._normalize_input(
+            data, "cdr3_rearrangement",
+            abundances=abundances, v_genes=v_genes, j_genes=j_genes,
+        )
+
         # PGEN configuration
         self.impute_missing_edges = True
         self.smoothing_alpha = smoothing_alpha
-        self.initial_state_threshold = initial_state_threshold
+        self.min_initial_state_count = min_initial_state_count
 
         # Detect presence of V/J columns
-        if isinstance(data, pd.DataFrame) and ('V' in data.columns) and ('J' in data.columns):
-            self.genetic = True
-        else:
-            self.genetic = False
+        self.has_gene_data = ('V' in data.columns) and ('J' in data.columns)
 
         # If we have gene data, load and log
-        if self.genetic:
+        if self.has_gene_data:
             self._load_gene_data(data)
             self.verbose_driver(0, verbose)  # "Gene Information Loaded"
 
@@ -108,28 +125,37 @@ class NDPLZGraph(LZGraphBase):
         self.__simultaneous_graph_construction(data)
         self.verbose_driver(1, verbose)  # "Graph Constructed"
 
-        # Convert dictionaries to Series and normalize
-        self.length_distribution = pd.Series(self.lengths)
-        self.terminal_states = pd.Series(self.terminal_states)
-        self.initial_states = pd.Series(self.initial_states)
+        # Normalize and derive probability dicts
+        self.length_counts = dict(self.lengths)
 
-        self.length_distribution_proba = self.terminal_states / self.terminal_states.sum()
+        total_terminal = sum(self.terminal_state_counts.values())
+        self.length_probabilities = (
+            {k: v / total_terminal for k, v in self.terminal_state_counts.items()}
+            if total_terminal > 0 else {}
+        )
 
         # Filter rarely observed initial states
-        self.initial_states = self.initial_states[self.initial_states > self.initial_state_threshold]
-        self.initial_states_probability = self.initial_states / self.initial_states.sum()
+        self.initial_state_counts = {
+            k: v for k, v in self.initial_state_counts.items()
+            if v > self.min_initial_state_count
+        }
+        total_initial = sum(self.initial_state_counts.values())
+        self.initial_state_probabilities = (
+            {k: v / total_initial for k, v in self.initial_state_counts.items()}
+            if total_initial > 0 else {}
+        )
 
         self.verbose_driver(2, verbose)  # "Graph Metadata Derived"
 
         # Subpattern probabilities & edge weight normalization
-        self._derive_subpattern_individual_probability()
+        self._derive_node_probability()
         self.verbose_driver(8, verbose)
 
         self._normalize_edge_weights()
         self.verbose_driver(3, verbose)
 
         # Additional map derivations
-        self.edges_list = None
+        self._edges_cache = None
         self._derive_stop_probability_data()
         self.verbose_driver(9, verbose)
 
@@ -170,7 +196,7 @@ class NDPLZGraph(LZGraphBase):
         ]
 
     @staticmethod
-    def clean_node(base: str) -> str:
+    def extract_subpattern(base: str) -> str:
         """
         Given a sub-pattern that looks like "ATG0_3", extract only the nucleotides ("ATG").
         The format is {nucleotides}{frame_digit}_{position}, so split on '_' and
@@ -185,56 +211,67 @@ class NDPLZGraph(LZGraphBase):
 
     def _decomposed_sequence_generator(self, data: Union[pd.DataFrame, pd.Series]) -> Generator:
         """
-        Generates tuples for each row in the data:
-          - If self.genetic=True, yields (steps, reading_frames, locations, v, j)
-          - Else, yields (steps, reading_frames, locations)
-        Each row is used to build edges in the graph.
+        Generates tuples for each row in the data.
+
+        If an ``abundance`` column is present in the DataFrame, each sequence
+        is weighted by its abundance count. Otherwise each sequence counts as 1.
+
+        Yields:
+            If genetic: (steps, reading_frames, locations, v, j, count)
+            Otherwise:  (steps, reading_frames, locations, count)
         """
-        if self.genetic:
-            # We have columns: 'cdr3_rearrangement', 'V', 'J'
-            for cdr3, v, j in tqdm(
-                zip(data["cdr3_rearrangement"], data["V"], data["J"]),
-                desc="Building NDPLZGraph",
-                leave=False
-            ):
+        has_abundance = isinstance(data, pd.DataFrame) and 'abundance' in data.columns
+
+        if self.has_gene_data:
+            iterables = [data["cdr3_rearrangement"], data["V"], data["J"]]
+            if has_abundance:
+                iterables.append(data["abundance"])
+            for row in tqdm(zip(*iterables), desc="Building NDPLZGraph", leave=False):
+                if has_abundance:
+                    cdr3, v, j, abundance = row
+                    count = int(abundance)
+                else:
+                    cdr3, v, j = row
+                    count = 1
+
                 subs, frames, cumpos = derive_lz_reading_frame_position(cdr3)
                 steps = window(subs, 2)
                 reading_frames = window(frames, 2)
                 locations = window(cumpos, 2)
 
-                # Track length distribution
-                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + count
 
-                # Update terminal & initial states
                 last_node = f"{subs[-1]}{frames[-1]}_{cumpos[-1]}"
                 first_node = f"{subs[0]}{frames[0]}_{cumpos[0]}"
 
-                self._update_terminal_states(last_node)
-                self._update_initial_states(first_node)
+                self._update_terminal_states(last_node, count=count)
+                self._update_initial_states(first_node, count=count)
 
-                yield (steps, reading_frames, locations, v, j)
+                yield (steps, reading_frames, locations, v, j, count)
         else:
-            # We only have 'cdr3_rearrangement' column
-            if isinstance(data, pd.DataFrame):
-                seq_iterable = data["cdr3_rearrangement"]
+            if has_abundance:
+                seq_iter = zip(data["cdr3_rearrangement"], data["abundance"])
+            elif isinstance(data, pd.DataFrame):
+                seq_iter = ((cdr3, 1) for cdr3 in data["cdr3_rearrangement"])
             else:
-                seq_iterable = data
+                seq_iter = ((cdr3, 1) for cdr3 in data)
 
-            for cdr3 in tqdm(seq_iterable, desc="Building NDPLZGraph", leave=False):
+            for cdr3, abundance in tqdm(seq_iter, desc="Building NDPLZGraph", leave=False):
+                count = int(abundance)
                 subs, frames, cumpos = derive_lz_reading_frame_position(cdr3)
                 steps = window(subs, 2)
                 reading_frames = window(frames, 2)
                 locations = window(cumpos, 2)
 
-                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + 1
+                self.lengths[len(cdr3)] = self.lengths.get(len(cdr3), 0) + count
 
                 last_node = f"{subs[-1]}{frames[-1]}_{cumpos[-1]}"
                 first_node = f"{subs[0]}{frames[0]}_{cumpos[0]}"
 
-                self._update_terminal_states(last_node)
-                self._update_initial_states(first_node)
+                self._update_terminal_states(last_node, count=count)
+                self._update_initial_states(first_node, count=count)
 
-                yield (steps, reading_frames, locations)
+                yield (steps, reading_frames, locations, count)
 
     def __simultaneous_graph_construction(self, data: pd.DataFrame) -> None:
         """
@@ -242,29 +279,27 @@ class NDPLZGraph(LZGraphBase):
         """
         logger.debug("Starting __simultaneous_graph_construction for NDPLZGraph...")
         processing_stream = self._decomposed_sequence_generator(data)
+        freq = self.node_outgoing_counts  # local ref for speed
 
-        if self.genetic:
-            for steps, reading_frames, locations, v, j in processing_stream:
+        if self.has_gene_data:
+            insert = self._insert_edge_and_information
+            for steps, reading_frames, locations, v, j, count in processing_stream:
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
                     A_ = f"{A}{pos_a}_{loc_a}"
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
-
+                    freq[A_] = freq.get(A_, 0) + count
                     B_ = f"{B}{pos_b}_{loc_b}"
-                    self._insert_edge_and_information(A_, B_, v, j)
-
-                # Ensure the final node is accounted for
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                    insert(A_, B_, v, j, count=count)
+                freq[B_] = freq.get(B_, 0)
         else:
+            insert = self._insert_edge_and_information_no_genes
             for gen_tuple in processing_stream:
-                steps, reading_frames, locations = gen_tuple
+                steps, reading_frames, locations, count = gen_tuple
                 for (A, B), (pos_a, pos_b), (loc_a, loc_b) in zip(steps, reading_frames, locations):
                     A_ = f"{A}{pos_a}_{loc_a}"
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
-
+                    freq[A_] = freq.get(A_, 0) + count
                     B_ = f"{B}{pos_b}_{loc_b}"
-                    self._insert_edge_and_information_no_genes(A_, B_)
-                # Ensure the final node is accounted for
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                    insert(A_, B_, count=count)
+                freq[B_] = freq.get(B_, 0)
 
         logger.debug("Finished __simultaneous_graph_construction.")
 
@@ -288,7 +323,7 @@ class NDPLZGraph(LZGraphBase):
         selected_v, selected_j = self._select_random_vj_genes(vj_init)
 
         if seq_len == "unsupervised":
-            terminal_states = self.terminal_states.index
+            terminal_states = list(self.terminal_state_counts.keys())
             if initial_state is None:
                 initial_state = self._random_initial_state()
         else:
@@ -300,8 +335,8 @@ class NDPLZGraph(LZGraphBase):
         current_state = initial_state
         walk = [initial_state]
 
-        if self.genetic_walks_black_list is None:
-            self.genetic_walks_black_list = {}
+        if self._walk_exclusions is None:
+            self._walk_exclusions = {}
 
         while current_state not in terminal_states:
             if current_state not in self.graph:
@@ -311,8 +346,8 @@ class NDPLZGraph(LZGraphBase):
             # Get outgoing edges
             edges = {nb: self.graph[current_state][nb]['data'] for nb in self.graph[current_state]}
             # Apply blacklisting
-            if (current_state, selected_v, selected_j) in self.genetic_walks_black_list:
-                blacklisted_cols = self.genetic_walks_black_list[(current_state, selected_v, selected_j)]
+            if (current_state, selected_v, selected_j) in self._walk_exclusions:
+                blacklisted_cols = self._walk_exclusions[(current_state, selected_v, selected_j)]
                 edges = {nb: ed for nb, ed in edges.items() if nb not in blacklisted_cols}
 
             # Filter to edges containing both V and J genes
@@ -322,8 +357,8 @@ class NDPLZGraph(LZGraphBase):
             if not valid_edges:
                 if len(walk) > 2:
                     prev_state = walk[-2]
-                    self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
-                        self.genetic_walks_black_list.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
+                    self._walk_exclusions[(prev_state, selected_v, selected_j)] = \
+                        self._walk_exclusions.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
                     current_state = prev_state
                     walk.pop()
                 else:
@@ -338,8 +373,8 @@ class NDPLZGraph(LZGraphBase):
             if w_sum == 0:
                 if len(walk) > 2:
                     prev_state = walk[-2]
-                    self.genetic_walks_black_list[(prev_state, selected_v, selected_j)] = \
-                        self.genetic_walks_black_list.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
+                    self._walk_exclusions[(prev_state, selected_v, selected_j)] = \
+                        self._walk_exclusions.get((prev_state, selected_v, selected_j), []) + [walk[-1]]
                     current_state = prev_state
                     walk.pop()
                 else:

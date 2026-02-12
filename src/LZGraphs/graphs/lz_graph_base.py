@@ -30,6 +30,29 @@ from ..exceptions import UnsupportedFormatError, GeneAnnotationError, NoGeneData
 # Create a logger for this module
 logger = logging.getLogger(__name__)
 
+# Machine epsilon — cached once at module level (avoids repeated np.finfo calls)
+_EPS = np.finfo(np.float64).eps
+_LOG_EPS = np.log(_EPS)
+
+
+def _dicts_close(a, b, decimals=3):
+    """Compare two dicts with rounding tolerance.
+
+    Works on both plain dicts and pd.Series (for backward compat).
+    """
+    # Convert pd.Series to dict if needed (backward compat with old pickles)
+    if hasattr(a, 'to_dict'):
+        a = a.to_dict()
+    if hasattr(b, 'to_dict'):
+        b = b.to_dict()
+    if set(a.keys()) != set(b.keys()):
+        return False
+    for k in a:
+        if round(float(a[k]), decimals) != round(float(b[k]), decimals):
+            return False
+    return True
+
+
 class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
     """
     This abstract class provides the base functionality and attributes
@@ -47,47 +70,216 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         self.graph = nx.DiGraph()
 
         # genetics
-        self.genetic = False
-        self.genetic_walks_black_list = {}
+        self.has_gene_data = False
+        self._walk_exclusions = {}
 
         # sub-pattern count, transitions, etc.
-        self.n_subpatterns = 0
-        self.n_transitions = 0
+        self.num_subpatterns = 0
+        self.num_transitions = 0
 
-        self.initial_states, self.terminal_states = dict(), dict()
-        self.initial_states_probability = pd.Series(dtype=np.float64)
+        self.initial_state_counts, self.terminal_state_counts = dict(), dict()
+        self.initial_state_probabilities = {}
         self.lengths = dict()
-        self.cac_graphs = dict()
-        self.n_neighbours = dict()
-        self.per_node_observed_frequency = dict()
+        self.vj_combination_graphs = dict()
+        self.num_neighbours = dict()
+        self.node_outgoing_counts = dict()
 
-        self.length_distribution_proba = pd.Series(dtype=np.float64)
-        self.subpattern_individual_probability = pd.Series(dtype=np.float64)
+        self.length_probabilities = {}
+        self.node_probability = {}
 
         # PGEN configuration (overridden by subclasses)
         self.impute_missing_edges = False
         self.smoothing_alpha = 0.0
-        self.initial_state_threshold = 0
+        self.min_initial_state_count = 0
 
         # Fast stop probability lookup (populated by _derive_stop_probability_data)
-        self._terminal_stop_dict = {}
+        self._stop_probability_cache = {}
         # Walk cache for simulate() (built lazily)
         self._walk_cache = None
+        # Topological order cache (built lazily, invalidated on structural changes)
+        self._topo_order = None
+
+    # Mapping from old attribute names to new names (for loading old pickles)
+    _ATTR_MIGRATION = {
+        'genetic': 'has_gene_data',
+        'initial_states': 'initial_state_counts',
+        'terminal_states': 'terminal_state_counts',
+        'initial_states_probability': 'initial_state_probabilities',
+        'subpattern_individual_probability': 'node_probability',
+        'per_node_observed_frequency': 'node_outgoing_counts',
+        'length_distribution_proba': 'length_probabilities',
+        'length_distribution': 'length_counts',
+        'n_subpatterns': 'num_subpatterns',
+        'n_transitions': 'num_transitions',
+        'marginal_vgenes': 'marginal_v_genes',
+        'marginal_jgenes': 'marginal_j_genes',
+        'genetic_walks_black_list': '_walk_exclusions',
+        '_terminal_stop_dict': '_stop_probability_cache',
+        'initial_state_threshold': 'min_initial_state_count',
+        'cac_graphs': 'vj_combination_graphs',
+        'edges_list': '_edges_cache',
+        'n_neighbours': 'num_neighbours',
+        'observed_vgenes': 'observed_v_genes',
+        'observed_jgenes': 'observed_j_genes',
+    }
+
+    @staticmethod
+    def _normalize_input(data, seq_column, abundances=None, v_genes=None, j_genes=None):
+        """Convert flexible input to a DataFrame for the build pipeline.
+
+        Accepts a DataFrame (returned as-is), a list of strings, or a
+        pandas Series.  Optional *abundances*, *v_genes*, and *j_genes*
+        lists are only allowed when *data* is **not** already a DataFrame.
+        """
+        if isinstance(data, pd.DataFrame):
+            if abundances is not None or v_genes is not None or j_genes is not None:
+                raise TypeError(
+                    "Cannot pass abundances/v_genes/j_genes when data is "
+                    "already a DataFrame — use DataFrame columns instead"
+                )
+            return data
+
+        # Convert list / tuple / Series → plain list
+        if isinstance(data, pd.Series):
+            sequences = data.tolist()
+        elif isinstance(data, (list, tuple)):
+            sequences = list(data)
+        else:
+            raise TypeError(
+                f"data must be a DataFrame, list, or Series, "
+                f"got {type(data).__name__}"
+            )
+
+        df_dict = {seq_column: sequences}
+        n = len(sequences)
+
+        if abundances is not None:
+            if len(abundances) != n:
+                raise ValueError(
+                    f"abundances length ({len(abundances)}) != "
+                    f"sequences length ({n})"
+                )
+            df_dict["abundance"] = abundances
+
+        if v_genes is not None or j_genes is not None:
+            if v_genes is None or j_genes is None:
+                raise ValueError(
+                    "v_genes and j_genes must both be provided or both omitted"
+                )
+            if len(v_genes) != n or len(j_genes) != n:
+                raise ValueError(
+                    f"v_genes/j_genes length must match sequences length ({n})"
+                )
+            df_dict["V"] = v_genes
+            df_dict["J"] = j_genes
+
+        return pd.DataFrame(df_dict)
+
+    def __setstate__(self, state):
+        """Restore instance from pickle, migrating old attribute names and pandas types."""
+        # Migrate old attribute names to new names
+        for old_name, new_name in self._ATTR_MIGRATION.items():
+            if old_name in state and new_name not in state:
+                state[new_name] = state.pop(old_name)
+
+        # Migrate 'wsif/sep' key inside terminal_state_data dicts
+        tsd = state.get('terminal_state_data')
+        if tsd is not None and isinstance(tsd, dict):
+            for node_data in tsd.values():
+                if isinstance(node_data, dict) and 'wsif/sep' in node_data:
+                    node_data['stop_probability'] = node_data.pop('wsif/sep')
+
+        self.__dict__.update(state)
+        self._migrate_from_pandas()
+
+    def _migrate_from_pandas(self):
+        """Convert any old pd.Series/DataFrame attributes to plain dicts.
+
+        Called by ``__setstate__`` when loading old pickled graphs.
+        """
+        for attr in ('initial_state_counts', 'terminal_state_counts',
+                      'initial_state_probabilities', 'length_probabilities',
+                      'marginal_v_genes', 'marginal_j_genes', 'vj_probabilities',
+                      'length_counts'):
+            val = getattr(self, attr, None)
+            if val is not None and hasattr(val, 'to_dict'):
+                setattr(self, attr, val.to_dict())
+
+        # node_probability was a DataFrame with 'proba' column
+        sip = getattr(self, 'node_probability', None)
+        if sip is not None and hasattr(sip, 'columns'):
+            # Old DataFrame format
+            if 'proba' in sip.columns:
+                self.node_probability = sip['proba'].to_dict()
+            else:
+                self.node_probability = {}
+        elif sip is not None and hasattr(sip, 'to_dict') and not isinstance(sip, dict):
+            self.node_probability = sip.to_dict()
+
+        # terminal_state_data: DataFrame -> dict-of-dicts
+        tsd = getattr(self, 'terminal_state_data', None)
+        if tsd is not None and hasattr(tsd, 'columns'):
+            # Old DataFrame format — convert to dict-of-dicts
+            # Handle old 'wsif/sep' column name from pre-v2.0.0 pickles
+            stop_col = None
+            if 'stop_probability' in tsd.columns:
+                stop_col = 'stop_probability'
+            elif 'wsif/sep' in tsd.columns:
+                stop_col = 'wsif/sep'
+
+            new_tsd = {}
+            if stop_col is not None:
+                for idx in tsd.index:
+                    row = {col: tsd.loc[idx, col] for col in tsd.columns}
+                    # Normalize key name to 'stop_probability'
+                    if stop_col == 'wsif/sep' and 'wsif/sep' in row:
+                        row['stop_probability'] = row.pop('wsif/sep')
+                    new_tsd[idx] = row
+                self._stop_probability_cache = tsd[stop_col].to_dict()
+            self.terminal_state_data = new_tsd
+
+        # Ensure caches exist
+        if not hasattr(self, '_walk_cache'):
+            self._walk_cache = None
+        if not hasattr(self, '_stop_probability_cache'):
+            self._stop_probability_cache = {}
+        if not hasattr(self, '_topo_order'):
+            self._topo_order = None
 
     def __getattr__(self, name):
         """Backward compatibility for attributes added after v2.0.0.
 
-        Handles old pickled graphs that lack ``_terminal_stop_dict`` or
+        Handles old pickled graphs that lack ``_stop_probability_cache`` or
         ``_walk_cache``.
         """
-        if name == '_terminal_stop_dict':
-            if hasattr(self, 'terminal_state_data') and hasattr(self.terminal_state_data, 'columns') and 'wsif/sep' in self.terminal_state_data.columns:
-                self._terminal_stop_dict = self.terminal_state_data['wsif/sep'].to_dict()
+        if name == '_stop_probability_cache':
+            tsd = self.__dict__.get('terminal_state_data')
+            if tsd is not None:
+                if isinstance(tsd, dict):
+                    # Dict of dicts — handle both 'stop_probability' and old 'wsif/sep' keys
+                    cache = {}
+                    for k, v in tsd.items():
+                        if isinstance(v, dict):
+                            cache[k] = v.get('stop_probability', v.get('wsif/sep', 0.0))
+                    self._stop_probability_cache = cache
+                elif hasattr(tsd, 'columns'):
+                    # Old format: pandas DataFrame
+                    if 'stop_probability' in tsd.columns:
+                        self._stop_probability_cache = tsd['stop_probability'].to_dict()
+                    elif 'wsif/sep' in tsd.columns:
+                        self._stop_probability_cache = tsd['wsif/sep'].to_dict()
+                    else:
+                        self._stop_probability_cache = {}
+                else:
+                    self._stop_probability_cache = {}
             else:
-                self._terminal_stop_dict = {}
-            return self._terminal_stop_dict
+                self._stop_probability_cache = {}
+            return self._stop_probability_cache
         if name == '_walk_cache':
             self._walk_cache = None
+            return None
+        if name == '_topo_order':
+            self._topo_order = None
             return None
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
@@ -101,30 +293,30 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             return False
 
         # Check if both have same genetic status
-        if self.genetic != other.genetic:
+        if self.has_gene_data != other.has_gene_data:
             return False
 
         aux = 0
-        aux += self.genetic_walks_black_list != other.genetic_walks_black_list
-        aux += self.n_subpatterns != other.n_subpatterns
+        aux += self._walk_exclusions != other._walk_exclusions
+        aux += self.num_subpatterns != other.num_subpatterns
 
         # Compare initial_states, terminal_states, etc.
-        aux += not self.initial_states.round(3).equals(other.initial_states.round(3))
-        aux += not self.terminal_states.round(3).equals(other.terminal_states.round(3))
-        aux += not other.length_distribution_proba.round(3).equals(self.length_distribution_proba.round(3))
+        aux += not _dicts_close(self.initial_state_counts, other.initial_state_counts, decimals=3)
+        aux += not _dicts_close(self.terminal_state_counts, other.terminal_state_counts, decimals=3)
+        aux += not _dicts_close(self.length_probabilities, other.length_probabilities, decimals=3)
 
         # Compare gene-related distributions only if both are genetic
-        if self.genetic and other.genetic:
-            aux += not other.marginal_vgenes.round(3).equals(self.marginal_vgenes.round(3))
-            aux += not other.vj_probabilities.round(3).equals(self.vj_probabilities.round(3))
-            aux += not other.length_distribution.round(3).equals(self.length_distribution.round(3))
+        if self.has_gene_data and other.has_gene_data:
+            aux += not _dicts_close(self.marginal_v_genes, other.marginal_v_genes, decimals=3)
+            aux += not _dicts_close(self.vj_probabilities, other.vj_probabilities, decimals=3)
+            aux += not _dicts_close(self.length_counts, other.length_counts, decimals=3)
 
         return (aux == 0)
 
     def __repr__(self):
         n_nodes = self.graph.number_of_nodes()
         n_edges = self.graph.number_of_edges()
-        genetic_str = "genetic" if self.genetic else "non-genetic"
+        genetic_str = "genetic" if self.has_gene_data else "non-genetic"
         return f"{self.__class__.__name__}(nodes={n_nodes}, edges={n_edges}, {genetic_str})"
 
     @staticmethod
@@ -137,7 +329,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         ...
 
     @staticmethod
-    def clean_node(base):
+    def extract_subpattern(base):
         """
         Extract only nucleotides from a node string containing frame/position info.
         """
@@ -155,42 +347,52 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
     def _simultaneous_graph_construction(self, data: pd.DataFrame):
         """
         Leverages the generator implemented in `_decomposed_sequence_generator`
-        to insert node/edge data into the networkx DiGraph. If `self.genetic` is True,
+        to insert node/edge data into the networkx DiGraph. If `self.has_gene_data` is True,
         we also embed gene information.
+
+        The generator yields tuples that may include a ``count`` field (abundance weight).
+        When present, each edge/node/state is incremented by ``count`` rather than 1.
         """
         processing_stream = self._decomposed_sequence_generator(data)
-        if self.genetic:
+        if self.has_gene_data:
             for output in processing_stream:
-                steps, locations, v, j = output
+                steps, locations, v, j = output[:4]
+                count = output[4] if len(output) > 4 else 1
                 for (A, B), (loc_a, loc_b) in zip(steps, locations):
                     A_ = f"{A}_{loc_a}"
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
+                    self.node_outgoing_counts[A_] = self.node_outgoing_counts.get(A_, 0) + count
                     B_ = f"{B}_{loc_b}"
-                    self._insert_edge_and_information(A_, B_, v, j)
+                    self._insert_edge_and_information(A_, B_, v, j, count=count)
                 # ensure final node exists in frequency dict
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                self.node_outgoing_counts[B_] = self.node_outgoing_counts.get(B_, 0)
         else:
             for output in processing_stream:
-                steps, locations = output
+                steps, locations = output[:2]
+                count = output[2] if len(output) > 2 else 1
                 for (A, B), (loc_a, loc_b) in zip(steps, locations):
                     A_ = f"{A}_{loc_a}"
-                    self.per_node_observed_frequency[A_] = self.per_node_observed_frequency.get(A_, 0) + 1
+                    self.node_outgoing_counts[A_] = self.node_outgoing_counts.get(A_, 0) + count
                     B_ = f"{B}_{loc_b}"
-                    self._insert_edge_and_information_no_genes(A_, B_)
+                    self._insert_edge_and_information_no_genes(A_, B_, count=count)
                 # ensure final node exists in frequency dict
-                self.per_node_observed_frequency[B_] = self.per_node_observed_frequency.get(B_, 0)
+                self.node_outgoing_counts[B_] = self.node_outgoing_counts.get(B_, 0)
 
-    def _insert_edge_and_information_no_genes(self, node_a, node_b):
+    def _insert_edge_and_information_no_genes(self, node_a, node_b, count=1):
         """
-        Insert or update an edge (node_a -> node_b) with no gene info, incrementing count by 1.
+        Insert or update an edge (node_a -> node_b) with no gene info.
+
+        Args:
+            node_a: Source node.
+            node_b: Target node.
+            count (int): Number of traversals (abundance weight). Default 1.
         """
         if self.graph.has_edge(node_a, node_b):
-            self.graph[node_a][node_b]['data'].record()
+            self.graph[node_a][node_b]['data'].record(count=count)
         else:
             ed = EdgeData()
-            ed.record()
+            ed.record(count=count)
             self.graph.add_edge(node_a, node_b, data=ed)
-        self.n_transitions += 1
+        self.num_transitions += count
 
     def _normalize_edge_weights(self):
         """
@@ -205,7 +407,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         if alpha == 0.0:
             for edge_a, edge_b in self.graph.edges:
                 ed = self.graph[edge_a][edge_b]['data']
-                total = self.per_node_observed_frequency.get(edge_a, 0)
+                total = self.node_outgoing_counts.get(edge_a, 0)
                 ed.normalize(total)
         else:
             for node in self.graph.nodes():
@@ -213,7 +415,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                 if not successors:
                     continue
                 k = len(successors)
-                raw_total = self.per_node_observed_frequency.get(node, 0)
+                raw_total = self.node_outgoing_counts.get(node, 0)
                 for succ in successors:
                     self.graph[node][succ]['data'].normalize(raw_total, alpha, k)
 
@@ -273,14 +475,14 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
     def is_stop_condition(self, state, selected_v=None, selected_j=None):
         """
         Decide if a walk should stop at 'state'.
-        If `self.genetic` is True, we check V/J constraints plus
+        If `self.has_gene_data` is True, we check V/J constraints plus
         a random stop probability.
         """
-        stop_prob = self._terminal_stop_dict.get(state)
+        stop_prob = self._stop_probability_cache.get(state)
         if stop_prob is None:
             return False
 
-        if self.genetic:
+        if self.has_gene_data:
             if selected_j is not None:
                 # Check whether we have neighbors that contain both selected_v and selected_j
                 has_compatible = False
@@ -299,15 +501,22 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         else:
             return np.random.random() < stop_prob
 
-    def _derive_subpattern_individual_probability(self):
+    def _derive_node_probability(self):
         """
         Summation of edge counts by source node -> yields empirical probabilities for each node.
         Uses raw counts (not normalized weights) so this can be called before or after normalization.
         """
-        counts = {(a, b): self.graph[a][b]['data'].count for a, b in self.graph.edges}
-        count_df = pd.Series(counts).reset_index()
-        self.subpattern_individual_probability = count_df.groupby('level_0').sum(numeric_only=True).rename(columns={0: 'proba'})
-        self.subpattern_individual_probability.proba /= self.subpattern_individual_probability.proba.sum()
+        node_counts = {}
+        for a, b in self.graph.edges:
+            count = self.graph[a][b]['data'].count
+            node_counts[a] = node_counts.get(a, 0) + count
+        total = sum(node_counts.values())
+        if total > 0:
+            self.node_probability = {
+                node: c / total for node, c in node_counts.items()
+            }
+        else:
+            self.node_probability = {}
 
     def verbose_driver(self, message_number, verbose):
         """
@@ -353,7 +562,9 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         """
         Select a random initial state based on the marginal distribution of initial states.
         """
-        return choice(self.initial_states_probability.index, self.initial_states_probability.values)
+        keys = list(self.initial_state_probabilities.keys())
+        vals = list(self.initial_state_probabilities.values())
+        return choice(keys, vals)
 
     def _get_state_weights(self, node, v=None, j=None):
         """
@@ -372,11 +583,11 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             df = pd.DataFrame(result).T
             return df
 
-    def _update_terminal_states(self, terminal_state):
-        self.terminal_states[terminal_state] = self.terminal_states.get(terminal_state, 0) + 1
+    def _update_terminal_states(self, terminal_state, count=1):
+        self.terminal_state_counts[terminal_state] = self.terminal_state_counts.get(terminal_state, 0) + count
 
-    def _update_initial_states(self, initial_state):
-        self.initial_states[initial_state] = self.initial_states.get(initial_state, 0) + 1
+    def _update_initial_states(self, initial_state, count=1):
+        self.initial_state_counts[initial_state] = self.initial_state_counts.get(initial_state, 0) + count
 
     def edge_data(self, a, b):
         """Shortcut to access EdgeData for edge a->b."""
@@ -392,38 +603,43 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Call this after modifying raw counts (e.g., after graph_union
         or remove_sequence) to update all cached probabilities.
         """
-        # Recompute per_node_observed_frequency from actual edge counts.
+        # Recompute node_outgoing_counts from actual edge counts.
         # freq[node] = sum of outgoing edge counts (matching construction convention).
-        self.per_node_observed_frequency = {}
+        self.node_outgoing_counts = {}
         for node in self.graph.nodes():
             outgoing_sum = sum(
                 self.graph[node][succ]['data'].count
                 for succ in self.graph.successors(node)
             )
             if outgoing_sum > 0:
-                self.per_node_observed_frequency[node] = outgoing_sum
+                self.node_outgoing_counts[node] = outgoing_sum
 
         # Initial state probabilities
-        if isinstance(self.initial_states, pd.Series) and len(self.initial_states) > 0:
-            total = self.initial_states.sum()
+        if self.initial_state_counts:
+            total = sum(self.initial_state_counts.values())
             if total > 0:
-                self.initial_states_probability = self.initial_states / total
+                self.initial_state_probabilities = {
+                    k: v / total for k, v in self.initial_state_counts.items()
+                }
 
         # Length distribution probabilities
-        if isinstance(self.terminal_states, pd.Series) and len(self.terminal_states) > 0:
-            total = self.terminal_states.sum()
+        if self.terminal_state_counts:
+            total = sum(self.terminal_state_counts.values())
             if total > 0:
-                self.length_distribution_proba = self.terminal_states / total
+                self.length_probabilities = {
+                    k: v / total for k, v in self.terminal_state_counts.items()
+                }
 
         # Normalize edge weights
         self._normalize_edge_weights()
 
         # Derived probability tables
-        self._derive_subpattern_individual_probability()
+        self._derive_node_probability()
         self._derive_stop_probability_data()
 
-        # Invalidate walk cache (if it exists)
+        # Invalidate caches
         self._walk_cache = None
+        self._topo_order = None
 
     def remove_sequence(self, sequence, v_gene=None, j_gene=None):
         """Remove a single sequence's contribution from the graph.
@@ -443,14 +659,14 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
         # Decrement initial/terminal state counts
         first_node, last_node = walk[0], walk[-1]
-        if first_node in self.initial_states.index:
-            self.initial_states[first_node] = max(0, self.initial_states[first_node] - 1)
-            if self.initial_states[first_node] <= 0:
-                self.initial_states = self.initial_states.drop(first_node)
-        if last_node in self.terminal_states.index:
-            self.terminal_states[last_node] = max(0, self.terminal_states[last_node] - 1)
-            if self.terminal_states[last_node] <= 0:
-                self.terminal_states = self.terminal_states.drop(last_node)
+        if first_node in self.initial_state_counts:
+            self.initial_state_counts[first_node] = max(0, self.initial_state_counts[first_node] - 1)
+            if self.initial_state_counts[first_node] <= 0:
+                del self.initial_state_counts[first_node]
+        if last_node in self.terminal_state_counts:
+            self.terminal_state_counts[last_node] = max(0, self.terminal_state_counts[last_node] - 1)
+            if self.terminal_state_counts[last_node] <= 0:
+                del self.terminal_state_counts[last_node]
 
         # Decrement edge counts
         for a, b in window(walk, 2):
@@ -473,11 +689,11 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             if self.lengths[seq_len] <= 0:
                 del self.lengths[seq_len]
 
-        self.n_subpatterns = max(0, self.n_subpatterns - len(walk))
-        self.n_transitions = max(0, self.n_transitions - max(0, len(walk) - 1))
+        self.num_subpatterns = max(0, self.num_subpatterns - len(walk))
+        self.num_transitions = max(0, self.num_transitions - max(0, len(walk) - 1))
 
         # Clear cached edges list
-        self.edges_list = None
+        self._edges_cache = None
 
         # Recalculate derived state
         self.recalculate()
@@ -492,7 +708,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
         where T(t) is the number of sequences that ended at *t*
         (``terminal_states[t]``) and f(t) is the number of outgoing edge
-        traversals from *t* (``per_node_observed_frequency[t]``).
+        traversals from *t* (``node_outgoing_counts[t]``).
 
         Properties:
         - Always in [0, 1] by construction (no clamping needed).
@@ -500,25 +716,29 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         - O(|T|) computation cost.
         """
         stop_probs = {}
-        for state in self.terminal_states.index:
-            t_count = self.terminal_states[state]
-            f_count = self.per_node_observed_frequency.get(state, 0)
+        terminal_state_data = {}
+        for state, t_count in self.terminal_state_counts.items():
+            f_count = self.node_outgoing_counts.get(state, 0)
             denominator = t_count + f_count
-            stop_probs[state] = t_count / denominator if denominator > 0 else 1.0
+            sp = t_count / denominator if denominator > 0 else 1.0
+            stop_probs[state] = sp
+            terminal_state_data[state] = {
+                'terminal_count': t_count,
+                'outgoing_count': f_count,
+                'stop_probability': sp,
+            }
 
-        self.terminal_state_data = pd.DataFrame({
-            'terminal_count': pd.Series({s: self.terminal_states[s] for s in self.terminal_states.index}),
-            'outgoing_count': pd.Series({s: self.per_node_observed_frequency.get(s, 0) for s in self.terminal_states.index}),
-            'wsif/sep': pd.Series(stop_probs),
-        })
-        self._terminal_stop_dict = self.terminal_state_data['wsif/sep'].to_dict()
+        self.terminal_state_data = terminal_state_data
+        self._stop_probability_cache = stop_probs
 
     def _length_specific_terminal_state(self, length):
         """
         Return all terminal states whose suffix (split by '_') equals the given `length`.
         """
-        mask = self.terminal_states.index.to_series().str.split('_').apply(lambda x: int(x[-1])) == length
-        return self.terminal_states[mask].index.to_list()
+        return [
+            state for state in self.terminal_state_counts
+            if int(state.rsplit('_', 1)[-1]) == length
+        ]
 
     def eigenvector_centrality(self, max_iter=500):
         # Build a weight-attribute view for NetworkX algorithms
@@ -544,6 +764,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         """
         self.graph.remove_nodes_from(self.isolates)
         self._walk_cache = None
+        self._topo_order = None
 
     @property
     def is_dag(self):
@@ -551,6 +772,22 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Check whether the graph is a Directed Acyclic Graph (DAG).
         """
         return nx.is_directed_acyclic_graph(self.graph)
+
+    def _get_topo_order(self):
+        """Return cached topological order, rebuilding if needed.
+
+        Raises:
+            RuntimeError: If the graph contains cycles.
+        """
+        if self._topo_order is None:
+            try:
+                self._topo_order = list(nx.topological_sort(self.graph))
+            except nx.NetworkXUnfeasible:
+                raise RuntimeError(
+                    "This operation requires a DAG-structured graph. "
+                    "Use lzpgen_distribution() for graphs with cycles."
+                )
+        return self._topo_order
 
     @property
     def nodes(self):
@@ -591,9 +828,9 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             P(seq) = P(init) × ∏ P(edge_i) × P(stop | last_node)
 
         where:
-        - P(init) comes from ``initial_states_probability``
+        - P(init) comes from ``initial_state_probabilities``
         - P(edge_i) are the conditional transition probabilities on each edge
-        - P(stop | last_node) comes from ``terminal_state_data['wsif/sep']``
+        - P(stop | last_node) comes from ``terminal_state_data['stop_probability']``
 
         If ``self.impute_missing_edges`` is True and some (but not all) edges
         are missing, the missing edges are imputed using the geometric mean of
@@ -617,12 +854,12 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
         # 1. Initial state probability
         first_node = walk_[0]
-        if first_node not in self.initial_states_probability.index:
+        if first_node not in self.initial_state_probabilities:
             if verbose:
-                logger.debug(f"First node {first_node} not in initial_states_probability")
+                logger.debug(f"First node {first_node} not in initial_state_probabilities")
             return float('-inf') if use_log else 0.0
 
-        initial_prob = self.initial_states_probability[first_node]
+        initial_prob = self.initial_state_probabilities[first_node]
 
         # 2. Edge transition probabilities
         missing_count = 0
@@ -632,11 +869,12 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             log_initial = np.log(initial_prob)
             log_edge_sum = 0.0
 
+            graph = self.graph  # local ref for speed
             for step1, step2 in window(walk_, 2):
-                if self.graph.has_edge(step1, step2):
-                    log_edge_sum += np.log(self.graph[step1][step2]['data'].weight)
+                try:
+                    log_edge_sum += np.log(graph[step1][step2]['data'].weight)
                     observed_count += 1
-                else:
+                except KeyError:
                     if verbose:
                         logger.debug(f"No edge connecting: {step1} --> {step2}")
                     missing_count += 1
@@ -653,22 +891,23 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
             # 3. Terminal state factor
             last_node = walk_[-1]
-            if hasattr(self, 'terminal_state_data') and last_node in self.terminal_state_data.index:
-                stop_prob = self.terminal_state_data.loc[last_node, 'wsif/sep']
-                log_result += np.log(max(stop_prob, np.finfo(float).eps))
+            stop_prob = self._stop_probability_cache.get(last_node)
+            if stop_prob is not None:
+                log_result += np.log(max(stop_prob, _EPS))
             else:
-                log_result += np.log(np.finfo(float).eps)
+                log_result += _LOG_EPS
 
             return log_result
 
         else:
             edge_product = 1.0
 
+            graph = self.graph  # local ref for speed
             for step1, step2 in window(walk_, 2):
-                if self.graph.has_edge(step1, step2):
-                    edge_product *= self.graph[step1][step2]['data'].weight
+                try:
+                    edge_product *= graph[step1][step2]['data'].weight
                     observed_count += 1
-                else:
+                except KeyError:
                     if verbose:
                         logger.debug(f"No edge connecting: {step1} --> {step2}")
                     missing_count += 1
@@ -684,11 +923,11 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
             # 3. Terminal state factor
             last_node = walk_[-1]
-            if hasattr(self, 'terminal_state_data') and last_node in self.terminal_state_data.index:
-                stop_prob = self.terminal_state_data.loc[last_node, 'wsif/sep']
-                result *= max(stop_prob, np.finfo(float).eps)
+            stop_prob = self._stop_probability_cache.get(last_node)
+            if stop_prob is not None:
+                result *= max(stop_prob, _EPS)
             else:
-                result *= np.finfo(float).eps
+                result *= _EPS
 
             return result
 
@@ -721,12 +960,12 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         random_init = self._random_initial_state()
         current_state = random_init
         walk = [random_init]
-        parts = [self.clean_node(random_init)]
+        parts = [self.extract_subpattern(random_init)]
 
         while not self.is_stop_condition(current_state):
             current_state = self.random_step(current_state)
             walk.append(current_state)
-            parts.append(self.clean_node(current_state))
+            parts.append(self.extract_subpattern(current_state))
 
         return walk, ''.join(parts)
 
@@ -831,7 +1070,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Raises:
             NoGeneDataError: If the graph has no gene data.
         """
-        if not self.genetic:
+        if not self.has_gene_data:
             raise NoGeneDataError(
                 operation="gene_variation",
                 message="Cannot compute gene variation: this LZGraph has no gene data (genetic=False)."
@@ -839,8 +1078,8 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
         encoded = self.encode_sequence(cdr3)
 
-        n_v = [len(self.marginal_vgenes)]
-        n_j = [len(self.marginal_jgenes)]
+        n_v = [len(self.marginal_v_genes)]
+        n_j = [len(self.marginal_j_genes)]
 
         for node in encoded[1:]:
             in_edges = self.graph.in_edges(node)
@@ -879,7 +1118,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         id_to_node = np.array(nodes, dtype=object)
 
         # Pre-compute clean labels for all nodes
-        clean_labels = np.array([self.clean_node(name) for name in nodes], dtype=object)
+        clean_labels = np.array([self.extract_subpattern(name) for name in nodes], dtype=object)
 
         # Per-node neighbor IDs and weights
         neighbor_ids = [None] * n
@@ -895,13 +1134,16 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
 
         # Stop probabilities: NaN for non-terminal nodes
         stop_probs = np.full(n, np.nan, dtype=np.float64)
-        for state, prob in self._terminal_stop_dict.items():
+        for state, prob in self._stop_probability_cache.items():
             if state in node_to_id:
                 stop_probs[node_to_id[state]] = prob
 
         # Initial state arrays
-        init_states = self.initial_states_probability.index.tolist()
-        init_probs = self.initial_states_probability.values.astype(np.float64)
+        init_states = list(self.initial_state_probabilities.keys())
+        init_probs = np.array(
+            [self.initial_state_probabilities[s] for s in init_states],
+            dtype=np.float64,
+        )
         init_probs = init_probs / init_probs.sum()  # ensure normalization
         initial_ids = np.array([node_to_id[s] for s in init_states], dtype=np.intp)
 
@@ -1035,7 +1277,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         neighbor_weights = cache['neighbor_weights']
 
         # Pre-compute log values for zero per-step overhead
-        eps = np.finfo(np.float64).eps
+        eps = _EPS
         initial_log_probs = np.log(np.maximum(initial_probs, eps))
 
         n_nodes = len(cache['id_to_node'])
@@ -1124,15 +1366,8 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             print(f"E[log P] = {moments['mean']:.4f}")
             print(f"Std[log P] = {moments['std']:.4f}")
         """
-        try:
-            topo_order = list(nx.topological_sort(self.graph))
-        except nx.NetworkXUnfeasible:
-            raise RuntimeError(
-                "lzpgen_moments() requires a DAG-structured graph. "
-                "Use lzpgen_distribution() for graphs with cycles."
-            )
-
-        eps = np.finfo(np.float64).eps
+        topo_order = self._get_topo_order()
+        eps = _EPS
         n_nodes = len(topo_order)
 
         # Moment accumulators per node (indexed by topological position)
@@ -1145,10 +1380,9 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         node_to_idx = {node: i for i, node in enumerate(topo_order)}
 
         # Seed initial states
-        for state in self.initial_states_probability.index:
+        for state, p in self.initial_state_probabilities.items():
             if state in node_to_idx:
                 idx = node_to_idx[state]
-                p = self.initial_states_probability[state]
                 lp = np.log(max(p, eps))
                 lp2 = lp * lp
                 m0[idx] += p
@@ -1168,7 +1402,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                 continue
 
             # Terminal contribution: mass that stops here
-            stop_prob = self._terminal_stop_dict.get(u)
+            stop_prob = self._stop_probability_cache.get(u)
             if stop_prob is not None and stop_prob > 0:
                 ls = np.log(max(stop_prob, eps))
                 ls2 = ls * ls
@@ -1282,15 +1516,8 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         """
         from ..metrics.pgen_distribution import LZPgenDistribution
 
-        try:
-            topo_order = list(nx.topological_sort(self.graph))
-        except nx.NetworkXUnfeasible:
-            raise RuntimeError(
-                "lzpgen_analytical_distribution() requires a DAG. "
-                "Use lzpgen_distribution() for graphs with cycles."
-            )
-
-        eps = np.finfo(np.float64).eps
+        topo_order = self._get_topo_order()
+        eps = _EPS
         n_nodes = len(topo_order)
         node_to_idx = {node: i for i, node in enumerate(topo_order)}
 
@@ -1305,10 +1532,9 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         depth = np.full(n_nodes, -1, dtype=np.int32)
 
         # Seed initial states
-        for state in self.initial_states_probability.index:
+        for state, p in self.initial_state_probabilities.items():
             if state in node_to_idx:
                 idx = node_to_idx[state]
-                p = self.initial_states_probability[state]
                 lp = np.log(max(p, eps))
                 lp2 = lp * lp
                 lp3 = lp2 * lp
@@ -1334,7 +1560,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
                 continue
 
             # Terminal contribution
-            stop_prob = self._terminal_stop_dict.get(u)
+            stop_prob = self._stop_probability_cache.get(u)
             if stop_prob is not None and stop_prob > 0:
                 ls = np.log(max(stop_prob, eps))
                 ls2 = ls * ls
@@ -1616,51 +1842,49 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         for (a, b), ed in edge_data_backup.items():
             self.graph[a][b]['data'] = ed
 
-        # Helper to convert pandas objects
-        def serialize_pandas(obj):
-            if isinstance(obj, pd.DataFrame):
-                return {'_type': 'DataFrame', 'data': obj.to_dict()}
-            elif isinstance(obj, pd.Series):
-                return {'_type': 'Series', 'data': obj.to_dict(), 'name': obj.name}
+        # Helper to convert any remaining pandas objects (backward compat)
+        def _to_dict(obj):
+            if hasattr(obj, 'to_dict'):
+                return obj.to_dict()
             return obj
 
         data = {
             '_class': self.__class__.__name__,
             '_module': self.__class__.__module__,
             'graph': graph_data,
-            'genetic': self.genetic,
-            'n_subpatterns': self.n_subpatterns,
-            'n_transitions': self.n_transitions,
-            'initial_states': dict(self.initial_states) if isinstance(self.initial_states, pd.Series) else self.initial_states,
-            'terminal_states': dict(self.terminal_states) if isinstance(self.terminal_states, pd.Series) else self.terminal_states,
+            'has_gene_data': self.has_gene_data,
+            'num_subpatterns': self.num_subpatterns,
+            'num_transitions': self.num_transitions,
+            'initial_state_counts': _to_dict(self.initial_state_counts),
+            'terminal_state_counts': _to_dict(self.terminal_state_counts),
             'lengths': self.lengths,
-            'per_node_observed_frequency': self.per_node_observed_frequency,
-            'initial_states_probability': serialize_pandas(self.initial_states_probability),
-            'length_distribution_proba': serialize_pandas(self.length_distribution_proba),
-            'subpattern_individual_probability': serialize_pandas(self.subpattern_individual_probability),
+            'node_outgoing_counts': self.node_outgoing_counts,
+            'initial_state_probabilities': _to_dict(self.initial_state_probabilities),
+            'length_probabilities': _to_dict(self.length_probabilities),
+            'node_probability': _to_dict(self.node_probability),
             'impute_missing_edges': self.impute_missing_edges,
             'smoothing_alpha': self.smoothing_alpha,
-            'initial_state_threshold': self.initial_state_threshold,
+            'min_initial_state_count': self.min_initial_state_count,
         }
 
         # Add gene-related attributes if genetic
-        if self.genetic:
-            if hasattr(self, 'marginal_vgenes'):
-                data['marginal_vgenes'] = serialize_pandas(self.marginal_vgenes)
-            if hasattr(self, 'marginal_jgenes'):
-                data['marginal_jgenes'] = serialize_pandas(self.marginal_jgenes)
+        if self.has_gene_data:
+            if hasattr(self, 'marginal_v_genes'):
+                data['marginal_v_genes'] = _to_dict(self.marginal_v_genes)
+            if hasattr(self, 'marginal_j_genes'):
+                data['marginal_j_genes'] = _to_dict(self.marginal_j_genes)
             if hasattr(self, 'vj_probabilities'):
-                data['vj_probabilities'] = serialize_pandas(self.vj_probabilities)
-            if hasattr(self, 'length_distribution'):
-                data['length_distribution'] = serialize_pandas(self.length_distribution)
-            if hasattr(self, 'observed_vgenes'):
-                data['observed_vgenes'] = list(self.observed_vgenes)
-            if hasattr(self, 'observed_jgenes'):
-                data['observed_jgenes'] = list(self.observed_jgenes)
+                data['vj_probabilities'] = _to_dict(self.vj_probabilities)
+            if hasattr(self, 'length_counts'):
+                data['length_counts'] = _to_dict(self.length_counts)
+            if hasattr(self, 'observed_v_genes'):
+                data['observed_v_genes'] = list(self.observed_v_genes)
+            if hasattr(self, 'observed_j_genes'):
+                data['observed_j_genes'] = list(self.observed_j_genes)
 
         # Terminal state data
         if hasattr(self, 'terminal_state_data'):
-            data['terminal_state_data'] = serialize_pandas(self.terminal_state_data)
+            data['terminal_state_data'] = _to_dict(self.terminal_state_data)
 
         return data
 
@@ -1677,14 +1901,20 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         Returns:
             Reconstructed LZGraph instance.
         """
-        # Helper to deserialize pandas objects
-        def deserialize_pandas(obj):
-            if isinstance(obj, dict) and '_type' in obj:
-                if obj['_type'] == 'DataFrame':
-                    return pd.DataFrame(obj['data'])
-                elif obj['_type'] == 'Series':
-                    return pd.Series(obj['data'], name=obj.get('name'))
-            return obj
+        # Helper to convert old pandas-serialized objects to plain dicts
+        def _to_plain_dict(obj, default=None):
+            if default is None:
+                default = {}
+            if obj is None:
+                return default
+            if isinstance(obj, dict):
+                if '_type' in obj:
+                    # Old pandas-serialized format
+                    return obj.get('data', default)
+                return obj
+            if hasattr(obj, 'to_dict'):
+                return obj.to_dict()
+            return default
 
         # Import the correct class
         class_name = data.get('_class', 'LZGraphBase')
@@ -1705,7 +1935,7 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
         instance.graph = json_graph.node_link_graph(data['graph'])
 
         # Convert edge dicts to EdgeData objects
-        per_node_freq = data.get('per_node_observed_frequency', {})
+        per_node_freq = data.get('node_outgoing_counts', {})
         for a, b in list(instance.graph.edges):
             edge_attrs = dict(instance.graph[a][b])
             existing = edge_attrs.get('data')
@@ -1724,68 +1954,96 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             instance.graph[a][b]['data'] = ed
 
         # Restore basic attributes
-        instance.genetic = data.get('genetic', False)
-        instance.genetic_walks_black_list = {}
-        instance.n_subpatterns = data.get('n_subpatterns', 0)
-        instance.n_transitions = data.get('n_transitions', 0)
+        instance.has_gene_data = data.get('has_gene_data', data.get('genetic', False))
+        instance._walk_exclusions = {}
+        instance.num_subpatterns = data.get('num_subpatterns', data.get('n_subpatterns', 0))
+        instance.num_transitions = data.get('num_transitions', data.get('n_transitions', 0))
 
         # Restore PGEN configuration
         instance.impute_missing_edges = data.get('impute_missing_edges', False)
         instance.smoothing_alpha = data.get('smoothing_alpha', 0.0)
-        instance.initial_state_threshold = data.get('initial_state_threshold', 0)
+        instance.min_initial_state_count = data.get('min_initial_state_count',
+                                                     data.get('initial_state_threshold', 0))
 
-        # Restore dictionaries (may need to convert back to Series for some)
-        instance.initial_states = data.get('initial_states', {})
-        instance.terminal_states = data.get('terminal_states', {})
+        # Restore plain dict attributes (try new key, fall back to old)
+        instance.initial_state_counts = _to_plain_dict(
+            data.get('initial_state_counts', data.get('initial_states'))
+        )
+        instance.terminal_state_counts = _to_plain_dict(
+            data.get('terminal_state_counts', data.get('terminal_states'))
+        )
         instance.lengths = data.get('lengths', {})
-        instance.cac_graphs = {}
-        instance.n_neighbours = {}
-        instance.per_node_observed_frequency = data.get('per_node_observed_frequency', {})
+        instance.vj_combination_graphs = {}
+        instance.num_neighbours = {}
+        instance.node_outgoing_counts = data.get('node_outgoing_counts',
+                                                   data.get('per_node_observed_frequency', {}))
 
-        # Restore pandas objects
-        instance.initial_states_probability = deserialize_pandas(
-            data.get('initial_states_probability', {'_type': 'Series', 'data': {}})
+        # Restore probability dicts (try new key, fall back to old)
+        instance.initial_state_probabilities = _to_plain_dict(
+            data.get('initial_state_probabilities',
+                      data.get('initial_states_probability'))
         )
-        instance.length_distribution_proba = deserialize_pandas(
-            data.get('length_distribution_proba', {'_type': 'Series', 'data': {}})
+        instance.length_probabilities = _to_plain_dict(
+            data.get('length_probabilities',
+                      data.get('length_distribution_proba'))
         )
-        instance.subpattern_individual_probability = deserialize_pandas(
-            data.get('subpattern_individual_probability', {'_type': 'Series', 'data': {}})
+        instance.node_probability = _to_plain_dict(
+            data.get('node_probability',
+                      data.get('subpattern_individual_probability'))
         )
 
         # Restore gene-related attributes if present
-        if instance.genetic:
-            if 'marginal_vgenes' in data:
-                instance.marginal_vgenes = deserialize_pandas(data['marginal_vgenes'])
-            if 'marginal_jgenes' in data:
-                instance.marginal_jgenes = deserialize_pandas(data['marginal_jgenes'])
+        if instance.has_gene_data:
+            mg_v = data.get('marginal_v_genes', data.get('marginal_vgenes'))
+            if mg_v is not None:
+                instance.marginal_v_genes = _to_plain_dict(mg_v)
+            mg_j = data.get('marginal_j_genes', data.get('marginal_jgenes'))
+            if mg_j is not None:
+                instance.marginal_j_genes = _to_plain_dict(mg_j)
             if 'vj_probabilities' in data:
-                instance.vj_probabilities = deserialize_pandas(data['vj_probabilities'])
-            if 'length_distribution' in data:
-                instance.length_distribution = deserialize_pandas(data['length_distribution'])
-            if 'observed_vgenes' in data:
-                instance.observed_vgenes = set(data['observed_vgenes'])
-            if 'observed_jgenes' in data:
-                instance.observed_jgenes = set(data['observed_jgenes'])
+                instance.vj_probabilities = _to_plain_dict(data['vj_probabilities'])
+            lc = data.get('length_counts', data.get('length_distribution'))
+            if lc is not None:
+                instance.length_counts = _to_plain_dict(lc)
+            ov = data.get('observed_v_genes', data.get('observed_vgenes'))
+            if ov is not None:
+                instance.observed_v_genes = set(ov)
+            oj = data.get('observed_j_genes', data.get('observed_jgenes'))
+            if oj is not None:
+                instance.observed_j_genes = set(oj)
 
         # Restore terminal state data
         if 'terminal_state_data' in data:
-            instance.terminal_state_data = deserialize_pandas(data['terminal_state_data'])
+            tsd_raw = data['terminal_state_data']
+            instance.terminal_state_data = _to_plain_dict(tsd_raw)
 
-        # Build _terminal_stop_dict from terminal_state_data
-        if hasattr(instance, 'terminal_state_data') and 'wsif/sep' in instance.terminal_state_data.columns:
-            instance._terminal_stop_dict = instance.terminal_state_data['wsif/sep'].to_dict()
+        # Build _stop_probability_cache
+        tsd = getattr(instance, 'terminal_state_data', None)
+        if isinstance(tsd, dict):
+            first_val = next(iter(tsd.values()), None) if tsd else None
+            if isinstance(first_val, dict) and 'stop_probability' in first_val:
+                # New format: dict of dicts
+                instance._stop_probability_cache = {k: v['stop_probability'] for k, v in tsd.items()}
+            else:
+                # Flat dict — recompute
+                instance._stop_probability_cache = {}
         else:
-            instance._terminal_stop_dict = {}
+            instance._stop_probability_cache = {}
 
         # Walk cache (rebuilt lazily, not serialized)
         instance._walk_cache = None
 
-        # Convert initial/terminal states to Series if they're dicts
-        if isinstance(instance.initial_states, dict):
-            instance.initial_states = pd.Series(instance.initial_states)
-        if isinstance(instance.terminal_states, dict):
-            instance.terminal_states = pd.Series(instance.terminal_states)
+        # Convert JSON string keys to int for lengths and terminal_states if needed
+        if instance.initial_state_counts:
+            instance.initial_state_counts = {
+                k: int(v) if isinstance(v, float) and v == int(v) else v
+                for k, v in instance.initial_state_counts.items()
+            }
+        if instance.terminal_state_counts:
+            instance.terminal_state_counts = {
+                k: int(v) if isinstance(v, float) and v == int(v) else v
+                for k, v in instance.terminal_state_counts.items()
+            }
 
         return instance
 
@@ -1828,11 +2086,11 @@ class LZGraphBase(ABC, GeneLogicMixin, RandomWalkMixin, GenePredictionMixin):
             'class': self.__class__.__name__,
             'n_nodes': self.graph.number_of_nodes(),
             'n_edges': self.graph.number_of_edges(),
-            'genetic': self.genetic,
-            'n_subpatterns': self.n_subpatterns,
-            'n_transitions': self.n_transitions,
-            'n_initial_states': len(self.initial_states) if hasattr(self, 'initial_states') else 0,
-            'n_terminal_states': len(self.terminal_states) if hasattr(self, 'terminal_states') else 0,
+            'genetic': self.has_gene_data,
+            'n_subpatterns': self.num_subpatterns,
+            'n_transitions': self.num_transitions,
+            'n_initial_states': len(self.initial_state_counts) if hasattr(self, 'initial_state_counts') else 0,
+            'n_terminal_states': len(self.terminal_state_counts) if hasattr(self, 'terminal_state_counts') else 0,
         }
 
     # =========================================================================
