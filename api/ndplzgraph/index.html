@@ -93,10 +93,6 @@
       
     </div>
     
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
-        
-      </div>
-    
     
       
 
@@ -1439,28 +1435,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#required-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Required Columns
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#optional-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional Columns
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1512,10 +1486,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#clean_node-static" class="md-nav__link">
+  <a href="#extract_subpattern-static" class="md-nav__link">
     <span class="md-ellipsis">
       
-        clean_node (static)
+        extract_subpattern (static)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        simulate
       
     </span>
   </a>
@@ -1918,28 +1903,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#required-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Required Columns
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#optional-columns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional Columns
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -1991,10 +1954,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#clean_node-static" class="md-nav__link">
+  <a href="#extract_subpattern-static" class="md-nav__link">
     <span class="md-ellipsis">
       
-        clean_node (static)
+        extract_subpattern (static)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        simulate
       
     </span>
   </a>
@@ -2049,19 +2023,16 @@
 
 
 <h1 id="ndplzgraph">NDPLZGraph<a class="headerlink" href="#ndplzgraph" title="Permanent link">&para;</a></h1>
-<p>Nucleotide Double Positional LZGraph for analyzing nucleotide CDR3 sequences.</p>
+<p>Nucleotide Reading Frame Positional LZGraph for analyzing nucleotide CDR3 sequences.</p>
 <h2 id="quick-example">Quick Example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDPLZGraph</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Build graph</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;repertoire.csv&quot;</span><span class="p">)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># Calculate probability</span>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;TGTGCCAGCAGT&quot;</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Build from a plain list of nucleotide sequences</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;TGTGCCAGCAGTTTCAAGAT&quot;</span><span class="p">,</span> <span class="s2">&quot;TGTGCCAGCAGCCAAAGCAG&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Calculate probability (accepts raw strings)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="s2">&quot;TGTGCCAGCAGT&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="class-reference">Class Reference<a class="headerlink" href="#class-reference" title="Permanent link">&para;</a></h2>
 
@@ -2076,12 +2047,16 @@
 
 <a href="#LZGraphs.graphs.nucleotide_double_positional.NDPLZGraph" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NDPLZGraph</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">:</span> <span class="n">DataFrame</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">calculate_trainset_pgen</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">smoothing_alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">initial_state_threshold</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">Series</span><span class="p">],</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">abundances</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">v_genes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">j_genes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">calculate_trainset_pgen</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">smoothing_alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">min_initial_state_count</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2098,7 +2073,13 @@ starting at position 3 in the overall sequence.</p>
 <p>The class inherits from LZGraphBase and thus uses the same random-walk logic,
 gene annotation logic (if present), and so on.</p>
 
-        <p>Constructor for NDPLZGraph.</p>
+        <p>Create a nucleotide reading-frame-positional LZGraph.</p>
+<p><em>data</em> can be a pandas DataFrame with a <code>cdr3_rearrangement</code>
+column, a plain list of nucleotide sequences, or a pandas Series.</p>
+<p>When <em>data</em> is a list or Series the optional keyword arguments
+<em>abundances</em>, <em>v_genes</em> and <em>j_genes</em> may be used to supply
+additional per-sequence information.  When <em>data</em> is a DataFrame
+these must be <code>None</code> — use DataFrame columns instead.</p>
 
 
 <table>
@@ -2115,14 +2096,73 @@ gene annotation logic (if present), and so on.</p>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Must include at least a column 'cdr3_rearrangement'
-with the nucleotide sequences. If 'V' and 'J' columns exist, we embed
-gene information (self.genetic=True).</p>
+                <p>Sequence data.  DataFrame (with <code>cdr3_rearrangement</code>
+column), list of strings, or pandas Series.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code><span title="pandas.DataFrame">DataFrame</span></code>
+                      <code><span title="typing.Union">Union</span>[<span title="pandas.DataFrame">DataFrame</span>, <span title="typing.List">List</span>[<span title="str">str</span>], <span title="pandas.Series">Series</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>abundances</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Per-sequence abundance counts (list input only).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<span title="int">int</span>]]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>v_genes</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Per-sequence V gene annotations (list input only).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<span title="str">str</span>]]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>j_genes</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Per-sequence J gene annotations (list input only).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="typing.Optional">Optional</span>[<span title="typing.List">List</span>[<span title="str">str</span>]]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
                   </span>
               </p>
             </td>
@@ -2191,7 +2231,7 @@ each sequence in the dataset, storing results in self.train_pgen.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>initial_state_threshold</code>
+                <code>min_initial_state_count</code>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
@@ -2271,21 +2311,23 @@ resulting in nodes "ATG0_3", "CG0_5", etc.</li>
 <div class="doc doc-object doc-function">
 
 
-<h4 id="LZGraphs.graphs.nucleotide_double_positional.NDPLZGraph.clean_node" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">clean_node</span>
+<h4 id="LZGraphs.graphs.nucleotide_double_positional.NDPLZGraph.extract_subpattern" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">extract_subpattern</span>
 
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-<a href="#LZGraphs.graphs.nucleotide_double_positional.NDPLZGraph.clean_node" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">clean_node</span><span class="p">(</span><span class="n">base</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<a href="#LZGraphs.graphs.nucleotide_double_positional.NDPLZGraph.extract_subpattern" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_subpattern</span><span class="p">(</span><span class="n">base</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Given a sub-pattern that looks like "ATG0_3", extract only the nucleotides ("ATG").</p>
+        <p>Given a sub-pattern that looks like "ATG0_3", extract only the nucleotides ("ATG").
+The format is {nucleotides}{frame_digit}<em>{position}, so split on '</em>' and
+drop the trailing frame digit.</p>
 
 
     </div>
@@ -2311,8 +2353,23 @@ resulting in nodes "ATG0_3", "CG0_5", etc.</li>
 <tbody>
 <tr>
 <td><code>data</code></td>
-<td><code>pd.DataFrame</code></td>
-<td>DataFrame with <code>cdr3_rearrangement</code> column</td>
+<td><code>list[str]</code>, <code>pd.Series</code>, or <code>pd.DataFrame</code></td>
+<td>Nucleotide CDR3 sequences</td>
+</tr>
+<tr>
+<td><code>abundances</code></td>
+<td><code>list[int]</code></td>
+<td>Per-sequence abundance counts <em>(list/Series input only)</em></td>
+</tr>
+<tr>
+<td><code>v_genes</code></td>
+<td><code>list[str]</code></td>
+<td>V gene annotations <em>(list/Series input only)</em></td>
+</tr>
+<tr>
+<td><code>j_genes</code></td>
+<td><code>list[str]</code></td>
+<td>J gene annotations <em>(list/Series input only)</em></td>
 </tr>
 <tr>
 <td><code>verbose</code></td>
@@ -2321,36 +2378,33 @@ resulting in nodes "ATG0_3", "CG0_5", etc.</li>
 </tr>
 </tbody>
 </table>
-<h3 id="required-columns">Required Columns<a class="headerlink" href="#required-columns" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>cdr3_rearrangement</code> - Nucleotide CDR3 sequences</li>
-</ul>
-<h3 id="optional-columns">Optional Columns<a class="headerlink" href="#optional-columns" title="Permanent link">&para;</a></h3>
-<ul>
-<li><code>V</code> - V gene/allele annotations</li>
-<li><code>J</code> - J gene/allele annotations</li>
-</ul>
+<p>When <code>data</code> is a <strong>list</strong> or <strong>Series</strong>, use the keyword arguments above to attach metadata.
+When <code>data</code> is a <strong>DataFrame</strong>, metadata columns should be in the DataFrame itself (<code>cdr3_rearrangement</code>, and optionally <code>V</code>, <code>J</code>, <code>abundance</code>).</p>
 <h2 id="node-format">Node Format<a class="headerlink" href="#node-format" title="Permanent link">&para;</a></h2>
-<p>NDPLZGraph uses double positional encoding:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>&lt;pattern&gt;_&lt;start&gt;_&lt;end&gt;
+<p>NDPLZGraph uses reading frame and position encoding:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>&lt;pattern&gt;&lt;reading_frame&gt;_&lt;position&gt;
 </span></code></pre></div>
+<p>Where <code>reading_frame</code> is 0, 1, or 2 (codon position) and <code>position</code> is the ending position.</p>
 <p>Example:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="s2">&quot;TGTGCC&quot;</span><span class="p">)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># [&#39;T_1_1&#39;, &#39;G_2_2&#39;, &#39;T_3_3&#39;, &#39;G_4_4&#39;, &#39;C_5_5&#39;, &#39;C_6_6&#39;]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># [&#39;T0_1&#39;, &#39;G1_2&#39;, &#39;TG2_4&#39;, &#39;C1_5&#39;, &#39;C2_6&#39;]</span>
 </span></code></pre></div></p>
 <h2 id="key-methods">Key Methods<a class="headerlink" href="#key-methods" title="Permanent link">&para;</a></h2>
 <h3 id="walk_probability">walk_probability<a class="headerlink" href="#walk_probability" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="s2">&quot;TGTGCCAGCAGT&quot;</span><span class="p">)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">encoded</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;log P(gen) = </span><span class="si">{</span><span class="n">pgen</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<p>Accepts a raw sequence string or a pre-encoded walk list.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="s2">&quot;TGTGCCAGCAGT&quot;</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;log P(gen) = </span><span class="si">{</span><span class="n">pgen</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="encode_sequence-static">encode_sequence (static)<a class="headerlink" href="#encode_sequence-static" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="s2">&quot;TGTGCC&quot;</span><span class="p">)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Returns: [&#39;T_1_1&#39;, &#39;G_2_2&#39;, &#39;T_3_3&#39;, &#39;G_4_4&#39;, &#39;C_5_5&#39;, &#39;C_6_6&#39;]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># Returns: [&#39;T0_1&#39;, &#39;G1_2&#39;, &#39;TG2_4&#39;, &#39;C1_5&#39;, &#39;C2_6&#39;]</span>
 </span></code></pre></div>
-<h3 id="clean_node-static">clean_node (static)<a class="headerlink" href="#clean_node-static" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">pattern</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">clean_node</span><span class="p">(</span><span class="s2">&quot;TG_3_4&quot;</span><span class="p">)</span>
+<h3 id="extract_subpattern-static">extract_subpattern (static)<a class="headerlink" href="#extract_subpattern-static" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">pattern</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">extract_subpattern</span><span class="p">(</span><span class="s2">&quot;TG2_4&quot;</span><span class="p">)</span>
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># Returns: &quot;TG&quot;</span>
+</span></code></pre></div>
+<h3 id="simulate">simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">sequences</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="comparison-with-aaplzgraph">Comparison with AAPLZGraph<a class="headerlink" href="#comparison-with-aaplzgraph" title="Permanent link">&para;</a></h2>
 <table>
@@ -2369,8 +2423,8 @@ resulting in nodes "ATG0_3", "CG0_5", etc.</li>
 </tr>
 <tr>
 <td>Position encoding</td>
-<td>Double (start, end)</td>
-<td>Single (end)</td>
+<td>Reading frame + position</td>
+<td>Single (end position)</td>
 </tr>
 <tr>
 <td>Alphabet size</td>
@@ -2478,7 +2532,7 @@ resulting in nodes "ATG0_3", "CG0_5", etc.</li>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

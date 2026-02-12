@@ -93,10 +93,6 @@
       
     </div>
     
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
-        
-      </div>
-    
     
       
 
@@ -1460,7 +1456,7 @@
   <a href="#k1000_diversity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        K1000_Diversity
+        k1000_diversity
       
     </span>
   </a>
@@ -1471,7 +1467,7 @@
   <a href="#k_diversity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        K_Diversity
+        k_diversity
       
     </span>
   </a>
@@ -1495,10 +1491,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lzcentrality" class="md-nav__link">
+  <a href="#lz_centrality" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LZCentrality
+        lz_centrality
       
     </span>
   </a>
@@ -1800,6 +1796,45 @@
     <span class="md-ellipsis">
       
         compare_repertoires
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#analytical-pgen-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analytical Pgen Distribution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analytical Pgen Distribution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lzpgendistribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LZPgenDistribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compare_lzpgen_distributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_lzpgen_distributions
       
     </span>
   </a>
@@ -2100,7 +2135,7 @@
   <a href="#k1000_diversity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        K1000_Diversity
+        k1000_diversity
       
     </span>
   </a>
@@ -2111,7 +2146,7 @@
   <a href="#k_diversity" class="md-nav__link">
     <span class="md-ellipsis">
       
-        K_Diversity
+        k_diversity
       
     </span>
   </a>
@@ -2135,10 +2170,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lzcentrality" class="md-nav__link">
+  <a href="#lz_centrality" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LZCentrality
+        lz_centrality
       
     </span>
   </a>
@@ -2452,6 +2487,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#analytical-pgen-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Analytical Pgen Distribution
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Analytical Pgen Distribution">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#lzpgendistribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LZPgenDistribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#compare_lzpgen_distributions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        compare_lzpgen_distributions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2486,13 +2560,13 @@
 <p>Functions for measuring repertoire diversity, entropy, and similarity.</p>
 <h2 id="import">Import<a class="headerlink" href="#import" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">K1000_Diversity</span><span class="p">,</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">K_Diversity</span><span class="p">,</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">K100_Diversity</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">K500_Diversity</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">K5000_Diversity</span><span class="p">,</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">adaptive_K_Diversity</span><span class="p">,</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">LZCentrality</span><span class="p">,</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">k1000_diversity</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">k_diversity</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">k100_diversity</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">k500_diversity</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">k5000_diversity</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">adaptive_k_diversity</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">lz_centrality</span><span class="p">,</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">node_entropy</span><span class="p">,</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">edge_entropy</span><span class="p">,</span>
 </span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">graph_entropy</span><span class="p">,</span>
@@ -2511,43 +2585,41 @@
 </span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>    <span class="n">transition_mutual_information_profile</span><span class="p">,</span>
 </span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="n">path_entropy_rate</span><span class="p">,</span>
 </span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="n">compare_repertoires</span><span class="p">,</span>
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="p">)</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>    <span class="n">LZPgenDistribution</span><span class="p">,</span>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="n">compare_lzpgen_distributions</span><span class="p">,</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="k-diversity-functions">K-Diversity Functions<a class="headerlink" href="#k-diversity-functions" title="Permanent link">&para;</a></h2>
-<h3 id="k1000_diversity">K1000_Diversity<a class="headerlink" href="#k1000_diversity" title="Permanent link">&para;</a></h3>
+<h3 id="k1000_diversity">k1000_diversity<a class="headerlink" href="#k1000_diversity" title="Permanent link">&para;</a></h3>
 <p>Calculate K1000 diversity index.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">K1000_Diversity</span><span class="p">,</span> <span class="n">AAPLZGraph</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">k1000_diversity</span><span class="p">,</span> <span class="n">AAPLZGraph</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">sequences</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">k1000</span> <span class="o">=</span> <span class="n">K1000_Diversity</span><span class="p">(</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">sequences</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">encoding_function</span><span class="o">=</span><span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">,</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">draws</span><span class="o">=</span><span class="mi">30</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;K1000: </span><span class="si">{</span><span class="n">k1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">k1000</span> <span class="o">=</span> <span class="n">k1000_diversity</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">,</span> <span class="n">draws</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;K1000: </span><span class="si">{</span><span class="n">k1000</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Function Signature</p>
-<p><code>K1000_Diversity(sequences, encoding_function, draws=30) -&gt; float</code></p>
-<p>Returns the mean K1000 diversity index across multiple resampling draws.</p>
+<p><code>k1000_diversity(list_of_sequences, lzgraph_encoding_function, draws=25, return_stats=False, confidence_level=0.95)</code></p>
+<p>Returns the mean K1000 diversity index. When <code>return_stats=True</code>, returns a tuple <code>(mean, std, ci_lower, ci_upper)</code>.</p>
 </div>
-<h3 id="k_diversity">K_Diversity<a class="headerlink" href="#k_diversity" title="Permanent link">&para;</a></h3>
+<h3 id="k_diversity">k_diversity<a class="headerlink" href="#k_diversity" title="Permanent link">&para;</a></h3>
 <p>General K-diversity with configurable parameters.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">K_Diversity</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">k_diversity</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">K_Diversity</span><span class="p">(</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">mean</span><span class="p">,</span> <span class="n">std</span><span class="p">,</span> <span class="n">ci_lower</span><span class="p">,</span> <span class="n">ci_upper</span> <span class="o">=</span> <span class="n">k_diversity</span><span class="p">(</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">sequences</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">encoding_function</span><span class="o">=</span><span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">,</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">sample_size</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">draws</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">return_stats</span><span class="o">=</span><span class="kc">True</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="p">)</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, CI: [</span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;ci_low&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;ci_high&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Mean: </span><span class="si">{</span><span class="n">mean</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, CI: [</span><span class="si">{</span><span class="n">ci_lower</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">ci_upper</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Function Signature</p>
-<p><code>K_Diversity(sequences, encoding_function, sample_size=1000, draws=30, return_stats=False)</code></p>
-<p>General K-diversity calculation with configurable sample size. When <code>return_stats=True</code>, returns a dictionary with mean, std, ci_low, and ci_high.</p>
+<p><code>k_diversity(list_of_sequences, lzgraph_encoding_function, sample_size=1000, draws=25, return_stats=False, confidence_level=0.95)</code></p>
+<p>General K-diversity calculation with configurable sample size. When <code>return_stats=True</code>, returns a tuple <code>(mean, std, ci_lower, ci_upper)</code>. When <code>return_stats=False</code>, returns a single float (mean).</p>
 </div>
 <h3 id="other-k-diversity-variants">Other K-Diversity Variants<a class="headerlink" href="#other-k-diversity-variants" title="Permanent link">&para;</a></h3>
 <table>
@@ -2560,44 +2632,44 @@
 </thead>
 <tbody>
 <tr>
-<td><code>K100_Diversity</code></td>
+<td><code>k100_diversity</code></td>
 <td>100</td>
 <td>Small repertoires</td>
 </tr>
 <tr>
-<td><code>K500_Diversity</code></td>
+<td><code>k500_diversity</code></td>
 <td>500</td>
 <td>Medium repertoires</td>
 </tr>
 <tr>
-<td><code>K1000_Diversity</code></td>
+<td><code>k1000_diversity</code></td>
 <td>1000</td>
 <td>Standard analysis</td>
 </tr>
 <tr>
-<td><code>K5000_Diversity</code></td>
+<td><code>k5000_diversity</code></td>
 <td>5000</td>
 <td>Large repertoires</td>
 </tr>
 <tr>
-<td><code>adaptive_K_Diversity</code></td>
+<td><code>adaptive_k_diversity</code></td>
 <td>Auto</td>
 <td>Automatic selection</td>
 </tr>
 </tbody>
 </table>
 <hr />
-<h2 id="lzcentrality">LZCentrality<a class="headerlink" href="#lzcentrality" title="Permanent link">&para;</a></h2>
+<h2 id="lz_centrality">lz_centrality<a class="headerlink" href="#lz_centrality" title="Permanent link">&para;</a></h2>
 <p>Measure sequence centrality within a repertoire.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">LZCentrality</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">lz_centrality</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">centrality</span> <span class="o">=</span> <span class="n">LZCentrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">centrality</span> <span class="o">=</span> <span class="n">lz_centrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">)</span>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Centrality: </span><span class="si">{</span><span class="n">centrality</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Function Signature</p>
-<p><code>LZCentrality(graph, sequence) -&gt; float</code></p>
-<p>Calculates the LZCentrality of a sequence within the given graph's structure.</p>
+<p><code>lz_centrality(graph, sequence) -&gt; float</code></p>
+<p>Calculates the lz_centrality of a sequence within the given graph's structure.</p>
 </div>
 <hr />
 <h2 id="entropy-functions">Entropy Functions<a class="headerlink" href="#entropy-functions" title="Permanent link">&para;</a></h2>
@@ -2782,11 +2854,43 @@
 <p>Returns: <code>js_divergence</code>, <code>transition_jsd</code>, <code>cross_entropy_1_2</code>, <code>cross_entropy_2_1</code>, <code>kl_divergence_1_2</code>, <code>kl_divergence_2_1</code>, <code>node_entropy_1</code>, <code>node_entropy_2</code>, <code>edge_entropy_1</code>, <code>edge_entropy_2</code>, <code>transition_predictability_1</code>, <code>transition_predictability_2</code>, <code>shared_nodes</code>, <code>shared_edges</code>, <code>jaccard_nodes</code>, <code>jaccard_edges</code>.</p>
 </div>
 <hr />
+<h2 id="analytical-pgen-distribution">Analytical Pgen Distribution<a class="headerlink" href="#analytical-pgen-distribution" title="Permanent link">&para;</a></h2>
+<h3 id="lzpgendistribution">LZPgenDistribution<a class="headerlink" href="#lzpgendistribution" title="Permanent link">&para;</a></h3>
+<p>Analytical generation probability distribution derived from graph structure, represented as a Gaussian mixture model. No Monte Carlo sampling needed.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">LZPgenDistribution</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="c1"># Compute from a graph</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="n">dist</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">lzpgen_analytical_distribution</span><span class="p">()</span>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="c1"># PDF and CDF</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span id="__span-21-8"><a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">35</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+</span><span id="__span-21-9"><a id="__codelineno-21-9" name="__codelineno-21-9" href="#__codelineno-21-9"></a><span class="n">pdf_values</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">pdf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span id="__span-21-10"><a id="__codelineno-21-10" name="__codelineno-21-10" href="#__codelineno-21-10"></a><span class="n">cdf_values</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+</span><span id="__span-21-11"><a id="__codelineno-21-11" name="__codelineno-21-11" href="#__codelineno-21-11"></a>
+</span><span id="__span-21-12"><a id="__codelineno-21-12" name="__codelineno-21-12" href="#__codelineno-21-12"></a><span class="c1"># Confidence interval</span>
+</span><span id="__span-21-13"><a id="__codelineno-21-13" name="__codelineno-21-13" href="#__codelineno-21-13"></a><span class="n">ci_low</span><span class="p">,</span> <span class="n">ci_high</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">confidence_interval</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>
+</span><span id="__span-21-14"><a id="__codelineno-21-14" name="__codelineno-21-14" href="#__codelineno-21-14"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;95% CI: [</span><span class="si">{</span><span class="n">ci_low</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">ci_high</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+</span><span id="__span-21-15"><a id="__codelineno-21-15" name="__codelineno-21-15" href="#__codelineno-21-15"></a>
+</span><span id="__span-21-16"><a id="__codelineno-21-16" name="__codelineno-21-16" href="#__codelineno-21-16"></a><span class="c1"># Attributes</span>
+</span><span id="__span-21-17"><a id="__codelineno-21-17" name="__codelineno-21-17" href="#__codelineno-21-17"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Components: </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">n_components</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-21-18"><a id="__codelineno-21-18" name="__codelineno-21-18" href="#__codelineno-21-18"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cumulants: </span><span class="si">{</span><span class="n">dist</span><span class="o">.</span><span class="n">cumulants</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="compare_lzpgen_distributions">compare_lzpgen_distributions<a class="headerlink" href="#compare_lzpgen_distributions" title="Permanent link">&para;</a></h3>
+<p>Compare two empirical log-probability distributions.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">compare_lzpgen_distributions</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="n">metrics</span> <span class="o">=</span> <span class="n">compare_lzpgen_distributions</span><span class="p">(</span><span class="n">log_probs_1</span><span class="p">,</span> <span class="n">log_probs_2</span><span class="p">)</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Returns dict with: ks_statistic, ks_pvalue, jsd, overlap_coefficient,</span>
+</span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a><span class="c1"># mean_diff, median_diff, effect_size</span>
+</span></code></pre></div>
+<hr />
 <h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../tutorials/diversity-metrics/">Tutorials: Diversity Metrics</a></li>
 <li><a href="../../how-to/repertoire-comparison/">How-To: Compare Repertoires</a></li>
 <li><a href="../../concepts/probability-model/">Concepts: Probability Model</a></li>
+<li><a href="https://github.com/MuteJester/LZGraphs/blob/master/Examples/LZPgen%20Example.ipynb">Example: LZPgen</a></li>
 <li><a href="https://github.com/MuteJester/LZGraphs/blob/master/Examples/Information-Theoretic%20Analysis.ipynb">Example: Information-Theoretic Analysis</a></li>
 </ul>
 
@@ -2872,7 +2976,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

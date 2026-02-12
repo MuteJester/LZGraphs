@@ -93,10 +93,6 @@
       
     </div>
     
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
-        
-      </div>
-    
     
       
 
@@ -2011,8 +2007,12 @@
 
 <a href="#LZGraphs.graphs.naive.NaiveLZGraph" class="headerlink" title="Permanent link">&para;</a></h3>
 <div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NaiveLZGraph</span><span class="p">(</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">cdr3_list</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">smoothing_alpha</span><span class="o">=</span><span class="mf">0.0</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">cdr3_list</span><span class="p">,</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">dictionary</span><span class="p">,</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">smoothing_alpha</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">abundances</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -2061,7 +2061,9 @@ This class best fits when the objective is extracting features from a repertoire
 :param cdr3_list: a list of nucleotide sequence
 :param dictionary: a list of strings, where each string is a sub-pattern that will be converted into a node
 :param verbose:
-:param smoothing_alpha: Laplace smoothing parameter for edge weights. 0.0 means no smoothing.</p>
+:param smoothing_alpha: Laplace smoothing parameter for edge weights. 0.0 means no smoothing.
+:param abundances: optional list of int abundance counts, one per sequence.
+    If provided, each sequence contributes its abundance count rather than 1.</p>
 
 
 
@@ -2087,16 +2089,43 @@ This class best fits when the objective is extracting features from a repertoire
 <div class="doc doc-object doc-function">
 
 
-<h4 id="LZGraphs.graphs.naive.NaiveLZGraph.clean_node" class="doc doc-heading">
-<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">clean_node</span>
+<h4 id="LZGraphs.graphs.naive.NaiveLZGraph.random_walk" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">random_walk</span>
+
+
+<a href="#LZGraphs.graphs.naive.NaiveLZGraph.random_walk" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">random_walk</span><span class="p">(</span><span class="n">steps</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>given a number of steps (sub-patterns) returns a random walk on the graph between a random inital state
+  to a random terminal state in the given number of steps</p>
+<div class="language-text highlight"><pre><span></span><code>       Parameters:
+               steps (int): number of sub-patterns the resulting walk should contain
+       Returns:
+               (list,str) : a list of LZ sub-patterns representing the random walk and a string
+               matching the walk only translated back into a sequence.
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="LZGraphs.graphs.naive.NaiveLZGraph.extract_subpattern" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">extract_subpattern</span>
 
 
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
 
-<a href="#LZGraphs.graphs.naive.NaiveLZGraph.clean_node" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">clean_node</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<a href="#LZGraphs.graphs.naive.NaiveLZGraph.extract_subpattern" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">extract_subpattern</span><span class="p">(</span><span class="n">node</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2184,28 +2213,39 @@ without any position information, so this returns the node unchanged.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>sequences</code></td>
+<td><code>cdr3_list</code></td>
 <td><code>list[str]</code></td>
 <td>List of sequences</td>
 </tr>
 <tr>
 <td><code>dictionary</code></td>
 <td><code>list[str]</code></td>
-<td>List of allowed patterns</td>
+<td>List of allowed patterns (use <code>generate_kmer_dictionary</code>)</td>
 </tr>
 <tr>
 <td><code>verbose</code></td>
 <td><code>bool</code></td>
 <td>Print progress (default: <code>True</code>)</td>
 </tr>
+<tr>
+<td><code>smoothing_alpha</code></td>
+<td><code>float</code></td>
+<td>Laplace smoothing for edge weights (default: <code>0.0</code>)</td>
+</tr>
+<tr>
+<td><code>abundances</code></td>
+<td><code>list[int]</code></td>
+<td>Optional abundance counts per sequence</td>
+</tr>
 </tbody>
 </table>
 <h2 id="key-differences">Key Differences<a class="headerlink" href="#key-differences" title="Permanent link">&para;</a></h2>
 <p>Unlike AAPLZGraph and NDPLZGraph:</p>
 <ul>
-<li><strong>No positional encoding</strong> - Nodes are just patterns</li>
-<li><strong>Fixed dictionary</strong> - Consistent nodes across repertoires</li>
-<li><strong>No gene support</strong> - No V/J annotation</li>
+<li><strong>No positional encoding</strong> — Nodes are just patterns</li>
+<li><strong>Fixed dictionary</strong> — Consistent nodes across repertoires</li>
+<li><strong>No gene support</strong> — No V/J annotation</li>
+<li><strong><code>random_walk(steps)</code></strong> — Requires a <code>steps</code> parameter (number of subpattern steps), returns <code>(walk, sequence)</code> tuple</li>
 </ul>
 <h2 id="primary-use-cases">Primary Use Cases<a class="headerlink" href="#primary-use-cases" title="Permanent link">&para;</a></h2>
 <h3 id="machine-learning-features">Machine Learning Features<a class="headerlink" href="#machine-learning-features" title="Permanent link">&para;</a></h3>
@@ -2332,7 +2372,7 @@ without any position information, so this returns the node unchanged.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

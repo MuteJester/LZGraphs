@@ -93,10 +93,6 @@
       
     </div>
     
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
-        
-      </div>
-    
     
       
 
@@ -1264,10 +1260,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#lzcentrality" class="md-nav__link">
+  <a href="#lz_centrality" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LZCentrality
+        lz_centrality
       
     </span>
   </a>
@@ -2180,10 +2176,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#lzcentrality" class="md-nav__link">
+  <a href="#lz_centrality" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LZCentrality
+        lz_centrality
       
     </span>
   </a>
@@ -2255,9 +2251,10 @@
 <ol>
 <li><strong>Initial probability</strong>: Likelihood of starting with the first pattern</li>
 <li><strong>Transition probabilities</strong>: Likelihood of each pattern-to-pattern transition</li>
+<li><strong>Stop probability</strong>: Likelihood of terminating at the last node</li>
 </ol>
 <div class="arithmatex">\[
-P(\text{sequence}) = P(\text{start}) \times \prod_{i=1}^{n-1} P(\text{node}_{i+1} | \text{node}_i)
+P(\text{sequence}) = P(\text{start}) \times \prod_{i=1}^{n-1} P(\text{node}_{i+1} | \text{node}_i) \times P(\text{stop} | \text{node}_n)
 \]</div>
 <h2 id="how-it-works">How It Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <h3 id="step-1-encode-the-sequence">Step 1: Encode the Sequence<a class="headerlink" href="#step-1-encode-the-sequence" title="Permanent link">&para;</a></h3>
@@ -2271,20 +2268,23 @@ P(\text{sequence}) = P(\text{start}) \times \prod_{i=1}^{n-1} P(\text{node}_{i+1
 <h3 id="step-2-look-up-initial-probability">Step 2: Look Up Initial Probability<a class="headerlink" href="#step-2-look-up-initial-probability" title="Permanent link">&para;</a></h3>
 <p>The probability of starting with <code>C_1</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Initial state probability</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">p_start</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">subpattern_individual_probability</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="s1">&#39;C_1&#39;</span><span class="p">,</span> <span class="s1">&#39;proba&#39;</span><span class="p">]</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">p_start</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">initial_state_probabilities</span><span class="p">[</span><span class="s1">&#39;C_1&#39;</span><span class="p">]</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;P(start with C_1) = </span><span class="si">{</span><span class="n">p_start</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="step-3-multiply-edge-weights">Step 3: Multiply Edge Weights<a class="headerlink" href="#step-3-multiply-edge-weights" title="Permanent link">&para;</a></h3>
-<p>For each transition, get the edge weight:</p>
+<p>For each transition, get the edge weight from the <code>EdgeData</code> object:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Transition probabilities (edge weights)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">p_C1_A2</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;C_1&#39;</span><span class="p">][</span><span class="s1">&#39;A_2&#39;</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">p_A2_S3</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;A_2&#39;</span><span class="p">][</span><span class="s1">&#39;S_3&#39;</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">p_S3_SL5</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;S_3&#39;</span><span class="p">][</span><span class="s1">&#39;SL_5&#39;</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">p_SL5_E6</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;SL_5&#39;</span><span class="p">][</span><span class="s1">&#39;E_6&#39;</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">p_C1_A2</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;C_1&#39;</span><span class="p">][</span><span class="s1">&#39;A_2&#39;</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">p_A2_S3</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;A_2&#39;</span><span class="p">][</span><span class="s1">&#39;S_3&#39;</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">p_S3_SL5</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;S_3&#39;</span><span class="p">][</span><span class="s1">&#39;SL_5&#39;</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">p_SL5_E6</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;SL_5&#39;</span><span class="p">][</span><span class="s1">&#39;E_6&#39;</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Total probability</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">p_start</span> <span class="o">*</span> <span class="n">p_C1_A2</span> <span class="o">*</span> <span class="n">p_A2_S3</span> <span class="o">*</span> <span class="n">p_S3_SL5</span> <span class="o">*</span> <span class="n">p_SL5_E6</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;P(CASSLE) = </span><span class="si">{</span><span class="n">pgen</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Stop probability at the last node</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">p_stop</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">_stop_probability_cache</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;E_6&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Total probability</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">p_start</span> <span class="o">*</span> <span class="n">p_C1_A2</span> <span class="o">*</span> <span class="n">p_A2_S3</span> <span class="o">*</span> <span class="n">p_S3_SL5</span> <span class="o">*</span> <span class="n">p_SL5_E6</span> <span class="o">*</span> <span class="n">p_stop</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;P(CASSLE) = </span><span class="si">{</span><span class="n">pgen</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="using-walk_probability">Using walk_probability<a class="headerlink" href="#using-walk_probability" title="Permanent link">&para;</a></h3>
 <p>This is exactly what <code>walk_probability</code> computes:</p>
@@ -2300,7 +2300,7 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check normalization</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">node</span> <span class="o">=</span> <span class="s1">&#39;C_1&#39;</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">successors</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">successors</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">total_weight</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="n">node</span><span class="p">][</span><span class="n">s</span><span class="p">][</span><span class="s1">&#39;weight&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">successors</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">total_weight</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="n">node</span><span class="p">][</span><span class="n">s</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">weight</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">successors</span><span class="p">)</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Sum of weights from </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">total_weight</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># Should be ~1.0</span>
 </span></code></pre></div>
 <h2 id="log-probability">Log Probability<a class="headerlink" href="#log-probability" title="Permanent link">&para;</a></h2>
@@ -2315,7 +2315,7 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 </span></code></pre></div>
 <h3 id="mathematical-relationship">Mathematical Relationship<a class="headerlink" href="#mathematical-relationship" title="Permanent link">&para;</a></h3>
 <div class="arithmatex">\[
-\log P = \log P(\text{start}) + \sum_{i=1}^{n-1} \log P(\text{edge}_i)
+\log P = \log P(\text{start}) + \sum_{i=1}^{n-1} \log P(\text{edge}_i) + \log P(\text{stop} | \text{node}_n)
 \]</div>
 <h3 id="when-to-use-log-probability">When to Use Log Probability<a class="headerlink" href="#when-to-use-log-probability" title="Permanent link">&para;</a></h3>
 <ul>
@@ -2325,11 +2325,12 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 <li>Avoiding numerical underflow (P &lt; 10^{-300})</li>
 </ul>
 <h2 id="gene-constrained-probability">Gene-Constrained Probability<a class="headerlink" href="#gene-constrained-probability" title="Permanent link">&para;</a></h2>
-<p>When V/J genes are annotated, edges also carry gene information:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Edge has gene distribution</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">edge_data</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;C_1&#39;</span><span class="p">][</span><span class="s1">&#39;A_2&#39;</span><span class="p">]</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">edge_data</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># dict_keys([&#39;weight&#39;, &#39;gene_weight&#39;, &#39;V&#39;, &#39;J&#39;])</span>
+<p>When V/J genes are annotated, edges carry gene information via the <code>EdgeData</code> object:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Access edge data</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">edge</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="p">[</span><span class="s1">&#39;C_1&#39;</span><span class="p">][</span><span class="s1">&#39;A_2&#39;</span><span class="p">][</span><span class="s1">&#39;data&#39;</span><span class="p">]</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Weight: </span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">weight</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;V genes: </span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">v_genes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>   <span class="c1"># dict of {gene_name: count}</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;J genes: </span><span class="si">{</span><span class="n">edge</span><span class="o">.</span><span class="n">j_genes</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>   <span class="c1"># dict of {gene_name: count}</span>
 </span></code></pre></div>
 <h3 id="gene-weighted-walks">Gene-Weighted Walks<a class="headerlink" href="#gene-weighted-walks" title="Permanent link">&para;</a></h3>
 <p>The <code>genomic_random_walk</code> uses gene weights to constrain generation:</p>
@@ -2369,16 +2370,15 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">probs</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">sequences</span><span class="p">:</span>
 </span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="n">enc</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="n">log_p</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">enc</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span><span class="p">))</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    <span class="k">except</span><span class="p">:</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)))</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="c1"># Sort by probability</span>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="n">probs</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="k">for</span> <span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span> <span class="ow">in</span> <span class="n">probs</span><span class="p">:</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">: log P = </span><span class="si">{</span><span class="n">log_p</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="n">log_p</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span><span class="p">))</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="k">except</span><span class="p">:</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)))</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1"># Sort by probability</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="n">probs</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="k">for</span> <span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span> <span class="ow">in</span> <span class="n">probs</span><span class="p">:</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">: log P = </span><span class="si">{</span><span class="n">log_p</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="connection-to-other-metrics">Connection to Other Metrics<a class="headerlink" href="#connection-to-other-metrics" title="Permanent link">&para;</a></h2>
 <h3 id="perplexity">Perplexity<a class="headerlink" href="#perplexity" title="Permanent link">&para;</a></h3>
@@ -2387,11 +2387,11 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 \text{Perplexity} = P^{-1/n}
 \]</div>
 <p>Where n is the sequence length. Lower perplexity means the sequence "fits" the model better.</p>
-<h3 id="lzcentrality">LZCentrality<a class="headerlink" href="#lzcentrality" title="Permanent link">&para;</a></h3>
-<p>LZCentrality combines probability with graph structure:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">LZCentrality</span>
+<h3 id="lz_centrality">lz_centrality<a class="headerlink" href="#lz_centrality" title="Permanent link">&para;</a></h3>
+<p>lz_centrality combines probability with graph structure:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">lz_centrality</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">centrality</span> <span class="o">=</span> <span class="n">LZCentrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">centrality</span> <span class="o">=</span> <span class="n">lz_centrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="entropy">Entropy<a class="headerlink" href="#entropy" title="Permanent link">&para;</a></h3>
 <p>Graph entropy relates to the distribution of probabilities across all possible paths.</p>
@@ -2413,17 +2413,16 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 </span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>
 </span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
 </span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">test_sequences</span><span class="p">:</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>    <span class="n">enc</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>    <span class="n">log_pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">enc</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>        <span class="s1">&#39;sequence&#39;</span><span class="p">:</span> <span class="n">seq</span><span class="p">,</span>
-</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>        <span class="s1">&#39;length&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">),</span>
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>        <span class="s1">&#39;log_pgen&#39;</span><span class="p">:</span> <span class="n">log_pgen</span><span class="p">,</span>
-</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>        <span class="s1">&#39;pgen&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="o">**</span><span class="n">log_pgen</span> <span class="k">if</span> <span class="n">log_pgen</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">300</span> <span class="k">else</span> <span class="mi">0</span>
-</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>    <span class="p">})</span>
-</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a>
-</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-</span><span id="__span-11-27"><a id="__codelineno-11-27" name="__codelineno-11-27" href="#__codelineno-11-27"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;log_pgen&#39;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>    <span class="n">log_pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>        <span class="s1">&#39;sequence&#39;</span><span class="p">:</span> <span class="n">seq</span><span class="p">,</span>
+</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>        <span class="s1">&#39;length&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">),</span>
+</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>        <span class="s1">&#39;log_pgen&#39;</span><span class="p">:</span> <span class="n">log_pgen</span><span class="p">,</span>
+</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>        <span class="s1">&#39;pgen&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="o">**</span><span class="n">log_pgen</span> <span class="k">if</span> <span class="n">log_pgen</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">300</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>    <span class="p">})</span>
+</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>
+</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;log_pgen&#39;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 </span></code></pre></div>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2514,7 +2513,7 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

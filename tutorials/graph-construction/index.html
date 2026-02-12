@@ -93,10 +93,6 @@
       
     </div>
     
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
-        
-      </div>
-    
     
       
 
@@ -885,15 +881,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#nucleotide-double-positional-graph-ndplzgraph" class="md-nav__link">
+  <a href="#nucleotide-reading-frame-positional-graph-ndplzgraph" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Nucleotide Double Positional Graph (NDPLZGraph)
+        Nucleotide Reading Frame Positional Graph (NDPLZGraph)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Nucleotide Double Positional Graph (NDPLZGraph)">
+    <nav class="md-nav" aria-label="Nucleotide Reading Frame Positional Graph (NDPLZGraph)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -973,6 +969,67 @@
     <span class="md-ellipsis">
       
         Feature Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequence-abundance-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequence Abundance Weighting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sequence Abundance Weighting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-use-abundance-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Use Abundance Weighting?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aaplzgraph-and-ndplzgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AAPLZGraph and NDPLZGraph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naivelzgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NaiveLZGraph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#effect-on-downstream-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effect on Downstream Analysis
       
     </span>
   </a>
@@ -2034,15 +2091,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#nucleotide-double-positional-graph-ndplzgraph" class="md-nav__link">
+  <a href="#nucleotide-reading-frame-positional-graph-ndplzgraph" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Nucleotide Double Positional Graph (NDPLZGraph)
+        Nucleotide Reading Frame Positional Graph (NDPLZGraph)
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Nucleotide Double Positional Graph (NDPLZGraph)">
+    <nav class="md-nav" aria-label="Nucleotide Reading Frame Positional Graph (NDPLZGraph)">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -2122,6 +2179,67 @@
     <span class="md-ellipsis">
       
         Feature Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sequence-abundance-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sequence Abundance Weighting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sequence Abundance Weighting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-use-abundance-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why Use Abundance Weighting?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#aaplzgraph-and-ndplzgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AAPLZGraph and NDPLZGraph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#naivelzgraph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NaiveLZGraph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#effect-on-downstream-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Effect on Downstream Analysis
       
     </span>
   </a>
@@ -2229,8 +2347,8 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">AAPLZGraph</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Load your data</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;Examples/ExampleData1.csv&quot;</span><span class="p">)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Load your data (ExampleData3 has amino acid + gene columns)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;Examples/ExampleData3.csv&quot;</span><span class="p">)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Build the graph</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -2298,24 +2416,24 @@
 <h3 id="initial-and-terminal-states">Initial and Terminal States<a class="headerlink" href="#initial-and-terminal-states" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Initial states (first subpattern of sequences)</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Initial states:&quot;</span><span class="p">)</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">initial_states</span><span class="p">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">initial_state_counts</span><span class="p">)</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="c1"># Terminal states (last subpattern of sequences)</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Terminal states (top 5):&quot;</span><span class="p">)</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">terminal_states</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">terminal_state_counts</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
 </span></code></pre></div>
 <h3 id="vj-gene-distributions">V/J Gene Distributions<a class="headerlink" href="#vj-gene-distributions" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Marginal V gene probabilities</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;V gene distribution:&quot;</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">marginal_vgenes</span><span class="p">)</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">marginal_v_genes</span><span class="p">)</span>
 </span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># Marginal J gene probabilities</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">J gene distribution:&quot;</span><span class="p">)</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">marginal_jgenes</span><span class="p">)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">graph</span><span class="o">.</span><span class="n">marginal_j_genes</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
-<h2 id="nucleotide-double-positional-graph-ndplzgraph">Nucleotide Double Positional Graph (NDPLZGraph)<a class="headerlink" href="#nucleotide-double-positional-graph-ndplzgraph" title="Permanent link">&para;</a></h2>
-<p>The <code>NDPLZGraph</code> is designed for nucleotide sequences with double positional encoding.</p>
+<h2 id="nucleotide-reading-frame-positional-graph-ndplzgraph">Nucleotide Reading Frame Positional Graph (NDPLZGraph)<a class="headerlink" href="#nucleotide-reading-frame-positional-graph-ndplzgraph" title="Permanent link">&para;</a></h2>
+<p>The <code>NDPLZGraph</code> is designed for nucleotide sequences with reading frame + position encoding.</p>
 <h3 id="construction">Construction<a class="headerlink" href="#construction" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDPLZGraph</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
@@ -2344,9 +2462,10 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;TGTGCCAGC&quot;</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
 </span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="nb">print</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># [&#39;T_1_1&#39;, &#39;G_2_2&#39;, &#39;T_3_3&#39;, &#39;G_4_4&#39;, &#39;C_5_5&#39;, &#39;C_6_6&#39;, &#39;A_7_7&#39;, &#39;G_8_8&#39;, &#39;C_9_9&#39;]</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># [&#39;T0_1&#39;, &#39;G1_2&#39;, &#39;TG2_4&#39;, &#39;C1_5&#39;, &#39;CA2_7&#39;, &#39;GC1_9&#39;]</span>
 </span></code></pre></div>
-<p>The double position encoding (<code>_start_end</code>) captures subpattern boundaries precisely.</p>
+<p>Each node has the format <code>{subpattern}{reading_frame}_{position}</code>, where the reading frame
+(0, 1, or 2) indicates the codon position and the suffix is the cumulative sequence position.</p>
 <hr />
 <h2 id="naive-lzgraph">Naive LZGraph<a class="headerlink" href="#naive-lzgraph" title="Permanent link">&para;</a></h2>
 <p>The <code>NaiveLZGraph</code> uses pure LZ76 decomposition without positional encoding, making it ideal for cross-repertoire comparisons.</p>
@@ -2384,30 +2503,89 @@
 </span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>...
 </span></code></pre></div></p>
 <hr />
+<h2 id="sequence-abundance-weighting">Sequence Abundance Weighting<a class="headerlink" href="#sequence-abundance-weighting" title="Permanent link">&para;</a></h2>
+<p>All three graph types support <strong>sequence abundance weighting</strong>, which allows you to incorporate clonotype frequency information into the graph construction. Instead of treating each unique sequence equally, abundance weighting ensures that sequences observed more frequently contribute proportionally more to edge weights and transition probabilities.</p>
+<h3 id="why-use-abundance-weighting">Why Use Abundance Weighting?<a class="headerlink" href="#why-use-abundance-weighting" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>More accurate probability estimates</strong> that reflect true clonal frequencies</li>
+<li><strong>Better representation of clonal expansion patterns</strong> in the repertoire</li>
+<li><strong>More realistic sequence generation</strong> via <code>simulate()</code> -- generated sequences follow the abundance-weighted distribution</li>
+<li><strong>Probability models that account for how frequently each sequence was observed</strong>, not just whether it was observed</li>
+</ul>
+<h3 id="aaplzgraph-and-ndplzgraph">AAPLZGraph and NDPLZGraph<a class="headerlink" href="#aaplzgraph-and-ndplzgraph" title="Permanent link">&para;</a></h3>
+<p>For <code>AAPLZGraph</code> and <code>NDPLZGraph</code>, include an <code>abundance</code> column in your input DataFrame. Each sequence will be weighted by its abundance count during graph construction.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">AAPLZGraph</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># DataFrame with abundance counts</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>    <span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;CASSLAPGATNEKLFF&#39;</span><span class="p">,</span> <span class="s1">&#39;CASSLGQAYEQYF&#39;</span><span class="p">,</span> <span class="s1">&#39;CASSQETQYF&#39;</span><span class="p">],</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>    <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;TRBV5-1*01&#39;</span><span class="p">,</span> <span class="s1">&#39;TRBV7-2*01&#39;</span><span class="p">,</span> <span class="s1">&#39;TRBV3-1*01&#39;</span><span class="p">],</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>    <span class="s1">&#39;J&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;TRBJ1-4*01&#39;</span><span class="p">,</span> <span class="s1">&#39;TRBJ2-7*01&#39;</span><span class="p">,</span> <span class="s1">&#39;TRBJ2-5*01&#39;</span><span class="p">],</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    <span class="s1">&#39;abundance&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">15</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">42</span><span class="p">]</span>  <span class="c1"># clonotype counts</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="p">})</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Edge weights now reflect abundance-weighted frequencies</span>
+</span></code></pre></div>
+<p>The same approach works for <code>NDPLZGraph</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDPLZGraph</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>    <span class="s1">&#39;cdr3_rearrangement&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;TGTGCCAGCAGTTTAGAG...&#39;</span><span class="p">,</span> <span class="s1">&#39;TGTGCCAGCAGTGACACT...&#39;</span><span class="p">],</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;TRBV16-1*01&#39;</span><span class="p">,</span> <span class="s1">&#39;TRBV1-1*01&#39;</span><span class="p">],</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="s1">&#39;J&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;TRBJ1-2*01&#39;</span><span class="p">,</span> <span class="s1">&#39;TRBJ1-5*01&#39;</span><span class="p">],</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>    <span class="s1">&#39;abundance&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">]</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="p">})</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NDPLZGraph</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="naivelzgraph">NaiveLZGraph<a class="headerlink" href="#naivelzgraph" title="Permanent link">&para;</a></h3>
+<p>For <code>NaiveLZGraph</code>, pass the <code>abundances</code> parameter as a list of integers (one per sequence):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">NaiveLZGraph</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_kmer_dictionary</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;ACGTACGT&#39;</span><span class="p">,</span> <span class="s1">&#39;TGCATGCA&#39;</span><span class="p">,</span> <span class="s1">&#39;GGCCTTAA&#39;</span><span class="p">]</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">abundances</span> <span class="o">=</span> <span class="p">[</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">20</span><span class="p">]</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_kmer_dictionary</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NaiveLZGraph</span><span class="p">(</span><span class="n">sequences</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">,</span> <span class="n">abundances</span><span class="o">=</span><span class="n">abundances</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="effect-on-downstream-analysis">Effect on Downstream Analysis<a class="headerlink" href="#effect-on-downstream-analysis" title="Permanent link">&para;</a></h3>
+<p>When abundance weighting is used:</p>
+<ul>
+<li><strong>Edge weights</strong> reflect the total abundance-weighted transitions, not just the number of unique sequences sharing an edge</li>
+<li><strong><code>walk_probability()</code></strong> returns probabilities that account for clonal expansion</li>
+<li><strong><code>simulate()</code></strong> generates sequences with frequencies matching the abundance-weighted model</li>
+<li><strong>Diversity metrics</strong> computed on the graph reflect the true clonal distribution</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">When to use abundance weighting</p>
+<p>Use abundance weighting when your dataset includes clonotype counts and you want the graph to model the <strong>observed repertoire</strong> (including clonal expansions). Omit it when you want to model the <strong>unique sequence diversity</strong> regardless of how many times each sequence was observed.</p>
+</div>
+<hr />
 <h2 id="construction-options">Construction Options<a class="headerlink" href="#construction-options" title="Permanent link">&para;</a></h2>
 <h3 id="verbose-mode">Verbose Mode<a class="headerlink" href="#verbose-mode" title="Permanent link">&para;</a></h3>
 <p>Control output verbosity:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Silent construction</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># With progress output</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Silent construction</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># With progress output</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="graph-summary">Graph Summary<a class="headerlink" href="#graph-summary" title="Permanent link">&para;</a></h3>
 <p>Get a quick overview of your graph:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">graph_summary</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">graph_summary</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="n">summary</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph_summary</span><span class="p">()</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="saving-and-loading-graphs">Saving and Loading Graphs<a class="headerlink" href="#saving-and-loading-graphs" title="Permanent link">&para;</a></h2>
 <p>Persist your graphs for later use:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Save</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="n">graph</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;my_graph.pkl&quot;</span><span class="p">)</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Load</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">loaded_graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;my_graph.pkl&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Save</span>
+</span><span id="__span-18-2"><a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="n">graph</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;my_graph.pkl&quot;</span><span class="p">)</span>
+</span><span id="__span-18-3"><a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
+</span><span id="__span-18-4"><a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Load</span>
+</span><span id="__span-18-5"><a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="n">loaded_graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;my_graph.pkl&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p>See <a href="../../how-to/serialization/">How-To: Serialization</a> for more details.</p>
 <hr />
@@ -2500,7 +2678,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>

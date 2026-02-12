@@ -93,10 +93,6 @@
       
     </div>
     
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
-        
-      </div>
-    
     
       
 
@@ -2354,7 +2350,7 @@
 <tr>
 <td><strong>Position encoding</strong></td>
 <td>Single (end)</td>
-<td>Double (start, end)</td>
+<td>Reading frame + position</td>
 <td>None</td>
 </tr>
 <tr>
@@ -2380,6 +2376,12 @@
 <td>Medium</td>
 <td>High</td>
 <td>Configurable</td>
+</tr>
+<tr>
+<td><strong>Abundance weighting</strong></td>
+<td><code>abundance</code> column</td>
+<td><code>abundance</code> column</td>
+<td><code>abundances</code> parameter</td>
 </tr>
 <tr>
 <td><strong>Best for</strong></td>
@@ -2419,10 +2421,11 @@
 <li><strong>Position-aware</strong>: Same pattern at different positions = different nodes</li>
 <li><strong>Gene-aware</strong>: Edges carry V/J gene annotations</li>
 <li><strong>Compact</strong>: 20-letter alphabet keeps graph manageable</li>
+<li><strong>Abundance support</strong>: Include an <code>abundance</code> column in the DataFrame to weight sequences by clonotype frequency</li>
 </ul>
 <hr />
 <h2 id="ndplzgraph">NDPLZGraph<a class="headerlink" href="#ndplzgraph" title="Permanent link">&para;</a></h2>
-<p><strong>Nucleotide Double Positional LZGraph</strong></p>
+<p><strong>Nucleotide Reading Frame Positional LZGraph</strong></p>
 <h3 id="when-to-use_1">When to Use<a class="headerlink" href="#when-to-use_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Analyzing nucleotide sequences</li>
@@ -2431,9 +2434,9 @@
 <li>Have memory for larger graphs</li>
 </ul>
 <h3 id="node-format_1">Node Format<a class="headerlink" href="#node-format_1" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&lt;pattern&gt;_&lt;start_position&gt;_&lt;end_position&gt;
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>&lt;pattern&gt;&lt;reading_frame&gt;_&lt;position&gt;
 </span></code></pre></div>
-<p>Example: <code>TG_3_4</code> means pattern "TG" from position 3 to 4.</p>
+<p>Example: <code>TG2_4</code> means pattern "TG" at reading frame 2, ending at position 4.</p>
 <h3 id="example_1">Example<a class="headerlink" href="#example_1" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDPLZGraph</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
@@ -2451,9 +2454,10 @@
 </span></code></pre></div>
 <h3 id="key-features_1">Key Features<a class="headerlink" href="#key-features_1" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Double position</strong>: Captures exact pattern boundaries</li>
+<li><strong>Reading frame + position</strong>: Captures codon context and pattern boundaries</li>
 <li><strong>Higher resolution</strong>: Better for sequence-level analysis</li>
 <li><strong>Larger graphs</strong>: 4-letter alphabet but more positions</li>
+<li><strong>Abundance support</strong>: Include an <code>abundance</code> column in the DataFrame to weight sequences by clonotype frequency</li>
 </ul>
 <hr />
 <h2 id="naivelzgraph">NaiveLZGraph<a class="headerlink" href="#naivelzgraph" title="Permanent link">&para;</a></h2>
@@ -2492,6 +2496,7 @@
 <li><strong>Fixed dictionary</strong>: Same nodes across all repertoires</li>
 <li><strong>Consistent dimensions</strong>: Ideal for ML pipelines</li>
 <li><strong>No position info</strong>: Simpler but less detailed</li>
+<li><strong>Abundance support</strong>: Pass the <code>abundances</code> parameter (list of ints) to weight sequences by frequency</li>
 </ul>
 <hr />
 <h2 id="choosing-the-right-type">Choosing the Right Type<a class="headerlink" href="#choosing-the-right-type" title="Permanent link">&para;</a></h2>
@@ -2573,15 +2578,13 @@
 </span></code></pre></div>
 <h3 id="compare-analyses">Compare Analyses<a class="headerlink" href="#compare-analyses" title="Permanent link">&para;</a></h3>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Same repertoire, different representations</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">pgen_aa</span> <span class="o">=</span> <span class="n">aa_graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="p">)</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">pgen_naive</span> <span class="o">=</span> <span class="n">naive_graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="p">)</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;AAPLZGraph Pgen:   </span><span class="si">{</span><span class="n">pgen_aa</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NaiveLZGraph Pgen: </span><span class="si">{</span><span class="n">pgen_naive</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">pgen_aa</span> <span class="o">=</span> <span class="n">aa_graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">pgen_naive</span> <span class="o">=</span> <span class="n">naive_graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">lempel_ziv_decomposition</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;AAPLZGraph Pgen:   </span><span class="si">{</span><span class="n">pgen_aa</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NaiveLZGraph Pgen: </span><span class="si">{</span><span class="n">pgen_naive</span><span class="si">:</span><span class="s2">.2e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <hr />
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
@@ -2673,7 +2676,7 @@
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.indexes", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.tabs.link", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
