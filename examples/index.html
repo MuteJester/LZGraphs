@@ -15,7 +15,7 @@
         <link rel="canonical" href="https://MuteJester.github.io/LZGraphs/examples/">
       
       
-        <link rel="prev" href="../how-to/repertoire-comparison/">
+        <link rel="prev" href="../how-to/posterior-personalization/">
       
       
         <link rel="next" href="../api/">
@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../images/lzglogo2.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
@@ -1021,6 +1021,8 @@
       
         
       
+        
+      
     
     
     
@@ -1148,6 +1150,34 @@
     
   
     Compare Repertoires
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/posterior-personalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personalize Graphs
   
 
     
@@ -1328,6 +1358,17 @@
     <span class="md-ellipsis">
       
         LZBOW Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bayesian-posterior-graphs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bayesian Posterior Graphs
       
     </span>
   </a>
@@ -2032,6 +2073,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#bayesian-posterior-graphs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bayesian Posterior Graphs
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2263,6 +2315,12 @@
 <p>Extract fixed-size feature vectors from sequences using the LZ bag-of-words representation.</p>
 <p><a class="md-button" href="https://github.com/MuteJester/LZGraphs/blob/master/Examples/LZBOW%20Example.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 7V5h2V4a2 2 0 0 1 2-2h6v7l2.5-1.5L18 9V2h1c1.05 0 2 .95 2 2v16c0 1.05-.95 2-2 2H7c-1.05 0-2-.95-2-2v-1H3v-2h2v-4H3v-2h2V7zm4 4H5v2h2zm0-4V5H5v2zm0 12v-2H5v2z"/></svg></span> View Notebook</a></p>
 </div>
+<div class="example-card">
+<h3 id="bayesian-posterior-graphs">Bayesian Posterior Graphs<a class="headerlink" href="#bayesian-posterior-graphs" title="Permanent link">&para;</a></h3>
+<p><strong>Personalize population models to individuals</strong></p>
+<p>Use a population-level graph as a Dirichlet prior and update it with individual repertoire data. Explore kappa sensitivity and compare prior vs. posterior.</p>
+<p><a class="md-button" href="../how-to/posterior-personalization/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 12h7v1.5h-7m0-4h7V11h-7m0 3.5h7V16h-7m8-12H3a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2m0 15h-9V6h9"/></svg></span> How-To Guide</a></p>
+</div>
 </div>
 <h2 id="running-notebooks-locally">Running Notebooks Locally<a class="headerlink" href="#running-notebooks-locally" title="Permanent link">&para;</a></h2>
 <h3 id="1-clone-the-repository">1. Clone the Repository<a class="headerlink" href="#1-clone-the-repository" title="Permanent link">&para;</a></h3>
@@ -2387,6 +2445,10 @@
 <tr>
 <td>LZBOW</td>
 <td>Bag-of-words feature extraction</td>
+</tr>
+<tr>
+<td>Bayesian Posterior</td>
+<td>Graph personalization, Dirichlet priors, kappa sensitivity</td>
 </tr>
 </tbody>
 </table>

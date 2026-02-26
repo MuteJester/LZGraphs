@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../images/lzglogo2.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
@@ -1021,6 +1021,8 @@
       
         
       
+        
+      
     
     
     
@@ -1148,6 +1150,34 @@
     
   
     Compare Repertoires
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/posterior-personalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personalize Graphs
   
 
     
@@ -2842,7 +2872,7 @@
 <hr />
 <h2 id="convenience">Convenience<a class="headerlink" href="#convenience" title="Permanent link">&para;</a></h2>
 <h3 id="compare_repertoires">compare_repertoires<a class="headerlink" href="#compare_repertoires" title="Permanent link">&para;</a></h3>
-<p>All-in-one repertoire comparison returning a pandas Series of metrics.</p>
+<p>All-in-one repertoire comparison returning a dict of metrics.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">compare_repertoires</span>
 </span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>
 </span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">compare_repertoires</span><span class="p">(</span><span class="n">graph1</span><span class="p">,</span> <span class="n">graph2</span><span class="p">)</span>
@@ -2850,7 +2880,7 @@
 </span></code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Function Signature</p>
-<p><code>compare_repertoires(graph1, graph2) -&gt; pd.Series</code></p>
+<p><code>compare_repertoires(graph1, graph2) -&gt; dict</code></p>
 <p>Returns: <code>js_divergence</code>, <code>transition_jsd</code>, <code>cross_entropy_1_2</code>, <code>cross_entropy_2_1</code>, <code>kl_divergence_1_2</code>, <code>kl_divergence_2_1</code>, <code>node_entropy_1</code>, <code>node_entropy_2</code>, <code>edge_entropy_1</code>, <code>edge_entropy_2</code>, <code>transition_predictability_1</code>, <code>transition_predictability_2</code>, <code>shared_nodes</code>, <code>shared_edges</code>, <code>jaccard_nodes</code>, <code>jaccard_edges</code>.</p>
 </div>
 <hr />

@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../images/lzglogo2.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
@@ -1187,6 +1187,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bayesian-posterior-graphs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bayesian Posterior Graphs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bayesian Posterior Graphs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-idea_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Idea
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mathematical-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mathematical Framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-kappa-parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Kappa Parameter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-abundance-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Abundance Weighting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-updated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Updated
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#probability-of-zero" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1343,6 +1415,8 @@
       
         
       
+        
+      
     
     
     
@@ -1470,6 +1544,34 @@
     
   
     Compare Repertoires
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/posterior-personalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personalize Graphs
   
 
     
@@ -2103,6 +2205,78 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#bayesian-posterior-graphs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bayesian Posterior Graphs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Bayesian Posterior Graphs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-core-idea_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Core Idea
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mathematical-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mathematical Framework
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-kappa-parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Kappa Parameter
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-abundance-weighting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Abundance Weighting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-gets-updated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Gets Updated
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#probability-of-zero" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2337,23 +2511,105 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Generate sequence consistent with gene usage</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">walk</span><span class="p">,</span> <span class="n">v_gene</span><span class="p">,</span> <span class="n">j_gene</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">genomic_random_walk</span><span class="p">()</span>
 </span></code></pre></div>
+<h2 id="bayesian-posterior-graphs">Bayesian Posterior Graphs<a class="headerlink" href="#bayesian-posterior-graphs" title="Permanent link">&para;</a></h2>
+<p>LZGraphs supports <strong>Bayesian posterior personalization</strong> — updating a population-level graph with an individual's observed sequences using Dirichlet-Multinomial conjugacy.</p>
+<h3 id="the-core-idea_1">The Core Idea<a class="headerlink" href="#the-core-idea_1" title="Permanent link">&para;</a></h3>
+<p>A graph built from a large population captures general patterns of repertoire structure. But a specific individual's repertoire may differ. <code>get_posterior()</code> creates a new graph that blends the population-level "prior" with the individual's observed data:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Build a population-level prior graph</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">prior</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">population_sequences</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Personalize to an individual</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">get_posterior</span><span class="p">(</span><span class="n">individual_sequences</span><span class="p">,</span> <span class="n">kappa</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="c1"># The posterior is a full graph — use it like any other</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">log_p</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="n">simulated</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="mathematical-framework">Mathematical Framework<a class="headerlink" href="#mathematical-framework" title="Permanent link">&para;</a></h3>
+<p>For each node <span class="arithmatex">\(a\)</span> with outgoing edges to successors <span class="arithmatex">\(b_1, b_2, \ldots, b_K\)</span>:</p>
+<p><strong>Prior</strong> (from population graph):</p>
+<div class="arithmatex">\[
+\text{Dir}(\kappa \cdot \pi_1^f, \; \kappa \cdot \pi_2^f, \; \ldots, \; \kappa \cdot \pi_K^f)
+\]</div>
+<p>where <span class="arithmatex">\(\pi_i^f = P_{\text{prior}}(b_i \mid a)\)</span> and <span class="arithmatex">\(\kappa\)</span> is the concentration parameter.</p>
+<p><strong>Observed counts</strong> from the individual: <span class="arithmatex">\(c_1, c_2, \ldots, c_K\)</span></p>
+<p><strong>Posterior</strong> (Dirichlet update):</p>
+<div class="arithmatex">\[
+P_{\text{post}}(b_i \mid a) = \frac{\kappa \cdot \pi_i^f + c_i}{\kappa + n_a}
+\]</div>
+<p>where <span class="arithmatex">\(n_a = \sum_i c_i\)</span> is the total number of outgoing traversals observed from node <span class="arithmatex">\(a\)</span>.</p>
+<p>The same conjugate update applies to <strong>initial state probabilities</strong> and <strong>stop probabilities</strong>.</p>
+<h3 id="the-kappa-parameter">The Kappa Parameter<a class="headerlink" href="#the-kappa-parameter" title="Permanent link">&para;</a></h3>
+<p><span class="arithmatex">\(\kappa\)</span> controls how much the posterior trusts the prior versus the individual's data:</p>
+<table>
+<thead>
+<tr>
+<th><span class="arithmatex">\(\kappa\)</span></th>
+<th>Behavior</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span class="arithmatex">\(\to 0\)</span></td>
+<td>Posterior ≈ MLE from individual data alone</td>
+<td>Maximize fit to individual</td>
+</tr>
+<tr>
+<td>1.0 (default)</td>
+<td>Equal weight per count</td>
+<td>Balanced personalization</td>
+</tr>
+<tr>
+<td>100</td>
+<td>Prior dominates until ~100 individual counts accumulate</td>
+<td>Trust population, minor adaptation</td>
+</tr>
+<tr>
+<td><span class="arithmatex">\(\to \infty\)</span></td>
+<td>Posterior ≈ prior (unchanged)</td>
+<td>Use population model as-is</td>
+</tr>
+</tbody>
+</table>
+<h3 id="with-abundance-weighting">With Abundance Weighting<a class="headerlink" href="#with-abundance-weighting" title="Permanent link">&para;</a></h3>
+<p>When sequences carry abundance counts (e.g., clonotype expansion), pass them to weight each observation:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">prior</span><span class="o">.</span><span class="n">get_posterior</span><span class="p">(</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">sequences</span><span class="p">,</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">abundances</span><span class="o">=</span><span class="p">[</span><span class="mi">150</span><span class="p">,</span> <span class="mi">42</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">kappa</span><span class="o">=</span><span class="mf">100.0</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Highly expanded clones contribute proportionally more to the posterior update.</p>
+<h3 id="what-gets-updated">What Gets Updated<a class="headerlink" href="#what-gets-updated" title="Permanent link">&para;</a></h3>
+<p>The posterior graph updates three components:</p>
+<ol>
+<li><strong>Edge weights</strong>: Transition probabilities blended between prior and individual</li>
+<li><strong>Initial state probabilities</strong>: Which starting patterns are likely</li>
+<li><strong>Stop probabilities</strong>: Where sequences tend to terminate</li>
+</ol>
+<p>Novel edges and nodes observed in the individual (but absent in the prior) are incorporated automatically with no prior penalty.</p>
+<div class="admonition tip">
+<p class="admonition-title">Practical guide</p>
+<p>See <a href="../../how-to/posterior-personalization/">How-To: Personalize Graphs</a> for step-by-step workflows including kappa sensitivity analysis and prior-vs-posterior comparison.</p>
+</div>
 <h2 id="probability-of-zero">Probability of Zero<a class="headerlink" href="#probability-of-zero" title="Permanent link">&para;</a></h2>
 <p>A sequence has probability 0 if:</p>
 <ol>
 <li><strong>Missing node</strong>: A pattern was never observed</li>
 <li><strong>Missing edge</strong>: A transition was never observed</li>
 </ol>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Check why probability is zero</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;CASSXYZABC&quot;</span>  <span class="c1"># Contains rare pattern XYZ</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">encoded</span><span class="p">):</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_node</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing node: </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_edge</span><span class="p">(</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]):</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing edge: </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Check why probability is zero</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;CASSXYZABC&quot;</span>  <span class="c1"># Contains rare pattern XYZ</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">node</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">encoded</span><span class="p">):</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_node</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing node: </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_edge</span><span class="p">(</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]):</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing edge: </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="probability-interpretation">Probability Interpretation<a class="headerlink" href="#probability-interpretation" title="Permanent link">&para;</a></h2>
 <h3 id="absolute-probability">Absolute Probability<a class="headerlink" href="#absolute-probability" title="Permanent link">&para;</a></h3>
@@ -2365,20 +2621,20 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 </ul>
 <h3 id="relative-probability">Relative Probability<a class="headerlink" href="#relative-probability" title="Permanent link">&para;</a></h3>
 <p>More useful for comparing sequences:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;CASSLEPSGGTDTQYF&#39;</span><span class="p">,</span> <span class="s1">&#39;CASSLGQGSTEAFF&#39;</span><span class="p">,</span> <span class="s1">&#39;CASSXYZRARESEQ&#39;</span><span class="p">]</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">probs</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">sequences</span><span class="p">:</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="k">try</span><span class="p">:</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="n">log_p</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span><span class="p">))</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>    <span class="k">except</span><span class="p">:</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)))</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="c1"># Sort by probability</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="n">probs</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="k">for</span> <span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span> <span class="ow">in</span> <span class="n">probs</span><span class="p">:</span>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">: log P = </span><span class="si">{</span><span class="n">log_p</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;CASSLEPSGGTDTQYF&#39;</span><span class="p">,</span> <span class="s1">&#39;CASSLGQGSTEAFF&#39;</span><span class="p">,</span> <span class="s1">&#39;CASSXYZRARESEQ&#39;</span><span class="p">]</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="n">probs</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">sequences</span><span class="p">:</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>        <span class="n">log_p</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span><span class="p">))</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="k">except</span><span class="p">:</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>        <span class="n">probs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">seq</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;-inf&#39;</span><span class="p">)))</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># Sort by probability</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="n">probs</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="k">for</span> <span class="n">seq</span><span class="p">,</span> <span class="n">log_p</span> <span class="ow">in</span> <span class="n">probs</span><span class="p">:</span>
+</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">: log P = </span><span class="si">{</span><span class="n">log_p</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="connection-to-other-metrics">Connection to Other Metrics<a class="headerlink" href="#connection-to-other-metrics" title="Permanent link">&para;</a></h2>
 <h3 id="perplexity">Perplexity<a class="headerlink" href="#perplexity" title="Permanent link">&para;</a></h3>
@@ -2389,40 +2645,40 @@ w(A \to B) = \frac{\text{count}(A \to B)}{\sum_{X} \text{count}(A \to X)}
 <p>Where n is the sequence length. Lower perplexity means the sequence "fits" the model better.</p>
 <h3 id="lz_centrality">lz_centrality<a class="headerlink" href="#lz_centrality" title="Permanent link">&para;</a></h3>
 <p>lz_centrality combines probability with graph structure:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">lz_centrality</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">centrality</span> <span class="o">=</span> <span class="n">lz_centrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">lz_centrality</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">centrality</span> <span class="o">=</span> <span class="n">lz_centrality</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="entropy">Entropy<a class="headerlink" href="#entropy" title="Permanent link">&para;</a></h3>
 <p>Graph entropy relates to the distribution of probabilities across all possible paths.</p>
 <h2 id="practical-example">Practical Example<a class="headerlink" href="#practical-example" title="Permanent link">&para;</a></h2>
 <p>Compare sequences by their generation probability:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">AAPLZGraph</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Build graph</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;repertoire.csv&quot;</span><span class="p">)</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="c1"># Analyze sequences</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="n">test_sequences</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">,</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>    <span class="s2">&quot;CASSLGQGSTEAFF&quot;</span><span class="p">,</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>    <span class="s2">&quot;CASSELPSGGTDTQYF&quot;</span><span class="p">,</span>  <span class="c1"># Slight variant</span>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="p">]</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a>
-</span><span id="__span-11-15"><a id="__codelineno-11-15" name="__codelineno-11-15" href="#__codelineno-11-15"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="__span-11-16"><a id="__codelineno-11-16" name="__codelineno-11-16" href="#__codelineno-11-16"></a><span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">test_sequences</span><span class="p">:</span>
-</span><span id="__span-11-17"><a id="__codelineno-11-17" name="__codelineno-11-17" href="#__codelineno-11-17"></a>    <span class="n">log_pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-11-18"><a id="__codelineno-11-18" name="__codelineno-11-18" href="#__codelineno-11-18"></a>    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-</span><span id="__span-11-19"><a id="__codelineno-11-19" name="__codelineno-11-19" href="#__codelineno-11-19"></a>        <span class="s1">&#39;sequence&#39;</span><span class="p">:</span> <span class="n">seq</span><span class="p">,</span>
-</span><span id="__span-11-20"><a id="__codelineno-11-20" name="__codelineno-11-20" href="#__codelineno-11-20"></a>        <span class="s1">&#39;length&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">),</span>
-</span><span id="__span-11-21"><a id="__codelineno-11-21" name="__codelineno-11-21" href="#__codelineno-11-21"></a>        <span class="s1">&#39;log_pgen&#39;</span><span class="p">:</span> <span class="n">log_pgen</span><span class="p">,</span>
-</span><span id="__span-11-22"><a id="__codelineno-11-22" name="__codelineno-11-22" href="#__codelineno-11-22"></a>        <span class="s1">&#39;pgen&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="o">**</span><span class="n">log_pgen</span> <span class="k">if</span> <span class="n">log_pgen</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">300</span> <span class="k">else</span> <span class="mi">0</span>
-</span><span id="__span-11-23"><a id="__codelineno-11-23" name="__codelineno-11-23" href="#__codelineno-11-23"></a>    <span class="p">})</span>
-</span><span id="__span-11-24"><a id="__codelineno-11-24" name="__codelineno-11-24" href="#__codelineno-11-24"></a>
-</span><span id="__span-11-25"><a id="__codelineno-11-25" name="__codelineno-11-25" href="#__codelineno-11-25"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
-</span><span id="__span-11-26"><a id="__codelineno-11-26" name="__codelineno-11-26" href="#__codelineno-11-26"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;log_pgen&#39;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">AAPLZGraph</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Build graph</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s2">&quot;repertoire.csv&quot;</span><span class="p">)</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="c1"># Analyze sequences</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="n">test_sequences</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>    <span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">,</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>    <span class="s2">&quot;CASSLGQGSTEAFF&quot;</span><span class="p">,</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>    <span class="s2">&quot;CASSELPSGGTDTQYF&quot;</span><span class="p">,</span>  <span class="c1"># Slight variant</span>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="p">]</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">test_sequences</span><span class="p">:</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>    <span class="n">log_pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-13-18"><a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+</span><span id="__span-13-19"><a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>        <span class="s1">&#39;sequence&#39;</span><span class="p">:</span> <span class="n">seq</span><span class="p">,</span>
+</span><span id="__span-13-20"><a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>        <span class="s1">&#39;length&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">),</span>
+</span><span id="__span-13-21"><a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>        <span class="s1">&#39;log_pgen&#39;</span><span class="p">:</span> <span class="n">log_pgen</span><span class="p">,</span>
+</span><span id="__span-13-22"><a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>        <span class="s1">&#39;pgen&#39;</span><span class="p">:</span> <span class="mi">10</span><span class="o">**</span><span class="n">log_pgen</span> <span class="k">if</span> <span class="n">log_pgen</span> <span class="o">&gt;</span> <span class="o">-</span><span class="mi">300</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span id="__span-13-23"><a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>    <span class="p">})</span>
+</span><span id="__span-13-24"><a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>
+</span><span id="__span-13-25"><a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</span><span id="__span-13-26"><a id="__codelineno-13-26" name="__codelineno-13-26" href="#__codelineno-13-26"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;log_pgen&#39;</span><span class="p">,</span> <span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
 </span></code></pre></div>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>

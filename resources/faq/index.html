@@ -25,7 +25,7 @@
       
       
       <link rel="icon" href="../../images/lzglogo2.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
@@ -1021,6 +1021,8 @@
       
         
       
+        
+      
     
     
     
@@ -1148,6 +1150,34 @@
     
   
     Compare Repertoires
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/posterior-personalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personalize Graphs
   
 
     
@@ -1627,6 +1657,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#how-do-i-personalize-a-graph-to-an-individual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I personalize a graph to an individual?
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1986,6 +2027,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#how-do-i-personalize-a-graph-to-an-individual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How do I personalize a graph to an individual?
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2250,24 +2302,29 @@
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">dictionary</span> <span class="o">=</span> <span class="n">generate_kmer_dictionary</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">NaiveLZGraph</span><span class="p">(</span><span class="n">my_custom_sequences</span><span class="p">,</span> <span class="n">dictionary</span><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="how-do-i-personalize-a-graph-to-an-individual">How do I personalize a graph to an individual?<a class="headerlink" href="#how-do-i-personalize-a-graph-to-an-individual" title="Permanent link">&para;</a></h3>
+<p>Use <code>get_posterior()</code> to create a Bayesian posterior graph that blends a population-level prior with an individual's observed data:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">population_graph</span><span class="o">.</span><span class="n">get_posterior</span><span class="p">(</span><span class="n">individual_sequences</span><span class="p">,</span> <span class="n">kappa</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The <code>kappa</code> parameter controls prior strength (higher = trust population more). The posterior is a full graph supporting all standard operations. See the <a href="../../how-to/posterior-personalization/">Posterior Personalization guide</a> for details.</p>
 <hr />
 <h2 id="probability-and-analysis">Probability and Analysis<a class="headerlink" href="#probability-and-analysis" title="Permanent link">&para;</a></h2>
 <h3 id="why-is-my-sequence-probability-zero">Why is my sequence probability zero?<a class="headerlink" href="#why-is-my-sequence-probability-zero" title="Permanent link">&para;</a></h3>
 <p>A probability of zero (or a <code>MissingNodeError</code>/<code>MissingEdgeError</code>) means the sequence contains patterns or transitions not observed in the training data:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Debug: check which nodes/edges are missing</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">encoded</span><span class="p">:</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_node</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing node: </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_edge</span><span class="p">(</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]):</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing edge: </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Debug: check which nodes/edges are missing</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">encoded</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">encode_sequence</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">encoded</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_node</span><span class="p">(</span><span class="n">node</span><span class="p">):</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing node: </span><span class="si">{</span><span class="n">node</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">graph</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">has_edge</span><span class="p">(</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]):</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing edge: </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">encoded</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p><code>walk_probability</code> accepts raw strings directly — no need to call <code>encode_sequence</code> yourself:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">pgen</span> <span class="o">=</span> <span class="n">graph</span><span class="o">.</span><span class="n">walk_probability</span><span class="p">(</span><span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">,</span> <span class="n">use_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div></p>
 </div>
 <h3 id="how-do-i-interpret-k1000">How do I interpret K1000?<a class="headerlink" href="#how-do-i-interpret-k1000" title="Permanent link">&para;</a></h3>
@@ -2287,38 +2344,39 @@
 <h2 id="technical-issues">Technical Issues<a class="headerlink" href="#technical-issues" title="Permanent link">&para;</a></h2>
 <h3 id="modulenotfounderror-no-module-named-lzgraphs">"ModuleNotFoundError: No module named 'LZGraphs'"<a class="headerlink" href="#modulenotfounderror-no-module-named-lzgraphs" title="Permanent link">&para;</a></h3>
 <p>Ensure LZGraphs is installed:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>LZGraphs
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pip<span class="w"> </span>install<span class="w"> </span>LZGraphs
 </span></code></pre></div>
 <p>Or check you're in the correct Python environment.</p>
 <h3 id="missingcolumnerror-required-column-cdr3_amino_acid-not-found">"MissingColumnError: Required column 'cdr3_amino_acid' not found"<a class="headerlink" href="#missingcolumnerror-required-column-cdr3_amino_acid-not-found" title="Permanent link">&para;</a></h3>
-<p>Your DataFrame needs the correct column names:</p>
+<p>This error occurs when passing a DataFrame without the expected column. You have two options:</p>
+<p><strong>Option 1: Pass a plain list</strong> (no column names needed):
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">([</span><span class="s2">&quot;CASSLEPSGGTDTQYF&quot;</span><span class="p">,</span> <span class="s2">&quot;CASSDTSGGTDTQYF&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">])</span>
+</span></code></pre></div></p>
+<p><strong>Option 2: Fix your DataFrame column names:</strong></p>
 <ul>
 <li><code>cdr3_amino_acid</code> for <code>AAPLZGraph</code></li>
 <li><code>cdr3_rearrangement</code> for <code>NDPLZGraph</code></li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Check your columns</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Rename if needed</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;CDR3&#39;</span><span class="p">:</span> <span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">})</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Rename if needed</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;CDR3&#39;</span><span class="p">:</span> <span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">})</span>
 </span></code></pre></div>
 <h3 id="nogenedataerror-this-operation-requires-gene-annotation-data">"NoGeneDataError: This operation requires gene annotation data"<a class="headerlink" href="#nogenedataerror-this-operation-requires-gene-annotation-data" title="Permanent link">&para;</a></h3>
 <p>Some functions require V/J gene columns:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Build with gene data</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">:</span> <span class="n">sequences</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="n">v_genes</span><span class="p">,</span>  <span class="c1"># Required for genomic functions</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="s1">&#39;J&#39;</span><span class="p">:</span> <span class="n">j_genes</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="p">})</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Build with gene data</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">:</span> <span class="n">sequences</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s1">&#39;V&#39;</span><span class="p">:</span> <span class="n">v_genes</span><span class="p">,</span>  <span class="c1"># Required for genomic functions</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s1">&#39;J&#39;</span><span class="p">:</span> <span class="n">j_genes</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">})</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="memory-issues-with-large-repertoires">Memory issues with large repertoires<a class="headerlink" href="#memory-issues-with-large-repertoires" title="Permanent link">&para;</a></h3>
 <p>For very large datasets:</p>
 <ol>
 <li>
 <p><strong>Subsample first:</strong>
-   <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">data_sample</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">50000</span><span class="p">)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data_sample</span><span class="p">)</span>
+   <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">data_sample</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">n</span><span class="o">=</span><span class="mi">50000</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">data_sample</span><span class="p">)</span>
 </span></code></pre></div></p>
 </li>
 <li>
@@ -2326,9 +2384,9 @@
 </li>
 <li>
 <p><strong>Save and reload:</strong>
-   <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">graph</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;large_graph.pkl&quot;</span><span class="p">)</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># Load when needed</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;large_graph.pkl&quot;</span><span class="p">)</span>
+   <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">graph</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">&quot;large_graph.pkl&quot;</span><span class="p">)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="c1"># Load when needed</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s2">&quot;large_graph.pkl&quot;</span><span class="p">)</span>
 </span></code></pre></div></p>
 </li>
 </ol>
@@ -2356,8 +2414,8 @@
 </ul>
 <h3 id="how-do-i-handle-special-characters">How do I handle special characters?<a class="headerlink" href="#how-do-i-handle-special-characters" title="Permanent link">&para;</a></h3>
 <p>Remove or replace them before building the graph:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Remove non-standard amino acids</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^[ACDEFGHIKLMNPQRSTVWY]+$&#39;</span><span class="p">)]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Remove non-standard amino acids</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;cdr3_amino_acid&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^[ACDEFGHIKLMNPQRSTVWY]+$&#39;</span><span class="p">)]</span>
 </span></code></pre></div>
 <hr />
 <h2 id="still-have-questions">Still Have Questions?<a class="headerlink" href="#still-have-questions" title="Permanent link">&para;</a></h2>

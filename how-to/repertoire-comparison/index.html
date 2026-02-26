@@ -18,14 +18,14 @@
         <link rel="prev" href="../sequence-generation/">
       
       
-        <link rel="next" href="../../examples/">
+        <link rel="next" href="../posterior-personalization/">
       
       
         
       
       
       <link rel="icon" href="../../images/lzglogo2.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.3">
     
     
       
@@ -1023,6 +1023,8 @@
       
         
       
+        
+      
     
     
     
@@ -1436,6 +1438,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#posterior-based-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Posterior-Based Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1450,6 +1463,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../posterior-personalization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Personalize Graphs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -2158,6 +2199,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#posterior-based-comparison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Posterior-Based Comparison
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#next-steps" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2461,7 +2513,7 @@
 </span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
 </span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">result</span> <span class="o">=</span> <span class="n">compare_repertoires</span><span class="p">(</span><span class="n">graph1</span><span class="p">,</span> <span class="n">graph2</span><span class="p">)</span>
 </span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1"># Returns a pandas Series with 16 metrics including:</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="c1"># Returns a dict with 16 metrics including:</span>
 </span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="c1"># js_divergence, transition_jsd, cross_entropy, kl_divergence,</span>
 </span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># node/edge entropy, transition_predictability, Jaccard similarity</span>
 </span></code></pre></div>
@@ -2521,11 +2573,32 @@
 </span><span id="__span-13-53"><a id="__codelineno-13-53" name="__codelineno-13-53" href="#__codelineno-13-53"></a><span class="c1"># Run comparison</span>
 </span><span id="__span-13-54"><a id="__codelineno-13-54" name="__codelineno-13-54" href="#__codelineno-13-54"></a><span class="n">g1</span><span class="p">,</span> <span class="n">g2</span><span class="p">,</span> <span class="n">metrics</span> <span class="o">=</span> <span class="n">full_repertoire_comparison</span><span class="p">(</span><span class="n">data1</span><span class="p">,</span> <span class="n">data2</span><span class="p">,</span> <span class="s2">&quot;Healthy&quot;</span><span class="p">,</span> <span class="s2">&quot;Disease&quot;</span><span class="p">)</span>
 </span></code></pre></div>
+<h2 id="posterior-based-comparison">Posterior-Based Comparison<a class="headerlink" href="#posterior-based-comparison" title="Permanent link">&para;</a></h2>
+<p>Compare a population prior to a personalized posterior to quantify how an individual diverges from the population:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">LZGraphs</span><span class="w"> </span><span class="kn">import</span> <span class="n">AAPLZGraph</span><span class="p">,</span> <span class="n">compare_repertoires</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># Build population-level prior</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">population_graph</span> <span class="o">=</span> <span class="n">AAPLZGraph</span><span class="p">(</span><span class="n">population_sequences</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># Personalize to an individual</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="n">posterior</span> <span class="o">=</span> <span class="n">population_graph</span><span class="o">.</span><span class="n">get_posterior</span><span class="p">(</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="n">individual_sequences</span><span class="p">,</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>    <span class="n">abundances</span><span class="o">=</span><span class="n">individual_counts</span><span class="p">,</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>    <span class="n">kappa</span><span class="o">=</span><span class="mf">100.0</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a><span class="p">)</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a><span class="c1"># Measure divergence from the population</span>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="n">metrics</span> <span class="o">=</span> <span class="n">compare_repertoires</span><span class="p">(</span><span class="n">population_graph</span><span class="p">,</span> <span class="n">posterior</span><span class="p">)</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;JSD from population: </span><span class="si">{</span><span class="n">metrics</span><span class="p">[</span><span class="s1">&#39;js_divergence&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transition JSD: </span><span class="si">{</span><span class="n">metrics</span><span class="p">[</span><span class="s1">&#39;transition_jsd&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This is useful for identifying patients whose repertoires deviate significantly from a healthy baseline. See <a href="../posterior-personalization/">Personalize Graphs</a> for the full workflow.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../tutorials/diversity-metrics/">Tutorials: Diversity Metrics</a> - More metrics</li>
 <li><a href="../../tutorials/visualization/">Tutorials: Visualization</a> - Visualize comparisons</li>
 <li><a href="../../api/metrics/">API: Metrics</a> - All comparison functions</li>
+<li><a href="../posterior-personalization/">Personalize Graphs</a> - Bayesian posterior personalization</li>
 </ul>
 
 

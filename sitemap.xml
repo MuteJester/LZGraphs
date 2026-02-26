@@ -2,118 +2,122 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/aaplzgraph/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/exceptions/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/metrics/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/naivelzgraph/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/ndplzgraph/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/api/utilities/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/concepts/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/concepts/graph-types/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/concepts/lz76-algorithm/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/concepts/probability-model/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/examples/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/getting-started/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/getting-started/first-steps/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/getting-started/installation/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/getting-started/quickstart/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/how-to/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
+    </url>
+    <url>
+         <loc>https://MuteJester.github.io/LZGraphs/how-to/posterior-personalization/</loc>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/how-to/repertoire-comparison/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/how-to/sequence-generation/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/how-to/serialization/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/resources/changelog/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/resources/citation/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/resources/faq/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/tutorials/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/tutorials/diversity-metrics/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/tutorials/graph-construction/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/tutorials/sequence-analysis/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
     <url>
          <loc>https://MuteJester.github.io/LZGraphs/tutorials/visualization/</loc>
-         <lastmod>2026-02-12</lastmod>
+         <lastmod>2026-02-26</lastmod>
     </url>
 </urlset>
