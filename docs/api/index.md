@@ -103,6 +103,7 @@ All graph classes share these methods:
 | `load(filepath)` | Load graph from disk |
 | `encode_sequence(seq)` | Encode sequence to walk (static) |
 | `extract_subpattern(node)` | Extract pattern from node (static) |
+| `get_posterior(seqs, kappa)` | Bayesian posterior personalization |
 | `graph_summary()` | Summary statistics (nodes, edges, degree) |
 
 ## Version Information
@@ -129,9 +130,16 @@ LZGraphs/
 │   ├── saturation.py
 │   ├── convenience.py
 │   └── pgen_distribution.py
+├── constants.py             # Shared numerical constants
 ├── mixins/
 │   ├── gene_logic.py
-│   └── random_walk.py
+│   ├── gene_prediction.py
+│   ├── random_walk.py
+│   ├── graph_topology.py
+│   ├── lzpgen_distribution.py
+│   ├── walk_analysis.py
+│   ├── bayesian_posterior.py
+│   └── serialization.py
 ├── utilities/
 │   ├── decomposition.py
 │   ├── helpers.py

@@ -98,6 +98,17 @@ Extract fixed-size feature vectors from sequences using the LZ bag-of-words repr
 [:material-notebook: View Notebook](https://github.com/MuteJester/LZGraphs/blob/master/Examples/LZBOW%20Example.ipynb){ .md-button }
 </div>
 
+<div class="example-card" markdown>
+
+### Bayesian Posterior Graphs
+
+**Personalize population models to individuals**
+
+Use a population-level graph as a Dirichlet prior and update it with individual repertoire data. Explore kappa sensitivity and compare prior vs. posterior.
+
+[:material-book-open: How-To Guide](../how-to/posterior-personalization.md){ .md-button }
+</div>
+
 </div>
 
 ## Running Notebooks Locally
@@ -196,6 +207,7 @@ print(f"V: {v_gene}, J: {j_gene}")
 | LZPgen | Analytical Pgen distribution, Gaussian mixture model |
 | Advanced Features | Abundance weighting, batch simulation, serialization |
 | LZBOW | Bag-of-words feature extraction |
+| Bayesian Posterior | Graph personalization, Dirichlet priors, kappa sensitivity |
 
 ## Next Steps
 

@@ -297,7 +297,7 @@ from LZGraphs import compare_repertoires
 
 result = compare_repertoires(graph1, graph2)
 print(result)
-# Returns a pandas Series with 16 metrics including:
+# Returns a dict with 16 metrics including:
 # js_divergence, transition_jsd, cross_entropy, kl_divergence,
 # node/edge entropy, transition_predictability, Jaccard similarity
 ```
@@ -361,8 +361,34 @@ def full_repertoire_comparison(data1, data2, name1="Rep1", name2="Rep2"):
 g1, g2, metrics = full_repertoire_comparison(data1, data2, "Healthy", "Disease")
 ```
 
+## Posterior-Based Comparison
+
+Compare a population prior to a personalized posterior to quantify how an individual diverges from the population:
+
+```python
+from LZGraphs import AAPLZGraph, compare_repertoires
+
+# Build population-level prior
+population_graph = AAPLZGraph(population_sequences, verbose=False)
+
+# Personalize to an individual
+posterior = population_graph.get_posterior(
+    individual_sequences,
+    abundances=individual_counts,
+    kappa=100.0
+)
+
+# Measure divergence from the population
+metrics = compare_repertoires(population_graph, posterior)
+print(f"JSD from population: {metrics['js_divergence']:.4f}")
+print(f"Transition JSD: {metrics['transition_jsd']:.4f}")
+```
+
+This is useful for identifying patients whose repertoires deviate significantly from a healthy baseline. See [Personalize Graphs](posterior-personalization.md) for the full workflow.
+
 ## Next Steps
 
 - [Tutorials: Diversity Metrics](../tutorials/diversity-metrics.md) - More metrics
 - [Tutorials: Visualization](../tutorials/visualization.md) - Visualize comparisons
 - [API: Metrics](../api/metrics.md) - All comparison functions
+- [Personalize Graphs](posterior-personalization.md) - Bayesian posterior personalization

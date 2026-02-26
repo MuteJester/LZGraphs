@@ -6,6 +6,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.2.0] - 2026
+
+### Added
+- **Bayesian posterior personalization** via `get_posterior(sequences, abundances=None, kappa=1.0)`:
+    - Personalizes a population-level LZGraph to an individual repertoire using Dirichlet-Multinomial conjugacy
+    - Updates edge weights, initial state probabilities, and stop probabilities
+    - `kappa` parameter controls prior strength (higher = trust population more, lower = trust individual more)
+    - Novel edges/nodes from the individual are incorporated automatically
+    - The returned posterior is a full LZGraph — supports `simulate()`, `walk_probability()`, all metrics, etc.
+
+### Changed
+- **`pandas` is no longer a required dependency**. All graph constructors accept plain `list[str]` as the primary input. `pd.DataFrame` and `pd.Series` inputs are still supported via duck-typing for backward compatibility, but pandas is not installed automatically.
+- `compare_repertoires()` now returns a plain `dict` instead of `pd.Series`
+- Internal attributes (`initial_state_counts`, `terminal_state_counts`, `marginal_v_genes`, `marginal_j_genes`) are now plain `dict` instead of `pd.Series`
+
+### Refactored (internal — no public API change)
+- Extracted 5 mixins from `lz_graph_base.py`: `GraphTopologyMixin`, `LZPgenDistributionMixin`, `WalkAnalysisMixin`, `BayesianPosteriorMixin`, `SerializationMixin` — base class reduced from ~2,500 to ~960 lines
+- Replaced `verbose_driver` magic-number logging with descriptive `_log_step(message, verbose)` method
+
+---
+
 ## [2.1.2] - 2026
 
 ### Changed
@@ -111,6 +132,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 For the complete version history, see the [GitHub Releases](https://github.com/MuteJester/LZGraphs/releases) page.
 
 ## Migration Guides
+
+### Upgrading to 2.2.0
+
+- **pandas removal**: If your code passes `pd.DataFrame` or `pd.Series` to graph constructors, it still works — no changes needed. But you can now pass plain lists instead and drop the pandas dependency from your own project.
+- **`compare_repertoires` return type**: Previously returned `pd.Series`, now returns `dict`. Replace `result['metric']` with `result['metric']` (same syntax) or `result.metric` → `result['metric']`.
+- **New method**: `get_posterior()` is available on all graph types. See the [Posterior Personalization guide](../how-to/posterior-personalization.md).
 
 ### Upgrading to 2.1.2
 

@@ -131,6 +131,88 @@ The `genomic_random_walk` uses gene weights to constrain generation:
 walk, v_gene, j_gene = graph.genomic_random_walk()
 ```
 
+## Bayesian Posterior Graphs
+
+LZGraphs supports **Bayesian posterior personalization** — updating a population-level graph with an individual's observed sequences using Dirichlet-Multinomial conjugacy.
+
+### The Core Idea
+
+A graph built from a large population captures general patterns of repertoire structure. But a specific individual's repertoire may differ. `get_posterior()` creates a new graph that blends the population-level "prior" with the individual's observed data:
+
+```python
+# Build a population-level prior graph
+prior = AAPLZGraph(population_sequences, verbose=False)
+
+# Personalize to an individual
+posterior = prior.get_posterior(individual_sequences, kappa=1.0)
+
+# The posterior is a full graph — use it like any other
+log_p = posterior.walk_probability("CASSLEPSGGTDTQYF", use_log=True)
+simulated = posterior.simulate(1000, seed=42)
+```
+
+### Mathematical Framework
+
+For each node \(a\) with outgoing edges to successors \(b_1, b_2, \ldots, b_K\):
+
+**Prior** (from population graph):
+
+\[
+\text{Dir}(\kappa \cdot \pi_1^f, \; \kappa \cdot \pi_2^f, \; \ldots, \; \kappa \cdot \pi_K^f)
+\]
+
+where \(\pi_i^f = P_{\text{prior}}(b_i \mid a)\) and \(\kappa\) is the concentration parameter.
+
+**Observed counts** from the individual: \(c_1, c_2, \ldots, c_K\)
+
+**Posterior** (Dirichlet update):
+
+\[
+P_{\text{post}}(b_i \mid a) = \frac{\kappa \cdot \pi_i^f + c_i}{\kappa + n_a}
+\]
+
+where \(n_a = \sum_i c_i\) is the total number of outgoing traversals observed from node \(a\).
+
+The same conjugate update applies to **initial state probabilities** and **stop probabilities**.
+
+### The Kappa Parameter
+
+\(\kappa\) controls how much the posterior trusts the prior versus the individual's data:
+
+| \(\kappa\) | Behavior | Use Case |
+|------------|----------|----------|
+| \(\to 0\) | Posterior ≈ MLE from individual data alone | Maximize fit to individual |
+| 1.0 (default) | Equal weight per count | Balanced personalization |
+| 100 | Prior dominates until ~100 individual counts accumulate | Trust population, minor adaptation |
+| \(\to \infty\) | Posterior ≈ prior (unchanged) | Use population model as-is |
+
+### With Abundance Weighting
+
+When sequences carry abundance counts (e.g., clonotype expansion), pass them to weight each observation:
+
+```python
+posterior = prior.get_posterior(
+    sequences,
+    abundances=[150, 42, 7, ...],
+    kappa=100.0
+)
+```
+
+Highly expanded clones contribute proportionally more to the posterior update.
+
+### What Gets Updated
+
+The posterior graph updates three components:
+
+1. **Edge weights**: Transition probabilities blended between prior and individual
+2. **Initial state probabilities**: Which starting patterns are likely
+3. **Stop probabilities**: Where sequences tend to terminate
+
+Novel edges and nodes observed in the individual (but absent in the prior) are incorporated automatically with no prior penalty.
+
+!!! tip "Practical guide"
+    See [How-To: Personalize Graphs](../how-to/posterior-personalization.md) for step-by-step workflows including kappa sensitivity analysis and prior-vs-posterior comparison.
+
 ## Probability of Zero
 
 A sequence has probability 0 if:

@@ -6,7 +6,6 @@ high-level operations for comparing and summarizing repertoires.
 """
 
 import numpy as np
-import pandas as pd
 
 from .entropy import (
     node_entropy,
@@ -36,7 +35,7 @@ def compare_repertoires(graph1, graph2):
         graph2: Second LZGraph instance.
 
     Returns:
-        pd.Series: Named series containing comparison metrics:
+        dict: Dictionary containing comparison metrics:
             - js_divergence: Jensen-Shannon divergence (0=identical, 1=different)
             - transition_jsd: Transition-level JSD (compares transition structure)
             - cross_entropy_1_2: Cross-entropy H(graph1, graph2)
@@ -71,7 +70,7 @@ def compare_repertoires(graph1, graph2):
     union_nodes = len(nodes1 | nodes2)
     union_edges = len(edges1 | edges2)
 
-    return pd.Series({
+    return {
         'js_divergence': jensen_shannon_divergence(graph1, graph2),
         'transition_jsd': transition_jsd(graph1, graph2),
         'cross_entropy_1_2': cross_entropy(graph1, graph2),
@@ -88,4 +87,4 @@ def compare_repertoires(graph1, graph2):
         'shared_edges': shared_edges,
         'jaccard_nodes': shared_nodes / union_nodes if union_nodes > 0 else 0.0,
         'jaccard_edges': shared_edges / union_edges if union_edges > 0 else 0.0,
-    })
+    }

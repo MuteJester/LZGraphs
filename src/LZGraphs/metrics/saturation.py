@@ -2,7 +2,6 @@ import random
 from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
-import pandas as pd
 from tqdm.auto import tqdm
 
 # NumPy 2.0 compatibility: trapz was renamed to trapezoid
@@ -47,7 +46,7 @@ class NodeEdgeSaturationProbe:
     Example:
         >>> probe = NodeEdgeSaturationProbe(node_function='aap')
         >>> curve = probe.saturation_curve(sequences, log_every=100)
-        >>> print(f"Final nodes: {curve['nodes'].iloc[-1]}")
+        >>> print(f"Final nodes: {curve[-1]['nodes']}")
     """
 
     def __init__(self, node_function: Union[str, Callable] = 'naive',
@@ -190,7 +189,7 @@ class NodeEdgeSaturationProbe:
         return result
 
     def saturation_curve(self, sequence_list: List[str],
-                         log_every: int = 100) -> pd.DataFrame:
+                         log_every: int = 100) -> List[dict]:
         """
         Compute the full saturation curve for a sequence list.
 
@@ -203,17 +202,16 @@ class NodeEdgeSaturationProbe:
             log_every: After how many sequences to log counts (smaller = more resolution)
 
         Returns:
-            pd.DataFrame: DataFrame with columns ['n_sequences', 'nodes', 'edges']
+            list[dict]: List of dicts with keys 'n_sequences', 'nodes', 'edges'.
 
         Example:
             >>> probe = NodeEdgeSaturationProbe(node_function='aap')
             >>> curve = probe.saturation_curve(sequences, log_every=50)
-            >>> curve.plot(x='n_sequences', y=['nodes', 'edges'])
+            >>> print(f"Final nodes: {curve[-1]['nodes']}")
         """
         self._reset()
         self.test_sequences(sequence_list, log_every=log_every)
 
-        # Convert log_memory to DataFrame
         data = []
         for n_seq, counts in sorted(self.log_memory.items()):
             data.append({
@@ -223,7 +221,7 @@ class NodeEdgeSaturationProbe:
             })
 
         self._reset()
-        return pd.DataFrame(data)
+        return data
 
     def half_saturation_point(self, sequence_list: List[str],
                               log_every: int = 50,
@@ -249,22 +247,22 @@ class NodeEdgeSaturationProbe:
         """
         curve = self.saturation_curve(sequence_list, log_every=log_every)
 
-        if curve.empty:
+        if not curve:
             return 0
 
-        final_count = curve[metric].iloc[-1]
+        final_count = curve[-1][metric]
         half_target = final_count * 0.5
 
         # Find first point where we reach 50%
-        above_half = curve[curve[metric] >= half_target]
-        if above_half.empty:
-            return curve['n_sequences'].iloc[-1]
+        for row in curve:
+            if row[metric] >= half_target:
+                return int(row['n_sequences'])
 
-        return int(above_half['n_sequences'].iloc[0])
+        return int(curve[-1]['n_sequences'])
 
     def saturation_rate(self, sequence_list: List[str],
                         log_every: int = 100,
-                        metric: str = 'nodes') -> pd.DataFrame:
+                        metric: str = 'nodes') -> List[dict]:
         """
         Compute the rate of node/edge discovery along the saturation curve.
 
@@ -278,27 +276,28 @@ class NodeEdgeSaturationProbe:
             metric: 'nodes' or 'edges'
 
         Returns:
-            pd.DataFrame: DataFrame with columns ['n_sequences', 'rate']
-                where rate is the derivative of the saturation curve
+            list[dict]: List of dicts with keys 'n_sequences' and 'rate',
+                where rate is the derivative of the saturation curve.
 
         Example:
             >>> rates = probe.saturation_rate(sequences)
             >>> # Rate should decrease as repertoire saturates
-            >>> print(f"Initial rate: {rates['rate'].iloc[0]:.2f}")
-            >>> print(f"Final rate: {rates['rate'].iloc[-1]:.2f}")
+            >>> print(f"Initial rate: {rates[0]['rate']:.2f}")
+            >>> print(f"Final rate: {rates[-1]['rate']:.2f}")
         """
         curve = self.saturation_curve(sequence_list, log_every=log_every)
 
         if len(curve) < 2:
-            return pd.DataFrame({'n_sequences': [], 'rate': []})
+            return []
 
-        # Compute numerical gradient
-        rates = np.gradient(curve[metric].values, curve['n_sequences'].values)
+        metric_vals = np.array([row[metric] for row in curve])
+        n_seq_vals = np.array([row['n_sequences'] for row in curve])
+        rates = np.gradient(metric_vals, n_seq_vals)
 
-        return pd.DataFrame({
-            'n_sequences': curve['n_sequences'],
-            'rate': rates
-        })
+        return [
+            {'n_sequences': int(n), 'rate': float(r)}
+            for n, r in zip(n_seq_vals, rates)
+        ]
 
     def area_under_saturation_curve(self, sequence_list: List[str],
                                     log_every: int = 100,
@@ -335,12 +334,13 @@ class NodeEdgeSaturationProbe:
         if len(curve) < 2:
             return 0.0
 
-        # Compute area using trapezoidal rule
-        ausc = float(np_trapz(curve[metric].values, curve['n_sequences'].values))
+        metric_vals = np.array([row[metric] for row in curve])
+        n_seq_vals = np.array([row['n_sequences'] for row in curve])
+
+        ausc = float(np_trapz(metric_vals, n_seq_vals))
 
         if normalize:
-            # Maximum possible area: final count * total sequences
-            max_ausc = curve[metric].iloc[-1] * curve['n_sequences'].iloc[-1]
+            max_ausc = metric_vals[-1] * n_seq_vals[-1]
             if max_ausc > 0:
                 return ausc / max_ausc
             return 0.0
@@ -348,7 +348,7 @@ class NodeEdgeSaturationProbe:
         return ausc
 
     def diversity_profile(self, sequence_list: List[str],
-                          log_every: int = 100) -> pd.DataFrame:
+                          log_every: int = 100) -> dict:
         """
         Compute a comprehensive diversity profile of the sequence repertoire.
 
@@ -360,7 +360,7 @@ class NodeEdgeSaturationProbe:
             log_every: Logging frequency for saturation curve
 
         Returns:
-            pd.DataFrame: Single-row DataFrame with diversity metrics:
+            dict: Dictionary with diversity metrics:
                 - n_sequences: Total sequences processed
                 - final_nodes: Total unique nodes
                 - final_edges: Total unique edges
@@ -371,39 +371,48 @@ class NodeEdgeSaturationProbe:
 
         Example:
             >>> profile = probe.diversity_profile(sequences)
-            >>> print(profile.T)  # Print as column for readability
+            >>> for k, v in profile.items():
+            ...     print(f"{k}: {v}")
         """
         curve = self.saturation_curve(sequence_list, log_every=log_every)
 
-        if curve.empty:
-            return pd.DataFrame()
+        if not curve:
+            return {}
 
-        # Recompute half-saturation using the already computed curve
-        final_nodes = curve['nodes'].iloc[-1]
-        final_edges = curve['edges'].iloc[-1]
+        final_nodes = curve[-1]['nodes']
+        final_edges = curve[-1]['edges']
 
         # K50 for nodes
-        half_nodes = curve[curve['nodes'] >= final_nodes * 0.5]
-        k50_nodes = int(half_nodes['n_sequences'].iloc[0]) if not half_nodes.empty else curve['n_sequences'].iloc[-1]
+        k50_nodes = int(curve[-1]['n_sequences'])
+        for row in curve:
+            if row['nodes'] >= final_nodes * 0.5:
+                k50_nodes = int(row['n_sequences'])
+                break
 
         # K50 for edges
-        half_edges = curve[curve['edges'] >= final_edges * 0.5]
-        k50_edges = int(half_edges['n_sequences'].iloc[0]) if not half_edges.empty else curve['n_sequences'].iloc[-1]
+        k50_edges = int(curve[-1]['n_sequences'])
+        for row in curve:
+            if row['edges'] >= final_edges * 0.5:
+                k50_edges = int(row['n_sequences'])
+                break
 
         # AUSC normalized
-        n_seq = curve['n_sequences'].values
-        ausc_nodes = float(np_trapz(curve['nodes'].values, n_seq)) / (final_nodes * n_seq[-1]) if final_nodes > 0 else 0
-        ausc_edges = float(np_trapz(curve['edges'].values, n_seq)) / (final_edges * n_seq[-1]) if final_edges > 0 else 0
+        n_seq_vals = np.array([row['n_sequences'] for row in curve])
+        node_vals = np.array([row['nodes'] for row in curve])
+        edge_vals = np.array([row['edges'] for row in curve])
 
-        return pd.DataFrame([{
+        ausc_nodes = float(np_trapz(node_vals, n_seq_vals)) / (final_nodes * n_seq_vals[-1]) if final_nodes > 0 else 0.0
+        ausc_edges = float(np_trapz(edge_vals, n_seq_vals)) / (final_edges * n_seq_vals[-1]) if final_edges > 0 else 0.0
+
+        return {
             'n_sequences': len(sequence_list),
             'final_nodes': int(final_nodes),
             'final_edges': int(final_edges),
             'k50_nodes': k50_nodes,
             'k50_edges': k50_edges,
             'ausc_nodes': ausc_nodes,
-            'ausc_edges': ausc_edges
-        }])
+            'ausc_edges': ausc_edges,
+        }
 
 
 def get_k1000_diversity(list_of_sequences: List[str],

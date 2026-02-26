@@ -244,7 +244,7 @@ class TestCompareRepertoires:
     """Tests for compare_repertoires function."""
 
     def test_compare_returns_series(self, test_data_aap):
-        """Verify compare_repertoires returns a pandas Series."""
+        """Verify compare_repertoires returns a dict."""
         data1 = test_data_aap.iloc[:2500].copy()
         data2 = test_data_aap.iloc[2500:].copy()
 
@@ -253,7 +253,7 @@ class TestCompareRepertoires:
 
         result = compare_repertoires(g1, g2)
 
-        assert isinstance(result, pd.Series)
+        assert isinstance(result, dict)
 
     def test_compare_contains_expected_metrics(self, test_data_aap):
         """Verify result contains all expected metric names."""
@@ -281,7 +281,7 @@ class TestCompareRepertoires:
             'jaccard_edges',
         ]
         for key in expected_keys:
-            assert key in result.index, f"Missing key: {key}"
+            assert key in result, f"Missing key: {key}"
 
     def test_compare_same_graph_low_divergence(self, aap_lzgraph):
         """Verify comparing a graph with itself gives low divergence."""

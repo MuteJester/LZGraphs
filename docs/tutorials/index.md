@@ -43,7 +43,7 @@ Create publication-ready plots for sequence and repertoire analysis.
 Before starting, ensure you have:
 
 - [x] Installed LZGraphs ([Installation Guide](../getting-started/installation.md))
-- [x] Basic Python and pandas knowledge
+- [x] Basic Python knowledge
 - [x] Sample data to work with (or use our [example datasets](../examples/index.md))
 
 ## Sample Data

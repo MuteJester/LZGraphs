@@ -29,26 +29,34 @@ class GeneLogicMixin:
 
     def _load_gene_data(self, data) -> None:
         """
-        Load V and J gene data from the input DataFrame into
-        marginal frequency distributions. Also track the combined frequency
-        of V-J pairs (VJ).
+        Load V and J gene data from the input into marginal frequency
+        distributions. Also track the combined frequency of V-J pairs (VJ).
 
         Args:
-            data: Must contain columns ['V', 'J'] at minimum,
-                  representing observed V/J genes for each sequence.
+            data: Dict with keys ``'v_genes'`` and ``'j_genes'``, each a list
+                  of gene names (one per sequence).
         """
+        v_list = data['v_genes']
+        j_list = data['j_genes']
+
         # Unique sets of V and J
-        self.observed_v_genes = list(set(data['V']))
-        self.observed_j_genes = list(set(data['J']))
+        self.observed_v_genes = list(set(v_list))
+        self.observed_j_genes = list(set(j_list))
 
         # Marginal distributions (normalized) — stored as plain dicts
-        self.marginal_v_genes = dict(data['V'].value_counts(normalize=True))
-        self.marginal_j_genes = dict(data['J'].value_counts(normalize=True))
+        n = len(v_list)
+        v_counts = {}
+        j_counts = {}
+        vj_counts = {}
+        for v, j in zip(v_list, j_list):
+            v_counts[v] = v_counts.get(v, 0) + 1
+            j_counts[j] = j_counts.get(j, 0) + 1
+            vj_key = f"{v}_{j}"
+            vj_counts[vj_key] = vj_counts.get(vj_key, 0) + 1
 
-        # Combined VJ distribution
-        self.vj_probabilities = dict(
-            (data['V'] + '_' + data['J']).value_counts(normalize=True)
-        )
+        self.marginal_v_genes = {k: c / n for k, c in v_counts.items()}
+        self.marginal_j_genes = {k: c / n for k, c in j_counts.items()}
+        self.vj_probabilities = {k: c / n for k, c in vj_counts.items()}
 
     def _select_random_vj_genes(self, mode='marginal') -> tuple[str, str]:
         """

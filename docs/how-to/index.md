@@ -21,6 +21,11 @@ Create new sequences following repertoire statistics
 Measure similarity between different repertoires
 </div>
 
+<div class="card" markdown>
+### [Personalize Graphs](posterior-personalization.md)
+Adapt a population graph to an individual using Bayesian posteriors
+</div>
+
 </div>
 
 ## Quick Reference
@@ -31,6 +36,7 @@ Measure similarity between different repertoires
 | Load a graph | [Serialization](serialization.md) | `AAPLZGraph.load()` |
 | Generate sequences | [Sequence Generation](sequence-generation.md) | `random_walk()`, `genomic_random_walk()` |
 | Compare repertoires | [Comparison](repertoire-comparison.md) | `jensen_shannon_divergence()` |
+| Personalize a graph | [Posterior](posterior-personalization.md) | `get_posterior()` |
 
 ## Need More?
 

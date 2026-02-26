@@ -76,6 +76,7 @@ The diversity of T-cells and B-cells is crucial for producing receptors that rec
 - **Repertoire comparison** -- compare two repertoires via graph-level statistics
 - **Analytical probability distributions** -- exact moments and scipy-like distribution objects for generation probabilities
 - **Gene annotation support** -- optional V/J gene tracking on edges for gene usage analysis
+- **Bayesian posterior personalization** -- adapt population-level models to individual repertoires using Dirichlet-Multinomial conjugacy
 - **Abundance weighting** -- weight sequences by clonal abundance for more realistic models
 - **Serialization** -- save and load graphs in JSON format
 
@@ -101,23 +102,20 @@ print(LZGraphs.__version__)
 Build an amino acid positional graph from CDR3 sequences and compute sequence probabilities:
 
 ```python
-import pandas as pd
 from LZGraphs import AAPLZGraph
 
-# Prepare data as a DataFrame with a 'cdr3_amino_acid' column
-data = pd.DataFrame({
-    'cdr3_amino_acid': [
-        'CASSLAPGATNEKLFF',
-        'CASSLGQAYEQYF',
-        'CASSFSTCSANYGYTF',
-        'CASSQEGTEAFF',
-        'CASSLGQGNIQYF',
-        # ... your CDR3 amino acid sequences
-    ]
-})
+# Pass a plain list of CDR3 amino acid sequences
+sequences = [
+    'CASSLAPGATNEKLFF',
+    'CASSLGQAYEQYF',
+    'CASSFSTCSANYGYTF',
+    'CASSQEGTEAFF',
+    'CASSLGQGNIQYF',
+    # ... your CDR3 amino acid sequences
+]
 
 # Construct the graph
-graph = AAPLZGraph(data, verbose=True)
+graph = AAPLZGraph(sequences, verbose=True)
 
 # Compute the log-probability of a sequence under the model
 log_prob = graph.walk_log_probability('CASSLAPGATNEKLFF')
@@ -172,15 +170,14 @@ graph = NaiveLZGraph(cdr3_list, dictionary, verbose=True)
 
 ### Gene Annotation
 
-All three graph types support optional V and J gene annotation. Include `V` and `J` columns in your DataFrame (or pass them separately for NaiveLZGraph) to track gene usage on graph edges:
+All three graph types support optional V and J gene annotation. Pass gene lists alongside sequences to track gene usage on graph edges:
 
 ```python
-data = pd.DataFrame({
-    'cdr3_amino_acid': sequences,
-    'V': v_genes,
-    'J': j_genes,
-})
-graph = AAPLZGraph(data, verbose=True)
+sequences = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', ...]
+v_genes   = ['TRBV16-1*01', 'TRBV1-1*01', ...]
+j_genes   = ['TRBJ1-2*01', 'TRBJ1-5*01', ...]
+
+graph = AAPLZGraph(sequences, v_genes=v_genes, j_genes=j_genes, verbose=True)
 
 # Gene data is now available
 print(graph.has_gene_data)           # True
@@ -199,16 +196,14 @@ This is particularly important for:
 - **Better representation of clonal expansion** -- dominant clones shape the graph structure proportionally to their prevalence
 - **More realistic sequence generation** -- simulated sequences reflect the abundance-weighted landscape, not just the unique sequence set
 
-To use abundance weighting, include an `abundance` column in your DataFrame:
+To use abundance weighting, pass an `abundances` list alongside your sequences:
 
 ```python
-data = pd.DataFrame({
-    'cdr3_amino_acid': ['CASSLAPGATNEKLFF', 'CASSLGQAYEQYF', 'CASSFSTCSANYGYTF'],
-    'abundance': [150, 42, 7],
-})
+sequences  = ['CASSLAPGATNEKLFF', 'CASSLGQAYEQYF', 'CASSFSTCSANYGYTF']
+abundances = [150, 42, 7]
 
 # Each sequence is weighted by its abundance during graph construction
-graph = AAPLZGraph(data, verbose=True)
+graph = AAPLZGraph(sequences, abundances=abundances, verbose=True)
 ```
 
 For `NaiveLZGraph`, pass abundances as a separate parameter:
@@ -284,6 +279,20 @@ print(f"Graph entropy: {graph_entropy(graph):.4f}")
 # Compare two repertoires
 jsd = jensen_shannon_divergence(graph1, graph2)
 comparison = compare_repertoires(graph1, graph2)
+```
+
+### Bayesian Posterior Personalization
+
+```python
+# Adapt a population graph to an individual
+posterior = population_graph.get_posterior(
+    individual_sequences,
+    abundances=clonal_counts,
+    kappa=100.0  # prior strength
+)
+
+# The posterior is a full graph
+simulated = posterior.simulate(1000, seed=42)
 ```
 
 ### Visualization

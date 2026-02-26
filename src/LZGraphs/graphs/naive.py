@@ -87,7 +87,7 @@ class NaiveLZGraph(LZGraphBase):
         self.graph.add_nodes_from(self.dictionary)
 
         self._naive_graph_construction(cdr3_list, abundances=abundances)
-        self.verbose_driver(1, verbose)
+        self._log_step("Graph constructed.", verbose)
 
         total_terminal = sum(self.terminal_state_counts.values())
         self.length_probabilities = (
@@ -99,18 +99,18 @@ class NaiveLZGraph(LZGraphBase):
             {k: v / total_initial for k, v in self.initial_state_counts.items()}
             if total_initial > 0 else {}
         )
-        self.verbose_driver(2, verbose)
+        self._log_step("Graph metadata derived.", verbose)
 
         self._derive_node_probability()
-        self.verbose_driver(8, verbose)
+        self._log_step("Node probabilities derived.", verbose)
         self._normalize_edge_weights()
-        self.verbose_driver(3, verbose)
+        self._log_step("Edge weights normalized.", verbose)
 
         self._derive_stop_probability_data()
-        self.verbose_driver(9, verbose)
+        self._log_step("Stop probabilities derived.", verbose)
 
         self.constructor_end_time = time()
-        self.verbose_driver(6, verbose)
+        self._log_step("LZGraph created successfully.", verbose)
 
     def __repr__(self):
         n_nodes = self.graph.number_of_nodes()

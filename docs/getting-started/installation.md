@@ -46,7 +46,6 @@ LZGraphs automatically installs these core dependencies:
 |---------|---------|---------|
 | `networkx` | ≥3.0 | Graph data structures |
 | `numpy` | ≥1.24 | Numerical operations |
-| `pandas` | ≥1.5 | Data manipulation |
 | `scipy` | ≥1.10 | Scientific computing |
 | `tqdm` | ≥4.65 | Progress bars |
 
@@ -76,16 +75,13 @@ You should see the version number printed without errors.
 Run a minimal example to ensure all components work:
 
 ```python
-import pandas as pd
 from LZGraphs import AAPLZGraph
 
 # Create minimal test data
-data = pd.DataFrame({
-    'cdr3_amino_acid': ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF']
-})
+sequences = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF']
 
 # Build a graph
-graph = AAPLZGraph(data, verbose=False)
+graph = AAPLZGraph(sequences, verbose=False)
 print(f"Graph has {graph.graph.number_of_nodes()} nodes")
 ```
 

@@ -29,6 +29,7 @@ pgen = graph.walk_probability("CASSLEPSGGTDTQYF")
         - simulate
         - encode_sequence
         - extract_subpattern
+        - get_posterior
         - save
         - load
         - eigenvector_centrality
@@ -126,6 +127,34 @@ pattern = AAPLZGraph.extract_subpattern("SL_5")
 # Returns: "SL"
 ```
 
+### get_posterior
+
+Create a personalized posterior graph using this graph as the Dirichlet prior and observed sequences as data.
+
+```python
+# Basic usage
+posterior = graph.get_posterior(individual_sequences, kappa=1.0)
+
+# With abundance weighting
+posterior = graph.get_posterior(
+    individual_sequences,
+    abundances=[150, 42, 7, ...],
+    kappa=100.0
+)
+```
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sequences` | `list[str]`, `pd.Series`, or `pd.DataFrame` | Individual's CDR3 sequences |
+| `abundances` | `list[int]` or `None` | Per-sequence abundance counts (optional) |
+| `kappa` | `float` | Prior strength / concentration parameter (default: 1.0) |
+
+**Returns:** A new `AAPLZGraph` instance with posterior probabilities.
+
+The posterior graph is a full LZGraph — it supports `simulate()`, `walk_probability()`, all metrics, etc. See [Personalize Graphs](../how-to/posterior-personalization.md) for detailed workflows.
+
 ## Attributes
 
 | Attribute | Type | Description |
@@ -134,10 +163,10 @@ pattern = AAPLZGraph.extract_subpattern("SL_5")
 | `nodes` | `NodeView` | All nodes in the graph |
 | `edges` | `EdgeView` | All edges in the graph |
 | `lengths` | `dict` | Sequence length distribution |
-| `initial_state_counts` | `pd.Series` | Initial state counts |
-| `terminal_state_counts` | `pd.Series` | Terminal state counts |
-| `marginal_v_genes` | `pd.Series` | V gene probabilities |
-| `marginal_j_genes` | `pd.Series` | J gene probabilities |
+| `initial_state_counts` | `dict` | Initial state counts |
+| `terminal_state_counts` | `dict` | Terminal state counts |
+| `marginal_v_genes` | `dict` | V gene probabilities |
+| `marginal_j_genes` | `dict` | J gene probabilities |
 | `node_probability` | `dict` | Pattern probabilities (node → float) |
 | `has_gene_data` | `bool` | Whether V/J gene data was provided |
 | `num_subpatterns` | `int` | Total unique nodes |

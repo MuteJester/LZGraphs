@@ -1,10 +1,11 @@
 import logging
+import random as _random
 import time
+from collections import defaultdict
 from typing import List, Tuple, Union, Optional, Generator
 
 import networkx as nx
 import numpy as np
-import pandas as pd
 from tqdm.auto import tqdm
 
 from .lz_graph_base import LZGraphBase
@@ -67,7 +68,7 @@ class AAPLZGraph(LZGraphBase):
 
     def __init__(
         self,
-        data: Union[pd.DataFrame, List[str], pd.Series],
+        data,
         *,
         abundances: Optional[List[int]] = None,
         v_genes: Optional[List[str]] = None,
@@ -81,17 +82,18 @@ class AAPLZGraph(LZGraphBase):
         """
         Create an amino-acid-positional LZGraph.
 
-        *data* can be a pandas DataFrame with a ``cdr3_amino_acid`` column,
-        a plain list of amino-acid sequences, or a pandas Series.
+        *data* can be a DataFrame-like object with a ``cdr3_amino_acid``
+        column, a plain list of amino-acid sequences, or any iterable with
+        a ``.tolist()`` method.
 
-        When *data* is a list or Series the optional keyword arguments
-        *abundances*, *v_genes* and *j_genes* may be used to supply
-        additional per-sequence information.  When *data* is a DataFrame
-        these must be ``None`` — use DataFrame columns instead.
+        When *data* is a list the optional keyword arguments *abundances*,
+        *v_genes* and *j_genes* may be used to supply additional
+        per-sequence information.  When *data* is a DataFrame these must be
+        ``None`` — use DataFrame columns instead.
 
         Args:
             data: Sequence data.  DataFrame (with ``cdr3_amino_acid`` column),
-                list of strings, or pandas Series.
+                list of strings, or any iterable of strings.
             abundances: Per-sequence abundance counts (list input only).
             v_genes: Per-sequence V gene annotations (list input only).
             j_genes: Per-sequence J gene annotations (list input only).
@@ -112,7 +114,7 @@ class AAPLZGraph(LZGraphBase):
         """
         super().__init__()  # Initialize LZGraphBase
 
-        # Normalize flexible input → DataFrame
+        # Normalize flexible input → dict-of-lists
         data = self._normalize_input(
             data, "cdr3_amino_acid",
             abundances=abundances, v_genes=v_genes, j_genes=j_genes,
@@ -127,20 +129,16 @@ class AAPLZGraph(LZGraphBase):
         self._validate_input(data, validate_sequences)
 
         # Determine if we have gene data
-        self.has_gene_data = (
-            isinstance(data, pd.DataFrame) and
-            ("V" in data.columns) and
-            ("J" in data.columns)
-        )
+        self.has_gene_data = data.get('v_genes') is not None
 
         # Load gene data if present
         if self.has_gene_data:
             self._load_gene_data(data)
-            self.verbose_driver(0, verbose)  # "Gene Information Loaded"
+            self._log_step("Gene information loaded.", verbose)
 
         # Build the graph with a custom routine
         self.__simultaneous_graph_construction(data)
-        self.verbose_driver(1, verbose)  # "Graph Constructed"
+        self._log_step("Graph constructed.", verbose)
 
         # Normalize and derive probability dicts
         self.length_counts = dict(self.lengths)
@@ -162,103 +160,87 @@ class AAPLZGraph(LZGraphBase):
             if total_initial > 0 else {}
         )
 
-        self.verbose_driver(2, verbose)  # "Graph Metadata Derived"
+        self._log_step("Graph metadata derived.", verbose)
 
         # Derive subpattern probabilities & normalize edges
         self._derive_node_probability()
-        self.verbose_driver(8, verbose)
+        self._log_step("Node probabilities derived.", verbose)
 
         self._normalize_edge_weights()
-        self.verbose_driver(3, verbose)
+        self._log_step("Edge weights normalized.", verbose)
 
         # Additional map derivations
         self._edges_cache = None
         self._derive_stop_probability_data()
-        self.verbose_driver(9, verbose)
+        self._log_step("Stop probabilities derived.", verbose)
 
         # Optionally compute the PGEN for each sequence
         if calculate_trainset_pgen:
             logger.info("Calculating PGEN for the training set. This may take some time...")
             self.train_pgen = np.array([
                 self.walk_probability(seq, verbose=False)
-                for seq in data["cdr3_amino_acid"]
+                for seq in data['sequences']
             ])
 
         self.constructor_end_time = time.time()
-        self.verbose_driver(6, verbose)
-        self.verbose_driver(-2, verbose)
+        self._log_step("LZGraph created successfully.", verbose)
 
     # --------------------------------------------------------------------------
     # Input Validation
     # --------------------------------------------------------------------------
 
-    def _validate_input(self, data: pd.DataFrame, validate_sequences: bool) -> None:
+    def _validate_input(self, data: dict, validate_sequences: bool) -> None:
         """
         Validate input data before graph construction.
 
         Args:
-            data: Input DataFrame
-            validate_sequences: Whether to check sequence content
-
-        Raises:
-            TypeError: If data is not a pandas DataFrame
-            ValueError: If required columns are missing or data is invalid
+            data: Normalised dict with key ``'sequences'`` (and optionally
+                ``'v_genes'``, ``'j_genes'``, ``'abundances'``).
+            validate_sequences: Whether to check sequence content.
         """
-        # Check type
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError(
-                f"Expected pandas DataFrame, got {type(data).__name__}. "
-                "Please provide a DataFrame with a 'cdr3_amino_acid' column."
-            )
-
-        # Check for required column
-        if 'cdr3_amino_acid' not in data.columns:
-            raise MissingColumnError(
-                column_name='cdr3_amino_acid',
-                available_columns=list(data.columns)
-            )
+        sequences = data['sequences']
 
         # Check for empty data
-        if len(data) == 0:
-            raise EmptyDataError("DataFrame is empty. Cannot build LZGraph from zero sequences.")
+        if len(sequences) == 0:
+            raise EmptyDataError("No sequences provided. Cannot build LZGraph from zero sequences.")
 
-        # Check for null values in CDR3 column
-        null_count = data['cdr3_amino_acid'].isna().sum()
+        # Check for null values
+        null_count = sum(1 for x in sequences if x is None)
         if null_count > 0:
             raise ValueError(
-                f"Found {null_count} null values in 'cdr3_amino_acid' column. "
+                f"Found {null_count} null values in sequences. "
                 "Please remove or fill null values before building the graph."
             )
 
         # Check for empty strings
-        empty_count = (data['cdr3_amino_acid'].str.len() == 0).sum()
+        empty_count = sum(1 for x in sequences if not x)
         if empty_count > 0:
             raise ValueError(
-                f"Found {empty_count} empty strings in 'cdr3_amino_acid' column. "
+                f"Found {empty_count} empty strings in sequences. "
                 "Please remove empty sequences before building the graph."
             )
 
         # Validate sequence content if requested
         if validate_sequences:
-            self._validate_sequence_content(data['cdr3_amino_acid'])
+            self._validate_sequence_content(sequences)
 
         # Validate gene columns if present
-        if 'V' in data.columns and 'J' in data.columns:
+        if data.get('v_genes') is not None:
             self._validate_gene_columns(data)
 
-    def _validate_sequence_content(self, sequences: pd.Series) -> None:
+    def _validate_sequence_content(self, sequences: list) -> None:
         """
         Validate that sequences contain only valid amino acid characters.
 
         Args:
-            sequences: Series of amino acid sequences
-
-        Raises:
-            ValueError: If invalid characters are found
+            sequences: List of amino acid sequences.
         """
         # Sample up to 1000 sequences for validation (performance)
         sample_size = min(1000, len(sequences))
-        sample = sequences.sample(n=sample_size, random_state=42) if len(sequences) > sample_size else sequences
+        if len(sequences) > sample_size:
+            sample = _random.Random(42).sample(sequences, k=sample_size)
+        else:
+            sample = sequences
 
         invalid_chars_found = set()
         invalid_sequences = []
@@ -287,19 +269,15 @@ class AAPLZGraph(LZGraphBase):
                 )
             )
 
-    def _validate_gene_columns(self, data: pd.DataFrame) -> None:
+    def _validate_gene_columns(self, data: dict) -> None:
         """
-        Validate V and J gene columns.
+        Validate V and J gene lists.
 
         Args:
-            data: DataFrame with V and J columns
-
-        Raises:
-            ValueError: If gene columns contain invalid data
+            data: Dict with ``'v_genes'`` and ``'j_genes'`` lists.
         """
-        # Check for nulls in gene columns
-        v_nulls = data['V'].isna().sum()
-        j_nulls = data['J'].isna().sum()
+        v_nulls = sum(1 for x in data['v_genes'] if x is None)
+        j_nulls = sum(1 for x in data['j_genes'] if x is None)
 
         if v_nulls > 0 or j_nulls > 0:
             raise ValueError(
@@ -328,34 +306,31 @@ class AAPLZGraph(LZGraphBase):
         idx = base.rfind('_')
         return base[:idx] if idx > 0 else base
 
-    def _decomposed_sequence_generator(
-        self,
-        data: Union[pd.DataFrame, pd.Series]
-    ) -> Generator:
+    def _decomposed_sequence_generator(self, data: dict) -> Generator:
         """
         A generator that yields the information needed to build the graph.
 
-        If an ``abundance`` column is present in the DataFrame, each sequence
-        is weighted by its abundance count. Otherwise each sequence counts as 1.
+        Args:
+            data: Normalised dict with ``'sequences'`` (and optionally
+                ``'abundances'``, ``'v_genes'``, ``'j_genes'``).
 
         Yields:
             If genetic: (steps, locations, v, j, count)
             Otherwise:  (steps, locations, count)
         """
-        has_abundance = isinstance(data, pd.DataFrame) and 'abundance' in data.columns
+        sequences = data['sequences']
+        abundances = data.get('abundances')
 
         if self.has_gene_data:
-            iterables = [data["cdr3_amino_acid"], data["V"], data["J"]]
-            if has_abundance:
-                iterables.append(data["abundance"])
-            for row in tqdm(zip(*iterables), desc="Building Graph", leave=False):
-                if has_abundance:
-                    cdr3, v, j, abundance = row
-                    count = int(abundance)
-                else:
-                    cdr3, v, j = row
-                    count = 1
+            v_genes = data['v_genes']
+            j_genes = data['j_genes']
+            if abundances is not None:
+                row_iter = zip(sequences, v_genes, j_genes, abundances)
+            else:
+                row_iter = ((s, v, j, 1) for s, v, j in zip(sequences, v_genes, j_genes))
 
+            for cdr3, v, j, abundance in tqdm(row_iter, desc="Building Graph", leave=False):
+                count = int(abundance)
                 lz, locs = derive_lz_and_position(cdr3)
                 steps = window(lz, 2)
                 locations = window(locs, 2)
@@ -366,12 +341,10 @@ class AAPLZGraph(LZGraphBase):
 
                 yield (steps, locations, v, j, count)
         else:
-            if has_abundance:
-                seq_iter = zip(data["cdr3_amino_acid"], data["abundance"])
-            elif isinstance(data, pd.DataFrame):
-                seq_iter = ((cdr3, 1) for cdr3 in data["cdr3_amino_acid"])
+            if abundances is not None:
+                seq_iter = zip(sequences, abundances)
             else:
-                seq_iter = ((cdr3, 1) for cdr3 in data)
+                seq_iter = ((s, 1) for s in sequences)
 
             for cdr3, abundance in tqdm(seq_iter, desc="Building Graph", leave=False):
                 count = int(abundance)
@@ -385,7 +358,7 @@ class AAPLZGraph(LZGraphBase):
 
                 yield (steps, locations, count)
 
-    def __simultaneous_graph_construction(self, data: pd.DataFrame) -> None:
+    def __simultaneous_graph_construction(self, data: dict) -> None:
         """
         Custom simultaneous construction of the graph, mirroring the parent's
         _simultaneous_graph_construction but applying our specialized decomposition.
@@ -582,50 +555,51 @@ class AAPLZGraph(LZGraphBase):
 
         return results
 
-    def random_walk_distribution_based(self, length_distribution: pd.Series):
+    def random_walk_distribution_based(self, length_distribution):
         """
         Creates random walks in proportion to a given length distribution.
         We do a large number of unsupervised walks, then sample from them
         to match the specified distribution.
 
         Args:
-            length_distribution: A Series whose index is lengths and values are
-                how many sequences of that length we want.
+            length_distribution: A dict (or Series-like) mapping sequence
+                lengths to the number of sequences desired at that length.
 
         Returns:
-            A 2D array (list of pairs) of shape [N, 2], where each row is (Seq, Walk).
+            A 2D numpy array of shape [N, 2], where each row is (Seq, Walk).
         """
-        N = length_distribution.sum() * 3  # multiply by some factor
-        N = int(N)
+        # Accept both dict and Series-like objects
+        if hasattr(length_distribution, 'to_dict'):
+            length_distribution = length_distribution.to_dict()
 
-        walks = []
-        seqs = []
+        total = sum(length_distribution.values())
+        N = int(total * 3)
+
+        # Generate random walks and group by length
+        by_length = defaultdict(list)
         logger.info(f"Generating ~{N} random walks to filter by length distribution...")
         for _ in tqdm(range(N), desc="Random Walk Distribution"):
             rw, rseq = self.unsupervised_random_walk()
-            walks.append(rw)
-            seqs.append(rseq)
+            by_length[len(rseq)].append((rseq, rw))
 
-        df = pd.DataFrame({"Seqs": seqs, "Walks": walks})
-        df["L"] = df["Seqs"].str.len()
-
+        rng = _random.Random(42)
         samples = []
-        for length_val in length_distribution.index:
-            needed = length_distribution[length_val]
-            subset = df[df["L"] == length_val]
-            if len(subset) < needed:
+        for length_val, needed in length_distribution.items():
+            needed = int(needed)
+            available = by_length.get(length_val, [])
+            if len(available) < needed:
                 logger.warning(
-                    f"Requested {needed} sequences of length {length_val}, but only found {len(subset)}."
+                    f"Requested {needed} sequences of length {length_val}, "
+                    f"but only found {len(available)}."
                 )
-                needed = len(subset)
+                needed = len(available)
             if needed > 0:
-                samples.append(subset.sample(n=needed, replace=False))
+                samples.extend(rng.sample(available, k=needed))
 
         if not samples:
             return np.array([])
 
-        final = pd.concat(samples, ignore_index=True)
-        return final[["Seqs", "Walks"]].values
+        return np.array(samples, dtype=object)
 
     def get_gene_graph(self, v: str, j: str) -> nx.DiGraph:
         """

@@ -493,11 +493,11 @@ class TestCompareRepertoiresExtended:
     """Tests for new metrics in compare_repertoires."""
 
     def test_new_keys_present(self, aap_lzgraph):
-        """Returned Series should include new metric keys."""
+        """Returned dict should include new metric keys."""
         result = compare_repertoires(aap_lzgraph, aap_lzgraph)
-        assert 'transition_jsd' in result.index
-        assert 'transition_predictability_1' in result.index
-        assert 'transition_predictability_2' in result.index
+        assert 'transition_jsd' in result
+        assert 'transition_predictability_1' in result
+        assert 'transition_predictability_2' in result
 
     def test_self_comparison_values(self, aap_lzgraph):
         """Self-comparison should yield JSD=0 and matching predictabilities."""

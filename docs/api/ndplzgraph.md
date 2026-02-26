@@ -29,6 +29,7 @@ pgen = graph.walk_probability("TGTGCCAGCAGT")
         - simulate
         - encode_sequence
         - extract_subpattern
+        - get_posterior
         - save
         - load
         - eigenvector_centrality
@@ -96,6 +97,16 @@ pattern = NDPLZGraph.extract_subpattern("TG2_4")
 ```python
 sequences = graph.simulate(1000, seed=42)
 ```
+
+### get_posterior
+
+Create a personalized posterior graph. Works identically to [AAPLZGraph.get_posterior](aaplzgraph.md#get_posterior):
+
+```python
+posterior = graph.get_posterior(individual_sequences, kappa=1.0)
+```
+
+See [Personalize Graphs](../how-to/posterior-personalization.md) for full usage guide.
 
 ## Comparison with AAPLZGraph
 

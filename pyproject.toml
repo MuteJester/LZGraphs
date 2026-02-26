@@ -45,7 +45,6 @@ classifiers = [
 dependencies = [
     "networkx>=3.0",
     "numpy>=1.24",
-    "pandas>=1.5",
     "tqdm>=4.65",
     "scipy>=1.10",
 ]
@@ -65,7 +64,10 @@ dev = [
     "build>=1.0",
     "twine>=4.0",
 ]
-docs = []
+docs = [
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+]
 
 [project.urls]
 Homepage = "https://github.com/MuteJester/LZGraphs"

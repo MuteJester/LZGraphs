@@ -141,6 +141,7 @@ nav:
     - Save & Load Graphs: how-to/serialization.md
     - Generate Sequences: how-to/sequence-generation.md
     - Compare Repertoires: how-to/repertoire-comparison.md
+    - Personalize Graphs: how-to/posterior-personalization.md
   - Examples: examples/index.md
   - API Reference:
     - api/index.md

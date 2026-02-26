@@ -188,9 +188,9 @@ class TestGraphSummary:
     """Tests for graph_summary method."""
 
     def test_graph_summary_returns_series(self, aap_lzgraph):
-        """Verify graph_summary returns a pandas Series."""
+        """Verify graph_summary returns a dict."""
         result = aap_lzgraph.graph_summary()
-        assert isinstance(result, pd.Series)
+        assert isinstance(result, dict)
 
     def test_graph_summary_contains_expected_keys(self, aap_lzgraph):
         """Verify graph_summary contains expected statistics."""
@@ -205,7 +205,7 @@ class TestGraphSummary:
         ]
 
         for key in expected_keys:
-            assert key in result.index
+            assert key in result.keys()
 
     def test_graph_summary_values_valid(self, aap_lzgraph):
         """Verify graph_summary values are valid."""

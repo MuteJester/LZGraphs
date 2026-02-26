@@ -3,7 +3,6 @@ import time
 from typing import List, Tuple, Union, Optional, Generator
 
 import numpy as np
-import pandas as pd
 from tqdm.auto import tqdm
 
 from .lz_graph_base import LZGraphBase
@@ -65,7 +64,7 @@ class NDPLZGraph(LZGraphBase):
 
     def __init__(
         self,
-        data: Union[pd.DataFrame, List[str], pd.Series],
+        data,
         *,
         abundances: Optional[List[int]] = None,
         v_genes: Optional[List[str]] = None,
@@ -78,17 +77,18 @@ class NDPLZGraph(LZGraphBase):
         """
         Create a nucleotide reading-frame-positional LZGraph.
 
-        *data* can be a pandas DataFrame with a ``cdr3_rearrangement``
-        column, a plain list of nucleotide sequences, or a pandas Series.
+        *data* can be a DataFrame-like object with a ``cdr3_rearrangement``
+        column, a plain list of nucleotide sequences, or any iterable with
+        a ``.tolist()`` method.
 
-        When *data* is a list or Series the optional keyword arguments
-        *abundances*, *v_genes* and *j_genes* may be used to supply
-        additional per-sequence information.  When *data* is a DataFrame
-        these must be ``None`` — use DataFrame columns instead.
+        When *data* is a list the optional keyword arguments *abundances*,
+        *v_genes* and *j_genes* may be used to supply additional
+        per-sequence information.  When *data* is a DataFrame these must be
+        ``None`` — use DataFrame columns instead.
 
         Args:
             data: Sequence data.  DataFrame (with ``cdr3_rearrangement``
-                column), list of strings, or pandas Series.
+                column), list of strings, or any iterable of strings.
             abundances: Per-sequence abundance counts (list input only).
             v_genes: Per-sequence V gene annotations (list input only).
             j_genes: Per-sequence J gene annotations (list input only).
@@ -102,7 +102,7 @@ class NDPLZGraph(LZGraphBase):
         """
         super().__init__()
 
-        # Normalize flexible input → DataFrame
+        # Normalize flexible input → dict-of-lists
         data = self._normalize_input(
             data, "cdr3_rearrangement",
             abundances=abundances, v_genes=v_genes, j_genes=j_genes,
@@ -113,17 +113,17 @@ class NDPLZGraph(LZGraphBase):
         self.smoothing_alpha = smoothing_alpha
         self.min_initial_state_count = min_initial_state_count
 
-        # Detect presence of V/J columns
-        self.has_gene_data = ('V' in data.columns) and ('J' in data.columns)
+        # Detect presence of V/J gene data
+        self.has_gene_data = data.get('v_genes') is not None
 
         # If we have gene data, load and log
         if self.has_gene_data:
             self._load_gene_data(data)
-            self.verbose_driver(0, verbose)  # "Gene Information Loaded"
+            self._log_step("Gene information loaded.", verbose)
 
         # Build the graph by iterating over data
         self.__simultaneous_graph_construction(data)
-        self.verbose_driver(1, verbose)  # "Graph Constructed"
+        self._log_step("Graph constructed.", verbose)
 
         # Normalize and derive probability dicts
         self.length_counts = dict(self.lengths)
@@ -145,34 +145,31 @@ class NDPLZGraph(LZGraphBase):
             if total_initial > 0 else {}
         )
 
-        self.verbose_driver(2, verbose)  # "Graph Metadata Derived"
+        self._log_step("Graph metadata derived.", verbose)
 
         # Subpattern probabilities & edge weight normalization
         self._derive_node_probability()
-        self.verbose_driver(8, verbose)
+        self._log_step("Node probabilities derived.", verbose)
 
         self._normalize_edge_weights()
-        self.verbose_driver(3, verbose)
+        self._log_step("Edge weights normalized.", verbose)
 
         # Additional map derivations
         self._edges_cache = None
         self._derive_stop_probability_data()
-        self.verbose_driver(9, verbose)
+        self._log_step("Stop probabilities derived.", verbose)
 
         # Mark constructor end time
         self.constructor_end_time = time.time()
-        self.verbose_driver(6, verbose)
+        self._log_step("LZGraph created successfully.", verbose)
 
         # Optionally compute PGEN for each sequence
         if calculate_trainset_pgen:
             logger.info("Calculating trainset PGEN for NDPLZGraph. This may take time...")
             self.train_pgen = np.array([
                 self.walk_probability(self.encode_sequence(seq), verbose=False)
-                for seq in data["cdr3_rearrangement"]
+                for seq in data['sequences']
             ])
-
-        # Done
-        self.verbose_driver(-2, verbose)
 
     # --------------------------------------------------------------------------
     # Node Format: {LZ_subpattern}{reading_frame}_{start_position}
@@ -209,31 +206,31 @@ class NDPLZGraph(LZGraphBase):
     # Graph-Building Methods
     # --------------------------------------------------------------------------
 
-    def _decomposed_sequence_generator(self, data: Union[pd.DataFrame, pd.Series]) -> Generator:
+    def _decomposed_sequence_generator(self, data: dict) -> Generator:
         """
         Generates tuples for each row in the data.
 
-        If an ``abundance`` column is present in the DataFrame, each sequence
-        is weighted by its abundance count. Otherwise each sequence counts as 1.
+        Args:
+            data: Normalised dict with ``'sequences'`` (and optionally
+                ``'abundances'``, ``'v_genes'``, ``'j_genes'``).
 
         Yields:
             If genetic: (steps, reading_frames, locations, v, j, count)
             Otherwise:  (steps, reading_frames, locations, count)
         """
-        has_abundance = isinstance(data, pd.DataFrame) and 'abundance' in data.columns
+        sequences = data['sequences']
+        abundances = data.get('abundances')
 
         if self.has_gene_data:
-            iterables = [data["cdr3_rearrangement"], data["V"], data["J"]]
-            if has_abundance:
-                iterables.append(data["abundance"])
-            for row in tqdm(zip(*iterables), desc="Building NDPLZGraph", leave=False):
-                if has_abundance:
-                    cdr3, v, j, abundance = row
-                    count = int(abundance)
-                else:
-                    cdr3, v, j = row
-                    count = 1
+            v_genes = data['v_genes']
+            j_genes = data['j_genes']
+            if abundances is not None:
+                row_iter = zip(sequences, v_genes, j_genes, abundances)
+            else:
+                row_iter = ((s, v, j, 1) for s, v, j in zip(sequences, v_genes, j_genes))
 
+            for cdr3, v, j, abundance in tqdm(row_iter, desc="Building NDPLZGraph", leave=False):
+                count = int(abundance)
                 subs, frames, cumpos = derive_lz_reading_frame_position(cdr3)
                 steps = window(subs, 2)
                 reading_frames = window(frames, 2)
@@ -249,12 +246,10 @@ class NDPLZGraph(LZGraphBase):
 
                 yield (steps, reading_frames, locations, v, j, count)
         else:
-            if has_abundance:
-                seq_iter = zip(data["cdr3_rearrangement"], data["abundance"])
-            elif isinstance(data, pd.DataFrame):
-                seq_iter = ((cdr3, 1) for cdr3 in data["cdr3_rearrangement"])
+            if abundances is not None:
+                seq_iter = zip(sequences, abundances)
             else:
-                seq_iter = ((cdr3, 1) for cdr3 in data)
+                seq_iter = ((s, 1) for s in sequences)
 
             for cdr3, abundance in tqdm(seq_iter, desc="Building NDPLZGraph", leave=False):
                 count = int(abundance)
@@ -273,7 +268,7 @@ class NDPLZGraph(LZGraphBase):
 
                 yield (steps, reading_frames, locations, count)
 
-    def __simultaneous_graph_construction(self, data: pd.DataFrame) -> None:
+    def __simultaneous_graph_construction(self, data: dict) -> None:
         """
         Custom routine to build the NDPLZGraph from the data.
         """

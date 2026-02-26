@@ -202,7 +202,7 @@ Get summary statistics for a graph. This is a **method** on all graph classes, n
 ```python
 summary = graph.graph_summary()
 print(summary)
-# Returns pd.Series with: Chromatic Number, Number of Isolates,
+# Returns dict with: Chromatic Number, Number of Isolates,
 # Max In Deg, Max Out Deg, Number of Edges
 ```
 

@@ -5,16 +5,19 @@ Build your first LZGraph in 5 minutes. This guide shows the essential workflow f
 ## Step 1: Import and Load Data
 
 ```python
-import pandas as pd
 from LZGraphs import AAPLZGraph
 
-# Load your repertoire data
-# Your CSV should have a 'cdr3_amino_acid' column (or 'cdr3_rearrangement' for nucleotides)
-data = pd.read_csv("your_repertoire.csv")
+# Option 1: Plain list of sequences (no pandas needed)
+sequences = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...]
 
-# Preview the data
-print(data.head())
+# Option 2: Load from CSV with pandas
+import pandas as pd
+data = pd.read_csv("your_repertoire.csv")
+sequences = data['cdr3_amino_acid'].tolist()
 ```
+
+!!! note "pandas is optional"
+    LZGraphs does not require pandas. You can pass a plain `list[str]` to any graph constructor. pandas is only needed if you want to load data from CSV files or pass DataFrames directly.
 
 Example data format:
 

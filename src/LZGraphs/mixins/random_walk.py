@@ -15,7 +15,7 @@ class RandomWalkMixin:
             self._select_random_vj_genes(vj_init) -> (str, str)
             self._raise_genetic_mode_error() -> None
             self._random_initial_state() -> str
-            self._get_node_feature_info_df(node, feature, V=None, J=None, asdict=False) -> pd.DataFrame or dict
+            self._get_node_feature_info(node, feature, V=None, J=None, asdict=False) -> dict
         - A function `choice(iterable, weights)` that returns one item from `iterable`
           with probability distribution `weights`.
     """
@@ -59,7 +59,7 @@ class RandomWalkMixin:
         walk = [current_state]
 
         while not self.is_stop_condition(current_state, selected_v, selected_j):
-            edge_info = self._get_node_feature_info_df(
+            edge_info = self._get_node_feature_info(
                 current_state,
                 'weight',
                 selected_v,

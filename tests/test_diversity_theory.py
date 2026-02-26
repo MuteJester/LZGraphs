@@ -533,8 +533,8 @@ class TestSaturationCurveBehavior:
         curve_low = probe.saturation_curve(low_diversity_repertoire[:1000], log_every=100)
         curve_high = probe.saturation_curve(high_diversity_repertoire[:1000], log_every=100)
 
-        final_low = curve_low['nodes'].iloc[-1]
-        final_high = curve_high['nodes'].iloc[-1]
+        final_low = curve_low[-1]['nodes']
+        final_high = curve_high[-1]['nodes']
 
         assert final_high > final_low, \
             f"Diverse repertoire nodes ({final_high}) should exceed " \
@@ -594,7 +594,7 @@ class TestDiversityMetricsRobustness:
 
         # Test with saturation probe - should find very few unique nodes
         curve = probe.saturation_curve(identical_repertoire, log_every=100)
-        final_nodes = curve['nodes'].iloc[-1]
+        final_nodes = curve[-1]['nodes']
 
         # Should be very low - essentially just the patterns from one sequence
         assert final_nodes < 20, f"Identical repertoire nodes ({final_nodes}) should be minimal"
@@ -678,7 +678,7 @@ class TestCorrelationBetweenMetrics:
             k_values.append(k)
 
             curve = probe.saturation_curve(sequences[:1000], log_every=200)
-            node_counts.append(curve['nodes'].iloc[-1])
+            node_counts.append(curve[-1]['nodes'])
 
         correlation = np.corrcoef(k_values, node_counts)[0, 1]
 

@@ -37,6 +37,16 @@ dictionary = generate_kmer_dictionary(6)
 graph = NaiveLZGraph(my_custom_sequences, dictionary)
 ```
 
+### How do I personalize a graph to an individual?
+
+Use `get_posterior()` to create a Bayesian posterior graph that blends a population-level prior with an individual's observed data:
+
+```python
+posterior = population_graph.get_posterior(individual_sequences, kappa=1.0)
+```
+
+The `kappa` parameter controls prior strength (higher = trust population more). The posterior is a full graph supporting all standard operations. See the [Posterior Personalization guide](../how-to/posterior-personalization.md) for details.
+
 ---
 
 ## Probability and Analysis
@@ -94,15 +104,19 @@ Or check you're in the correct Python environment.
 
 ### "MissingColumnError: Required column 'cdr3_amino_acid' not found"
 
-Your DataFrame needs the correct column names:
+This error occurs when passing a DataFrame without the expected column. You have two options:
+
+**Option 1: Pass a plain list** (no column names needed):
+```python
+graph = AAPLZGraph(["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...])
+```
+
+**Option 2: Fix your DataFrame column names:**
 
 - `cdr3_amino_acid` for `AAPLZGraph`
 - `cdr3_rearrangement` for `NDPLZGraph`
 
 ```python
-# Check your columns
-print(data.columns.tolist())
-
 # Rename if needed
 data = data.rename(columns={'CDR3': 'cdr3_amino_acid'})
 ```

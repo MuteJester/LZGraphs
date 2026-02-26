@@ -112,9 +112,9 @@ class TestGraphSummary:
     """Tests for LZGraphBase.graph_summary method."""
 
     def test_graph_summary_returns_series(self, aap_lzgraph):
-        """Verify graph_summary returns a pandas Series."""
+        """Verify graph_summary returns a dict."""
         result = aap_lzgraph.graph_summary()
-        assert isinstance(result, pd.Series)
+        assert isinstance(result, dict)
 
     def test_graph_summary_contains_expected_keys(self, aap_lzgraph):
         """Verify graph_summary contains all expected keys."""
@@ -124,7 +124,7 @@ class TestGraphSummary:
             'Max In Deg', 'Max Out Deg', 'Number of Edges'
         ]
         for key in expected_keys:
-            assert key in result.index
+            assert key in result.keys()
 
     def test_graph_summary_positive_edges(self, aap_lzgraph):
         """Verify graph summary reports positive edge count."""
@@ -261,14 +261,14 @@ class TestSaturationRate:
     """Tests for NodeEdgeSaturationProbe.saturation_rate method."""
 
     def test_saturation_rate_returns_dataframe(self, test_data_aap):
-        """Verify saturation_rate returns a DataFrame."""
+        """Verify saturation_rate returns a list of dicts."""
         probe = NodeEdgeSaturationProbe(node_function='aap')
         sequences = test_data_aap['cdr3_amino_acid'].iloc[:100].tolist()
 
         result = probe.saturation_rate(sequences, log_every=20)
-        assert isinstance(result, pd.DataFrame)
-        assert 'n_sequences' in result.columns
-        assert 'rate' in result.columns
+        assert isinstance(result, list)
+        assert all('n_sequences' in row for row in result)
+        assert all('rate' in row for row in result)
 
     def test_saturation_rate_positive_initially(self, test_data_aap):
         """Verify discovery rate is positive at the start."""
@@ -277,7 +277,7 @@ class TestSaturationRate:
 
         result = probe.saturation_rate(sequences, log_every=20)
         if len(result) > 0:
-            assert result['rate'].iloc[0] > 0
+            assert result[0]['rate'] > 0
 
 
 # =========================================================================

@@ -152,15 +152,14 @@ class TestNodeEdgeSaturationProbe:
     def test_saturation_curve_returns_dataframe(
         self, saturation_probe, test_data_aap
     ):
-        """Verify saturation_curve returns a DataFrame."""
-        import pandas as pd
+        """Verify saturation_curve returns a list of dicts."""
         sequences = test_data_aap['cdr3_amino_acid'].iloc[:100].tolist()
 
         curve = saturation_probe.saturation_curve(sequences, log_every=20)
-        assert isinstance(curve, pd.DataFrame)
-        assert 'n_sequences' in curve.columns
-        assert 'nodes' in curve.columns
-        assert 'edges' in curve.columns
+        assert isinstance(curve, list)
+        assert all('n_sequences' in row for row in curve)
+        assert all('nodes' in row for row in curve)
+        assert all('edges' in row for row in curve)
 
     def test_saturation_curve_monotonic_nodes(
         self, saturation_probe, test_data_aap
@@ -169,7 +168,7 @@ class TestNodeEdgeSaturationProbe:
         sequences = test_data_aap['cdr3_amino_acid'].iloc[:100].tolist()
 
         curve = saturation_probe.saturation_curve(sequences, log_every=20)
-        nodes = curve['nodes'].tolist()
+        nodes = [row['nodes'] for row in curve]
 
         for i in range(1, len(nodes)):
             assert nodes[i] >= nodes[i - 1]
@@ -197,21 +196,20 @@ class TestNodeEdgeSaturationProbe:
     def test_diversity_profile_returns_dataframe(
         self, saturation_probe, test_data_aap
     ):
-        """Verify diversity_profile returns a DataFrame with all metrics."""
-        import pandas as pd
+        """Verify diversity_profile returns a dict with all metrics."""
         sequences = test_data_aap['cdr3_amino_acid'].iloc[:100].tolist()
 
         profile = saturation_probe.diversity_profile(sequences)
 
-        # Should return a DataFrame
-        assert isinstance(profile, pd.DataFrame)
+        # Should return a dict
+        assert isinstance(profile, dict)
 
-        expected_columns = [
+        expected_keys = [
             'n_sequences', 'final_nodes', 'final_edges',
             'k50_nodes', 'k50_edges', 'ausc_nodes', 'ausc_edges'
         ]
-        for col in expected_columns:
-            assert col in profile.columns
+        for key in expected_keys:
+            assert key in profile
 
 
 class TestDecompositionEdgeCases:

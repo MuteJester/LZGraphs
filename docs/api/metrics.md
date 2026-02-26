@@ -355,7 +355,7 @@ for pos in sorted(tmip):
 
 ### compare_repertoires
 
-All-in-one repertoire comparison returning a pandas Series of metrics.
+All-in-one repertoire comparison returning a dict of metrics.
 
 ```python
 from LZGraphs import compare_repertoires
@@ -365,7 +365,7 @@ print(result)
 ```
 
 !!! note "Function Signature"
-    `compare_repertoires(graph1, graph2) -> pd.Series`
+    `compare_repertoires(graph1, graph2) -> dict`
 
     Returns: `js_divergence`, `transition_jsd`, `cross_entropy_1_2`, `cross_entropy_2_1`, `kl_divergence_1_2`, `kl_divergence_2_1`, `node_entropy_1`, `node_entropy_2`, `edge_entropy_1`, `edge_entropy_2`, `transition_predictability_1`, `transition_predictability_2`, `shared_nodes`, `shared_edges`, `jaccard_nodes`, `jaccard_edges`.
 
