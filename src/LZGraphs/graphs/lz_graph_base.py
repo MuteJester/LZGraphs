@@ -1,6 +1,7 @@
 import logging
 import re
 from abc import ABC, abstractmethod
+from bisect import bisect_left as _bisect_left
 from time import time
 
 import networkx as nx
@@ -11,6 +12,12 @@ from ..utilities.misc import choice, window
 
 # Shared constants
 from ..constants import _EPS, _LOG_EPS
+
+# Optional C extension for fast simulation
+try:
+    from .._fast_walk import simulate_walks as _c_simulate_walks
+except ImportError:
+    _c_simulate_walks = None
 
 # EdgeData
 from .edge_data import EdgeData
@@ -105,6 +112,19 @@ class LZGraphBase(
         self._walk_cache = None
         # Topological order cache (built lazily, invalidated on structural changes)
         self._topo_order = None
+
+    # ------------------------------------------------------------------
+    # Derived properties (single source of truth)
+    # ------------------------------------------------------------------
+
+    @property
+    def length_counts(self):
+        """Alias for ``lengths`` — avoids storing the same dict twice."""
+        return self.lengths
+
+    @length_counts.setter
+    def length_counts(self, value):
+        self.lengths = value
 
     @staticmethod
     def _normalize_input(data, seq_column, abundances=None, v_genes=None, j_genes=None):
@@ -242,7 +262,7 @@ class LZGraphBase(
         if self.has_gene_data and other.has_gene_data:
             aux += not _dicts_close(self.marginal_v_genes, other.marginal_v_genes, decimals=3)
             aux += not _dicts_close(self.vj_probabilities, other.vj_probabilities, decimals=3)
-            aux += not _dicts_close(self.length_counts, other.length_counts, decimals=3)
+            aux += not _dicts_close(self.lengths, other.lengths, decimals=3)
 
         return (aux == 0)
 
@@ -802,6 +822,10 @@ class LZGraphBase(
     def _build_walk_cache(self, seed=None):
         """Build pre-computed numpy arrays for fast random walks.
 
+        Uses CSR (Compressed Sparse Row) format for neighbor data so
+        the entire walk can be driven by flat numpy arrays and
+        ``searchsorted`` instead of per-step ``rng.choice()`` calls.
+
         Returns a dict with the cache data, stored as ``self._walk_cache``.
         """
         graph = self.graph
@@ -814,17 +838,42 @@ class LZGraphBase(
         # Pre-compute clean labels for all nodes
         clean_labels = np.array([self.extract_subpattern(name) for name in nodes], dtype=object)
 
-        # Per-node neighbor IDs and weights
-        neighbor_ids = [None] * n
-        neighbor_weights = [None] * n
+        # Build per-node neighbor/weight arrays.
+        # node_neighbors + node_weights: used by lzpgen_distribution
+        # node_cumweights: used by Python simulate fallback (bisect)
+        # CSR flat arrays are built only when the C extension is available.
+        node_neighbors = [None] * n   # list of numpy int arrays
+        node_weights = [None] * n     # list of numpy float arrays
+        node_cumweights = [None] * n  # list of Python float lists (for bisect)
         for i, name in enumerate(nodes):
             succs = list(graph.successors(name))
             if succs:
                 ids = np.array([node_to_id[s] for s in succs], dtype=np.intp)
+                node_neighbors[i] = ids
                 wts = np.array([graph[name][s]['data'].weight for s in succs], dtype=np.float64)
-                wts /= wts.sum()  # ensure normalization
-                neighbor_ids[i] = ids
-                neighbor_weights[i] = wts
+                wts /= wts.sum()
+                node_weights[i] = wts
+                cw = np.cumsum(wts)
+                cw[-1] = 1.0  # clamp for floating point safety
+                node_cumweights[i] = cw.tolist()
+
+        # Build flat CSR arrays only if C extension is available
+        if _c_simulate_walks is not None:
+            csr_offsets = np.empty(n + 1, dtype=np.intp)
+            csr_parts_nb = []
+            csr_parts_cw = []
+            offset = 0
+            for i in range(n):
+                csr_offsets[i] = offset
+                if node_neighbors[i] is not None:
+                    csr_parts_nb.append(node_neighbors[i])
+                    csr_parts_cw.append(np.array(node_cumweights[i], dtype=np.float64))
+                    offset += len(node_neighbors[i])
+            csr_offsets[n] = offset
+            csr_neighbors = np.concatenate(csr_parts_nb) if csr_parts_nb else np.empty(0, dtype=np.intp)
+            csr_cumweights = np.concatenate(csr_parts_cw) if csr_parts_cw else np.empty(0, dtype=np.float64)
+        else:
+            csr_offsets = csr_neighbors = csr_cumweights = None
 
         # Stop probabilities: NaN for non-terminal nodes
         stop_probs = np.full(n, np.nan, dtype=np.float64)
@@ -834,12 +883,19 @@ class LZGraphBase(
 
         # Initial state arrays
         init_states = list(self.initial_state_probabilities.keys())
+        if not init_states:
+            raise ValueError(
+                "Cannot simulate: graph has no initial states. "
+                "Ensure the graph was constructed with valid sequences."
+            )
         init_probs = np.array(
             [self.initial_state_probabilities[s] for s in init_states],
             dtype=np.float64,
         )
         init_probs = init_probs / init_probs.sum()  # ensure normalization
         initial_ids = np.array([node_to_id[s] for s in init_states], dtype=np.intp)
+        initial_cumprobs = np.cumsum(init_probs)
+        initial_cumprobs[-1] = 1.0  # clamp
 
         rng = np.random.default_rng(seed)
 
@@ -847,11 +903,16 @@ class LZGraphBase(
             'node_to_id': node_to_id,
             'id_to_node': id_to_node,
             'clean_labels': clean_labels,
-            'neighbor_ids': neighbor_ids,
-            'neighbor_weights': neighbor_weights,
+            'node_neighbors': node_neighbors,
+            'node_weights': node_weights,
+            'node_cumweights': node_cumweights,
+            'csr_offsets': csr_offsets,
+            'csr_neighbors': csr_neighbors,
+            'csr_cumweights': csr_cumweights,
             'stop_probs': stop_probs,
             'initial_ids': initial_ids,
             'initial_probs': init_probs,
+            'initial_cumprobs': initial_cumprobs,
             'rng': rng,
         }
         return self._walk_cache
@@ -879,46 +940,89 @@ class LZGraphBase(
             self._build_walk_cache(seed)
 
         cache = self._walk_cache
-        rng = cache['rng']
-        initial_ids = cache['initial_ids']
-        initial_probs = cache['initial_probs']
-        stop_probs = cache['stop_probs']
-        neighbor_ids = cache['neighbor_ids']
-        neighbor_weights = cache['neighbor_weights']
         clean_labels = cache['clean_labels']
         id_to_node = cache['id_to_node']
 
+        # ── C fast path ──────────────────────────────────────────────
+        if _c_simulate_walks is not None:
+            rng_seed = seed if seed is not None else int(cache['rng'].integers(0, 2**63))
+            return _c_simulate_walks(
+                n,
+                cache['csr_offsets'],
+                cache['csr_neighbors'],
+                cache['csr_cumweights'],
+                cache['stop_probs'],
+                cache['initial_ids'],
+                cache['initial_cumprobs'],
+                rng_seed,
+                list(clean_labels),
+                return_walks,
+                list(id_to_node),
+            )
+
+        # ── Python fallback ──────────────────────────────────────────
+        rng = cache['rng']
+        initial_ids = cache['initial_ids']
+        initial_cumprobs = cache['initial_cumprobs']
+        stop_probs = cache['stop_probs']
+        node_neighbors = cache['node_neighbors']
+        node_cumweights = cache['node_cumweights']
+
+        # Pre-generate random numbers in bulk for throughput
+        buf_size = max(n * 25, 1024)
+        rand_buf = rng.random(buf_size)
+        rand_idx = 0
+
+        # Local references to avoid repeated global/attribute lookups
+        bisect = _bisect_left
+        init_cumprobs_list = initial_cumprobs.tolist()
         results = []
+        results_append = results.append
+
         for _ in range(n):
-            # Pick initial state
-            current = rng.choice(initial_ids, p=initial_probs)
+            # Refill buffer if running low
+            if rand_idx + 50 > len(rand_buf):
+                rand_buf = rng.random(buf_size)
+                rand_idx = 0
+
+            # Pick initial state via bisect on cumulative probs
+            current = initial_ids[bisect(init_cumprobs_list, rand_buf[rand_idx])]
+            rand_idx += 1
             parts = [clean_labels[current]]
             walk_ids = [current] if return_walks else None
 
             while True:
                 # Check stop condition
                 stop_p = stop_probs[current]
-                if not np.isnan(stop_p):
-                    if rng.random() < stop_p:
+                if stop_p == stop_p:  # fast NaN check (NaN != NaN)
+                    if rand_buf[rand_idx] < stop_p:
+                        rand_idx += 1
                         break
+                    rand_idx += 1
 
                 # Check for dead-end (no outgoing edges)
-                nb_ids = neighbor_ids[current]
-                if nb_ids is None:
+                nb = node_neighbors[current]
+                if nb is None:
                     break
 
-                # Take a step
-                current = rng.choice(nb_ids, p=neighbor_weights[current])
+                # Take a step via bisect on per-node cumulative weights
+                current = nb[bisect(node_cumweights[current], rand_buf[rand_idx])]
+                rand_idx += 1
                 parts.append(clean_labels[current])
                 if return_walks:
                     walk_ids.append(current)
 
+                # Refill buffer if running low
+                if rand_idx + 50 > len(rand_buf):
+                    rand_buf = rng.random(buf_size)
+                    rand_idx = 0
+
             sequence = ''.join(parts)
             if return_walks:
                 walk = [id_to_node[wid] for wid in walk_ids]
-                results.append((walk, sequence))
+                results_append((walk, sequence))
             else:
-                results.append(sequence)
+                results_append(sequence)
 
         return results
 

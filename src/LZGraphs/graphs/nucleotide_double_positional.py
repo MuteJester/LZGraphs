@@ -126,8 +126,6 @@ class NDPLZGraph(LZGraphBase):
         self._log_step("Graph constructed.", verbose)
 
         # Normalize and derive probability dicts
-        self.length_counts = dict(self.lengths)
-
         total_terminal = sum(self.terminal_state_counts.values())
         self.length_probabilities = (
             {k: v / total_terminal for k, v in self.terminal_state_counts.items()}

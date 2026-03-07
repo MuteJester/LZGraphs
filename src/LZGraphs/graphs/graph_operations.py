@@ -91,19 +91,10 @@ def graph_union(graphA, graphB):
             }
 
         # Merge length_distribution counts
-        if hasattr(graphA, 'length_counts') and hasattr(graphB, 'length_counts'):
-            for k, v in graphB.length_counts.items():
-                graphA.length_counts[k] = graphA.length_counts.get(k, 0) + v
+        for k, v in graphB.lengths.items():
+            graphA.lengths[k] = graphA.lengths.get(k, 0) + v
 
-        # Merge observed gene sets
-        if hasattr(graphB, 'observed_v_genes'):
-            graphA.observed_v_genes = list(
-                set(graphA.observed_v_genes) | set(graphB.observed_v_genes)
-            )
-        if hasattr(graphB, 'observed_j_genes'):
-            graphA.observed_j_genes = list(
-                set(graphA.observed_j_genes) | set(graphB.observed_j_genes)
-            )
+        # observed_v/j_genes are now derived from marginal_v/j_genes (already merged above)
 
     # 5. Recalculate ALL derived state from raw counts
     graphA.recalculate()

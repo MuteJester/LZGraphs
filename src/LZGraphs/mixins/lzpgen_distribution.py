@@ -56,8 +56,8 @@ class LZPgenDistributionMixin:
         initial_ids = cache['initial_ids']
         initial_probs = cache['initial_probs']
         stop_probs = cache['stop_probs']
-        neighbor_ids = cache['neighbor_ids']
-        neighbor_weights = cache['neighbor_weights']
+        node_neighbors = cache['node_neighbors']
+        node_weights = cache['node_weights']
 
         # Pre-compute log values for zero per-step overhead
         eps = _EPS
@@ -71,9 +71,9 @@ class LZPgenDistributionMixin:
 
         neighbor_log_weights = [None] * n_nodes
         for i in range(n_nodes):
-            if neighbor_weights[i] is not None:
+            if node_weights[i] is not None:
                 neighbor_log_weights[i] = np.log(
-                    np.maximum(neighbor_weights[i], eps)
+                    np.maximum(node_weights[i], eps)
                 )
 
         log_probs = np.empty(n, dtype=np.float64)
@@ -94,16 +94,16 @@ class LZPgenDistributionMixin:
                         break
 
                 # Dead-end check
-                nb_ids = neighbor_ids[current]
-                if nb_ids is None:
+                nb = node_neighbors[current]
+                if nb is None:
                     log_p += np.log(eps)
                     break
 
                 # Take a step
-                n_nb = len(nb_ids)
-                step_idx = rng.choice(n_nb, p=neighbor_weights[current])
+                n_nb = len(nb)
+                step_idx = rng.choice(n_nb, p=node_weights[current])
                 log_p += neighbor_log_weights[current][step_idx]
-                current = nb_ids[step_idx]
+                current = nb[step_idx]
 
             log_probs[seq_idx] = log_p
 

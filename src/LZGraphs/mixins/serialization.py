@@ -32,7 +32,7 @@ class SerializationMixin:
         'subpattern_individual_probability': 'node_probability',
         'per_node_observed_frequency': 'node_outgoing_counts',
         'length_distribution_proba': 'length_probabilities',
-        'length_distribution': 'length_counts',
+        'length_distribution': 'lengths',
         'n_subpatterns': 'num_subpatterns',
         'n_transitions': 'num_transitions',
         'marginal_vgenes': 'marginal_v_genes',
@@ -55,12 +55,37 @@ class SerializationMixin:
         'j_call': 'J',
     }
 
+    # Transient attributes excluded from pickle (rebuilt on demand)
+    _TRANSIENT_ATTRS = frozenset({
+        '_walk_cache',
+        '_topo_order',
+        '_edges_cache',
+        'constructor_start_time',
+        'constructor_end_time',
+    })
+
+    def __getstate__(self):
+        """Exclude transient caches from pickle to reduce file size."""
+        return {k: v for k, v in self.__dict__.items()
+                if k not in self._TRANSIENT_ATTRS}
+
     def __setstate__(self, state):
         """Restore instance from pickle, migrating old attribute names and pandas types."""
         # Migrate old attribute names to new names
         for old_name, new_name in self._ATTR_MIGRATION.items():
             if old_name in state and new_name not in state:
                 state[new_name] = state.pop(old_name)
+
+        # length_counts is now a property aliasing lengths — migrate old pickles
+        if 'length_counts' in state:
+            if 'lengths' not in state:
+                state['lengths'] = state.pop('length_counts')
+            else:
+                del state['length_counts']
+
+        # observed_v/j_genes are now properties — remove stored values
+        state.pop('observed_v_genes', None)
+        state.pop('observed_j_genes', None)
 
         # Migrate 'wsif/sep' key inside terminal_state_data dicts
         tsd = state.get('terminal_state_data')
@@ -80,7 +105,7 @@ class SerializationMixin:
         for attr in ('initial_state_counts', 'terminal_state_counts',
                       'initial_state_probabilities', 'length_probabilities',
                       'marginal_v_genes', 'marginal_j_genes', 'vj_probabilities',
-                      'length_counts'):
+                      'lengths'):
             val = getattr(self, attr, None)
             if val is not None and hasattr(val, 'to_dict'):
                 setattr(self, attr, val.to_dict())
@@ -324,12 +349,7 @@ class SerializationMixin:
                 data['marginal_j_genes'] = _to_dict(self.marginal_j_genes)
             if hasattr(self, 'vj_probabilities'):
                 data['vj_probabilities'] = _to_dict(self.vj_probabilities)
-            if hasattr(self, 'length_counts'):
-                data['length_counts'] = _to_dict(self.length_counts)
-            if hasattr(self, 'observed_v_genes'):
-                data['observed_v_genes'] = list(self.observed_v_genes)
-            if hasattr(self, 'observed_j_genes'):
-                data['observed_j_genes'] = list(self.observed_j_genes)
+            data['length_counts'] = _to_dict(self.lengths)
 
         # Terminal state data
         if hasattr(self, 'terminal_state_data'):
@@ -421,7 +441,9 @@ class SerializationMixin:
         instance.terminal_state_counts = _to_plain_dict(
             data.get('terminal_state_counts', data.get('terminal_states'))
         )
-        instance.lengths = data.get('lengths', {})
+        instance.lengths = data.get('lengths',
+                                    data.get('length_counts',
+                                             data.get('length_distribution', {})))
         instance.vj_combination_graphs = {}
         instance.num_neighbours = {}
         instance.node_outgoing_counts = data.get('node_outgoing_counts',
@@ -451,15 +473,6 @@ class SerializationMixin:
                 instance.marginal_j_genes = _to_plain_dict(mg_j)
             if 'vj_probabilities' in data:
                 instance.vj_probabilities = _to_plain_dict(data['vj_probabilities'])
-            lc = data.get('length_counts', data.get('length_distribution'))
-            if lc is not None:
-                instance.length_counts = _to_plain_dict(lc)
-            ov = data.get('observed_v_genes', data.get('observed_vgenes'))
-            if ov is not None:
-                instance.observed_v_genes = set(ov)
-            oj = data.get('observed_j_genes', data.get('observed_jgenes'))
-            if oj is not None:
-                instance.observed_j_genes = set(oj)
 
         # Restore terminal state data
         if 'terminal_state_data' in data:

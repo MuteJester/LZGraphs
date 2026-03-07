@@ -17,6 +17,28 @@ class GeneLogicMixin:
           with probability distribution `weights`.
     """
 
+    @property
+    def observed_v_genes(self):
+        """Unique V genes — derived from ``marginal_v_genes`` keys."""
+        mg = getattr(self, 'marginal_v_genes', None)
+        return list(mg.keys()) if mg else []
+
+    @observed_v_genes.setter
+    def observed_v_genes(self, value):
+        # Accept sets from old pickles / JSON deserialization (no-op storage)
+        pass
+
+    @property
+    def observed_j_genes(self):
+        """Unique J genes — derived from ``marginal_j_genes`` keys."""
+        mg = getattr(self, 'marginal_j_genes', None)
+        return list(mg.keys()) if mg else []
+
+    @observed_j_genes.setter
+    def observed_j_genes(self, value):
+        # Accept sets from old pickles / JSON deserialization (no-op storage)
+        pass
+
     def _raise_genetic_mode_error(self):
         """
         Raise an error if genetic mode is off but a genetic function is called.
@@ -38,10 +60,6 @@ class GeneLogicMixin:
         """
         v_list = data['v_genes']
         j_list = data['j_genes']
-
-        # Unique sets of V and J
-        self.observed_v_genes = list(set(v_list))
-        self.observed_j_genes = list(set(j_list))
 
         # Marginal distributions (normalized) — stored as plain dicts
         n = len(v_list)

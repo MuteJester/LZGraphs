@@ -58,8 +58,13 @@ class TestLZPgenDistributionBasic:
         result = aap_lzgraph.lzpgen_distribution(n=0, seed=42)
         assert len(result) == 0
 
-    def test_consistent_with_walk_log_probability(self, aap_lzgraph):
+    def test_consistent_with_walk_log_probability(self, aap_lzgraph, monkeypatch):
         """Values should match walk_log_probability on the same walks."""
+        # Force Python fallback so simulate() and lzpgen_distribution()
+        # use the same numpy RNG and produce identical walks for the same seed.
+        import LZGraphs.graphs.lz_graph_base as _base
+        monkeypatch.setattr(_base, '_c_simulate_walks', None)
+
         walks_and_seqs = aap_lzgraph.simulate(20, seed=42, return_walks=True)
         dist = aap_lzgraph.lzpgen_distribution(n=20, seed=42)
 
