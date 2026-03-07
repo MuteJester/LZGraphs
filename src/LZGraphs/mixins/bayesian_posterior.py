@@ -1,5 +1,7 @@
 import copy
 
+import networkx as nx
+
 from ..graphs.edge_data import EdgeData
 
 
@@ -47,9 +49,17 @@ class BayesianPosteriorMixin:
         seq_list, abd_list = self._parse_posterior_input(sequences, abundances)
         ind_counts = self._extract_counts_for_posterior(seq_list, abd_list)
 
-        # 2. Create a lightweight copy (deep-copy only the nx.DiGraph)
+        # 2. Create a lightweight copy with a fast graph clone
+        #    (avoids copy.deepcopy which does 51M recursive calls on large graphs)
         posterior = copy.copy(self)
-        posterior.graph = copy.deepcopy(self.graph)
+        g = self.graph
+        new_g = nx.DiGraph()
+        new_g.add_nodes_from(g.nodes())
+        new_g.add_edges_from(
+            (a, b, {'data': g[a][b]['data'].copy()})
+            for a, b in g.edges()
+        )
+        posterior.graph = new_g
 
         # Deep copy mutable dicts that will be modified
         posterior.initial_state_counts = dict(self.initial_state_counts)

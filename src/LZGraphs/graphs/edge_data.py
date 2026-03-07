@@ -87,6 +87,17 @@ class EdgeData:
             if self.j_genes[j_gene] <= 0:
                 del self.j_genes[j_gene]
 
+    def copy(self):
+        """Create a shallow copy of this EdgeData (fast, no pickle)."""
+        new = EdgeData.__new__(EdgeData)
+        new.count = self.count
+        new._weight = self._weight
+        new.v_genes = dict(self.v_genes)
+        new.j_genes = dict(self.j_genes)
+        new._vsum = self._vsum
+        new._jsum = self._jsum
+        return new
+
     def merge(self, other):
         """Merge another EdgeData into this one (for graph union).
 
