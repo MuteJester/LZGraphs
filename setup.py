@@ -10,6 +10,10 @@ import os
 import sys
 from setuptools import setup, Extension
 
+# Ensure setuptools can resolve the dynamic version (attr = "LZGraphs.__version__")
+# when running in an isolated build environment where src/ isn't on sys.path.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
+
 ext_modules = [
     Extension(
         "LZGraphs._fast_walk",
