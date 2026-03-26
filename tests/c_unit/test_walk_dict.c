@@ -22,6 +22,7 @@
 #include "lzgraph/walk_dict.h"
 #include "lzgraph/hash_map.h"
 #include "lzgraph/rng.h"
+#include "lzgraph/io.h"
 
 static int pass_count = 0, fail_count = 0;
 #define RUN_TEST(fn) do { printf("  %-55s ", #fn); fn(); } while(0)
@@ -314,8 +315,6 @@ static void test_edge_weights_normalized(void) {
 }
 
 /* Test 11 (stop probs) removed — sentinel model uses $-sinks */
-    PASS();
-}
 
 /* ═══════════════════════════════════════════════════════════════ */
 /* 12. Higher-frequency seqs have higher LZPGEN                   */
