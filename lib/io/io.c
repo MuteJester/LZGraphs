@@ -346,16 +346,12 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
         free(sec_table); fclose(f); return LZG_ERR_IO;
     }
 
-    /* Build tag → entry lookup */
-    LZGIOSectionEntry *find_sec[0x60000000u >> 24]; /* sparse, not great */
-    /* Better: linear scan (n_sec ≤ 20) */
-
-    #define FIND_SECTION(tag_val) ({ \
-        LZGIOSectionEntry *_found = NULL; \
+    /* Helper: linear scan for a section by tag (n_sec ≤ 20) */
+    #define FIND_SECTION(tag_val, out_ptr) do { \
+        out_ptr = NULL; \
         for (uint32_t _i = 0; _i < n_sec; _i++) \
-            if (sec_table[_i].tag == (tag_val)) { _found = &sec_table[_i]; break; } \
-        _found; \
-    })
+            if (sec_table[_i].tag == (tag_val)) { out_ptr = &sec_table[_i]; break; } \
+    } while(0)
 
     /* Helper: read and verify a section */
     #define READ_SECTION(entry, buf) do { \
@@ -375,7 +371,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── STRP: String pool ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_STRP);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_STRP, e);
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
 
@@ -391,7 +387,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── CSRA ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_CSRA);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_CSRA, e);
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         g->row_offsets = malloc((nn + 1) * 4);
@@ -403,7 +399,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── EWGT ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_EWGT);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_EWGT, e);
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         g->edge_weights = malloc(ne * 8);
@@ -415,7 +411,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── ELZC ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_ELZC);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_ELZC, e);
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         uint32_t sp_len_padded = align8(ne);
@@ -430,7 +426,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── NODE ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_NODE);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_NODE, e);
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         uint32_t sp_len_padded = align8(nn);
@@ -452,7 +448,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── LEND ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_LEND);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_LEND, e);
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         memcpy(&g->max_length, buf, 4);
@@ -463,7 +459,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── META ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_META);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_META, e);
         if (e) {
             uint8_t *buf; READ_SECTION(e, buf);
             uint8_t *p = buf;
@@ -495,7 +491,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── GENE (optional) ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_GENE);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_GENE, e);
         if (e) {
             uint8_t *buf; READ_SECTION(e, buf);
             uint8_t *rp = buf;
@@ -560,7 +556,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     /* ── TOPO (optional) ── */
     {
-        LZGIOSectionEntry *e = FIND_SECTION(LZG_IO_TAG_TOPO);
+        LZGIOSectionEntry *e; FIND_SECTION(LZG_IO_TAG_TOPO, e);
         if (e) {
             uint8_t *buf; READ_SECTION(e, buf);
             g->topo_order = malloc(nn * 4);
@@ -572,8 +568,6 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
 
     fclose(f);
     free(sec_table);
-    (void)find_sec; /* suppress unused warning */
-
     /* Recompute topo if not loaded */
     if (!g->topo_valid) {
         LZGError err = lzg_graph_topo_sort(g);

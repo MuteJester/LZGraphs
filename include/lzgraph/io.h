@@ -33,9 +33,22 @@
 #define LZG_IO_TAG_GENE  0x454E4547u  /* Gene Data            */
 #define LZG_IO_TAG_TOPO  0x4F504F54u  /* Topological Order    */
 
+/* ── Packed struct support (GCC/Clang vs MSVC) ────────────── */
+
+#ifdef _MSC_VER
+  #define LZG_PACKED_BEGIN __pragma(pack(push, 1))
+  #define LZG_PACKED_END   __pragma(pack(pop))
+  #define LZG_PACKED_ATTR
+#else
+  #define LZG_PACKED_BEGIN
+  #define LZG_PACKED_END
+  #define LZG_PACKED_ATTR  __attribute__((packed))
+#endif
+
 /* ── File header (64 bytes) ────────────────────────────────── */
 
-typedef struct __attribute__((packed)) {
+LZG_PACKED_BEGIN
+typedef struct LZG_PACKED_ATTR {
     uint32_t magic;               /* 0x4C5A4732 */
     uint16_t format_version;      /* 2 */
     uint16_t min_reader_version;  /* 2 */
@@ -54,10 +67,12 @@ typedef struct __attribute__((packed)) {
     uint16_t lib_version_patch;
     uint8_t  _reserved[14];
 } LZGIOHeader;
+LZG_PACKED_END
 
 /* ── Section table entry (32 bytes) ────────────────────────── */
 
-typedef struct __attribute__((packed)) {
+LZG_PACKED_BEGIN
+typedef struct LZG_PACKED_ATTR {
     uint32_t tag;
     uint32_t flags;             /* bit 0: compressed */
     uint64_t offset;            /* absolute file offset */
@@ -65,13 +80,16 @@ typedef struct __attribute__((packed)) {
     uint32_t uncompressed_size; /* 0 if not compressed */
     uint32_t crc32c;            /* CRC of section data */
 } LZGIOSectionEntry;
+LZG_PACKED_END
 
 /* ── File trailer (8 bytes) ────────────────────────────────── */
 
-typedef struct __attribute__((packed)) {
+LZG_PACKED_BEGIN
+typedef struct LZG_PACKED_ATTR {
     uint32_t file_crc32c;
     uint32_t trailer_magic;     /* 0x454E444C "ENDL" */
 } LZGIOTrailer;
+LZG_PACKED_END
 
 /* ── API ───────────────────────────────────────────────────── */
 
