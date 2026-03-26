@@ -54,6 +54,7 @@ viz = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "scipy>=1.9",
     "ruff>=0.1.0",
     "build>=1.0",
 ]
