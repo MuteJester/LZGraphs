@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "LZGraphs"
 dynamic = ["version"]
-description = "An Implementation of LZ76 Based Graphs for Repertoire Representation and Analysis"
+description = "High-performance LZ76 compression graphs for immune receptor repertoire analysis"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
@@ -39,14 +39,11 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Operating System :: OS Independent",
+    "Programming Language :: C",
     "Typing :: Typed",
 ]
 dependencies = [
-    "networkx>=3.0",
-    "numpy>=1.24",
-    "tqdm>=4.65",
-    "scipy>=1.10",
+    "numpy>=1.20",
 ]
 
 [project.optional-dependencies]
@@ -57,13 +54,8 @@ viz = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "pandas>=1.5",
-    "black>=23.0",
-    "isort>=5.12",
     "ruff>=0.1.0",
-    "pre-commit>=3.0",
     "build>=1.0",
-    "twine>=4.0",
 ]
 docs = [
     "mkdocs-material>=9.5",
@@ -77,15 +69,18 @@ Repository = "https://github.com/MuteJester/LZGraphs"
 Issues = "https://github.com/MuteJester/LZGraphs/issues"
 Changelog = "https://github.com/MuteJester/LZGraphs/blob/master/CHANGELOG.md"
 
+[project.scripts]
+lzg = "LZGraphs.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["LZGraphs", "LZGraphs.graphs", "LZGraphs.metrics", "LZGraphs.utilities", "LZGraphs.mixins", "LZGraphs.bag_of_words", "LZGraphs.visualization", "LZGraphs.exceptions"]
+packages = ["LZGraphs"]
 
 [tool.setuptools.dynamic]
 version = {attr = "LZGraphs.__version__"}
 
 [tool.setuptools.package-data]
-LZGraphs = ["py.typed"]
+LZGraphs = ["_clzgraph.c"]
 
 # =============================================================================
 # Code Quality Tools
@@ -180,34 +175,20 @@ exclude_lines = [
 ]
 
 # =============================================================================
-# Semantic Release Configuration
+# cibuildwheel — cross-platform wheel building
 # =============================================================================
 
-[tool.semantic_release]
-version_toml = []
-version_variables = ["src/LZGraphs/__init__.py:__version__"]
-branch = "master"
-upload_to_pypi = true
-upload_to_release = true
-build_command = "pip install build && python -m build"
-commit_message = "chore(release): {version}"
+[tool.cibuildwheel]
+# Skip PyPy, musllinux i686, win32
+skip = "pp* *-musllinux_i686 *-win32"
+# Smoke test: import the C extension
+test-command = "python -c \"from LZGraphs import LZGraph; print('LZGraphs C backend OK')\""
 
-[tool.semantic_release.changelog]
-changelog_file = "CHANGELOG.md"
-exclude_commit_patterns = [
-    "chore\\(release\\):",
-    "Merge pull request",
-    "Merge branch",
-]
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
 
-[tool.semantic_release.commit_parser_options]
-allowed_tags = ["build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "style", "test"]
-minor_tags = ["feat"]
-patch_tags = ["fix", "perf"]
+[tool.cibuildwheel.macos]
+archs = ["arm64"]
 
-[tool.semantic_release.remote]
-type = "github"
-token = { env = "GH_TOKEN" }
-
-[tool.semantic_release.publish]
-upload_to_vcs_release = true
+[tool.cibuildwheel.windows]
+archs = ["AMD64"]

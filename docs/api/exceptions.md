@@ -4,174 +4,61 @@ Custom exception classes for clear error handling in LZGraphs.
 
 ## Exception Hierarchy
 
+LZGraphs follows a simple exception hierarchy. Custom exceptions are only used where specific recovery logic is likely needed. For general issues (invalid arguments, etc.), standard Python exceptions like `ValueError` and `TypeError` are used with descriptive messages.
+
 ```
 LZGraphError (base)
-├── InputValidationError
-│   ├── EmptyDataError
-│   ├── MissingColumnError
-│   └── InvalidSequenceError
-├── GraphConstructionError
-│   └── EncodingError
-├── GeneDataError
-│   ├── NoGeneDataError
-│   └── GeneAnnotationError
-├── WalkError
-│   ├── NoValidPathError
-│   ├── MissingNodeError
-│   └── MissingEdgeError
-├── SerializationError
-│   ├── UnsupportedFormatError
-│   └── CorruptedFileError
-├── BOWError
-│   ├── EncodingFunctionMismatchError
-│   └── UnfittedBOWError
-├── GraphOperationError
-│   └── IncompatibleGraphsError
-└── MetricsError
-    └── InsufficientDataError
+├── NoGeneDataError      — gene operation on graph without gene data
+├── ConvergenceError     — numerical method did not converge
+└── CorruptFileError     — LZG file is corrupt or invalid
 ```
 
 ## Import
 
 ```python
-from LZGraphs.exceptions import (
-    LZGraphError,
-    MissingColumnError,
-    NoGeneDataError,
-    MissingNodeError,
-    # ... other exceptions
-)
+from LZGraphs import LZGraphError, NoGeneDataError, ConvergenceError, CorruptFileError
 ```
 
-## Common Exceptions
+## Exception Reference
 
-### MissingColumnError
-
-Raised when a required column is missing.
+### LZGraphError
+**Base class** for all exceptions raised by the LZGraphs library. Catch this to handle any library-specific error.
 
 ```python
-from LZGraphs.exceptions import MissingColumnError
-
 try:
-    graph = AAPLZGraph(data)  # data missing 'cdr3_amino_acid'
-except MissingColumnError as e:
-    print(f"Missing column: {e.column_name}")
-    print(f"Available: {e.available_columns}")
+    graph.save("path/to/save")
+except LZGraphError as e:
+    print(f"LZGraphs operation failed: {e}")
 ```
 
 ### NoGeneDataError
-
-Raised when gene operations are used without gene data.
-
-```python
-from LZGraphs.exceptions import NoGeneDataError
-
-try:
-    walk, v, j = graph.genomic_random_walk()
-except NoGeneDataError as e:
-    print(f"Gene data required: {e}")
-    # Fall back to regular random walk
-    walk = graph.random_walk()
-```
-
-### MissingNodeError
-
-Raised when a required node doesn't exist.
+Raised when gene-dependent operations (like `sample_genes=True` in `simulate()`) are called on a graph that was built without V/J gene annotations.
 
 ```python
-from LZGraphs.exceptions import MissingNodeError
-
 try:
-    pgen = graph.walk_probability(encoded_sequence)
-except MissingNodeError as e:
-    print(f"Node not found: {e.node}")
-    pgen = 0
-```
-
-### EmptyDataError
-
-Raised when input data is empty.
-
-```python
-from LZGraphs.exceptions import EmptyDataError
-
-try:
-    graph = AAPLZGraph(pd.DataFrame())
-except EmptyDataError:
-    print("Cannot build graph from empty data")
-```
-
-## Error Handling Patterns
-
-### Catch All LZGraphs Errors
-
-```python
-from LZGraphs.exceptions import LZGraphError
-
-try:
-    # Any LZGraphs operation
-    graph = AAPLZGraph(data)
-    pgen = graph.walk_probability(encoded)
-except LZGraphError as e:
-    print(f"LZGraphs error: {e}")
-```
-
-### Specific Error Handling
-
-```python
-from LZGraphs.exceptions import (
-    MissingColumnError,
-    NoGeneDataError,
-    MissingNodeError
-)
-
-try:
-    graph = AAPLZGraph(data)
-    walk, v, j = graph.genomic_random_walk()
-except MissingColumnError as e:
-    print(f"Data format error: {e}")
+    results = graph.simulate(100, sample_genes=True)
 except NoGeneDataError:
-    print("Using non-genomic random walk")
-    walk = graph.random_walk()
-except MissingNodeError as e:
-    print(f"Unknown pattern: {e.node}")
+    print("This graph has no gene data. Falling back to basic simulation.")
+    results = graph.simulate(100)
 ```
 
-### Batch Processing with Error Handling
+### ConvergenceError
+Raised by analytical methods like `predicted_richness()` if the underlying numerical solver fails to converge. This can happen at extreme sequencing depths or with highly unusual graph topologies.
+
+### CorruptFileError
+Raised by `LZGraph.load()` if the file is not a valid `.lzg` binary, has a checksum mismatch, or was created by an incompatible version of the library.
 
 ```python
-results = []
-for seq in sequences:
-    try:
-        pgen = graph.walk_probability(seq)
-        results.append({'sequence': seq, 'pgen': pgen, 'error': None})
-    except MissingNodeError as e:
-        results.append({'sequence': seq, 'pgen': 0, 'error': str(e)})
-    except Exception as e:
-        results.append({'sequence': seq, 'pgen': None, 'error': str(e)})
-
-df = pd.DataFrame(results)
-print(f"Successful: {df['error'].isna().sum()}")
-print(f"Failed: {df['error'].notna().sum()}")
+try:
+    graph = LZGraph.load("data.lzg")
+except CorruptFileError:
+    print("The file is corrupt or not a valid LZGraph.")
 ```
 
-## Full Reference
+## Standard Exceptions Used
 
-::: LZGraphs.exceptions
-    options:
-      show_root_heading: false
-      show_source: false
-      members:
-        - LZGraphError
-        - InputValidationError
-        - EmptyDataError
-        - MissingColumnError
-        - InvalidSequenceError
-        - NoGeneDataError
-        - MissingNodeError
-        - MissingEdgeError
+LZGraphs also uses standard Python exceptions:
 
-## See Also
-
-- [Getting Started: Troubleshooting](../getting-started/installation.md#troubleshooting)
-- [Resources: FAQ](../resources/faq.md)
+- **`ValueError`**: Passed an invalid value (e.g., negative simulation count, unknown variant name).
+- **`TypeError`**: Passed an object of the wrong type (e.g., a string instead of a list of sequences).
+- **`MemoryError`**: The C backend failed to allocate enough memory for a massive graph or simulation.

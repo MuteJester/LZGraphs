@@ -1,212 +1,200 @@
 # LZ76 Algorithm
 
-The Lempel-Ziv 1976 (LZ76) algorithm is the foundation of LZGraphs' sequence encoding. Understanding how it works helps you interpret graph structure and encoding results.
+The Lempel-Ziv 1976 (LZ76) algorithm is the foundation of LZGraphs. It decomposes any string into a sequence of **shortest novel subpatterns** — and this decomposition is what creates the graph structure.
 
-## What is LZ76?
+Understanding LZ76 is key to understanding why the graph looks the way it does, why certain sequences share nodes, and what the "dictionary constraint" means.
 
-LZ76 is a lossless compression algorithm that decomposes a sequence into a series of unique subpatterns. Each new pattern extends a previously seen pattern by one character.
+---
 
-## How It Works
+## The core rule
 
-### Step-by-Step Decomposition
-
-Let's decompose the sequence `CASSLE`:
-
+```mermaid
+flowchart LR
+    A["Read next<br/>characters"] --> B{"Prefix in<br/>dictionary?"}
+    B -->|No| C["Emit single<br/>character as token"]
+    B -->|Yes| D["Extend by<br/>one more character"]
+    D --> E["Emit extended<br/>string as token"]
+    C --> F["Add token<br/>to dictionary"]
+    E --> F
+    F --> G{"End of<br/>string?"}
+    G -->|No| A
+    G -->|Yes| H["Done"]
+    style C fill:#b2ebf2,stroke:#00838f
+    style E fill:#e1bee7,stroke:#7b1fa2
 ```
-Input: C A S S L E
-       │ │ │ │ │ │
-Step 1: C          → Dictionary: {C}
-Step 2:   A        → Dictionary: {C, A}
-Step 3:     S      → Dictionary: {C, A, S}
-Step 4:       S L  → "SL" (S + new char L) → Dictionary: {C, A, S, SL}
-Step 5:           E → Dictionary: {C, A, S, SL, E}
 
-Result: [C, A, S, SL, E]
-```
+LZ76 processes a string from left to right, building up a **dictionary** of patterns it has seen. At each step, it does the following:
 
-### Key Properties
+> **Find the longest prefix of the remaining string that's already in the dictionary, then extend it by one character. The extended string becomes the next token, and it's added to the dictionary.**
 
-1. **Unique patterns**: Each pattern in the decomposition is unique
-2. **Incremental building**: New patterns extend previous ones
-3. **Lossless**: Original sequence can be reconstructed
-4. **Deterministic**: Same input always produces same output
+If no prefix is in the dictionary (which happens at the very start, or with a character never seen before), the token is just a single character.
 
-## Python Implementation
+## Worked example
 
-LZGraphs uses this algorithm internally:
+Let's decompose `CASSLEPSGGTDTQYF` step by step. We'll track the dictionary at each step:
+
+| Step | Remaining string | Longest known prefix | Extend by 1 | Token | Dictionary after |
+|:---:|:---|:---|:---|:---:|:---|
+| 1 | **C**ASSLEPSGGTDTQYF | (none) | — | **C** | {C} |
+| 2 | **A**SSLEPSGGTDTQYF | (none) | — | **A** | {C, A} |
+| 3 | **S**SLEPSGGTDTQYF | (none) | — | **S** | {C, A, S} |
+| 4 | **SL**EPSGGTDTQYF | S is known | +L | **SL** | {C, A, S, SL} |
+| 5 | **E**PSGGTDTQYF | (none) | — | **E** | {C, A, S, SL, E} |
+| 6 | **P**SGGTDTQYF | (none) | — | **P** | {..., P} |
+| 7 | **SG**GTDTQYF | S is known | +G | **SG** | {..., SG} |
+| 8 | **G**TDTQYF | (none) | — | **G** | {..., G} |
+| 9 | **T**DTQYF | (none) | — | **T** | {..., T} |
+| 10 | **D**TQYF | (none) | — | **D** | {..., D} |
+| 11 | **TQ**YF | T is known | +Q | **TQ** | {..., TQ} |
+| 12 | **Y**F | (none) | — | **Y** | {..., Y} |
+| 13 | **F** | (none) | — | **F** | {..., F} |
+
+**Result:** `[C, A, S, SL, E, P, SG, G, T, D, TQ, Y, F]` — 13 tokens from 16 characters.
+
+Notice what happened at step 4: the algorithm saw `S` (already in the dictionary from step 3), so it extended by one character to get `SL` — a novel 2-character token. This "extend-by-one" rule is the heart of LZ76.
 
 ```python
-from LZGraphs.utilities import lempel_ziv_decomposition
+from LZGraphs import lz76_decompose
 
-# Basic decomposition
-sequence = "CASSLEPSGGTDTQYF"
-patterns = lempel_ziv_decomposition(sequence)
-print(patterns)
+tokens = lz76_decompose("CASSLEPSGGTDTQYF")
+print(tokens)
 # ['C', 'A', 'S', 'SL', 'E', 'P', 'SG', 'G', 'T', 'D', 'TQ', 'Y', 'F']
 ```
 
-### Verify Reconstruction
+---
+
+## Key properties
+
+### Deterministic
+
+The same input always produces the same decomposition. There's no randomness in LZ76 — it's a **greedy** algorithm that always takes the shortest novel pattern.
+
+### Lossless
+
+The original string is exactly reconstructed by concatenating the tokens:
 
 ```python
-# Patterns concatenate to original
-reconstructed = ''.join(patterns)
-print(f"Original:      {sequence}")
-print(f"Reconstructed: {reconstructed}")
-print(f"Match: {sequence == reconstructed}")
+tokens = lz76_decompose("CASSLEPSGGTDTQYF")
+assert ''.join(tokens) == "CASSLEPSGGTDTQYF"  # always true
 ```
 
-## Why LZ76 for Sequences?
+### Unique tokens (almost)
 
-### 1. Captures Structure
+Each token is novel when it's first created — it wasn't in the dictionary before. The only exception is the **last token** of a string, which might repeat (because the string ends before we can extend a known prefix). LZGraphs handles this with sentinel characters (see below).
 
-Unlike k-mer approaches, LZ76 adapts to the sequence:
+### Compression reflects complexity
+
+Repetitive sequences compress well (fewer tokens); diverse sequences don't:
 
 ```python
-# Repetitive sequence
-rep_seq = "AAAAAA"
-print(lempel_ziv_decomposition(rep_seq))
-# ['A', 'AA', 'AAA']  - Captures repetition
+# Highly repetitive — compresses to just 4 tokens
+lz76_decompose("AAAAAAAAAAAA")
+# ['A', 'AA', 'AAA', 'AAAAAA']
 
-# Diverse sequence
-div_seq = "ABCDEF"
-print(lempel_ziv_decomposition(div_seq))
-# ['A', 'B', 'C', 'D', 'E', 'F']  - All unique
+# Maximally diverse — no compression at all
+lz76_decompose("ABCDEFGHIJKL")
+# ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
 ```
 
-### 2. Variable-Length Patterns
+This means the **number of LZ76 tokens relative to sequence length** is a natural measure of complexity. A CDR3 with many novel subpatterns is structurally more complex than one that repeats the same motifs.
 
-LZ76 naturally finds patterns of different lengths:
+---
+
+## From tokens to graph nodes
+
+The raw LZ76 decomposition gives you tokens like `[C, A, S, SL, E, ...]`. But the graph needs to distinguish the same character at different positions — because in a CDR3 sequence, an `S` at position 3 (the conserved serine in `CAS...`) is biologically very different from an `S` at position 10 (in the junctional region).
+
+LZGraphs augments each token with **positional information** depending on the graph variant:
+
+### AAP encoding (amino acid positional)
+
+Each node is labeled `{subpattern}_{end_position}`. Positions start at 2 because position 1 is reserved for the internal `@` start sentinel:
+
+| Token | End position | Node label |
+|:---:|:---:|:---:|
+| C | 2 | `C_2` |
+| A | 3 | `A_3` |
+| S | 4 | `S_4` |
+| SL | 6 | `SL_6` |
+| E | 7 | `E_7` |
+
+### NDP encoding (nucleotide double positional)
+
+For nucleotide sequences, nodes also encode the **reading frame** (codon position 0, 1, or 2): `{subpattern}{frame}_{position}`.
+
+### Naive encoding (position-free)
+
+No positional information at all — nodes are just the raw subpatterns. This creates smaller, more connected graphs but loses positional specificity.
+
+!!! info "Which encoding should I use?"
+    See [Graph Variants](graph-types.md) for a detailed comparison. The short answer: use `'aap'` for amino acid CDR3s (the default), `'ndp'` for nucleotide CDR3s, and `'naive'` for position-independent analysis.
+
+---
+
+## Sentinels: why they exist
+
+You may have noticed the `@` and `$` nodes in the graph. These are **sentinel characters** that LZGraphs adds to each sequence before decomposition:
+
+```
+Original:  CASSLGIRRT
+Wrapped:   @CASSLGIRRT$
+```
+
+**Why?**
+
+1. **`@` (start sentinel):** Creates a single root node that all walks begin from. Without it, different sequences might start at different nodes, complicating the probability model.
+
+2. **`$` (end sentinel):** Guarantees that the last token of every decomposition is novel. Without it, the last LZ76 token could be a repeat (because the string ends before we can extend), which would violate the graph's probability model. The `$` ensures every walk ends cleanly at a terminal node.
+
+The sentinels are internal implementation details — they're hidden by default when you access `graph.nodes` or `graph.edges`, but visible via `graph.all_nodes` and `graph.all_edges`.
+
+---
+
+## How shared prefixes create shared paths
+
+When you build a graph from many sequences, sequences with the same prefix share the same initial nodes. This is the fundamental compression that makes LZGraphs work:
 
 ```python
-sequence = "CASSLEPSGGTDTQYF"
-patterns = lempel_ziv_decomposition(sequence)
-
-# Pattern lengths vary based on repetition
-lengths = [len(p) for p in patterns]
-print(f"Patterns: {patterns}")
-print(f"Lengths:  {lengths}")
+lz76_decompose("CASSLGIRRT")    # [C, A, S, SL, G, I, R, RT]
+lz76_decompose("CASSLGYEQYF")  # [C, A, S, SL, G, Y, E, QY, F]
+lz76_decompose("CASSQETQYF")   # [C, A, S, SQ, E, TQ, Y, F]
 ```
 
-### 3. Compression Reflects Complexity
+All three sequences share the `C → A → S` prefix (positions 2, 3, 4). After `S_4`, the graph branches:
 
-```python
-# More repetitive = fewer patterns
-simple = "AAAAAAAAAAAA"
-complex = "ABCDEFGHIJKL"
+- Two sequences continue with `SL_6` (the `CASSL...` family)
+- One branches to `SQ_6` (the `CASSQ...` family)
 
-simple_patterns = lempel_ziv_decomposition(simple)
-complex_patterns = lempel_ziv_decomposition(complex)
+This branching point tells you something biologically meaningful: the repertoire has a common `CAS` prefix (from the V gene), then diversifies at the junctional region.
 
-print(f"Simple ({len(simple)} chars):  {len(simple_patterns)} patterns")
-print(f"Complex ({len(complex)} chars): {len(complex_patterns)} patterns")
-```
+---
 
-## Positional Encoding
+## Formal definition
 
-LZGraphs extends LZ76 with position information:
+For the mathematically inclined, the LZ76 decomposition of a string $s = s_1 s_2 \ldots s_n$ is defined recursively:
 
-### AAPLZGraph Encoding
+1. Initialize dictionary $\mathcal{D} = \emptyset$
+2. Set position $i = 1$
+3. While $i \leq n$:
+    - Find the longest prefix $s_i \ldots s_{i+k-1}$ that is in $\mathcal{D}$
+    - If $k = 0$: emit token $s_i$, set $k = 1$
+    - Else: emit token $s_i \ldots s_{i+k}$ (extend by one character)
+    - Add the emitted token to $\mathcal{D}$
+    - Advance: $i \leftarrow i + k$
 
-```python
-from LZGraphs import AAPLZGraph
+The number of tokens $c(s)$ is the **LZ76 complexity** of the string. For a string of length $n$ over an alphabet of size $\sigma$, the complexity is bounded:
 
-sequence = "CASSLE"
-encoded = AAPLZGraph.encode_sequence(sequence)
-print(encoded)
-# ['C_1', 'A_2', 'S_3', 'SL_5', 'E_6']
-```
+$$
+c(s) \leq \frac{n}{\log_\sigma n} (1 + o(1))
+$$
 
-The `_N` suffix indicates the **ending position** of each pattern:
+Random strings approach this upper bound; maximally repetitive strings achieve $c(s) = O(\log n)$.
 
-| Pattern | Start | End | Encoded |
-|---------|-------|-----|---------|
-| C | 1 | 1 | C_1 |
-| A | 2 | 2 | A_2 |
-| S | 3 | 3 | S_3 |
-| SL | 4 | 5 | SL_5 |
-| E | 6 | 6 | E_6 |
+---
 
-### NDPLZGraph Encoding
+## See Also
 
-NDPLZGraph uses reading frame and position encoding:
-
-```python
-from LZGraphs import NDPLZGraph
-
-sequence = "TGTGCC"
-encoded = NDPLZGraph.encode_sequence(sequence)
-print(encoded)
-# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'C2_6']
-```
-
-Each node has the format `{subpattern}{reading_frame}_{position}`, where the reading frame
-(0, 1, or 2) indicates the codon position.
-
-## Why Position Matters
-
-In CDR3 sequences, position carries biological meaning:
-
-- **Early positions**: Often V-gene derived
-- **Middle positions**: Junction diversity
-- **Late positions**: Often J-gene derived
-
-Positional encoding allows the graph to distinguish:
-
-```python
-# Same pattern, different positions
-seq1 = "CASSG"   # G at position 5
-seq2 = "GCASS"   # G at position 1
-
-enc1 = AAPLZGraph.encode_sequence(seq1)
-enc2 = AAPLZGraph.encode_sequence(seq2)
-
-print(f"seq1: {enc1}")  # [..., 'G_5']
-print(f"seq2: {enc2}")  # ['G_1', ...]
-```
-
-## Mathematical Properties
-
-### Compression Ratio
-
-The number of LZ76 patterns relative to sequence length indicates complexity:
-
-```python
-def complexity_ratio(sequence):
-    patterns = lempel_ziv_decomposition(sequence)
-    return len(patterns) / len(sequence)
-
-# Compare sequences
-sequences = [
-    "AAAAAAAAAA",      # Very simple
-    "CASSLEPSGGTDTQYF", # Typical CDR3
-    "ABCDEFGHIJ"        # Maximum complexity
-]
-
-for seq in sequences:
-    ratio = complexity_ratio(seq)
-    print(f"{seq[:15]:15s} ratio: {ratio:.2f}")
-```
-
-### Pattern Growth
-
-For a sequence of length n:
-
-- **Maximum patterns**: n (every character is new)
-- **Minimum patterns**: O(log n) (highly repetitive)
-- **Typical CDR3**: Between these extremes
-
-## Connection to Diversity
-
-LZ76 complexity connects to repertoire diversity:
-
-- **K-diversity**: Counts unique patterns across samples
-- **Graph nodes**: Each pattern becomes a potential node
-- **Graph edges**: Pattern transitions become edges
-
-This creates a natural bridge from sequences to graph metrics.
-
-## Next Steps
-
-- [Graph Types](graph-types.md) - How encoding affects graph structure
-- [Probability Model](probability-model.md) - Using patterns for probability
-- [Tutorials: Diversity Metrics](../tutorials/diversity-metrics.md) - Apply to real data
+- [Graph Variants](graph-types.md) — how AAP, NDP, and Naive encode these tokens differently
+- [Probability Model](probability-model.md) — how the graph defines transition probabilities
+- [Graph Construction tutorial](../tutorials/graph-construction.md) — build and inspect a real graph
+- [API: `lz76_decompose()`](../api/functions.md#lz76_decompose) — function reference

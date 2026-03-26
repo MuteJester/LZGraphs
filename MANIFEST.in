@@ -1,5 +1,7 @@
 include pyproject.toml
 include *.md
 include LICENSE
-include requirements.txt
-recursive-include tests test*.py
+include Makefile
+recursive-include include *.h
+recursive-include lib *.c
+recursive-include src/LZGraphs *.c

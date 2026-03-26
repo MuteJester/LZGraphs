@@ -4,48 +4,32 @@ Common questions about using LZGraphs.
 
 ## General
 
-### Which graph type should I use?
+### Which graph variant should I use?
 
-**Short answer:**
+All variants are handled by the unified `LZGraph` class:
 
-- **Amino acid sequences** → `AAPLZGraph`
-- **Nucleotide sequences** → `NDPLZGraph`
-- **ML feature extraction** → `NaiveLZGraph`
+- **Amino acid sequences** → `variant='aap'` (most common)
+- **Nucleotide sequences** → `variant='ndp'`
+- **Position-free motif discovery** → `variant='naive'`
 
-**Detailed guide:** See [Concepts: Graph Types](../concepts/graph-types.md)
+See [Concepts: Graph Variants](../concepts/graph-types.md) for a detailed comparison.
 
 ### How much data do I need?
 
 LZGraphs works with any dataset size, but:
 
-- **Minimum:** ~100 sequences for basic analysis
-- **Recommended:** 1,000+ sequences for reliable diversity metrics
-- **K1000 requirement:** At least 1,000 unique sequences
-
-For small datasets, consider `k100_diversity` instead of `k1000_diversity`.
+- **Minimum:** ~100 sequences for basic exploration.
+- **Recommended:** 10,000+ sequences for stable probability estimates.
+- **Diversity analysis:** At least 1,000 unique sequences are recommended for reliable `k_diversity` results.
 
 ### Can I use LZGraphs for non-TCR sequences?
 
-Yes! LZGraphs works with any string sequences. The library is optimized for TCR/CDR3 analysis, but the core algorithms are sequence-agnostic.
+Yes! While optimized for TCR/CDR3 analysis, the core LZ76 algorithms are sequence-agnostic. You can use the `naive` variant for any string sequences (e.g., proteins, DNA, or even natural language).
 
 ```python
-# Works with any strings
-from LZGraphs import NaiveLZGraph
-from LZGraphs.utilities import generate_kmer_dictionary
-
-dictionary = generate_kmer_dictionary(6)
-graph = NaiveLZGraph(my_custom_sequences, dictionary)
+from LZGraphs import LZGraph
+graph = LZGraph(my_custom_sequences, variant='naive')
 ```
-
-### How do I personalize a graph to an individual?
-
-Use `get_posterior()` to create a Bayesian posterior graph that blends a population-level prior with an individual's observed data:
-
-```python
-posterior = population_graph.get_posterior(individual_sequences, kappa=1.0)
-```
-
-The `kappa` parameter controls prior strength (higher = trust population more). The posterior is a full graph supporting all standard operations. See the [Posterior Personalization guide](../how-to/posterior-personalization.md) for details.
 
 ---
 
@@ -53,40 +37,25 @@ The `kappa` parameter controls prior strength (higher = trust population more). 
 
 ### Why is my sequence probability zero?
 
-A probability of zero (or a `MissingNodeError`/`MissingEdgeError`) means the sequence contains patterns or transitions not observed in the training data:
-
-```python
-# Debug: check which nodes/edges are missing
-encoded = AAPLZGraph.encode_sequence(sequence)
-for node in encoded:
-    if not graph.graph.has_node(node):
-        print(f"Missing node: {node}")
-
-for i in range(len(encoded) - 1):
-    if not graph.graph.has_edge(encoded[i], encoded[i+1]):
-        print(f"Missing edge: {encoded[i]} -> {encoded[i+1]}")
-```
+A probability of zero means the sequence contains patterns or transitions never observed in the training data. Because LZGraphs 3.0+ strictly enforces LZ76 dictionary constraints, if a transition doesn't exist in the graph, the walk is impossible.
 
 !!! tip
-    `walk_probability` accepts raw strings directly — no need to call `encode_sequence` yourself:
+    `lzpgen` accepts raw strings directly:
     ```python
-    pgen = graph.walk_probability("CASSLEPSGGTDTQYF", use_log=True)
+    log_p = graph.lzpgen("CASSLEPSGGTDTQYF")
     ```
 
-### How do I interpret K1000?
+### How do I interpret Hill Numbers?
 
-K1000 measures the number of unique LZ76 patterns in a sample of 1,000 sequences:
+Hill numbers provide a diversity profile:
+- **D(0)**: Total number of unique sequences the graph can generate (Richness).
+- **D(1)**: Effective diversity (based on Shannon entropy).
+- **D(2)**: Collision diversity (reciprocal of the probability that two random sequences are identical).
 
-- **Higher values** = more diverse repertoire
-- **Lower values** = more repetitive patterns
-- **Typical range** = 500-3000 depending on repertoire
+### What's the difference between Pgen and Perplexity?
 
-### What's the difference between perplexity and probability?
-
-- **Probability (Pgen)**: How likely is this exact sequence?
-- **Perplexity**: How "surprised" is the model by this sequence?
-
-Lower perplexity = sequence fits the model better.
+- **Generation Probability (Pgen)**: How likely is this exact sequence to be produced by the model?
+- **Perplexity**: How "surprised" is the model by this sequence? (Lower is better).
 
 ---
 
@@ -94,81 +63,35 @@ Lower perplexity = sequence fits the model better.
 
 ### "ModuleNotFoundError: No module named 'LZGraphs'"
 
-Ensure LZGraphs is installed:
-
+Ensure LZGraphs is installed in your current environment:
 ```bash
 pip install LZGraphs
 ```
 
-Or check you're in the correct Python environment.
+### "Missing column error"
 
-### "MissingColumnError: Required column 'cdr3_amino_acid' not found"
-
-This error occurs when passing a DataFrame without the expected column. You have two options:
-
-**Option 1: Pass a plain list** (no column names needed):
-```python
-graph = AAPLZGraph(["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...])
-```
-
-**Option 2: Fix your DataFrame column names:**
-
-- `cdr3_amino_acid` for `AAPLZGraph`
-- `cdr3_rearrangement` for `NDPLZGraph`
+The `LZGraph` constructor in version 3.0+ expects **plain lists** of strings, not DataFrames. If you are using pandas, extract the columns first:
 
 ```python
-# Rename if needed
-data = data.rename(columns={'CDR3': 'cdr3_amino_acid'})
+# Instead of LZGraph(df), use:
+graph = LZGraph(df['cdr3_amino_acid'].tolist(), variant='aap')
 ```
 
-### "NoGeneDataError: This operation requires gene annotation data"
+### "NoGeneDataError"
 
-Some functions require V/J gene columns:
-
-```python
-# Build with gene data
-data = pd.DataFrame({
-    'cdr3_amino_acid': sequences,
-    'V': v_genes,  # Required for genomic functions
-    'J': j_genes
-})
-graph = AAPLZGraph(data)
-```
-
-### Memory issues with large repertoires
-
-For very large datasets:
-
-1. **Subsample first:**
-   ```python
-   data_sample = data.sample(n=50000)
-   graph = AAPLZGraph(data_sample)
-   ```
-
-2. **Use NaiveLZGraph:** Smaller graphs with fixed dictionary
-
-3. **Save and reload:**
-   ```python
-   graph.save("large_graph.pkl")
-   # Load when needed
-   graph = AAPLZGraph.load("large_graph.pkl")
-   ```
+This occurs when you call gene-aware methods (like `sample_genes=True` in `simulate()`) on a graph that was built without gene annotations. To fix this, provide the `v_genes` and `j_genes` lists during construction.
 
 ---
 
 ## Performance
 
-### How can I speed up graph construction?
+### Is LZGraphs fast?
 
-- Use `verbose=False` to skip progress output
-- Subsample large datasets for exploration
-- Build once and save for repeated use
+Yes. Version 3.0+ features a high-performance C backend. Constructing a graph from 1 million sequences typically takes only a few seconds on a modern laptop. Simulation and probability scoring are equally fast, handling millions of operations per second.
 
-### How long should K1000 take?
+### Memory usage
 
-With 30 draws on 10,000 sequences: ~10-30 seconds
-
-Increase `draws` for more accurate results (slower).
+The C core is extremely memory-efficient. Even graphs representing millions of sequences typically fit within 100-500 MB of RAM.
 
 ---
 
@@ -176,24 +99,40 @@ Increase `draws` for more accurate results (slower).
 
 ### Should I normalize sequence lengths?
 
-No, LZGraphs handles variable-length sequences naturally. The length distribution is captured in `graph.lengths`.
+No. LZGraphs handles variable-length sequences naturally. The positional encoding in AAP and NDP variants ensures that motifs are analyzed in their correct structural context.
 
 ### How do I compare repertoires of different sizes?
 
-Use normalized metrics:
-
-- `normalized_graph_entropy()` - Entropy normalized by graph size
-- `jensen_shannon_divergence()` - Inherently normalized (0 to 1)
-- K-diversity with same sample size
+Use **Jensen-Shannon Divergence (JSD)**. It is inherently normalized between 0 and 1 and is robust to differences in sample size. For diversity, use `k_diversity` with a fixed `k` (e.g., 1000) for all samples.
 
 ### How do I handle special characters?
 
-Remove or replace them before building the graph:
+Remove non-standard characters (like `*`, `X`, or spaces) before building the graph to ensure the LZ76 decomposition is clean.
 
+---
+
+## Reproducibility
+
+### How do I get identical results every time?
+
+**Graph construction** is deterministic — the same input always produces the same graph.
+
+**Simulation** supports seeding:
 ```python
-# Remove non-standard amino acids
-data = data[data['cdr3_amino_acid'].str.match(r'^[ACDEFGHIKLMNPQRSTVWY]+$')]
+results = graph.simulate(1000, seed=42)
 ```
+
+**Save and load** using the `.lzg` format to ensure you are working with the exact same model across sessions.
+
+---
+
+## Limitations
+
+### What can't LZGraphs do?
+
+- **Mechanistic Modeling**: LZGraphs is a statistical model of *observed* sequences. It does not model the mechanistic process of V(D)J recombination (insertions/deletions).
+- **Paired Chains**: It currently models single chains (e.g., TRB) and does not support alpha-beta pairing.
+- **Zero-shot Generalization**: It cannot assign probability to motifs it has never seen.
 
 ---
 
@@ -201,4 +140,4 @@ data = data[data['cdr3_amino_acid'].str.match(r'^[ACDEFGHIKLMNPQRSTVWY]+$')]
 
 - [Open an issue](https://github.com/MuteJester/LZGraphs/issues) on GitHub
 - Email: [thomaskon90@gmail.com](mailto:thomaskon90@gmail.com)
-- Check the [API Reference](../api/index.md) for detailed documentation
+- Check the [API Reference](../api/index.md)

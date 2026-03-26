@@ -34,6 +34,5 @@ repos:
       - id: mypy
         additional_dependencies:
           - numpy
-          - pandas-stubs
         args: [--ignore-missing-imports]
         exclude: ^tests/

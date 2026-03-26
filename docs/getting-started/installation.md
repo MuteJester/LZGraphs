@@ -44,20 +44,7 @@ LZGraphs automatically installs these core dependencies:
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `networkx` | ≥3.0 | Graph data structures |
-| `numpy` | ≥1.24 | Numerical operations |
-| `scipy` | ≥1.10 | Scientific computing |
-| `tqdm` | ≥4.65 | Progress bars |
-
-### Optional: Visualization
-
-For plotting functions (`plot_graph`, `plot_possible_paths`, etc.), install the visualization extras:
-
-```bash
-pip install "LZGraphs[viz]"
-```
-
-This adds `matplotlib` (≥3.7) and `seaborn` (≥0.12).
+| `numpy` | ≥1.20 | Numerical operations |
 
 ## Verify Installation
 
@@ -75,14 +62,14 @@ You should see the version number printed without errors.
 Run a minimal example to ensure all components work:
 
 ```python
-from LZGraphs import AAPLZGraph
+from LZGraphs import LZGraph
 
 # Create minimal test data
 sequences = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF']
 
 # Build a graph
-graph = AAPLZGraph(sequences, verbose=False)
-print(f"Graph has {graph.graph.number_of_nodes()} nodes")
+graph = LZGraph(sequences, variant='aap')
+print(f"Graph has {graph.n_nodes} nodes and {graph.n_edges} edges")
 ```
 
 ## Troubleshooting

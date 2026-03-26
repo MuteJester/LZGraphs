@@ -12,28 +12,21 @@ We recommend following these tutorials in order:
 ### 1. [Graph Construction](graph-construction.md)
 **Beginner** · 15 minutes
 
-Learn to build AAPLZGraph, NDPLZGraph, and NaiveLZGraph from your data.
+Learn to build AAP, NDP, and Naive graph variants from your data.
 </div>
 
 <div class="card" markdown>
 ### 2. [Sequence Analysis](sequence-analysis.md)
 **Beginner** · 20 minutes
 
-Calculate sequence probabilities, explore graph structure, and generate new sequences.
+Calculate sequence probabilities, explore graph structure, and simulate new sequences.
 </div>
 
 <div class="card" markdown>
 ### 3. [Diversity Metrics](diversity-metrics.md)
 **Intermediate** · 15 minutes
 
-Measure repertoire diversity using k1000_diversity, lz_centrality, and entropy metrics.
-</div>
-
-<div class="card" markdown>
-### 4. [Visualization](visualization.md)
-**Intermediate** · 20 minutes
-
-Create publication-ready plots for sequence and repertoire analysis.
+Measure repertoire complexity using k-diversity, Hill numbers, and occupancy models.
 </div>
 
 </div>
@@ -51,23 +44,20 @@ Before starting, ensure you have:
 All tutorials use example data included with LZGraphs:
 
 ```python
-import pandas as pd
+import csv
 
-# Amino acid sequences with gene annotations (for AAPLZGraph)
-data = pd.read_csv("Examples/ExampleData3.csv")
-
-# Nucleotide sequences (for NDPLZGraph)
-data_nt = pd.read_csv("Examples/ExampleData2.csv")
+# Load sample data
+with open("examples/ExampleData1.csv") as f:
+    sequences = [row['cdr3_amino_acid'] for row in csv.DictReader(f)]
 ```
 
 ## Quick Reference
 
 | Tutorial | Topics Covered |
 |----------|----------------|
-| [Graph Construction](graph-construction.md) | AAPLZGraph, NDPLZGraph, NaiveLZGraph, gene annotation |
-| [Sequence Analysis](sequence-analysis.md) | walk_probability, random_walk, encode_sequence, extract_subpattern |
-| [Diversity Metrics](diversity-metrics.md) | k1000_diversity, lz_centrality, node_entropy, edge_entropy |
-| [Visualization](visualization.md) | Ancestors/descendants plots, path variability, genomic heatmaps |
+| [Graph Construction](graph-construction.md) | LZGraph variants, gene annotations, abundance weighting |
+| [Sequence Analysis](sequence-analysis.md) | lzpgen, simulate, lz76_decompose |
+| [Diversity Metrics](diversity-metrics.md) | k_diversity, hill_numbers, predicted_richness |
 
 ## Next Steps
 

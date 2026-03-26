@@ -4,199 +4,118 @@ This guide helps you understand the fundamentals of LZGraphs and choose the righ
 
 ## Understanding Your Data
 
-LZGraphs works with CDR3 sequences from T-cell receptor repertoires. Your data should be in a pandas DataFrame with at minimum a sequence column.
+LZGraphs works with CDR3 sequences from T-cell and B-cell receptor repertoires.
 
 ### Required Input
 
-| Graph Type | Input | Description |
-|------------|-------|-------------|
-| **AAPLZGraph** | DataFrame with `cdr3_amino_acid` column | Amino acid sequences |
-| **NDPLZGraph** | DataFrame with `cdr3_rearrangement` column | Nucleotide sequences |
-| **NaiveLZGraph** | List of strings + a dictionary | Any string sequences |
+LZGraphs expects sequences as a plain `list[str]`.
 
-### Optional Columns
+| Graph Variant | Typical Input | Description |
+|---------------|---------------|-------------|
+| **'aap'** | Amino acid strings | Amino Acid Positional: position-aware encoding |
+| **'ndp'** | Nucleotide strings | Nucleotide Double Positional: includes reading frame |
+| **'naive'** | Any strings | Position-free: pure LZ76 subpatterns |
 
-| Column | Purpose |
-|--------|---------|
-| `V` | V gene/allele annotation (e.g., `TRBV16-1*01`) |
-| `J` | J gene/allele annotation (e.g., `TRBJ1-2*01`) |
-| `abundance` | Clonotype count for abundance-weighted graph construction |
+### Optional Data
+
+| Argument | Purpose |
+|----------|---------|
+| `abundances` | List of counts to weight edges/nodes by clonotype frequency |
+| `v_genes` | List of V gene annotations for gene-aware analysis |
+| `j_genes` | List of J gene annotations for gene-aware analysis |
 
 !!! tip "Abundance weighting"
-    When an `abundance` column is present, edge and node statistics are weighted by
-    clonotype count, so the graph reflects the expanded state of the repertoire rather
-    than treating every unique sequence equally.
+    Providing `abundances` ensures the graph reflects the expanded state of the repertoire rather than treating every unique sequence equally.
 
-## Choosing the Right Graph Type
+## Choosing the Right Graph Variant
 
-LZGraphs provides three graph types, each optimized for different use cases:
+One unified `LZGraph` class handles all three variants:
 
 ```mermaid
 flowchart TD
     A[What type of sequences?] --> B{Amino Acids?}
-    B -->|Yes| C{Need gene info?}
+    B -->|Yes| E[variant='aap']
     B -->|No| D{Nucleotides?}
-    C -->|Yes| E[AAPLZGraph]
-    C -->|No| F[AAPLZGraph or NaiveLZGraph]
-    D -->|Yes| G{Need gene info?}
-    D -->|No| H[NaiveLZGraph]
-    G -->|Yes| I[NDPLZGraph]
-    G -->|No| J[NDPLZGraph or NaiveLZGraph]
+    D -->|Yes| I[variant='ndp']
+    D -->|No| J[variant='naive']
 ```
 
-### AAPLZGraph (Amino Acid Positional)
+### AAP Variant (Amino Acid Positional)
 
-**Best for:** Amino acid CDR3 sequences with positional information
+**Best for:** Most TCR/BCR analysis tasks using amino acid sequences.
 
 ```python
-from LZGraphs import AAPLZGraph
-
-graph = AAPLZGraph(data)  # data has 'cdr3_amino_acid' column
+from LZGraphs import LZGraph
+graph = LZGraph(sequences, variant='aap')
 ```
 
-**Features:**
-- Position-aware encoding (e.g., `C_1`, `A_2`, `S_3`)
-- V/J gene annotation support
-- Compact graphs for amino acid alphabets
-- Ideal for most TCR analysis tasks
+- **Encoding:** Position-aware labels like `C_2`, `A_3`, `S_4` (position 1 is the internal start sentinel).
+- **Use case:** Comparing repertoires, calculating PGEN, diversity analysis.
 
-### NDPLZGraph (Nucleotide Reading Frame Positional)
+### NDP Variant (Nucleotide Double Positional)
 
-**Best for:** Nucleotide CDR3 sequences with fine-grained positional information
+**Best for:** Fine-grained nucleotide-level analysis.
 
 ```python
-from LZGraphs import NDPLZGraph
-
-graph = NDPLZGraph(data)  # data has 'cdr3_rearrangement' column
+graph = LZGraph(sequences, variant='ndp')
 ```
 
-**Features:**
-- Double position encoding for higher resolution
-- V/J gene annotation support
-- Better for sequence-level analysis
-- Larger graphs than AAPLZGraph
+- **Encoding:** Includes reading frame and position, e.g., `T0_1`, `G1_2`.
+- **Use case:** Studying somatic hypermutation or nucleotide-level generation biases.
 
-### NaiveLZGraph
+### Naive Variant (Position-free)
 
-**Best for:** Custom dictionaries, cross-repertoire comparisons, or machine learning features
+**Best for:** General sequence analysis where position is less critical.
 
 ```python
-from LZGraphs import NaiveLZGraph
-from LZGraphs.utilities import generate_kmer_dictionary
-
-# Create a fixed dictionary for consistent feature vectors
-dictionary = generate_kmer_dictionary(6)
-
-# Build graph with fixed dictionary
-graph = NaiveLZGraph(sequences, dictionary)
+graph = LZGraph(sequences, variant='naive')
 ```
 
-**Features:**
-- Fixed dictionary across all repertoires
-- Consistent feature dimensions for ML
-- No positional encoding (simpler graphs)
-- Useful for eigenvector centrality features
+- **Encoding:** Pure LZ76 subpatterns without position info, e.g., `C`, `A`, `SL`.
+- **Use case:** Motif discovery, simple sequence complexity metrics.
 
-## Quick Comparison
+## Working with Repertoires
 
-| Feature | AAPLZGraph | NDPLZGraph | NaiveLZGraph |
-|---------|------------|------------|--------------|
-| Input | Amino acids | Nucleotides | Any strings |
-| Position encoding | Single | Double | None |
-| V/J gene support | Yes | Yes | No |
-| Graph size | Medium | Large | Configurable |
-| Best for | Most TCR analysis | Nucleotide-level | ML features |
-
-## Input Data Format
-
-### Example: AAPLZGraph Data
+### Example: Building a Graph with Genes
 
 ```python
-import pandas as pd
+from LZGraphs import LZGraph
 
-data = pd.DataFrame({
-    'cdr3_amino_acid': [
-        'CASSLEPSGGTDTQYF',
-        'CASSDTSGGTDTQYF',
-        'CASSLEPQTFTDTFFF',
-        'CASSLGQGSTEAFF'
-    ],
-    'V': [
-        'TRBV16-1*01',
-        'TRBV1-1*01',
-        'TRBV16-1*01',
-        'TRBV5-1*01'
-    ],
-    'J': [
-        'TRBJ1-2*01',
-        'TRBJ1-5*01',
-        'TRBJ2-7*01',
-        'TRBJ1-1*01'
-    ]
-})
+sequences = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF']
+v_genes   = ['TRBV16-1*01', 'TRBV1-1*01', 'TRBV16-1*01']
+j_genes   = ['TRBJ1-2*01', 'TRBJ1-5*01', 'TRBJ2-7*01']
+
+graph = LZGraph(sequences, v_genes=v_genes, j_genes=j_genes, variant='aap')
 ```
 
-### Example: NDPLZGraph Data
+### Projecting into Feature Space
+
+Instead of using a fixed "k-mer dictionary", LZGraphs allows you to project any repertoire into the node space of a reference graph. This is ideal for machine learning pipelines.
 
 ```python
-data = pd.DataFrame({
-    'cdr3_rearrangement': [
-        'TGTGCCAGCAGTTTAGAGCCCAGCGGGGGG...',
-        'TGTGCCAGCAGTGACACTTCAGGGGGGACT...',
-    ],
-    'V': ['TRBV16-1*01', 'TRBV1-1*01'],
-    'J': ['TRBJ1-2*01', 'TRBJ1-5*01']
-})
+# Build a reference graph (e.g., from a large healthy cohort)
+reference_graph = LZGraph(healthy_sequences, variant='aap')
+
+# Project a new sample into this space
+# Returns a numpy array of weights corresponding to the reference nodes
+features = reference_graph.feature_aligned(LZGraph(new_sample_sequences))
 ```
 
-## Understanding Graph Nodes
+## Understanding Node Labels
 
-Each graph type encodes sequences differently:
-
-### AAPLZGraph Encoding
+You can inspect how sequences are decomposed into graph nodes:
 
 ```python
-from LZGraphs import AAPLZGraph
+from LZGraphs import lz76_decompose
 
-sequence = "CASSLGQ"
-encoded = AAPLZGraph.encode_sequence(sequence)
-print(encoded)
-# ['C_1', 'A_2', 'S_3', 'SL_5', 'G_6', 'Q_7']
+print(lz76_decompose("CASSLEPSGGTDTQYF"))
+# ['C', 'A', 'S', 'SL', 'E', 'P', 'SG', 'G', 'T', 'D', 'TQ', 'Y', 'F']
 ```
 
-The `_N` suffix indicates the position in the sequence.
-
-### NDPLZGraph Encoding
-
-```python
-from LZGraphs import NDPLZGraph
-
-sequence = "TGTGCC"
-encoded = NDPLZGraph.encode_sequence(sequence)
-print(encoded)
-# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'C2_6']
-```
-
-Each node has the format `{subpattern}{reading_frame}_{position}`, where the reading frame
-(0, 1, or 2) indicates the codon position and the suffix is the cumulative sequence position.
-
-### NaiveLZGraph Encoding
-
-```python
-from LZGraphs.utilities import lempel_ziv_decomposition
-
-sequence = "TGTGCC"
-encoded = lempel_ziv_decomposition(sequence)
-print(encoded)
-# ['T', 'G', 'TG', 'C', 'C']
-```
-
-No positional information, pure LZ76 decomposition.
+In the graph, these tokens are augmented with positional information depending on the variant.
 
 ## Next Steps
 
-Now that you understand the basics:
-
-1. **[Graph Construction Tutorial](../tutorials/graph-construction.md)** - Build graphs with different options
-2. **[Concepts: LZ76 Algorithm](../concepts/lz76-algorithm.md)** - Understand how encoding works
-3. **[Concepts: Graph Types](../concepts/graph-types.md)** - Deep dive into graph differences
+1. **[Quick Start](quickstart.md)** - Get up and running in minutes
+2. **[How-To: Data Preparation](../how-to/data-preparation.md)** - Learn how to clean and format your data
+3. **[API Reference](../api/index.md)** - Detailed documentation of all classes and methods

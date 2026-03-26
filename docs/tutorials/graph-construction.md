@@ -1,315 +1,394 @@
+---
+tags:
+  - Construction
+  - Genes
+  - IO
+---
+
 # Graph Construction
 
-This tutorial covers building the three types of LZGraphs from TCR repertoire data.
+In this tutorial you'll learn how LZGraphs transforms raw CDR3 sequences into a probabilistic directed graph — and why that's useful. By the end, you'll have a solid mental model of what the graph represents and how to inspect it.
 
-## Overview
+---
 
-LZGraphs transforms sequences into directed graph representations where:
+## What does an LZGraph actually represent?
 
-- **Nodes** represent subpatterns from LZ76 decomposition
-- **Edges** represent observed transitions between subpatterns
-- **Edge weights** encode transition probabilities
+Imagine you have thousands of CDR3 sequences from a T-cell repertoire. Each sequence is a string of amino acids like `CASSLEPSGGTDTQYF`. LZGraphs compresses these sequences using the **Lempel-Ziv 76 algorithm** — the same family of algorithms behind `.zip` files — and uses the compression patterns to build a graph.
 
-## Amino Acid Positional Graph (AAPLZGraph)
+The key insight is that LZ76 decomposes a string into the **shortest novel subpatterns** at each position. For example:
 
-The `AAPLZGraph` is optimized for amino acid CDR3 sequences with positional encoding.
+```
+CASSLEPSGGTDTQYF → C | A | S | SL | E | P | SG | G | T | D | TQ | Y | F
+```
 
-### Basic Construction
+Each subpattern becomes a **node** in the graph, and the transitions between consecutive subpatterns become **edges**. When you process thousands of sequences, shared subpatterns create shared nodes — and the graph captures the entire repertoire's structure in a compact form.
+
+Here's what a small LZGraph looks like — built from just three CDR3 sequences:
+
+<figure markdown="span">
+  ![Example LZGraph](../images/example_graph.png){ width="100%" }
+  <figcaption>An LZGraph built from CASSLGIRRT, CASSLGYEQYF, and CASSQETQYF. The green node is the start sentinel (@), blue nodes are LZ76 subpatterns at specific positions, and red nodes are end sentinels ($). Notice how the shared <code>CASS</code> prefix is a single path that branches into different continuations.</figcaption>
+</figure>
+
+**Why is this useful?**
+
+- The graph defines a **generative probability model**: you can compute the exact probability that the repertoire would produce any given sequence
+- You can **simulate** new sequences that follow the repertoire's statistical patterns
+- You can measure **diversity**, **richness**, and **complexity** analytically from the graph structure
+- Two repertoires can be compared by comparing their graphs
+
+---
+
+## Building your first graph
+
+Let's start with a small example so we can see exactly what's happening.
 
 ```python
-from LZGraphs import AAPLZGraph
-import pandas as pd
+from LZGraphs import LZGraph
 
-# Load your data (ExampleData3 has amino acid + gene columns)
-data = pd.read_csv("Examples/ExampleData3.csv")
+# Six CDR3 amino acid sequences
+sequences = [
+    "CASSLGIRRT",
+    "CASSLGYEQYF",
+    "CASSLEPSGGTDTQYF",
+    "CASSDTSGGTDTQYF",
+    "CASSFGQGSYEQYF",
+    "CASSQETQYF",
+]
 
-# Build the graph
-graph = AAPLZGraph(data, verbose=True)
-```
-
-**Expected output:**
-```
-Gene Information Loaded.. |  0.01  Seconds
-Graph Constructed.. |  0.94  Seconds
-Graph Metadata Derived.. |  0.94  Seconds
-Individual Subpattern Empirical Probability Derived.. |  0.98  Seconds
-Graph Edge Weight Normalized.. |  1.0  Seconds
-Graph Edge Gene Weights Normalized.. |  1.13  Seconds
-Terminal State Map Derived.. |  1.2  Seconds
-LZGraph Created Successfully.. |  1.37  Seconds
-```
-
-### Required Data Format
-
-Your DataFrame must have a `cdr3_amino_acid` column:
-
-| cdr3_amino_acid | V | J |
-|-----------------|---|---|
-| CASSLEPSGGTDTQYF | TRBV16-1*01 | TRBJ1-2*01 |
-| CASSDTSGGTDTQYF | TRBV1-1*01 | TRBJ1-5*01 |
-
-!!! info "V and J columns"
-    V and J gene annotation columns are optional but enable gene-aware features like `genomic_random_walk()`.
-
-### Exploring Graph Structure
-
-```python
-# Get all nodes and edges
-nodes = list(graph.nodes)
-edges = list(graph.edges)
-
-print(f"Nodes: {len(nodes)}")
-print(f"Edges: {len(edges)}")
-print(f"First 10 nodes: {nodes[:10]}")
-print(f"First 10 edges: {edges[:10]}")
+graph = LZGraph(sequences, variant='aap')
+print(graph)
 ```
 
 **Output:**
 ```
-Nodes: 1523
-Edges: 8492
-First 10 nodes: ['C_1', 'A_2', 'S_3', 'SQ_5', 'Q_6', 'G_7', 'R_8', 'D_9', 'T_10', 'QY_12']
-First 10 edges: [('C_1', 'A_2'), ('C_1', 'T_2'), ('C_1', 'V_2'), ...]
+LZGraph(variant='aap', nodes=47, edges=49)
 ```
 
-### Length Distribution
+From just 6 sequences, LZGraphs built a graph with 47 nodes and 49 edges. That's because many subpatterns are shared across sequences — `C`, `A`, `S` appear at the start of every sequence, for instance — but at different positions and with different continuations.
+
+### The `variant` parameter
+
+The `variant` controls how subpatterns are labeled in the graph. There are three options:
+
+=== "AAP (amino acid positional)"
+
+    Each node encodes the subpattern **and** its position in the sequence. This is the most common choice for CDR3 analysis because position matters biologically — an `S` at position 3 (the conserved serine after CAS) has different meaning than an `S` at position 10 (in the junctional region).
+
+    ```python
+    graph = LZGraph(sequences, variant='aap')
+
+    # Node labels look like: subpattern_position
+    print(graph.nodes[:6])
+    # ['C_2', 'A_3', 'S_4', 'SL_6', 'G_7', 'I_8']
+    ```
+
+    The `_N` suffix is the cumulative position in the original sequence.
+
+=== "NDP (nucleotide double positional)"
+
+    Designed for nucleotide sequences. Each node encodes the subpattern, its **reading frame** (codon position 0/1/2), and its position. Use this when you're working with CDR3 nucleotide sequences and want to preserve codon structure.
+
+    ```python
+    nt_sequences = [
+        "TGTGCCAGCAGTTTAGA",
+        "TGTGCCAGCAGTGACAC",
+    ]
+    graph = LZGraph(nt_sequences, variant='ndp')
+    ```
+
+=== "Naive (position-free)"
+
+    No positional encoding — nodes are just the raw subpatterns. An `S` at position 3 and an `S` at position 10 are the **same node**. This creates smaller, more connected graphs, useful for motif discovery or when positional information isn't important.
+
+    ```python
+    graph = LZGraph(sequences, variant='naive')
+    print(graph.nodes[:6])
+    # ['C', 'A', 'S', 'SL', 'G', 'I']
+    ```
+
+!!! tip "Which variant should I use?"
+    **Use `'aap'`** for most TCR/BCR analysis. It's the default and the best balance of expressiveness and compactness for amino acid CDR3 sequences. Use `'ndp'` only if you're working with nucleotide sequences. Use `'naive'` for cross-repertoire feature extraction or when you specifically want position-free analysis.
+
+### Smoothing
+
+By default, transition probabilities are maximum-likelihood estimates: $P(v \mid u) = \text{count}(u \to v) \;/\; \text{total outgoing}(u)$. If an edge was never observed, its probability is exactly zero — any sequence using that transition gets probability zero.
+
+**Laplace smoothing** adds a small pseudocount $\alpha$ to every possible edge, preventing zero probabilities:
 
 ```python
-# Sequence length distribution
-print(graph.lengths)
+# Without smoothing (default) — MLE estimates, zero for unseen transitions
+graph = LZGraph(sequences, variant='aap')
+
+# With smoothing — adds alpha to every edge count before normalizing
+graph = LZGraph(sequences, variant='aap', smoothing=1.0)
 ```
 
-**Output:**
-```python
-{13: 2973, 15: 5075, 14: 4412, 16: 2862, 12: 1147, ...}
-```
+| `smoothing` value | Effect |
+|:---:|:---|
+| `0.0` (default) | Pure MLE. Unseen transitions have probability 0. |
+| `0.01 - 0.1` | Light smoothing. Unseen transitions get small but non-zero probability. |
+| `1.0` | Standard Laplace smoothing. Good for small repertoires. |
 
-### Initial and Terminal States
-
-```python
-# Initial states (first subpattern of sequences)
-print("Initial states:")
-print(graph.initial_state_counts)
-
-# Terminal states (last subpattern of sequences)
-print("\nTerminal states (top 5):")
-print(graph.terminal_state_counts.head())
-```
-
-### V/J Gene Distributions
-
-```python
-# Marginal V gene probabilities
-print("V gene distribution:")
-print(graph.marginal_v_genes)
-
-# Marginal J gene probabilities
-print("\nJ gene distribution:")
-print(graph.marginal_j_genes)
-```
+Use smoothing when your repertoire is small and you want to avoid zero-probability dead ends during simulation. For large repertoires (1000+ sequences), smoothing usually isn't necessary.
 
 ---
 
-## Nucleotide Reading Frame Positional Graph (NDPLZGraph)
+## Exploring the graph structure
 
-The `NDPLZGraph` is designed for nucleotide sequences with reading frame + position encoding.
+Now that we've built a graph, let's understand what's inside it.
 
-### Construction
-
-```python
-from LZGraphs import NDPLZGraph
-
-# Data must have 'cdr3_rearrangement' column
-data = pd.read_csv("nucleotide_repertoire.csv")
-graph = NDPLZGraph(data, verbose=True)
-```
-
-### Data Format
-
-| cdr3_rearrangement | V | J |
-|-------------------|---|---|
-| TGTGCCAGCAGTTTAGAG... | TRBV16-1*01 | TRBJ1-2*01 |
-
-### Encoding Example
+### Size and shape
 
 ```python
-sequence = "TGTGCCAGC"
-encoded = NDPLZGraph.encode_sequence(sequence)
-print(encoded)
-# ['T0_1', 'G1_2', 'TG2_4', 'C1_5', 'CA2_7', 'GC1_9']
-```
-
-Each node has the format `{subpattern}{reading_frame}_{position}`, where the reading frame
-(0, 1, or 2) indicates the codon position and the suffix is the cumulative sequence position.
-
----
-
-## Naive LZGraph
-
-The `NaiveLZGraph` uses pure LZ76 decomposition without positional encoding, making it ideal for cross-repertoire comparisons.
-
-### Construction
-
-```python
-from LZGraphs import NaiveLZGraph
-from LZGraphs.utilities import generate_kmer_dictionary
-
-# Generate a shared dictionary
-dictionary = generate_kmer_dictionary(6)
-print(f"Dictionary size: {len(dictionary)}")  # 5460 patterns
-
-# Build graph from sequence list
-sequences = data['cdr3_rearrangement'].tolist()
-graph = NaiveLZGraph(sequences, dictionary, verbose=True)
-```
-
-### Why Use a Shared Dictionary?
-
-Using the same dictionary across multiple repertoires ensures:
-
-1. **Consistent feature dimensions** for machine learning
-2. **Comparable graphs** for cross-repertoire analysis
-3. **Fixed node set** regardless of repertoire content
-
-### Feature Extraction
-
-```python
-# Extract eigenvector centrality features
-features = graph.eigenvector_centrality()
-print(f"Feature vector length: {len(features)}")
-print(pd.Series(features).head(10))
+print(f"Nodes:     {graph.n_nodes}")
+print(f"Edges:     {graph.n_edges}")
+print(f"Sequences: {graph.n_sequences}")
+print(f"Density:   {graph.density:.4f}")
+print(f"Is DAG:    {graph.is_dag}")
 ```
 
 **Output:**
 ```
-A         3.009520e-01
-T         1.183398e-01
-G         1.186366e-01
-C         2.461758e-01
-AA        1.252643e-01
-...
+Nodes:     47
+Edges:     49
+Sequences: 6
+Density:   0.0227
+Is DAG:    True
+```
+
+The graph is always a **directed acyclic graph (DAG)** — edges only go forward (from earlier positions to later positions in the sequence). The density is low because most nodes only connect to a few successors, not to all other nodes.
+
+### Nodes: the subpatterns
+
+Each node represents a subpattern at a position. Let's look at them:
+
+```python
+print(f"Total nodes (excluding sentinels): {len(graph.nodes)}")
+print(f"First 8: {graph.nodes[:8]}")
+```
+
+**Output:**
+```
+Total nodes (excluding sentinels): 41
+First 8: ['C_2', 'A_3', 'S_4', 'SL_6', 'G_7', 'I_8', 'R_9', 'RT_11']
+```
+
+!!! info "Sentinel nodes"
+    Internally, the graph has two special sentinel nodes: `@` (start) and `$` (end). Every walk starts at `@` and ends at a `$`-node. The `.nodes` property hides these, but you can see them with `.all_nodes` if you're curious about the internal representation.
+
+### Edges: the transitions
+
+Each edge represents an observed transition from one subpattern to the next, with a probability (weight) and a raw count:
+
+```python
+for src, dst, weight, count in graph.edges[:5]:
+    print(f"  {src:8s} → {dst:8s}   P={weight:.3f}   count={count}")
+```
+
+**Output:**
+```
+  C_2      → A_3       P=1.000   count=6
+  A_3      → S_4       P=1.000   count=6
+  S_4      → SL_6      P=0.500   count=3
+  S_4      → SD_6      P=0.167   count=1
+  S_4      → SF_6      P=0.167   count=1
+```
+
+Notice that `C_2 → A_3` has weight 1.0 — every sequence starts with `C` then `A`, so there's no uncertainty there. But from `S_4`, the graph branches: half the sequences continue with `SL` (the `CASSL...` family), while others diverge to `SD`, `SF`, or `SQ`.
+
+**This branching structure is exactly what makes the graph a generative model.** When you simulate a new sequence, the random walk follows these probabilities at each node.
+
+### Following a path through the graph
+
+You can trace the possible continuations from any node:
+
+```python
+# What can follow after "S_4"?
+for label, weight, count in graph.successors("S_4"):
+    print(f"  S_4 → {label:8s}  P={weight:.3f}  ({count}x)")
+```
+
+**Output:**
+```
+  S_4 → SL_6      P=0.500  (3x)
+  S_4 → SD_6      P=0.167  (1x)
+  S_4 → SF_6      P=0.167  (1x)
+  S_4 → SQ_6      P=0.167  (1x)
+```
+
+This tells you that after the `CAS` prefix, 50% of the repertoire continues with `SL` (making `CASSL...`), while the other sequences branch into `CASSD...`, `CASSF...`, and `CASSQ...`.
+
+### Length distribution
+
+The graph remembers how many sequences were observed at each length:
+
+```python
+for length, count in sorted(graph.length_distribution.items()):
+    bar = "#" * count
+    print(f"  Length {length:2d}: {count} {bar}")
+```
+
+**Output:**
+```
+  Length 10: 2 ##
+  Length 11: 1 #
+  Length 14: 1 #
+  Length 15: 1 #
+  Length 16: 1 #
+```
+
+### Degree statistics
+
+The **out-degree** of a node is how many different continuations it has. High out-degree means high uncertainty at that position — the repertoire is diverse there.
+
+```python
+import numpy as np
+
+print(f"Max out-degree: {graph.max_out_degree}")
+print(f"Max in-degree:  {graph.max_in_degree}")
+print(f"Mean out-degree: {graph.out_degrees.mean():.1f}")
+print(f"Nodes with out-degree > 2: {np.sum(graph.out_degrees > 2)}")
 ```
 
 ---
 
-## Sequence Abundance Weighting
+## Adding gene annotation
 
-All three graph types support **sequence abundance weighting**, which allows you to incorporate clonotype frequency information into the graph construction. Instead of treating each unique sequence equally, abundance weighting ensures that sequences observed more frequently contribute proportionally more to edge weights and transition probabilities.
-
-### Why Use Abundance Weighting?
-
-- **More accurate probability estimates** that reflect true clonal frequencies
-- **Better representation of clonal expansion patterns** in the repertoire
-- **More realistic sequence generation** via `simulate()` -- generated sequences follow the abundance-weighted distribution
-- **Probability models that account for how frequently each sequence was observed**, not just whether it was observed
-
-### AAPLZGraph and NDPLZGraph
-
-For `AAPLZGraph` and `NDPLZGraph`, include an `abundance` column in your input DataFrame. Each sequence will be weighted by its abundance count during graph construction.
+TCR sequences are produced by V(D)J recombination, and the V and J gene segments that were used heavily influence the sequence structure. If you have gene annotations, pass them during construction:
 
 ```python
-import pandas as pd
-from LZGraphs import AAPLZGraph
+sequences = ["CASSLGIRRT", "CASSLGYEQYF", "CASSLEPSGGTDTQYF"]
+v_genes   = ["TRBV5-1*01", "TRBV5-1*01", "TRBV12-3*01"]
+j_genes   = ["TRBJ1-1*01", "TRBJ2-7*01", "TRBJ1-1*01"]
 
-# DataFrame with abundance counts
-df = pd.DataFrame({
-    'cdr3_amino_acid': ['CASSLAPGATNEKLFF', 'CASSLGQAYEQYF', 'CASSQETQYF'],
-    'V': ['TRBV5-1*01', 'TRBV7-2*01', 'TRBV3-1*01'],
-    'J': ['TRBJ1-4*01', 'TRBJ2-7*01', 'TRBJ2-5*01'],
-    'abundance': [15, 3, 42]  # clonotype counts
-})
+graph = LZGraph(
+    sequences,
+    variant='aap',
+    v_genes=v_genes,
+    j_genes=j_genes,
+)
 
-graph = AAPLZGraph(df)
-# Edge weights now reflect abundance-weighted frequencies
+print(f"Gene data available: {graph.has_gene_data}")
 ```
 
-The same approach works for `NDPLZGraph`:
+**Output:**
+```
+Gene data available: True
+```
+
+With gene data, you can inspect the marginal gene usage:
 
 ```python
-from LZGraphs import NDPLZGraph
+print("V gene usage:")
+for gene, freq in sorted(graph.v_marginals.items(), key=lambda x: -x[1]):
+    print(f"  {gene}: {freq:.1%}")
 
-df = pd.DataFrame({
-    'cdr3_rearrangement': ['TGTGCCAGCAGTTTAGAG...', 'TGTGCCAGCAGTGACACT...'],
-    'V': ['TRBV16-1*01', 'TRBV1-1*01'],
-    'J': ['TRBJ1-2*01', 'TRBJ1-5*01'],
-    'abundance': [10, 5]
-})
-
-graph = NDPLZGraph(df)
+print("\nJ gene usage:")
+for gene, freq in sorted(graph.j_marginals.items(), key=lambda x: -x[1]):
+    print(f"  {gene}: {freq:.1%}")
 ```
 
-### NaiveLZGraph
+**Output:**
+```
+V gene usage:
+  TRBV5-1*01: 66.7%
+  TRBV12-3*01: 33.3%
 
-For `NaiveLZGraph`, pass the `abundances` parameter as a list of integers (one per sequence):
+J gene usage:
+  TRBJ1-1*01: 66.7%
+  TRBJ2-7*01: 33.3%
+```
+
+Gene data also enables **gene-constrained simulation** — generating sequences that use specific V/J combinations. We'll cover this in the [Sequence Analysis tutorial](sequence-analysis.md).
+
+---
+
+## Abundance weighting
+
+By default, each sequence contributes equally to the graph regardless of how many times it was observed. In a real repertoire, some clonotypes are expanded (high count) and others are rare (count of 1). If you have abundance data, pass it to weight the graph:
 
 ```python
-from LZGraphs import NaiveLZGraph
-from LZGraphs.utilities import generate_kmer_dictionary
+sequences  = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", "CASSQETQYF"]
+abundances = [500, 12, 3]  # clonotype counts
 
-sequences = ['ACGTACGT', 'TGCATGCA', 'GGCCTTAA']
-abundances = [10, 5, 20]
-dictionary = generate_kmer_dictionary(4)
-
-graph = NaiveLZGraph(sequences, dictionary, abundances=abundances)
+graph = LZGraph(sequences, abundances=abundances, variant='aap')
 ```
 
-### Effect on Downstream Analysis
+**What changes with abundance weighting:**
 
-When abundance weighting is used:
-
-- **Edge weights** reflect the total abundance-weighted transitions, not just the number of unique sequences sharing an edge
-- **`walk_probability()`** returns probabilities that account for clonal expansion
-- **`simulate()`** generates sequences with frequencies matching the abundance-weighted model
-- **Diversity metrics** computed on the graph reflect the true clonal distribution
+- **Edge weights** reflect the abundance-weighted transition frequencies. An edge used by the dominant clone (count=500) will have much higher weight than one used by a rare clone (count=3).
+- **Simulated sequences** will follow the expanded distribution — the dominant clone will appear ~97% of the time, matching the real repertoire.
+- **Diversity metrics** will correctly reflect clonal dominance. Without weighting, all three clones look equally likely; with weighting, the repertoire appears low-diversity (dominated by one clone).
 
 !!! tip "When to use abundance weighting"
-    Use abundance weighting when your dataset includes clonotype counts and you want the graph to model the **observed repertoire** (including clonal expansions). Omit it when you want to model the **unique sequence diversity** regardless of how many times each sequence was observed.
+    Use abundances when you want the graph to model the **observed repertoire** including clonal expansion. Omit them when you want to model the **unique sequence diversity** — treating each distinct sequence equally regardless of count.
 
 ---
 
-## Construction Options
+## Saving and loading
 
-### Verbose Mode
-
-Control output verbosity:
-
-```python
-# Silent construction
-graph = AAPLZGraph(data, verbose=False)
-
-# With progress output
-graph = AAPLZGraph(data, verbose=True)
-```
-
-### Graph Summary
-
-Get a quick overview of your graph:
-
-```python
-summary = graph.graph_summary()
-print(summary)
-```
-
----
-
-## Saving and Loading Graphs
-
-Persist your graphs for later use:
+Building a graph from thousands of sequences takes a few seconds. To avoid rebuilding every time, save it to disk in LZGraphs' binary format (`.lzg`):
 
 ```python
 # Save
-graph.save("my_graph.pkl")
+graph.save("my_repertoire.lzg")
 
 # Load
-loaded_graph = AAPLZGraph.load("my_graph.pkl")
+loaded = LZGraph.load("my_repertoire.lzg")
+print(loaded)
+# LZGraph(variant='aap', nodes=47, edges=49)
 ```
 
-See [How-To: Serialization](../how-to/serialization.md) for more details.
+The `.lzg` format preserves everything: graph structure, edge weights, gene data, and all metadata. It's compact and fast to load — typically 10-100x faster than rebuilding from sequences.
+
+!!! info "File format"
+    `.lzg` is a custom binary format with CRC-32C checksums for integrity verification. It is **not** a pickle file — it's safe to load `.lzg` files from untrusted sources. See [Save & Load Graphs](../how-to/serialization.md) for details.
 
 ---
 
-## Next Steps
+## Working with larger datasets
 
-- [Sequence Analysis Tutorial](sequence-analysis.md) - Work with your constructed graph
-- [Concepts: Graph Types](../concepts/graph-types.md) - Deep dive into graph differences
-- [API: AAPLZGraph](../api/aaplzgraph.md) - Complete class reference
+Everything we've shown works the same way with real-sized datasets. Here's an example loading 5,000 sequences from a CSV file:
+
+```python
+import csv
+from LZGraphs import LZGraph
+
+seqs, v_genes, j_genes = [], [], []
+with open("repertoire.csv") as f:
+    for row in csv.DictReader(f):
+        seqs.append(row['cdr3_amino_acid'])
+        v_genes.append(row['v_call'])
+        j_genes.append(row['j_call'])
+
+graph = LZGraph(seqs, variant='aap', v_genes=v_genes, j_genes=j_genes)
+print(graph)
+# LZGraph(variant='aap', nodes=1721, edges=9644)
+```
+
+A graph from 5,000 sequences typically has 1,000-2,000 nodes and 5,000-15,000 edges, depending on the diversity of the repertoire. Construction takes under a second on modern hardware.
+
+<figure markdown="span">
+  ![CDR3 Length Distribution](../images/length_distribution.png){ width="85%" }
+  <figcaption>Length distribution of 5,000 CDR3 amino acid sequences. The mode (cyan) is at 15 amino acids — typical for human TRB CDR3. The graph's <code>length_distribution</code> property gives you this data as a dict.</figcaption>
+</figure>
+
+---
+
+## What we learned
+
+- An LZGraph is a **directed acyclic graph** where nodes are LZ76 subpatterns and edges are observed transitions
+- The `variant` parameter controls the encoding: `'aap'` (amino acid + position), `'ndp'` (nucleotide + reading frame), or `'naive'` (no position)
+- The graph structure — nodes, edges, weights — captures the entire repertoire's statistical patterns
+- Gene annotations and abundance weighting add biological context to the model
+- Graphs can be saved/loaded in the `.lzg` binary format
+
+## Next steps
+
+Now that you have a graph, you can:
+
+- [**Score and simulate sequences**](sequence-analysis.md) — compute generation probabilities and generate novel sequences
+- [**Measure diversity**](diversity-metrics.md) — Hill numbers, richness curves, and occupancy predictions
+- [**Understand the probability model**](../concepts/probability-model.md) — the mathematics behind LZPGEN
+- [**Explore graph variants in depth**](../concepts/graph-types.md) — how AAP, NDP, and Naive encodings differ

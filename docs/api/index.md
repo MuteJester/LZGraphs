@@ -7,147 +7,106 @@ Complete reference documentation for all LZGraphs classes and functions.
 <div class="grid" markdown>
 
 <div class="card" markdown>
-### Graph Classes
-- [AAPLZGraph](aaplzgraph.md) - Amino acid graphs
-- [NDPLZGraph](ndplzgraph.md) - Nucleotide graphs
-- [NaiveLZGraph](naivelzgraph.md) - Non-positional graphs
+### Core
+- [LZGraph](lzgraph.md) — Main graph class (all variants)
+- [SimulationResult](simulation-result.md) — Output of `simulate()`
+- [PgenDistribution](pgen-distribution.md) — Analytical PGEN distribution
 </div>
 
 <div class="card" markdown>
-### Analysis
-- [Metrics](metrics.md) - Diversity and entropy
-- [Utilities](utilities.md) - Helper functions
-- [Exceptions](exceptions.md) - Error handling
+### Analysis & Utilities
+- [Module Functions](functions.md) — `jensen_shannon_divergence`, `k_diversity`, etc.
+- [CLI Tool](cli.md) — `lzg` command reference
+- [Exceptions](exceptions.md) — Error handling
 </div>
 
 </div>
 
 ## Import Patterns
 
-### Core Classes
+### Classes
 
 ```python
-from LZGraphs import AAPLZGraph, NDPLZGraph, NaiveLZGraph
+from LZGraphs import LZGraph, SimulationResult, PgenDistribution
 ```
 
-### Metrics Functions
+### Functions
 
 ```python
 from LZGraphs import (
-    k1000_diversity,
+    jensen_shannon_divergence,
     k_diversity,
-    lz_centrality,
-    node_entropy,
-    edge_entropy,
-    graph_entropy,
-    jensen_shannon_divergence
+    saturation_curve,
+    lz76_decompose,
+    set_log_level,
 )
 ```
 
-### Utilities
+### Exceptions
 
 ```python
-from LZGraphs import LZBOW, NodeEdgeSaturationProbe
-from LZGraphs.utilities import lempel_ziv_decomposition, generate_kmer_dictionary
+from LZGraphs import LZGraphError, NoGeneDataError, ConvergenceError, CorruptFileError
 ```
 
-### Visualization
+## The `LZGraph` Class
+
+There is a single graph class with a `variant` parameter:
 
 ```python
-from LZGraphs.visualization import (
-    plot_graph,
-    plot_ancestor_descendant_curves,
-    plot_possible_paths,
-    plot_gene_node_variability,
-    plot_gene_edge_variability
-)
+from LZGraphs import LZGraph
+
+# Amino acid positional (most common)
+graph = LZGraph(sequences, variant='aap')
+
+# Nucleotide double positional
+graph = LZGraph(sequences, variant='ndp')
+
+# Naive (no positional encoding)
+graph = LZGraph(sequences, variant='naive')
 ```
 
-## Class Hierarchy
+All variants share the same methods. See the [LZGraph reference](lzgraph.md) for the full API.
 
-```
-LZGraphBase (abstract)
-├── AAPLZGraph - Amino acid positional
-├── NDPLZGraph - Nucleotide reading frame positional
-└── NaiveLZGraph - No positional encoding
+## Quick Method Reference
 
-LZBOW - Bag of Words encoder
-NodeEdgeSaturationProbe - Saturation analysis
-
-Exceptions:
-LZGraphError (base)
-├── InputValidationError
-│   ├── EmptyDataError
-│   ├── MissingColumnError
-│   └── InvalidSequenceError
-├── GraphConstructionError
-├── GeneDataError
-│   ├── NoGeneDataError
-│   └── GeneAnnotationError
-├── WalkError
-│   ├── NoValidPathError
-│   └── MissingNodeError
-└── ...
-```
-
-## Common Methods
-
-All graph classes share these methods:
-
-| Method | Description |
-|--------|-------------|
-| `walk_probability(walk)` | Calculate sequence probability (accepts raw string or encoded list) |
-| `random_walk()` | Generate a random sequence |
-| `simulate(n)` | Batch-generate sequences with pre-computed cache |
-| `save(filepath)` | Save graph to disk |
-| `load(filepath)` | Load graph from disk |
-| `encode_sequence(seq)` | Encode sequence to walk (static) |
-| `extract_subpattern(node)` | Extract pattern from node (static) |
-| `get_posterior(seqs, kappa)` | Bayesian posterior personalization |
-| `graph_summary()` | Summary statistics (nodes, edges, degree) |
+| Category | Method | Description |
+|----------|--------|-------------|
+| **Scoring** | `lzpgen(seq)` | Log-probability of sequence(s) |
+| **Simulation** | `simulate(n)` | Generate n sequences |
+| **Diversity** | `effective_diversity()` | exp(Shannon entropy) = D(1) |
+| | `hill_number(alpha)` | Hill diversity number D(α) |
+| | `hill_numbers(orders)` | Multiple Hill numbers |
+| | `hill_curve()` | Full diversity curve |
+| | `diversity_profile()` | Entropy, diversity, uniformity |
+| **Occupancy** | `predicted_richness(depth)` | Expected unique seqs at depth |
+| | `predicted_overlap(d_i, d_j)` | Expected shared sequences |
+| | `richness_curve(depths)` | Richness at multiple depths |
+| | `predict_sharing(draws)` | Sharing spectrum across donors |
+| **Distribution** | `pgen_moments()` | Mean/var of log-PGEN |
+| | `pgen_distribution()` | Analytical Gaussian mixture |
+| | `pgen_diagnostics()` | Check proper distribution |
+| | `pgen_dynamic_range()` | Dynamic range in orders of mag |
+| **Perplexity** | `sequence_perplexity(seq)` | Single sequence perplexity |
+| | `repertoire_perplexity(seqs)` | Average repertoire perplexity |
+| | `path_entropy_rate(seqs)` | Entropy rate (bits/token) |
+| **Graph Ops** | `union(other)` / `a \| b` | Sum edge counts |
+| | `intersection(other)` / `a & b` | Shared edges, min counts |
+| | `difference(other)` / `a - b` | Subtract edge counts |
+| | `weighted_merge(other, α, β)` | Linear combination |
+| | `posterior(seqs)` | Bayesian posterior update |
+| **Features** | `feature_aligned(query)` | Aligned feature vector |
+| | `feature_mass_profile()` | Position-based mass profile |
+| | `feature_stats()` | 15-element stats vector |
+| **IO** | `save(path)` | Save to `.lzg` binary format |
+| | `LZGraph.load(path)` | Load from `.lzg` file |
+| **Info** | `summary()` | Structural summary dict |
+| | `n_nodes`, `n_edges` | Graph size |
+| | `variant`, `is_dag` | Graph properties |
+| | `has_gene_data` | Whether gene data is available |
 
 ## Version Information
 
 ```python
 import LZGraphs
-print(LZGraphs.__version__)
-```
-
-## Module Structure
-
-```
-LZGraphs/
-├── __init__.py           # Main exports
-├── graphs/
-│   ├── amino_acid_positional.py
-│   ├── nucleotide_double_positional.py
-│   ├── naive.py
-│   ├── lz_graph_base.py
-│   └── graph_operations.py
-├── metrics/
-│   ├── diversity.py
-│   ├── entropy.py
-│   ├── saturation.py
-│   ├── convenience.py
-│   └── pgen_distribution.py
-├── constants.py             # Shared numerical constants
-├── mixins/
-│   ├── gene_logic.py
-│   ├── gene_prediction.py
-│   ├── random_walk.py
-│   ├── graph_topology.py
-│   ├── lzpgen_distribution.py
-│   ├── walk_analysis.py
-│   ├── bayesian_posterior.py
-│   └── serialization.py
-├── utilities/
-│   ├── decomposition.py
-│   ├── helpers.py
-│   └── misc.py
-├── bag_of_words/
-│   └── bow_encoder.py
-├── visualization/
-│   └── visualize.py
-└── exceptions/
-    └── __init__.py
+print(LZGraphs.__version__)  # 3.0.0
 ```

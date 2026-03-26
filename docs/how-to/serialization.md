@@ -1,31 +1,39 @@
+---
+tags:
+  - IO
+---
+
 # Save and Load Graphs
 
-Learn how to persist LZGraphs to disk and reload them later.
+Learn how to persist LZGraphs to disk using the high-performance binary format.
 
 ## Quick Reference
 
 ```python
+from LZGraphs import LZGraph
+
 # Save
-graph.save("my_graph.pkl")
+graph.save("my_repertoire.lzg")
 
 # Load
-loaded = AAPLZGraph.load("my_graph.pkl")
+loaded = LZGraph.load("my_repertoire.lzg")
 ```
 
 ## Saving Graphs
 
+LZGraphs uses a custom binary format (`.lzg`) that is optimized for speed and space. It is much faster and more compact than Python's `pickle`.
+
 ### Basic Save
 
 ```python
-from LZGraphs import AAPLZGraph
-import pandas as pd
+from LZGraphs import LZGraph
 
 # Build a graph
-data = pd.read_csv("repertoire.csv")
-graph = AAPLZGraph(data, verbose=True)
+sequences = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", "CASSLEPQTFTDTFFF"]
+graph = LZGraph(sequences, variant='aap')
 
 # Save to disk
-graph.save("my_graph.pkl")
+graph.save("my_graph.lzg")
 ```
 
 ### Save with Custom Path
@@ -37,202 +45,118 @@ from pathlib import Path
 output_dir = Path("models/graphs")
 output_dir.mkdir(parents=True, exist_ok=True)
 
-graph.save(output_dir / "repertoire_2024.pkl")
+graph.save(output_dir / "repertoire_2026.lzg")
 ```
 
 ## Loading Graphs
 
+The `LZGraph.load()` method automatically detects the graph variant (AAP, NDP, or Naive) from the file metadata.
+
 ### Basic Load
 
 ```python
-from LZGraphs import AAPLZGraph
+from LZGraphs import LZGraph
 
 # Load a saved graph
-graph = AAPLZGraph.load("my_graph.pkl")
+graph = LZGraph.load("my_graph.lzg")
 
 # Verify it works
-print(f"Nodes: {graph.graph.number_of_nodes()}")
-print(f"Edges: {graph.graph.number_of_edges()}")
+print(f"Variant: {graph.variant}")
+print(f"Nodes:   {graph.n_nodes}")
+print(f"Edges:   {graph.n_edges}")
 ```
-
-### Loading Different Graph Types
-
-```python
-from LZGraphs import AAPLZGraph, NDPLZGraph, NaiveLZGraph
-
-# Load the correct type
-aap_graph = AAPLZGraph.load("aap_graph.pkl")
-ndp_graph = NDPLZGraph.load("ndp_graph.pkl")
-naive_graph = NaiveLZGraph.load("naive_graph.pkl")
-```
-
-!!! warning "Type Matching"
-    You must use the same class to load that was used to save. Loading an `AAPLZGraph` file with `NDPLZGraph.load()` will raise an error.
 
 ## Use Cases
 
 ### Avoid Recomputation
 
+Building large graphs from millions of sequences can take time. Saving the resulting graph allows you to skip the construction step in future sessions.
+
 ```python
 from pathlib import Path
+from LZGraphs import LZGraph
 
-cache_file = Path("cached_graph.pkl")
+cache_file = Path("cached_graph.lzg")
 
 if cache_file.exists():
-    # Load from cache
-    graph = AAPLZGraph.load(cache_file)
+    # Load from cache (very fast)
+    graph = LZGraph.load(cache_file)
     print("Loaded from cache")
 else:
     # Build and cache
-    data = pd.read_csv("large_repertoire.csv")
-    graph = AAPLZGraph(data, verbose=True)
+    sequences = load_millions_of_sequences()
+    graph = LZGraph(sequences, variant='aap')
     graph.save(cache_file)
     print("Built and cached")
-```
-
-### Batch Processing
-
-```python
-from pathlib import Path
-import pandas as pd
-from LZGraphs import AAPLZGraph
-
-# Process multiple repertoires
-input_dir = Path("data/repertoires")
-output_dir = Path("data/graphs")
-output_dir.mkdir(exist_ok=True)
-
-for csv_file in input_dir.glob("*.csv"):
-    graph_file = output_dir / f"{csv_file.stem}.pkl"
-
-    if not graph_file.exists():
-        data = pd.read_csv(csv_file)
-        graph = AAPLZGraph(data, verbose=False)
-        graph.save(graph_file)
-        print(f"Saved: {graph_file.name}")
 ```
 
 ### Analysis Pipeline
 
 ```python
-# Step 1: Build and save (expensive)
-# script: build_graphs.py
-for repertoire_file in repertoire_files:
-    data = pd.read_csv(repertoire_file)
-    graph = AAPLZGraph(data)
-    graph.save(f"graphs/{repertoire_file.stem}.pkl")
+# Step 1: Build and save
+for sample in samples:
+    graph = LZGraph(sample['sequences'], variant='aap')
+    graph.save(f"graphs/{sample['id']}.lzg")
 
 # Step 2: Analyze (fast, can be rerun)
-# script: analyze_graphs.py
-for graph_file in Path("graphs").glob("*.pkl"):
-    graph = AAPLZGraph.load(graph_file)
-    # Run analysis...
+for lzg_file in Path("graphs").glob("*.lzg"):
+    graph = LZGraph.load(lzg_file)
+    # Run diversity, richness, etc.
 ```
 
-## File Format
+## The .lzg Format
 
-LZGraphs uses Python's `pickle` format:
+The `.lzg` format is a specialized binary format designed for LZGraphs:
 
-- **Binary format**: Compact and fast
-- **Python-specific**: Not portable to other languages
-- **Version-sensitive**: Best used with same Python/LZGraphs version
+- **High performance**: Loads and saves at native speed via the C core.
+- **Cross-variant**: A single `LZGraph.load()` handles any variant.
+- **Robust**: Includes metadata and checksums to prevent corruption.
 
-### Checking File Contents
-
-```python
-import pickle
-
-with open("my_graph.pkl", "rb") as f:
-    obj = pickle.load(f)
-
-print(f"Type: {type(obj)}")
-print(f"Has graph: {hasattr(obj, 'graph')}")
-```
+!!! info "Not a Pickle"
+    Unlike previous versions, LZGraphs 3.0+ does NOT use `pickle`. The `.lzg` format is more stable across Python versions and much more efficient for large graphs.
 
 ## Best Practices
 
-### 1. Use Descriptive Names
-
-```python
-# Good
-graph.save("tcr_repertoire_patient001_2024-01.pkl")
-
-# Avoid
-graph.save("g1.pkl")
-```
+### 1. Use the .lzg Extension
+While not strictly required, using `.lzg` helps identify LZGraph files.
 
 ### 2. Version Your Graphs
+If you are running long-term experiments, include the version or date in the filename.
 
 ```python
-from datetime import datetime
 import LZGraphs
+from datetime import datetime
 
-# Include version info
-filename = f"graph_v{LZGraphs.__version__}_{datetime.now():%Y%m%d}.pkl"
+filename = f"graph_v{LZGraphs.__version__}_{datetime.now():%Y%m%d}.lzg"
 graph.save(filename)
-```
-
-### 3. Store Metadata Separately
-
-```python
-import json
-
-# Save graph
-graph.save("my_graph.pkl")
-
-# Save metadata
-metadata = {
-    "source_file": "repertoire.csv",
-    "n_sequences": len(data),
-    "created": str(datetime.now()),
-    "lzgraphs_version": LZGraphs.__version__
-}
-
-with open("my_graph_metadata.json", "w") as f:
-    json.dump(metadata, f, indent=2)
 ```
 
 ## Troubleshooting
 
 ### "File not found" Error
+Ensure the path is correct and accessible.
 
 ```python
 from pathlib import Path
-
-filepath = Path("my_graph.pkl")
+filepath = Path("my_graph.lzg")
 if not filepath.exists():
     print(f"File does not exist: {filepath.absolute()}")
 ```
 
-### "Invalid pickle" Error
-
-The file may be corrupted or from an incompatible version:
-
-```python
-try:
-    graph = AAPLZGraph.load("my_graph.pkl")
-except Exception as e:
-    print(f"Error loading graph: {e}")
-    # Rebuild from source data
-    data = pd.read_csv("original_data.csv")
-    graph = AAPLZGraph(data)
-```
-
-### Type Mismatch Error
+### "Corrupt or unsupported LZG file"
+This error occurs if the file is not a valid LZGraph binary or was created with an incompatible version of the library.
 
 ```python
-from LZGraphs import AAPLZGraph, NDPLZGraph
+from LZGraphs import LZGraph, CorruptFileError
 
 try:
-    # Wrong type
-    graph = NDPLZGraph.load("aap_graph.pkl")
-except TypeError as e:
-    print(f"Type mismatch: {e}")
-    # Use correct type
-    graph = AAPLZGraph.load("aap_graph.pkl")
+    graph = LZGraph.load("possibly_corrupt.lzg")
+except CorruptFileError:
+    print("The file is invalid or from an old version.")
 ```
 
 ## Next Steps
 
 - [Sequence Generation](sequence-generation.md) - Generate sequences from saved graphs
 - [Compare Repertoires](repertoire-comparison.md) - Compare multiple saved graphs
+- [Distribution Analytics](distribution-analytics.md) - Analyze the probability model of a loaded graph

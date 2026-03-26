@@ -1,29 +1,33 @@
-site_name: LZGraphs Documentation
+site_name: LZGraphs
 site_url: https://MuteJester.github.io/LZGraphs/
-site_description: LZ76-based graph representations for T-cell receptor repertoire analysis
+site_description: High-performance LZ76-based graph representations for immune receptor repertoire analysis
 site_author: Thomas Konstantinovsky
 repo_url: https://github.com/MuteJester/LZGraphs
 repo_name: MuteJester/LZGraphs
 edit_uri: edit/master/docs/
 
-copyright: Copyright &copy; 2024 Thomas Konstantinovsky
+copyright: Copyright &copy; 2024-2026 Thomas Konstantinovsky
 
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: images/lzglogo2.png
   favicon: images/lzglogo2.png
+  font:
+    text: Inter
+    code: JetBrains Mono
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: indigo
+      primary: deep purple
+      accent: cyan
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: indigo
+      primary: deep purple
+      accent: cyan
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
@@ -31,38 +35,38 @@ theme:
     - navigation.tabs
     - navigation.tabs.sticky
     - navigation.sections
-    - navigation.expand
     - navigation.top
     - navigation.indexes
+    - navigation.path
+    - navigation.footer
+    - navigation.instant
+    - navigation.instant.prefetch
     - search.suggest
     - search.highlight
     - search.share
     - content.code.copy
     - content.code.annotate
+    - content.action.edit
     - content.tabs.link
+    - content.tooltips
     - toc.follow
+    - announce.dismiss
   icon:
     repo: fontawesome/brands/github
+    edit: material/pencil
+    annotation: material/plus-circle
 
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
-  - mkdocstrings:
-      default_handler: python
-      handlers:
-        python:
-          options:
-            show_source: false
-            show_root_heading: true
-            show_root_full_path: false
-            show_symbol_type_heading: true
-            show_symbol_type_toc: true
-            members_order: source
-            docstring_style: google
-            docstring_section_style: spacy
-            merge_init_into_class: true
-            show_signature_annotations: true
-            separate_signature: true
+  - social
+  - tags:
+      tags_file: tags.md
+  - glightbox
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+      fallback_to_build_date: true
 
 markdown_extensions:
   - abbr
@@ -88,10 +92,13 @@ markdown_extensions:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
+      linenums_style: pymdownx-inline
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.mark
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      auto_append:
+        - docs/.overrides/abbreviations.md
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -110,6 +117,27 @@ extra:
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/LZGraphs/
   generator: false
+  tags:
+    Diversity: diversity
+    Simulation: simulation
+    Genes: genes
+    Construction: construction
+    Comparison: comparison
+    ML: ml
+    CLI: cli
+    IO: io
+  analytics:
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/thumb-up-outline
+          name: This page was helpful
+          data: 1
+          note: Thanks for your feedback!
+        - icon: material/thumb-down-outline
+          name: This page could be improved
+          data: 0
+          note: Thanks — we'll work on improving this page.
 
 extra_css:
   - stylesheets/extra.css
@@ -120,38 +148,47 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - Learn:
     - getting-started/index.md
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
     - First Steps: getting-started/first-steps.md
-  - Tutorials:
-    - tutorials/index.md
-    - Graph Construction: tutorials/graph-construction.md
-    - Sequence Analysis: tutorials/sequence-analysis.md
-    - Diversity Metrics: tutorials/diversity-metrics.md
-    - Visualization: tutorials/visualization.md
-  - Concepts:
-    - concepts/index.md
-    - LZ76 Algorithm: concepts/lz76-algorithm.md
-    - Graph Types: concepts/graph-types.md
-    - Probability Model: concepts/probability-model.md
-  - How-To Guides:
+    - Tutorials:
+      - tutorials/index.md
+      - Graph Construction: tutorials/graph-construction.md
+      - Sequence Analysis: tutorials/sequence-analysis.md
+      - Diversity Metrics: tutorials/diversity-metrics.md
+    - Examples: examples/index.md
+  - Guides:
     - how-to/index.md
+    - Prepare Your Data: how-to/data-preparation.md
     - Save & Load Graphs: how-to/serialization.md
     - Generate Sequences: how-to/sequence-generation.md
     - Compare Repertoires: how-to/repertoire-comparison.md
     - Personalize Graphs: how-to/posterior-personalization.md
-  - Examples: examples/index.md
-  - API Reference:
+    - Distribution Analytics: how-to/distribution-analytics.md
+    - Graph Algebra: how-to/graph-algebra.md
+    - Feature Extraction for ML: how-to/feature-extraction.md
+  - Concepts:
+    - concepts/index.md
+    - LZ76 Algorithm: concepts/lz76-algorithm.md
+    - Graph Variants: concepts/graph-types.md
+    - Probability Model: concepts/probability-model.md
+    - Distribution Analytics: concepts/distribution-analytics.md
+    - vs. IGoR, OLGA, SONIA: concepts/comparison.md
+  - Tags: tags.md
+  - Reference:
     - api/index.md
-    - AAPLZGraph: api/aaplzgraph.md
-    - NDPLZGraph: api/ndplzgraph.md
-    - NaiveLZGraph: api/naivelzgraph.md
-    - Metrics: api/metrics.md
-    - Utilities: api/utilities.md
+    - LZGraph: api/lzgraph.md
+    - SimulationResult: api/simulation-result.md
+    - PgenDistribution: api/pgen-distribution.md
+    - Module Functions: api/functions.md
+    - CLI Tool: api/cli.md
     - Exceptions: api/exceptions.md
-  - Resources:
-    - FAQ: resources/faq.md
-    - Changelog: resources/changelog.md
-    - Citation: resources/citation.md
+    - Resources:
+      - Glossary: resources/glossary.md
+      - FAQ: resources/faq.md
+      - Benchmarks: resources/benchmarks.md
+      - Changelog: resources/changelog.md
+      - Citation: resources/citation.md
+    - Architecture: architecture/c-reimplementation.md

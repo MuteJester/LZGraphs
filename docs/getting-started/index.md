@@ -1,49 +1,54 @@
-# Getting Started
+# Learn LZGraphs
 
-Welcome to LZGraphs! This section will help you get up and running quickly with the library.
+Whether you're new to the library or looking to deepen your understanding, start here.
 
-## What is LZGraphs?
+---
 
-LZGraphs is a Python library that uses the Lempel-Ziv 76 (LZ76) compression algorithm to create graph representations of T-cell receptor (TCR) repertoires. These graphs capture the statistical properties of CDR3 sequences, enabling:
+## New to LZGraphs?
 
-- **Probability estimation** - Calculate the generation probability of any sequence
-- **Sequence generation** - Generate new sequences following repertoire statistics
-- **Diversity analysis** - Measure repertoire complexity using novel metrics
-- **Comparison** - Compare repertoires using graph-based divergence measures
-
-## Quick Links
+Follow this path:
 
 <div class="grid" markdown>
 
 <div class="card" markdown>
-### :material-download: [Installation](installation.md)
-Install LZGraphs and its dependencies
+### 1. [Install](installation.md)
+`pip install LZGraphs` — requirements and troubleshooting.
 </div>
 
 <div class="card" markdown>
-### :material-rocket-launch: [Quick Start](quickstart.md)
-Build your first graph in 5 minutes
+### 2. [Quick Start](quickstart.md)
+Build a graph, score sequences, simulate, and measure diversity in 5 minutes.
 </div>
 
 <div class="card" markdown>
-### :material-compass: [First Steps](first-steps.md)
-Understand the basics and choose the right graph type
+### 3. [First Steps](first-steps.md)
+Understand graph variants (AAP, NDP, Naive) and choose the right one for your data.
 </div>
 
 </div>
+
+---
+
+## Tutorials
+
+In-depth walkthroughs that build intuition for how LZGraphs works and what the numbers mean.
+
+| Tutorial | What you'll learn | Time |
+|:---------|:------------------|:----:|
+| [Graph Construction](../tutorials/graph-construction.md) | Build graphs, explore nodes/edges, add gene data and abundances | 15 min |
+| [Sequence Analysis](../tutorials/sequence-analysis.md) | Score with LZPGEN, simulate, perplexity, gene-constrained generation | 20 min |
+| [Diversity Metrics](../tutorials/diversity-metrics.md) | Hill numbers, richness curves, PGEN distributions, JSD comparisons | 15 min |
+
+---
+
+## Examples
+
+Copy-paste ready code for common tasks: [Examples Gallery](../examples/index.md)
+
+---
 
 ## Prerequisites
 
-Before using LZGraphs, you should have:
-
-- **Python 3.9 or higher** installed
-- Basic familiarity with **pandas DataFrames**
-- Understanding of TCR/CDR3 sequences (helpful but not required)
-
-## Next Steps
-
-After completing the Getting Started guide, explore:
-
-- [Tutorials](../tutorials/index.md) - Detailed walkthroughs of common tasks
-- [Concepts](../concepts/index.md) - Understand the theory behind LZGraphs
-- [API Reference](../api/index.md) - Complete documentation of all classes and functions
+- **Python 3.9+** and **NumPy** (installed automatically)
+- Basic Python knowledge (lists, dicts, loops)
+- Some familiarity with CDR3 / TCR / BCR sequences is helpful but not required — the tutorials explain the biology as needed

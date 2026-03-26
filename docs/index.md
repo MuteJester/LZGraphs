@@ -4,134 +4,115 @@
 [![PyPI version](https://badge.fury.io/py/LZGraphs.svg)](https://badge.fury.io/py/LZGraphs)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://mutejester.github.io/LZGraphs/)
 </div>
 
-<p align="center">
-  <img src="images/lzglogo2.png" alt="LZGraphs Logo" width="300">
-</p>
+**LZGraphs** is a high-performance Python library for analyzing immune receptor repertoires using Lempel-Ziv 76 compression graphs. Built on a C core, it transforms CDR3 sequences into probabilistic directed graphs that support exact probability computation, constrained sequence generation, and analytical diversity measurement — all without alignment or reference genotypes.
 
-**LZGraphs** is a Python library for analyzing T-cell receptor (TCR) repertoires using Lempel-Ziv 76 compression-based graph representations. It provides a novel approach to sequence analysis that doesn't rely on alignment or genotype references.
-
----
-
-## Why LZGraphs?
-
-Traditional TCR repertoire analysis methods often struggle with:
-
-- **Alignment dependencies** - requiring reference sequences
-- **Computational complexity** - O(n²) pairwise comparisons
-- **Loss of positional information** - treating sequences as bags of k-mers
-
-LZGraphs solves these problems by encoding sequences as walks through directed graphs, capturing both the **content** and **structure** of repertoires in a computationally efficient way.
-
----
-
-## Key Features
-
-<div class="grid" markdown>
-
-<div class="card" markdown>
-### :material-graph: Graph Representations
-Three specialized graph types for different analysis needs: **AAPLZGraph** for amino acids, **NDPLZGraph** for nucleotides, and **NaiveLZGraph** for general sequences.
-</div>
-
-<div class="card" markdown>
-### :material-dice-multiple: Sequence Generation
-Generate novel sequences via random walks or gene-conditioned walks (`simulate()`), with full probability models for computing P(gen) of any sequence.
-</div>
-
-<div class="card" markdown>
-### :material-chart-line: Diversity & Information Metrics
-Novel diversity indices (**k1000_diversity**, **lz_centrality**) and a full information-theoretic toolkit (entropy, perplexity, JSD, mutual information) for repertoire characterization.
-</div>
-
-<div class="card" markdown>
-### :material-dna: Gene Analysis
-Built-in V/J gene annotation support for genomic-aware sequence generation and gene usage analysis.
-</div>
-
-<div class="card" markdown>
-### :material-chart-scatter-plot: Visualization
-Publication-ready plots for sequence analysis, including path variability, genomic heatmaps, and saturation curves.
-</div>
-
-<div class="card" markdown>
-### :material-scale-balance: Abundance Weighting
-Optionally weight sequences by clonotype abundance during graph construction, so the graph reflects the expanded state of the repertoire.
-</div>
-
-</div>
+<figure markdown="span">
+  ![Example LZGraph](images/example_graph.png){ width="85%" }
+  <figcaption>An LZGraph built from three CDR3 sequences. Shared prefixes form a single path; divergent suffixes branch. Edge weights encode transition probabilities.</figcaption>
+</figure>
 
 ---
 
 ## Quick Start
 
-### Installation
+```python
+from LZGraphs import LZGraph
+
+graph = LZGraph(['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF'],
+                variant='aap')
+
+graph.lzpgen('CASSLEPSGGTDTQYF')          # log generation probability
+graph.simulate(1000, seed=42)              # generate new sequences
+graph.hill_number(2)                       # inverse Simpson diversity
+graph.predicted_richness(100_000)          # richness at sequencing depth
+```
 
 ```bash
-pip install LZGraphs
+lzg build repertoire.tsv -o rep.lzg       # build from the command line
+lzg diversity rep.lzg                      # diversity report
+lzg simulate rep.lzg -n 10000 > synth.txt # generate sequences
 ```
 
-**Requirements:** Python 3.9 or higher
-
-### Your First Graph
-
-```python
-import pandas as pd
-from LZGraphs import AAPLZGraph
-
-# Load your TCR repertoire data
-data = pd.DataFrame({
-    'cdr3_amino_acid': ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF'],
-    'V': ['TRBV16-1*01', 'TRBV1-1*01', 'TRBV16-1*01'],
-    'J': ['TRBJ1-2*01', 'TRBJ1-5*01', 'TRBJ2-7*01']
-})
-
-# Build the graph
-graph = AAPLZGraph(data, verbose=True)
-
-# Calculate sequence probability
-pgen = graph.walk_probability("CASSLEPSGGTDTQYF")
-print(f"P(gen) = {pgen:.2e}")
-```
+[:material-download: Install](getting-started/installation.md){ .md-button .md-button--primary }
+[:material-rocket-launch: Quick Start](getting-started/quickstart.md){ .md-button }
 
 ---
 
-## Documentation Overview
+## What LZGraphs does
 
-<div class="quick-links" markdown>
+<div class="grid" markdown>
 
-[:material-rocket-launch: **Getting Started**](getting-started/index.md)
-New to LZGraphs? Start here for installation and basic usage.
+<div class="card" markdown>
+### Score sequences
+Compute the exact generation probability of any CDR3 under the repertoire model with `lzpgen()`.
+</div>
 
-[:material-school: **Tutorials**](tutorials/index.md)
-Step-by-step guides for common analysis tasks.
+<div class="card" markdown>
+### Generate sequences
+Simulate novel sequences via LZ-constrained random walks — with optional V/J gene constraints.
+</div>
 
-[:material-lightbulb: **Concepts**](concepts/index.md)
-Understand the theory behind LZGraphs.
+<div class="card" markdown>
+### Measure diversity
+Hill numbers, Shannon entropy, predicted richness, sample overlap, and sharing spectra — analytically from the graph.
+</div>
 
-[:material-wrench: **How-To Guides**](how-to/index.md)
-Task-oriented guides for specific operations.
+<div class="card" markdown>
+### Compare repertoires
+Jensen-Shannon divergence, cross-scoring, and graph set operations (union, intersection, difference).
+</div>
 
-[:material-notebook: **Examples**](examples/index.md)
-Interactive Jupyter notebooks with real data.
+<div class="card" markdown>
+### Extract ML features
+Project repertoires into fixed-size feature vectors for classification, clustering, and regression.
+</div>
 
-[:material-api: **API Reference**](api/index.md)
-Complete reference for all classes and functions.
+<div class="card" markdown>
+### Personalize models
+Bayesian posterior updates to adapt a population graph to an individual patient.
+</div>
 
 </div>
 
 ---
 
-## Citation
+## Documentation
 
-If you use LZGraphs in your research, please cite our paper. See the [Citation page](resources/citation.md) for BibTeX entries and details.
+<div class="quick-links" markdown>
+
+[:material-shoe-print: **Learn**](getting-started/index.md)
+Installation, quick start, tutorials, and worked examples.
+
+[:material-wrench: **Guides**](how-to/index.md)
+Task-oriented recipes: data prep, generation, comparison, ML features.
+
+[:material-lightbulb: **Concepts**](concepts/index.md)
+LZ76 algorithm, probability model, graph variants, distribution analytics.
+
+[:material-api: **Reference**](api/index.md)
+Complete API for `LZGraph`, `SimulationResult`, CLI tool, and exceptions.
+
+</div>
 
 ---
 
-## Connect With Us
+<div class="grid" markdown>
 
-- :fontawesome-brands-github: [GitHub Repository](https://github.com/MuteJester/LZGraphs)
-- :material-bug: [Report Issues](https://github.com/MuteJester/LZGraphs/issues)
-- :material-email: [Contact](mailto:thomaskon90@gmail.com)
+<div class="card" markdown>
+### :material-lightning-bolt: C Performance
+Build graphs from 5,000 sequences in 80 ms. Simulate at ~5,000 seqs/sec. Save/load in < 1 ms.
+</div>
+
+<div class="card" markdown>
+### :material-check-decagram: LZ76 Constraints
+Every simulated sequence is a valid LZ76 decomposition. No biologically impossible outputs.
+</div>
+
+</div>
+
+---
+
+If you use LZGraphs in your research, please [cite our paper](resources/citation.md).
+[:fontawesome-brands-github: GitHub](https://github.com/MuteJester/LZGraphs) · [:material-bug: Issues](https://github.com/MuteJester/LZGraphs/issues) · [:material-email: Contact](mailto:thomaskon90@gmail.com)

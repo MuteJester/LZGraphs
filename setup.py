@@ -1,40 +1,44 @@
-"""
-Build script for optional C extensions.
+"""Build script for LZGraphs with C extension.
 
-The _fast_walk extension accelerates LZGraph.simulate() by ~50-100x.
-If compilation fails (no C compiler), the package still installs and
-falls back to the pure-Python implementation automatically.
+Compiles the C-LZGraph library and Python bindings into a single
+shared library that is imported as LZGraphs._clzgraph.
 """
 
 import os
 import sys
+import glob
 from setuptools import setup, Extension
 
-# Ensure setuptools can resolve the dynamic version (attr = "LZGraphs.__version__")
-# when running in an isolated build environment where src/ isn't on sys.path.
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
+HERE = os.path.dirname(os.path.abspath(__file__))
 
-ext_modules = [
-    Extension(
-        "LZGraphs._fast_walk",
-        sources=[os.path.join("src", "LZGraphs", "_fast_walk.c")],
-        # No external library dependencies — pure C + Python.h
-    ),
-]
+# Ensure setuptools can resolve dynamic version
+sys.path.insert(0, os.path.join(HERE, "src"))
 
+# Change to setup.py directory so all paths are relative
+os.chdir(HERE)
 
-def run_setup(extensions):
-    setup(ext_modules=extensions)
+# Collect all C library source files (relative to HERE)
+lib_sources = sorted(glob.glob(os.path.join("lib", "**", "*.c"), recursive=True))
 
+# Platform-specific compile flags
+if sys.platform == 'win32':
+    extra_compile = ["/O2", "/W3"]
+    extra_link = []
+    macros = []
+else:
+    extra_compile = ["-O2", "-std=c11", "-Wno-unused-function"]
+    extra_link = ["-lm"]
+    macros = [("_POSIX_C_SOURCE", "200809L")]
 
-try:
-    run_setup(ext_modules)
-except Exception:
-    print(
-        "\n"
-        "WARNING: Failed to compile C extension _fast_walk.\n"
-        "         LZGraphs will use the pure-Python fallback for simulate().\n"
-        "         This is fine — the package works without it, just slower.\n"
-        "\n"
-    )
-    run_setup([])
+ext = Extension(
+    "LZGraphs._clzgraph",
+    sources=[
+        os.path.join("src", "LZGraphs", "_clzgraph.c"),
+    ] + lib_sources,
+    include_dirs=["include"],
+    extra_compile_args=extra_compile,
+    extra_link_args=extra_link,
+    define_macros=macros,
+)
+
+setup(ext_modules=[ext])

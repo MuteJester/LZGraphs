@@ -1,307 +1,320 @@
+---
+tags:
+  - Simulation
+  - Genes
+---
+
 # Generate Sequences
 
-Learn how to generate new sequences that follow your repertoire's statistical patterns.
-
-## Quick Reference
-
-```python
-# Fast batch generation (recommended)
-sequences = graph.simulate(1000)
-
-# Single random walk
-walk = graph.random_walk()
-
-# With gene constraints
-walk, v_gene, j_gene = graph.genomic_random_walk()
-
-# Convert walk to sequence
-sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
-```
-
-## Basic Sequence Generation
-
-### Random Walk
-
-Generate a sequence following edge probabilities:
-
-```python
-from LZGraphs import AAPLZGraph
-import pandas as pd
-
-# Build graph
-data = pd.read_csv("repertoire.csv")
-graph = AAPLZGraph(data, verbose=False)
-
-# Generate a random walk
-walk = graph.random_walk()
-print(f"Walk: {walk}")
-
-# Convert to sequence
-sequence = ''.join([AAPLZGraph.extract_subpattern(node) for node in walk])
-print(f"Sequence: {sequence}")
-```
-
-### Generate Multiple Sequences
-
-```python
-generated = []
-for _ in range(100):
-    walk = graph.random_walk()
-    seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
-    generated.append(seq)
-
-print(f"Generated {len(generated)} sequences")
-print(f"Example: {generated[0]}")
-```
-
-## Batch Generation with simulate()
-
-For generating many sequences efficiently, use `simulate()` which uses a pre-computed
-walk cache for maximum throughput:
-
-```python
-# Generate 1000 sequences
-sequences = graph.simulate(1000)
-print(f"Generated {len(sequences)} sequences")
-print(f"Example: {sequences[0]}")
-
-# Reproducible generation with a seed
-sequences = graph.simulate(1000, seed=42)
-
-# Get both walks and sequences
-walks_and_seqs = graph.simulate(100, return_walks=True)
-for walk, seq in walks_and_seqs[:3]:
-    print(f"{seq} (walk length: {len(walk)})")
-```
-
-!!! tip "simulate() vs random_walk()"
-    Use `simulate()` when generating many sequences — it's significantly faster than
-    calling `random_walk()` in a loop because it pre-computes numpy arrays for all
-    transition probabilities. Use `random_walk()` or `genomic_random_walk()` when you
-    need single walks or gene-constrained generation.
+This guide covers the practical tasks involved in generating synthetic sequences
+from an LZGraph and working with the results.
 
 ---
 
-## Gene-Constrained Generation
-
-### Using genomic_random_walk
-
-Generate sequences consistent with V/J gene usage:
+## Quick reference
 
 ```python
-# Generate with gene constraints
-walk, v_gene, j_gene = graph.genomic_random_walk()
+from LZGraphs import LZGraph
 
-sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
-print(f"Sequence: {sequence}")
-print(f"V gene: {v_gene}")
-print(f"J gene: {j_gene}")
+graph = LZGraph(sequences, variant="aap")
+
+results = graph.simulate(1000)                # basic generation
+results = graph.simulate(1000, seed=42)       # reproducible
+results = graph.simulate(1000,                # gene-constrained
+                         sample_genes=True)
+results = graph.simulate(100,                 # specific V/J pair
+                         v_gene="TRBV7-2*01",
+                         j_gene="TRBJ2-1*01")
+
+# SimulationResult is iterable, indexable, and sliceable
+subset = results[:5]  # returns a SimulationResult with aligned metadata
+for i, seq in enumerate(subset):
+    print(seq, subset.log_probs[i])
 ```
 
-!!! info "Requirements"
-    `genomic_random_walk()` requires that the graph was built with V and J gene columns.
+---
 
-### Generate with Specific Gene Frequencies
+## Generate a batch of sequences
 
-The generated sequences follow the marginal gene distribution:
+Call `simulate(n)` to produce `n` sequences in one shot. The returned
+[`SimulationResult`](../api/simulation-result.md) holds sequences together with
+their generation metadata.
 
 ```python
-from collections import Counter
+from LZGraphs import LZGraph
 
-# Generate many sequences
-results = []
-for _ in range(1000):
-    walk, v, j = graph.genomic_random_walk()
-    results.append({'v_gene': v, 'j_gene': j})
+sequences = [
+    "CASSLEPSGGTDTQYF",
+    "CASSDTSGGTDTQYF",
+    "CASSLEPQTFTDTFFF",
+]
+graph = LZGraph(sequences, variant="aap")
 
-# Check gene distribution
-df = pd.DataFrame(results)
-print("V gene distribution:")
-print(df['v_gene'].value_counts(normalize=True).head())
+results = graph.simulate(100)
 
-# Compare to original
-print("\nOriginal V gene distribution:")
-print(graph.marginal_v_genes.head())
+print(f"Generated {len(results)} sequences")
+print(f"First sequence: {results[0]}")
 ```
 
-## Advanced Generation
+!!! tip
+    `simulate` uses a compiled C extension by default for maximum throughput.
+    Generating one million sequences typically completes in under a second.
 
-### Generate Specific Lengths
+---
 
-Filter generated sequences by length:
+## Reproduce results with a seed
+
+Pass the `seed` parameter to make generation deterministic. The same seed
+always yields the same sequences, regardless of platform.
 
 ```python
-def generate_with_length(graph, target_length, max_attempts=1000):
-    for _ in range(max_attempts):
-        walk = graph.random_walk()
-        seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
-        if len(seq) == target_length:
-            return seq, walk
-    return None, None
+run_a = graph.simulate(50, seed=42)
+run_b = graph.simulate(50, seed=42)
 
-# Generate 15-mer
-seq, walk = generate_with_length(graph, 15)
-if seq:
-    print(f"Generated 15-mer: {seq}")
+assert list(run_a) == list(run_b)  # identical output
 ```
 
-### Generate from Specific Start
+!!! note
+    Seeds are local to each `simulate` call and do not affect any other
+    random state in your program.
 
-Start from a specific initial state:
+---
 
-```python
-# Check available initial states
-print("Initial states:")
-print(graph.initial_state_counts)
+## Generate with gene constraints
 
-# Note: random_walk starts from initial states by default
-# The initial state is chosen based on observed frequencies
-```
+These options require a graph built with V/J gene data (i.e., the
+`v_genes` and `j_genes` lists were provided at construction time).
+Check `graph.has_gene_data` to verify.
 
-### Batch Generation with Statistics
+### Sample V/J pairs from the observed distribution
 
-```python
-import pandas as pd
-from tqdm import tqdm
-
-def generate_repertoire(graph, n_sequences, use_genes=True):
-    """Generate a synthetic repertoire."""
-    results = []
-
-    for _ in tqdm(range(n_sequences), desc="Generating"):
-        if use_genes:
-            walk, v, j = graph.genomic_random_walk()
-        else:
-            walk = graph.random_walk()
-            v, j = None, None
-
-        seq = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
-        results.append({
-            'sequence': seq,
-            'length': len(seq),
-            'v_gene': v,
-            'j_gene': j
-        })
-
-    return pd.DataFrame(results)
-
-# Generate 1000 sequences
-synthetic = generate_repertoire(graph, 1000)
-print(synthetic.describe())
-```
-
-## Evaluating Generated Sequences
-
-### Check Probability
+Set `sample_genes=True` to draw a (V, J) pair per sequence from the joint
+gene distribution recorded during graph construction. Each sequence is then
+generated through the sub-graph conditioned on that pair.
 
 ```python
-# Generate a sequence
-walk, v, j = graph.genomic_random_walk()
-sequence = ''.join([AAPLZGraph.extract_subpattern(n) for n in walk])
+results = graph.simulate(1000, sample_genes=True)
 
-# Calculate its probability
-pgen = graph.walk_probability(sequence, use_log=True)
-
-print(f"Generated: {sequence}")
-print(f"log P(gen): {pgen:.2f}")
-```
-
-### Compare to Original Distribution
-
-```python
-# Original sequence lengths
-original_lengths = pd.Series(graph.lengths)
-
-# Generated sequence lengths
-synthetic = generate_repertoire(graph, 1000)
-generated_lengths = synthetic['length'].value_counts()
-
-# Plot comparison
-import matplotlib.pyplot as plt
-
-fig, ax = plt.subplots()
-original_lengths.plot(kind='bar', alpha=0.5, label='Original', ax=ax)
-generated_lengths.plot(kind='bar', alpha=0.5, label='Generated', ax=ax)
-ax.legend()
-ax.set_xlabel('Sequence Length')
-ax.set_ylabel('Count')
-plt.tight_layout()
-plt.savefig('length_comparison.png')
-```
-
-## Use Cases
-
-### Data Augmentation
-
-```python
-# Augment a small repertoire
-small_data = pd.read_csv("small_repertoire.csv")  # 100 sequences
-graph = AAPLZGraph(small_data)
-
-# Generate more sequences
-augmented = generate_repertoire(graph, 1000)
-
-# Combine
-combined = pd.concat([
-    small_data[['cdr3_amino_acid', 'V', 'J']].rename(
-        columns={'cdr3_amino_acid': 'sequence'}
-    ),
-    augmented[['sequence', 'v_gene', 'j_gene']].rename(
-        columns={'v_gene': 'V', 'j_gene': 'J'}
+for i in range(3):
+    print(
+        f"{results[i]}  "
+        f"V={results.v_genes[i]}  "
+        f"J={results.j_genes[i]}"
     )
-])
 ```
 
-### Null Model Generation
+### Fix a specific V/J combination
+
+To generate sequences for one particular gene pair, pass the gene names
+directly.
 
 ```python
-def generate_null_repertoire(graph, n_sequences):
-    """Generate sequences for statistical testing."""
-    return generate_repertoire(graph, n_sequences)
-
-# Generate null distribution
-null_seqs = generate_null_repertoire(graph, 10000)
-
-# Test a specific sequence against null
-test_seq = "CASSLEPSGGTDTQYF"
-test_pgen = graph.walk_probability(test_seq, use_log=True)
-
-# Calculate p-value
-null_pgens = []
-for seq in null_seqs['sequence']:
-    try:
-        pgen = graph.walk_probability(seq, use_log=True)
-        null_pgens.append(pgen)
-    except:
-        pass
-
-p_value = sum(1 for p in null_pgens if p <= test_pgen) / len(null_pgens)
-print(f"P-value: {p_value:.4f}")
+results = graph.simulate(100,
+                         v_gene="TRBV7-2*01",
+                         j_gene="TRBJ2-1*01")
 ```
+
+You can also constrain only one gene and leave the other free:
+
+```python
+# All sequences will use TRBV7-2*01; J gene varies
+results = graph.simulate(100, v_gene="TRBV7-2*01")
+```
+
+!!! warning
+    If the requested gene does not exist in the graph, a `ValueError` is
+    raised. Check available genes beforehand with `graph.v_genes` and
+    `graph.j_genes`.
+
+---
+
+## Work with SimulationResult
+
+`simulate` returns a [`SimulationResult`](../api/simulation-result.md) object.
+It supports iteration, indexing, slicing, and `len`.
+
+### Iterate over sequences
+
+```python
+for seq in results:
+    process(seq)
+```
+
+### Index and slice
+
+```python
+first = results[0]           # single sequence (str)
+batch = results[10:20]       # slice returns a new SimulationResult
+```
+
+### Access structured fields
+
+| Field | Type | Always present | Description |
+|---|---|---|---|
+| `results.sequences` | `list[str]` | Yes | Generated amino-acid sequences |
+| `results.log_probs` | `numpy.ndarray` (float64) | Yes | Exact log-probability of each sequence under the model |
+| `results.n_tokens` | `numpy.ndarray` (uint32) | Yes | Number of LZ tokens per sequence |
+| `results.v_genes` | `list[str]` or `None` | Only with gene constraints | V gene assigned to each sequence |
+| `results.j_genes` | `list[str]` or `None` | Only with gene constraints | J gene assigned to each sequence |
+
+```python
+import numpy as np
+
+results = graph.simulate(500, seed=7)
+
+# Highest-probability sequence
+best_idx = np.argmax(results.log_probs)
+print(results[best_idx], results.log_probs[best_idx])
+
+# Mean token count
+print(f"Mean LZ tokens: {results.n_tokens.mean():.1f}")
+```
+
+---
+
+## Score sequences with lzpgen
+
+Use `graph.lzpgen(seq)` to compute the log-probability of any sequence --
+generated or observed -- under the graph's transition model. This is useful for
+ranking, filtering, or statistical testing.
+
+```python
+score = graph.lzpgen("CASSLEPSGGTDTQYF")
+print(f"Log-probability: {score:.4f}")
+```
+
+You can score an entire batch by iterating:
+
+```python
+import numpy as np
+
+observed = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF"]
+scores = graph.lzpgen(observed)  # pass a list for batch scoring → returns np.ndarray
+```
+
+!!! info
+    `log_probs` on a `SimulationResult` are computed during generation at
+    zero extra cost. Use `lzpgen` only when you need to score sequences that
+    were *not* produced by `simulate`.
+
+---
+
+## Filter generated sequences by length
+
+`SimulationResult` fields are aligned by index, so NumPy boolean indexing works
+naturally.
+
+```python
+import numpy as np
+
+results = graph.simulate(5000, seed=0)
+lengths = np.array([len(s) for s in results.sequences])
+
+# Keep only sequences between 13 and 17 residues
+mask = (lengths >= 13) & (lengths <= 17)
+filtered_seqs = [s for s, keep in zip(results.sequences, mask) if keep]
+filtered_lps  = results.log_probs[mask]
+
+print(f"Kept {len(filtered_seqs)} / {len(results)} sequences")
+```
+
+---
+
+## Data augmentation
+
+Generate a large synthetic repertoire from a small observed sample to
+supplement downstream machine-learning pipelines.
+
+```python
+from LZGraphs import LZGraph
+
+# Build from a small clinical sample
+graph = LZGraph(small_sample, variant="aap")
+
+# Augment to 50,000 sequences
+synthetic = graph.simulate(50_000, seed=123)
+
+# Write to a plain-text file (one sequence per line)
+with open("synthetic_repertoire.txt", "w") as fh:
+    for seq in synthetic:
+        fh.write(seq + "\n")
+```
+
+!!! tip "Preserving gene annotations"
+    If gene labels matter for your downstream task, use `sample_genes=True`
+    and write the gene columns alongside the sequences:
+
+    ```python
+    synthetic = graph.simulate(50_000, seed=123, sample_genes=True)
+
+    import csv
+    with open("synthetic_repertoire.tsv", "w", newline="") as fh:
+        writer = csv.writer(fh, delimiter="\t")
+        writer.writerow(["sequence", "v_gene", "j_gene", "log_prob"])
+        for i, seq in enumerate(synthetic):
+            writer.writerow([
+                seq,
+                synthetic.v_genes[i],
+                synthetic.j_genes[i],
+                f"{synthetic.log_probs[i]:.6f}",
+            ])
+    ```
+
+---
+
+## Null model generation
+
+Build a null distribution of generation probabilities and use it to assess
+whether a particular sequence is statistically unusual given the repertoire
+structure.
+
+```python
+import numpy as np
+from LZGraphs import LZGraph
+
+graph = LZGraph(repertoire_sequences, variant="aap")
+
+# 1. Generate null sequences and collect their log-probabilities
+null = graph.simulate(10_000, seed=0)
+null_lps = null.log_probs
+
+# 2. Score the test sequence
+test_seq = "CASSLEPSGGTDTQYF"
+test_lp  = graph.lzpgen(test_seq)
+
+# 3. Empirical p-value (fraction of null sequences at least as unlikely)
+p_value = (null_lps <= test_lp).mean()
+print(f"Test log-prob: {test_lp:.4f}  |  p-value: {p_value:.4f}")
+```
+
+!!! note
+    A low p-value indicates the test sequence is less probable than most
+    sequences the model generates -- it may represent a rare or atypical
+    rearrangement.
+
+---
 
 ## Troubleshooting
 
-### "No gene data" Error
+??? failure "\"No gene data\" error"
+    Raised when you pass `v_gene`, `j_gene`, or `sample_genes=True` to a
+    graph that was not built with gene annotations. Rebuild the graph with
+    V/J columns or load from an AIRR file that includes them.
 
-```python
-try:
-    walk, v, j = graph.genomic_random_walk()
-except Exception as e:
-    print("Gene data not available. Using random_walk instead.")
-    walk = graph.random_walk()
-```
+??? failure "\"Gene not found\" error"
+    The gene name you requested does not appear in the graph. Inspect the
+    available genes:
 
-### Empty Walks
+    ```python
+    print(graph.v_genes)  # list of V gene names
+    print(graph.j_genes)  # list of J gene names
+    ```
 
-```python
-walk = graph.random_walk()
-if not walk:
-    print("Empty walk generated - check graph structure")
-else:
-    print(f"Walk length: {len(walk)}")
-```
+---
 
-## Next Steps
+## Next steps
 
-- [Compare Repertoires](repertoire-comparison.md) - Compare generated vs. original
-- [Tutorials: Sequence Analysis](../tutorials/sequence-analysis.md) - More analysis techniques
+- [SimulationResult API reference](../api/simulation-result.md) -- full field and method documentation
+- [Distribution Analytics](../concepts/distribution-analytics.md) -- the mathematical model behind generation probabilities
+- [Compare Repertoires](repertoire-comparison.md) -- compare synthetic and real distributions
+- [Sequence Analysis tutorial](../tutorials/sequence-analysis.md) -- end-to-end walkthrough with real data

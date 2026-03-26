@@ -1,350 +1,202 @@
 <p align="center">
-
-[![PyPI version](https://img.shields.io/pypi/v/LZGraphs.svg)](https://pypi.org/project/LZGraphs/)
-[![Python versions](https://img.shields.io/pypi/pyversions/LZGraphs.svg)](https://pypi.org/project/LZGraphs/)
-[![CI/CD](https://github.com/MuteJester/LZGraphs/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/MuteJester/LZGraphs/actions/workflows/ci-cd.yml)
-[![License](https://img.shields.io/github/license/MuteJester/LZGraphs.svg)](https://github.com/MuteJester/LZGraphs/blob/master/LICENSE)
-[![Downloads](https://img.shields.io/pypi/dm/LZGraphs.svg)](https://pypi.org/project/LZGraphs/)
-
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-[![LinkedIn][linkedin-shield]][linkedin-url]
-
-</p>
-
-
-<!-- PROJECT LOGO -->
-<br />
-<p align="center">
   <a href="https://github.com/MuteJester/LZGraphs">
-    <img src="https://github.com/MuteJester/LZGraphs/blob/master/misc/lzglogo2.png" alt="Logo" width="480" height="330">
+    <img src="docs/images/lzglogo2.png" alt="LZGraphs" width="400">
   </a>
+</p>
 
-  <h2 align="center">LZGraphs</h2>
+<p align="center">
+  <strong>High-performance LZ76 compression graphs for immune receptor repertoire analysis</strong>
+</p>
 
-  <p align="center">
-    LZ76 Graphs and Applications in Immunology
-    <br />
-    <a href="https://MuteJester.github.io/LZGraphs/"><strong>Explore the docs &raquo;</strong></a>
-    <br />
-    <br />
-    <a href="https://github.com/MuteJester/LZGraphs/issues">Report Bug</a>
-    &middot;
-    <a href="https://github.com/MuteJester/LZGraphs/issues">Request Feature</a>
-  </p>
+<p align="center">
+  <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/v/LZGraphs.svg" alt="PyPI"></a>
+  <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/pyversions/LZGraphs.svg" alt="Python"></a>
+  <a href="https://github.com/MuteJester/LZGraphs/blob/master/LICENSE"><img src="https://img.shields.io/github/license/MuteJester/LZGraphs.svg" alt="License"></a>
+  <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/dm/LZGraphs.svg" alt="Downloads"></a>
+  <a href="https://github.com/MuteJester/LZGraphs/stargazers"><img src="https://img.shields.io/github/stars/MuteJester/LZGraphs.svg" alt="Stars"></a>
+</p>
+
+<p align="center">
+  <a href="https://MuteJester.github.io/LZGraphs/"><strong>Documentation</strong></a> &nbsp;&middot;&nbsp;
+  <a href="https://MuteJester.github.io/LZGraphs/getting-started/quickstart/"><strong>Quick Start</strong></a> &nbsp;&middot;&nbsp;
+  <a href="https://MuteJester.github.io/LZGraphs/api/lzgraph/"><strong>API Reference</strong></a> &nbsp;&middot;&nbsp;
+  <a href="https://github.com/MuteJester/LZGraphs/issues">Report Bug</a>
 </p>
 
 ---
 
-> **:dna: New to LZGraphs?** Head over to the **[full documentation and tutorials](https://MuteJester.github.io/LZGraphs/)** for comprehensive guides, API reference, and worked examples covering every feature of the library.
+**LZGraphs** is a Python library that transforms T-cell and B-cell receptor CDR3 sequences into probabilistic directed graphs using the Lempel-Ziv 76 compression algorithm. Built on a C core with Python bindings, it provides:
 
----
+- **Exact generation probabilities** for any CDR3 sequence
+- **LZ76-constrained sequence simulation** that guarantees valid outputs
+- **Analytical diversity metrics** (Hill numbers, richness predictions, sharing spectra)
+- **Graph algebra** (union, intersection, difference) for repertoire comparison
+- **ML feature extraction** with fixed-size vectors for classification pipelines
+- **Bayesian posterior personalization** to adapt population models to individuals
+- **A CLI tool** (`lzg`) for terminal-based analysis
 
-## Table of Contents
-
-* [About the Project](#about-the-project)
-* [Key Features](#key-features)
-* [Installation](#installation)
-* [Quick Start](#quick-start)
-* [Graph Types](#graph-types)
-* [Sequence Abundance Weighting](#sequence-abundance-weighting)
-* [Core Capabilities](#core-capabilities)
-* [Contributing](#contributing)
-* [License](#license)
-* [Contact](#contact)
-
-
-<!-- ABOUT THE PROJECT -->
-## About The Project
-
-LZGraphs :dna: is a Python library for immune receptor repertoire analysis based on the Lempel-Ziv 76 (LZ-76) compression algorithm. It builds directed graph models from TCR and BCR CDR3 sequences, capturing the sequential structure of repertoires without relying on alignment.
-
-The methodology is presented in the research paper *"A Novel Approach to T-Cell Receptor Beta Chain (TCRB) Repertoire Encoding Using Lossless String Compression"*.
-
-### Background
-
-The diversity of T-cells and B-cells is crucial for producing receptors that recognize the wide range of pathogens encountered throughout life. V(D)J recombination generates this diversity through a stochastic process, making repertoire analysis challenging. LZGraphs addresses this by decomposing sequences into LZ-76 subpatterns and encoding them as graph transitions, providing a compact, information-rich representation of an entire repertoire.
-
-
-## Key Features
-
-- **Alignment-free analysis** -- no error-prone sequence alignment required
-- **Generation probability inference** -- compute P(sequence) under the learned graph model
-- **Sequence simulation** -- generate realistic synthetic sequences from the graph
-- **Diversity estimation** -- LZ-based diversity indices (K-diversity family)
-- **Information-theoretic metrics** -- entropy, perplexity, Jensen-Shannon divergence, mutual information, and more
-- **Repertoire comparison** -- compare two repertoires via graph-level statistics
-- **Analytical probability distributions** -- exact moments and scipy-like distribution objects for generation probabilities
-- **Gene annotation support** -- optional V/J gene tracking on edges for gene usage analysis
-- **Bayesian posterior personalization** -- adapt population-level models to individual repertoires using Dirichlet-Multinomial conjugacy
-- **Abundance weighting** -- weight sequences by clonal abundance for more realistic models
-- **Serialization** -- save and load graphs in JSON format
-
-
-## Installation
-
-Install from PyPI:
+## Quick Start
 
 ```bash
 pip install LZGraphs
 ```
 
-LZGraphs requires Python 3.9 or later. To verify the installation:
-
 ```python
-import LZGraphs
-print(LZGraphs.__version__)
-```
+from LZGraphs import LZGraph
 
-
-## Quick Start
-
-Build an amino acid positional graph from CDR3 sequences and compute sequence probabilities:
-
-```python
-from LZGraphs import AAPLZGraph
-
-# Pass a plain list of CDR3 amino acid sequences
-sequences = [
-    'CASSLAPGATNEKLFF',
-    'CASSLGQAYEQYF',
-    'CASSFSTCSANYGYTF',
-    'CASSQEGTEAFF',
-    'CASSLGQGNIQYF',
-    # ... your CDR3 amino acid sequences
-]
-
-# Construct the graph
-graph = AAPLZGraph(sequences, verbose=True)
-
-# Compute the log-probability of a sequence under the model
-log_prob = graph.walk_log_probability('CASSLAPGATNEKLFF')
-print(f"Log P(seq): {log_prob:.4f}")
-
-# Simulate 100 new sequences from the graph
-generated = graph.simulate(100, seed=42)
-print(f"Generated {len(generated)} sequences")
-
-# Access graph properties
-print(f"Nodes: {graph.num_subpatterns}, Edges: {graph.num_transitions}")
-print(f"Length distribution: {graph.length_probabilities}")
-```
-
-
-## Graph Types
-
-LZGraphs provides three graph variants, each suited to different sequence types and analysis goals:
-
-### AAPLZGraph -- Amino Acid Positional
-
-Best for **CDR3 amino acid sequences**. Each LZ-76 subpattern is annotated with its position in the sequence, creating a directed acyclic graph (DAG). This enables exact analytical computations including `lzpgen_moments()` and `lzpgen_analytical_distribution()`.
-
-```python
-from LZGraphs import AAPLZGraph
-
-graph = AAPLZGraph(data, verbose=True)  # data has 'cdr3_amino_acid' column
-```
-
-### NDPLZGraph -- Nucleotide Double Positional
-
-Best for **CDR3 nucleotide sequences** where reading frame matters. Encodes both the subpattern and a double positional index derived from nucleotide positions. Also a DAG, supporting exact analytical methods.
-
-```python
-from LZGraphs import NDPLZGraph
-
-graph = NDPLZGraph(data, verbose=True)  # data has 'cdr3_rearrangement' column
-```
-
-### NaiveLZGraph -- Basic Nucleotide
-
-A simpler model for **nucleotide sequences** that uses raw LZ-76 subpatterns without positional annotation. The resulting graph may contain cycles. Use Monte Carlo methods (`lzpgen_distribution()`) rather than exact analytics for this graph type.
-
-```python
-from LZGraphs import NaiveLZGraph
-from LZGraphs import generate_kmer_dictionary
-
-cdr3_list = ['TGTGCCAGCAGC...', 'TGTGCCAGCAGT...', ...]
-dictionary = generate_kmer_dictionary(cdr3_list)
-graph = NaiveLZGraph(cdr3_list, dictionary, verbose=True)
-```
-
-### Gene Annotation
-
-All three graph types support optional V and J gene annotation. Pass gene lists alongside sequences to track gene usage on graph edges:
-
-```python
-sequences = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', ...]
-v_genes   = ['TRBV16-1*01', 'TRBV1-1*01', ...]
-j_genes   = ['TRBJ1-2*01', 'TRBJ1-5*01', ...]
-
-graph = AAPLZGraph(sequences, v_genes=v_genes, j_genes=j_genes, verbose=True)
-
-# Gene data is now available
-print(graph.has_gene_data)           # True
-print(graph.marginal_v_genes)        # V gene usage distribution
-print(graph.marginal_j_genes)        # J gene usage distribution
-```
-
-
-## Sequence Abundance Weighting
-
-Immune repertoire datasets often include clonal abundance information -- the number of times each unique clonotype was observed. LZGraphs supports abundance-weighted graph construction, where each sequence contributes proportionally to its observed count rather than being treated as a single observation.
-
-This is particularly important for:
-
-- **More accurate probability estimates** -- highly expanded clones exert greater influence on transition probabilities, reflecting the true distribution of the repertoire
-- **Better representation of clonal expansion** -- dominant clones shape the graph structure proportionally to their prevalence
-- **More realistic sequence generation** -- simulated sequences reflect the abundance-weighted landscape, not just the unique sequence set
-
-To use abundance weighting, pass an `abundances` list alongside your sequences:
-
-```python
-sequences  = ['CASSLAPGATNEKLFF', 'CASSLGQAYEQYF', 'CASSFSTCSANYGYTF']
-abundances = [150, 42, 7]
-
-# Each sequence is weighted by its abundance during graph construction
-graph = AAPLZGraph(sequences, abundances=abundances, verbose=True)
-```
-
-For `NaiveLZGraph`, pass abundances as a separate parameter:
-
-```python
-graph = NaiveLZGraph(
-    cdr3_list,
-    dictionary,
-    verbose=True,
-    abundances=[150, 42, 7, ...],
-)
-```
-
-When no abundance information is provided, every sequence is implicitly weighted as 1.
-
-
-## Core Capabilities
-
-### Probability Inference
-
-Compute the probability of a sequence under the learned Markov model:
-
-```python
-prob = graph.walk_probability('CASSLAPGATNEKLFF')
-log_prob = graph.walk_log_probability('CASSLAPGATNEKLFF')
-```
-
-### Sequence Simulation
-
-Generate new sequences by sampling random walks through the graph:
-
-```python
-sequences = graph.simulate(1000, seed=42)
-```
-
-### Generation Probability Distributions
-
-Characterize the distribution of generation probabilities across the repertoire:
-
-```python
-# Monte Carlo empirical distribution (works on all graph types)
-log_probs = graph.lzpgen_distribution(n=10000, seed=42)
-
-# Exact analytical moments (DAG graphs only: AAPLZGraph, NDPLZGraph)
-moments = graph.lzpgen_moments()
-print(moments['mean'], moments['std'])
-
-# Full scipy-like distribution object (DAG graphs only)
-dist = graph.lzpgen_analytical_distribution()
-print(dist.mean(), dist.std())
-x = dist.ppf(0.05)  # 5th percentile
-```
-
-### Diversity Metrics
-
-```python
-from LZGraphs import lz_centrality, k_diversity
-
-centrality = lz_centrality(graph, 'CASSLAPGATNEKLFF')
-diversity = k_diversity(sequences, graph.encode_sequence, sample_size=1000)
-```
-
-### Information-Theoretic Analysis
-
-```python
-from LZGraphs import (
-    node_entropy, edge_entropy, graph_entropy,
-    jensen_shannon_divergence, compare_repertoires,
+# Build a graph from CDR3 amino acid sequences
+graph = LZGraph(
+    ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF',
+     'CASSLGQGSTEAFF', 'CASSLGIRRT'],
+    variant='aap',
 )
 
-print(f"Graph entropy: {graph_entropy(graph):.4f}")
+# Score a sequence
+log_p = graph.lzpgen('CASSLEPSGGTDTQYF')
+print(f"log P(gen) = {log_p:.2f}")
 
-# Compare two repertoires
-jsd = jensen_shannon_divergence(graph1, graph2)
-comparison = compare_repertoires(graph1, graph2)
+# Simulate new sequences
+result = graph.simulate(1000, seed=42)
+print(f"Generated {len(result)} sequences")
+
+# Diversity
+print(f"D(1) = {graph.effective_diversity():.1f}")
+print(f"D(2) = {graph.hill_number(2):.1f}")
 ```
 
-### Bayesian Posterior Personalization
+### With gene annotation
 
 ```python
-# Adapt a population graph to an individual
-posterior = population_graph.get_posterior(
-    individual_sequences,
-    abundances=clonal_counts,
-    kappa=100.0  # prior strength
+graph = LZGraph(
+    sequences,
+    variant='aap',
+    v_genes=['TRBV16-1*01', 'TRBV1-1*01', ...],
+    j_genes=['TRBJ1-2*01', 'TRBJ1-5*01', ...],
 )
 
-# The posterior is a full graph
-simulated = posterior.simulate(1000, seed=42)
+# Gene-constrained simulation
+result = graph.simulate(100, sample_genes=True, seed=42)
+print(result.v_genes[0], result.j_genes[0])
 ```
 
-### Visualization
+### Command line
+
+```bash
+lzg build repertoire.tsv -o rep.lzg
+lzg score rep.lzg sequences.txt
+lzg diversity rep.lzg
+lzg simulate rep.lzg -n 10000 --seed 42
+lzg compare healthy.lzg disease.lzg
+```
+
+## Graph Variants
+
+One unified `LZGraph` class with three encoding schemes:
+
+| Variant | Input | Node format | Best for |
+|---------|-------|-------------|----------|
+| `'aap'` | Amino acid CDR3 | `C_2`, `SL_6` | Most TCR/BCR analysis |
+| `'ndp'` | Nucleotide CDR3 | `TG0_4` | Nucleotide-level analysis |
+| `'naive'` | Any strings | `C`, `SL` | Motif discovery, ML features |
+
+## Key Capabilities
+
+### Scoring & Simulation
 
 ```python
-from LZGraphs import plot_graph, plot_possible_paths
+# Log-probability of a sequence
+graph.lzpgen('CASSLEPSGGTDTQYF')              # single
+graph.lzpgen(['seq1', 'seq2', 'seq3'])         # batch → np.ndarray
 
-plot_graph(graph)
-plot_possible_paths(graph, 'CASSLAPGATNEKLFF')
+# Simulate with optional gene constraints
+result = graph.simulate(1000, seed=42)
+result = graph.simulate(100, v_gene='TRBV5-1*01', j_gene='TRBJ2-7*01')
 ```
 
-### Saturation Analysis
+### Diversity & Analytics
 
 ```python
-from LZGraphs import NodeEdgeSaturationProbe
-
-probe = NodeEdgeSaturationProbe()
-# Feed sequences incrementally and track node/edge saturation curves
+graph.effective_diversity()          # exp(Shannon entropy)
+graph.hill_number(2)                 # inverse Simpson
+graph.hill_numbers([0, 1, 2, 5])     # multiple orders → np.ndarray
+graph.predicted_richness(100_000)    # expected unique seqs at depth
+graph.predicted_overlap(10000, 50000)# expected shared sequences
+graph.pgen_distribution()            # analytical Gaussian mixture
 ```
 
-For detailed usage of every feature, see the **[documentation](https://MuteJester.github.io/LZGraphs/)**.
+### Graph Algebra
 
+```python
+combined = graph_a | graph_b          # union
+shared   = graph_a & graph_b          # intersection
+unique_a = graph_a - graph_b          # difference
+personal = population.posterior(patient_seqs, kappa=10.0)  # Bayesian update
+```
+
+### Repertoire Comparison
+
+```python
+from LZGraphs import jensen_shannon_divergence
+jsd = jensen_shannon_divergence(graph_a, graph_b)  # 0 = identical, 1 = max different
+```
+
+### ML Feature Extraction
+
+```python
+# Project any repertoire into a fixed reference space
+features = reference.feature_aligned(LZGraph(sample_seqs, variant='aap'))
+stats = graph.feature_stats()           # 15-element summary vector
+profile = graph.feature_mass_profile()  # position-based mass distribution
+```
+
+### Serialization
+
+```python
+graph.save('repertoire.lzg')           # fast binary format
+loaded = LZGraph.load('repertoire.lzg')
+```
+
+## Documentation
+
+Full documentation with tutorials, concept guides, and API reference:
+
+**[https://MuteJester.github.io/LZGraphs/](https://MuteJester.github.io/LZGraphs/)**
+
+- [Quick Start](https://MuteJester.github.io/LZGraphs/getting-started/quickstart/) — build your first graph in 5 minutes
+- [Tutorials](https://MuteJester.github.io/LZGraphs/tutorials/) — graph construction, sequence analysis, diversity metrics
+- [API Reference](https://MuteJester.github.io/LZGraphs/api/lzgraph/) — complete class and function reference
+- [CLI Reference](https://MuteJester.github.io/LZGraphs/api/cli/) — terminal tool documentation
+
+## Citation
+
+If you use LZGraphs in your research, please cite:
+
+```bibtex
+@article{konstantinovsky2023lzgraphs,
+  title={A Novel Approach to T-Cell Receptor Beta Chain (TCRB) Repertoire Encoding
+         Using Lossless String Compression},
+  author={Konstantinovsky, Thomas and Nagar, Maor and Louzoun, Yoram},
+  journal={Bioinformatics},
+  year={2023},
+  publisher={Oxford University Press}
+}
+```
 
 ## Contributing
 
-Contributions are what make the open-source community such a powerful place to create new ideas, inspire, and make progress. Any contributions you make are **greatly appreciated**.
+Contributions are welcome. Please open an issue or submit a pull request.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes
+4. Push and open a Pull Request
 
-
-<!-- LICENSE -->
 ## License
 
-Distributed under the MIT license. See `LICENSE` for more information.
+MIT License. See [LICENSE](LICENSE) for details.
 
-
-<!-- CONTACT -->
 ## Contact
 
-[Thomas Konstantinovsky]() - thomaskon90@gmail.com
+Thomas Konstantinovsky — [thomaskon90@gmail.com](mailto:thomaskon90@gmail.com)
 
-Project Link: [https://github.com/MuteJester/LZGraphs](https://github.com/MuteJester/LZGraphs)
-
-
-<!-- MARKDOWN LINKS & IMAGES -->
-[stars-shield]: https://img.shields.io/github/stars/MuteJester/LZGraphs.svg?style=flat-square
-[stars-url]: https://github.com/MuteJester/LZGraphs/stargazers
-[issues-shield]: https://img.shields.io/github/issues/MuteJester/LZGraphs.svg?style=flat-square
-[issues-url]: https://github.com/MuteJester/LZGraphs/issues
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
-[linkedin-url]: https://www.linkedin.com/in/thomas-konstantinovsky-56230117b/
+[GitHub](https://github.com/MuteJester/LZGraphs) · [PyPI](https://pypi.org/project/LZGraphs/) · [Documentation](https://MuteJester.github.io/LZGraphs/)

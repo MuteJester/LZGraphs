@@ -1,203 +1,94 @@
-__version__ = "2.3.1"
+"""LZGraphs — LZ76 compression graphs for sequence repertoire analysis.
 
-# =============================================================================
-# Graph classes
-# =============================================================================
-from .graphs.amino_acid_positional import AAPLZGraph
-from .graphs.nucleotide_double_positional import NDPLZGraph
-from .graphs.naive import NaiveLZGraph
+High-performance C backend with full LZ76 dictionary constraint enforcement.
+"""
 
-# =============================================================================
-# Graph operations
-# =============================================================================
-from .graphs.graph_operations import graph_union
+__version__ = "3.0.0"
 
-# =============================================================================
-# Bag of Words
-# =============================================================================
-from .bag_of_words.bow_encoder import LZBOW
+from ._graph import LZGraph
+from ._pgen_dist import PgenDistribution
+from ._simulation_result import SimulationResult
+from ._errors import LZGraphError, NoGeneDataError, ConvergenceError, CorruptFileError
+from . import _clzgraph as _c
 
-# =============================================================================
-# Metrics - Diversity
-# =============================================================================
-from .metrics.diversity import (
-    lz_centrality,
-    k_diversity,
-    k100_diversity,
-    k500_diversity,
-    k1000_diversity,
-    k5000_diversity,
-    adaptive_k_diversity,
-)
 
-# =============================================================================
-# Metrics - Entropy / Information Theory
-# =============================================================================
-from .metrics.entropy import (
-    node_entropy,
-    edge_entropy,
-    graph_entropy,
-    normalized_graph_entropy,
-    sequence_perplexity,
-    repertoire_perplexity,
-    jensen_shannon_divergence,
-    cross_entropy,
-    kl_divergence,
-    mutual_information_genes,
-    transition_predictability,
-    graph_compression_ratio,
-    repertoire_compressibility_index,
-    transition_kl_divergence,
-    transition_jsd,
-    transition_mutual_information_profile,
-    path_entropy_rate,
-)
+def jensen_shannon_divergence(a, b):
+    """Jensen-Shannon divergence between two LZGraphs."""
+    return _c.jensen_shannon_divergence(a._cap, b._cap)
 
-# =============================================================================
-# Metrics - Saturation
-# =============================================================================
-from .metrics.saturation import NodeEdgeSaturationProbe
 
-# =============================================================================
-# Metrics - Convenience
-# =============================================================================
-from .metrics.convenience import compare_repertoires
+def k_diversity(sequences, k, *, variant='aap', draws=100, seed=None):
+    """K-diversity: subsample k sequences, count nodes, repeat.
 
-# =============================================================================
-# Metrics - PGen Distribution
-# =============================================================================
-from .metrics.pgen_distribution import LZPgenDistribution, compare_lzpgen_distributions
+    Returns {'mean': float, 'std': float, 'ci_low': float, 'ci_high': float}
+    """
+    return _c.k_diversity(list(sequences), k, variant, draws,
+                          seed if seed is not None else -1)
 
-# =============================================================================
-# Utilities
-# =============================================================================
-from .utilities.helpers import generate_kmer_dictionary
-from .utilities.decomposition import lempel_ziv_decomposition
 
-# =============================================================================
-# Visualization (optional dependency)
-# =============================================================================
-try:
-    from .visualization.visualize import (
-        plot_gene_edge_variability,
-        plot_gene_node_variability,
-        plot_possible_paths,
-        plot_ancestor_descendant_curves,
-        plot_graph,
-    )
-except ImportError:
-    pass  # Visualization features not available without matplotlib/seaborn
+def saturation_curve(sequences, *, variant='aap', log_every=100):
+    """Node/edge saturation as sequences are added.
 
-# =============================================================================
-# Exceptions
-# =============================================================================
-from .exceptions import (
-    # Base
-    LZGraphError,
-    # Input validation
-    InputValidationError,
-    EmptyDataError,
-    MissingColumnError,
-    InvalidSequenceError,
-    InvalidProbabilityError,
-    # Graph construction
-    GraphConstructionError,
-    EncodingError,
-    # Gene data
-    GeneDataError,
-    NoGeneDataError,
-    GeneAnnotationError,
-    # Walk/probability
-    WalkError,
-    NoValidPathError,
-    MissingNodeError,
-    MissingEdgeError,
-    # Serialization
-    SerializationError,
-    UnsupportedFormatError,
-    CorruptedFileError,
-    # BOW
-    BOWError,
-    EncodingFunctionMismatchError,
-    UnfittedBOWError,
-    # Graph operations
-    GraphOperationError,
-    IncompatibleGraphsError,
-    # Metrics
-    MetricsError,
-    InsufficientDataError,
-)
+    Returns list of {'n_sequences': int, 'n_nodes': int, 'n_edges': int}
+    """
+    return _c.saturation_curve(list(sequences), variant, log_every)
+
+
+def lz76_decompose(sequence):
+    """LZ76 decomposition into subpatterns.
+
+    Example: lz76_decompose('CASSLGIRRT') -> ['C','A','S','SL','G','I','R','RT']
+    """
+    return _c.lz76_decompose(sequence)
+
+
+def set_log_level(level='info'):
+    """Enable logging to stderr at the given level.
+
+    Levels: 'none', 'error', 'warn', 'info', 'debug', 'trace'.
+    'none' disables logging. Default is 'info'.
+
+    Example:
+        LZGraphs.set_log_level('info')   # see build progress and timing
+        LZGraphs.set_log_level('debug')  # see algorithm decisions
+        LZGraphs.set_log_level('none')   # silence all output
+    """
+    _c.set_log_level(level)
+
+
+def set_log_callback(callback, level='info'):
+    """Set a custom log callback.
+
+    Args:
+        callback: A callable(level: int, message: str), or None to disable.
+                  Level values: 1=error, 2=warn, 3=info, 4=debug, 5=trace.
+        level: Maximum level to emit.
+
+    Example:
+        import logging
+        logger = logging.getLogger('lzgraphs')
+        LEVEL_MAP = {1: logging.ERROR, 2: logging.WARNING, 3: logging.INFO,
+                     4: logging.DEBUG, 5: logging.DEBUG}
+        LZGraphs.set_log_callback(
+            lambda lvl, msg: logger.log(LEVEL_MAP.get(lvl, logging.DEBUG), msg),
+            level='info'
+        )
+    """
+    _c.set_log_callback(callback, level)
 
 
 __all__ = [
-    # Graph classes
-    'AAPLZGraph',
-    'NDPLZGraph',
-    'NaiveLZGraph',
-    # Graph operations
-    'graph_union',
-    # Bag of Words
-    'LZBOW',
-    # Diversity metrics
-    'lz_centrality',
-    'k_diversity',
-    'k100_diversity',
-    'k500_diversity',
-    'k1000_diversity',
-    'k5000_diversity',
-    'adaptive_k_diversity',
-    # Entropy metrics
-    'node_entropy',
-    'edge_entropy',
-    'graph_entropy',
-    'normalized_graph_entropy',
-    'sequence_perplexity',
-    'repertoire_perplexity',
-    'jensen_shannon_divergence',
-    'cross_entropy',
-    'kl_divergence',
-    'mutual_information_genes',
-    'transition_predictability',
-    'graph_compression_ratio',
-    'repertoire_compressibility_index',
-    'transition_kl_divergence',
-    'transition_jsd',
-    'transition_mutual_information_profile',
-    'path_entropy_rate',
-    # Saturation
-    'NodeEdgeSaturationProbe',
-    # Convenience
-    'compare_repertoires',
-    # PGen distribution
-    'LZPgenDistribution',
-    'compare_lzpgen_distributions',
-    # Utilities
-    'generate_kmer_dictionary',
-    'lempel_ziv_decomposition',
-    # Exceptions
+    'LZGraph',
+    'PgenDistribution',
+    'SimulationResult',
     'LZGraphError',
-    'InputValidationError',
-    'EmptyDataError',
-    'MissingColumnError',
-    'InvalidSequenceError',
-    'InvalidProbabilityError',
-    'GraphConstructionError',
-    'EncodingError',
-    'GeneDataError',
     'NoGeneDataError',
-    'GeneAnnotationError',
-    'WalkError',
-    'NoValidPathError',
-    'MissingNodeError',
-    'MissingEdgeError',
-    'SerializationError',
-    'UnsupportedFormatError',
-    'CorruptedFileError',
-    'BOWError',
-    'EncodingFunctionMismatchError',
-    'UnfittedBOWError',
-    'GraphOperationError',
-    'IncompatibleGraphsError',
-    'MetricsError',
-    'InsufficientDataError',
+    'ConvergenceError',
+    'CorruptFileError',
+    'jensen_shannon_divergence',
+    'k_diversity',
+    'saturation_curve',
+    'lz76_decompose',
+    'set_log_level',
+    'set_log_callback',
 ]

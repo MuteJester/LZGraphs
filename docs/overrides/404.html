@@ -1,0 +1,15 @@
+{% extends "main.html" %}
+
+{% block content %}
+<h1>Page not found</h1>
+<p>The page you're looking for doesn't exist. It may have moved in the v3.0 documentation restructure.</p>
+
+<p><strong>Try one of these:</strong></p>
+<ul>
+  <li><a href="{{ config.site_url }}">Home</a></li>
+  <li><a href="{{ config.site_url }}getting-started/quickstart/">Quick Start</a></li>
+  <li><a href="{{ config.site_url }}api/lzgraph/">API Reference</a></li>
+</ul>
+
+<p>Or use the <strong>search bar</strong> above to find what you're looking for.</p>
+{% endblock %}
