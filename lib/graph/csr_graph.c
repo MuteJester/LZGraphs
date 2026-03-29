@@ -11,6 +11,7 @@
 #include "lzgraph/edge_builder.h"
 #include "lzgraph/hash_map.h"
 #include <errno.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -364,8 +365,58 @@ static const char *stream_mode_name(LZGStreamInputMode mode) {
 static uint64_t detect_regular_file_size(const char *path) {
     struct stat st;
     if (!path || stat(path, &st) != 0) return 0;
+#if defined(_WIN32)
+    if ((st.st_mode & _S_IFREG) == 0 || st.st_size <= 0) return 0;
+#else
     if (!S_ISREG(st.st_mode) || st.st_size <= 0) return 0;
+#endif
     return (uint64_t)st.st_size;
+}
+
+static ptrdiff_t lzg_getline_portable(char **lineptr, size_t *cap, FILE *fh) {
+    if (!lineptr || !cap || !fh) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (!*lineptr || *cap == 0) {
+        *cap = 256;
+        *lineptr = malloc(*cap);
+        if (!*lineptr) {
+            errno = ENOMEM;
+            return -1;
+        }
+    }
+
+    size_t len = 0;
+    int ch = 0;
+    while ((ch = fgetc(fh)) != EOF) {
+        if (len + 2 > *cap) {
+            size_t new_cap = (*cap < (SIZE_MAX / 2)) ? (*cap * 2) : 0;
+            if (new_cap < len + 2) new_cap = len + 2;
+            if (new_cap == 0) {
+                errno = ERANGE;
+                return -1;
+            }
+            char *tmp = realloc(*lineptr, new_cap);
+            if (!tmp) {
+                errno = ENOMEM;
+                return -1;
+            }
+            *lineptr = tmp;
+            *cap = new_cap;
+        }
+        (*lineptr)[len++] = (char)ch;
+        if (ch == '\n') break;
+    }
+
+    if (len == 0 && ch == EOF) {
+        errno = 0;
+        return -1;
+    }
+    (*lineptr)[len] = '\0';
+    errno = 0;
+    return (ptrdiff_t)len;
 }
 
 static void format_duration(double seconds, char *buf, size_t cap) {
@@ -908,10 +959,11 @@ LZGError lzg_graph_build_plain_file(LZGGraph *g,
     }
 
     size_t line_cap = 0;
-    ssize_t nread;
+    ptrdiff_t nread;
     uint64_t lines_seen = 0;
     uint64_t sequences_seen = 0;
-    while ((nread = getline(&line, &line_cap, fh)) != -1) {
+    errno = 0;
+    while ((nread = lzg_getline_portable(&line, &line_cap, fh)) != -1) {
         lines_seen++;
         stats.bytes_seen += (uint64_t)nread;
         char *seq = NULL;
@@ -945,6 +997,18 @@ LZGError lzg_graph_build_plain_file(LZGGraph *g,
         }
         maybe_log_stream_progress(path, lines_seen, sequences_seen,
                                   build_nodes ? build_nodes->count : 0u, eb, &stats);
+    }
+
+    if (ferror(fh) || (!feof(fh) && errno != 0)) {
+        int saved_errno = errno;
+        free(line);
+        fclose(fh);
+        destroy_build_state(eb, build_nodes, NULL, NULL, NULL, NULL, NULL, NULL,
+                            initial_counts, terminal_counts, outgoing_counts,
+                            len_counts);
+        if (saved_errno == ENOMEM)
+            return LZG_FAIL(LZG_ERR_ALLOC, "stream build ran out of memory reading '%s'", path);
+        return LZG_FAIL(LZG_ERR_IO_READ, "failed while reading '%s'", path);
     }
 
     free(line);

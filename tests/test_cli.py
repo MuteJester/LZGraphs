@@ -44,7 +44,7 @@ class TestVersion:
     def test_version(self):
         out, _, rc = run_lzg('--version')
         assert rc == 0
-        assert '3.0.0' in out
+        assert '3.0.1' in out
 
 
 class TestBuild:
