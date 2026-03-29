@@ -18,7 +18,7 @@
 
 LZGError lzg_graph_posterior(const LZGGraph *prior,
                         const char **sequences, uint32_t n_seqs,
-                        const uint32_t *abundances,
+                        const uint64_t *abundances,
                         double kappa,
                         LZGGraph **out) {
     if (!prior || !sequences || !out) return LZG_ERR_INVALID_ARG;
@@ -42,7 +42,7 @@ LZGError lzg_graph_posterior(const LZGGraph *prior,
     for (uint32_t s = 0; s < n_seqs; s++) {
         const char *seq = sequences[s];
         uint32_t seq_len = (uint32_t)strlen(seq);
-        uint32_t count = abundances ? abundances[s] : 1;
+        uint64_t count = abundances ? abundances[s] : 1;
 
         uint32_t node_ids[LZG_MAX_TOKENS], sp_ids[LZG_MAX_TOKENS];
         uint32_t n_tokens;
@@ -103,16 +103,16 @@ LZGError lzg_graph_posterior(const LZGGraph *prior,
 
     COPY_ARR(post->row_offsets, prior->row_offsets, nn + 1, uint32_t);
     COPY_ARR(post->col_indices, prior->col_indices, ne, uint32_t);
-    COPY_ARR(post->edge_counts, prior->edge_counts, ne, uint32_t);
+    COPY_ARR(post->edge_counts, prior->edge_counts, ne, uint64_t);
     COPY_ARR(post->edge_sp_id, prior->edge_sp_id, ne, uint32_t);
     COPY_ARR(post->edge_sp_len, prior->edge_sp_len, ne, uint8_t);
     COPY_ARR(post->edge_prefix_id, prior->edge_prefix_id, ne, uint32_t);
-    COPY_ARR(post->outgoing_counts, prior->outgoing_counts, nn, uint32_t);
+    COPY_ARR(post->outgoing_counts, prior->outgoing_counts, nn, uint64_t);
     COPY_ARR(post->node_sp_id, prior->node_sp_id, nn, uint32_t);
     COPY_ARR(post->node_sp_len, prior->node_sp_len, nn, uint8_t);
     COPY_ARR(post->node_pos, prior->node_pos, nn, uint32_t);
     /* initial/terminal arrays removed — sentinel model */
-    COPY_ARR(post->length_counts, prior->length_counts, prior->max_length + 1, uint32_t);
+    COPY_ARR(post->length_counts, prior->length_counts, prior->max_length + 1, uint64_t);
     COPY_ARR(post->topo_order, prior->topo_order, nn, uint32_t);
     if (prior->node_is_sink) {
         COPY_ARR(post->node_is_sink, prior->node_is_sink, nn, uint8_t);

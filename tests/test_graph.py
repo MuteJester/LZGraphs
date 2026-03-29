@@ -3,7 +3,7 @@
 import math
 import numpy as np
 import pytest
-from LZGraphs import LZGraph, LZGraphError, NoGeneDataError
+from LZGraphs import LZGraph, LZGraphError, NoGeneDataError, set_log_callback
 
 
 class TestConstruction:
@@ -23,6 +23,88 @@ class TestConstruction:
         abundances = [1, 2, 3, 1, 2, 1]
         g = LZGraph(aap_sequences, variant='aap', abundances=abundances)
         assert g.n_nodes > 0
+
+    def test_from_file_plain_seqcount(self, tmp_path):
+        p = tmp_path / 'seq_count.txt'
+        p.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\t2\nCASSQETQYF\t1\n')
+        g_file = LZGraph.from_file(str(p), variant='aap')
+        g_list = LZGraph(
+            ['CASSLGIRRT', 'CASSLGYEQYF', 'CASSQETQYF'],
+            variant='aap',
+            abundances=[5, 2, 1],
+        )
+        assert g_file.n_nodes == g_list.n_nodes
+        assert g_file.n_edges == g_list.n_edges
+        assert g_file.length_distribution == g_list.length_distribution
+
+    def test_from_file_plain_large_abundance(self, tmp_path):
+        big = 2**32
+        p = tmp_path / 'seq_count_large.txt'
+        p.write_text(f'CASSLGIRRT\t{big}\n')
+        g = LZGraph.from_file(str(p), variant='aap')
+        assert g.length_distribution == {10: big}
+        assert max(c for _, _, _, c in g.all_edges) == big
+
+    def test_from_file_emits_stream_logs(self, tmp_path):
+        p = tmp_path / 'seq_count_logs.txt'
+        p.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\t2\n')
+        seen = []
+
+        def cb(level, message):
+            seen.append((level, message))
+
+        set_log_callback(cb, 'info')
+        try:
+            LZGraph.from_file(str(p), variant='aap')
+        finally:
+            set_log_callback(None)
+
+        assert any('stream build: start' in msg for _, msg in seen)
+        assert any('stream build: done' in msg for _, msg in seen)
+        assert any('phase=ingest' in msg for _, msg in seen)
+        assert any('phase=finalize' in msg for _, msg in seen)
+        assert any('mode=plain_seqcount' in msg for _, msg in seen)
+
+    def test_from_file_warns_on_mixed_plain_and_seqcount(self, tmp_path):
+        p = tmp_path / 'mixed_input.txt'
+        p.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\n')
+        seen = []
+
+        def cb(level, message):
+            seen.append((level, message))
+
+        set_log_callback(cb, 'warn')
+        try:
+            LZGraph.from_file(str(p), variant='aap')
+        finally:
+            set_log_callback(None)
+
+        assert any('issue=mixed_input_format' in msg for _, msg in seen)
+
+    def test_from_file_strict_input_fails_on_mixed_plain_and_seqcount(self, tmp_path):
+        p = tmp_path / 'mixed_input_strict.txt'
+        p.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\n')
+        with pytest.raises(ValueError, match='status=error'):
+            LZGraph.from_file(
+                str(p),
+                variant='aap',
+                strict_input=True,
+                expect_format='plain_seqcount',
+            )
+
+    def test_abundance_overflow_raises(self, aap_sequences):
+        abundances = [1] * len(aap_sequences)
+        abundances[-1] = 2**64
+        with pytest.raises(OverflowError, match='abundances'):
+            LZGraph(aap_sequences, variant='aap', abundances=abundances)
+
+    def test_large_abundance_supported(self, aap_sequences):
+        big = 2**32
+        abundances = [1] * len(aap_sequences)
+        abundances[0] = big
+        g = LZGraph(aap_sequences, variant='aap', abundances=abundances)
+        assert g.length_distribution[len(aap_sequences[0])] >= big
+        assert max(c for _, _, _, c in g.all_edges) >= big
 
     def test_with_genes(self, aap_gene_graph):
         assert aap_gene_graph.has_gene_data is True
@@ -182,6 +264,7 @@ class TestStructuralProperties:
         assert csr['counts'].shape == (aap_graph.n_edges,)
         assert csr['row_offsets'].dtype == np.uint32
         assert csr['weights'].dtype == np.float64
+        assert csr['counts'].dtype == np.uint64
 
     def test_adjacency_csr_scipy_interop(self, aap_graph):
         """CSR arrays work with scipy.sparse.csr_matrix."""

@@ -43,6 +43,63 @@ static void capsule_destructor(PyObject *capsule) {
     if (g) lzg_graph_destroy(g);
 }
 
+static int pyssize_to_u32(Py_ssize_t n, const char *what, uint32_t *out) {
+    if (n < 0 || (unsigned long long)n > (unsigned long long)UINT32_MAX) {
+        PyErr_Format(PyExc_OverflowError,
+                     "%s length exceeds uint32 limit", what);
+        return 0;
+    }
+    *out = (uint32_t)n;
+    return 1;
+}
+
+static uint64_t *pylist_to_u64_array(PyObject *list,
+                                     Py_ssize_t expected_n,
+                                     const char *what) {
+    if (!PyList_Check(list)) {
+        PyErr_Format(PyExc_TypeError, "%s must be a list", what);
+        return NULL;
+    }
+
+    Py_ssize_t n = PyList_GET_SIZE(list);
+    if (expected_n >= 0 && n != expected_n) {
+        PyErr_Format(PyExc_ValueError, "%s length must match sequences", what);
+        return NULL;
+    }
+
+    uint32_t n_u32 = 0;
+    if (!pyssize_to_u32(n, what, &n_u32)) return NULL;
+
+    uint64_t *arr = (uint64_t *)malloc((size_t)n_u32 * sizeof(uint64_t));
+    if (!arr) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+
+    for (Py_ssize_t i = 0; i < n; i++) {
+        unsigned long long value =
+            PyLong_AsUnsignedLongLong(PyList_GET_ITEM(list, i));
+        if (PyErr_Occurred()) {
+            if (PyErr_ExceptionMatches(PyExc_OverflowError)) {
+                PyErr_Clear();
+                PyErr_Format(PyExc_OverflowError,
+                             "%s[%zd] exceeds uint64 limit", what, i);
+            }
+            free(arr);
+            return NULL;
+        }
+        if (value > (unsigned long long)UINT64_MAX) {
+            PyErr_Format(PyExc_OverflowError,
+                         "%s[%zd] exceeds uint64 limit", what, i);
+            free(arr);
+            return NULL;
+        }
+        arr[i] = (uint64_t)value;
+    }
+
+    return arr;
+}
+
 /* Convert LZGError to Python exception using thread-local error message.
  * Returns NULL (convenience for: return set_lzg_error(err);). */
 static PyObject *set_lzg_error(LZGError err) {
@@ -177,28 +234,17 @@ static PyObject *py_graph_build(PyObject *self, PyObject *args, PyObject *kw) {
     if (!parse_variant(variant_str, &variant)) return NULL;
 
     Py_ssize_t n_seqs;
+    uint32_t n_seqs_u32 = 0;
+    if (!pyssize_to_u32(PyList_GET_SIZE(seq_list), "sequences", &n_seqs_u32))
+        return NULL;
     const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
     if (!seqs) return NULL;
 
     /* Abundances */
-    uint32_t *abundances = NULL;
+    uint64_t *abundances = NULL;
     if (abund_obj != Py_None) {
-        if (!PyList_Check(abund_obj)) {
-            free(seqs);
-            PyErr_SetString(PyExc_TypeError, "abundances must be a list");
-            return NULL;
-        }
-        Py_ssize_t na = PyList_GET_SIZE(abund_obj);
-        if (na != n_seqs) {
-            free(seqs);
-            PyErr_SetString(PyExc_ValueError, "abundances length must match sequences");
-            return NULL;
-        }
-        abundances = (uint32_t *)malloc(na * sizeof(uint32_t));
-        if (!abundances) { free(seqs); return PyErr_NoMemory(); }
-        for (Py_ssize_t i = 0; i < na; i++)
-            abundances[i] = (uint32_t)PyLong_AsUnsignedLong(PyList_GET_ITEM(abund_obj, i));
-        if (PyErr_Occurred()) { free(seqs); free(abundances); return NULL; }
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
     }
 
     /* V/J genes */
@@ -230,10 +276,38 @@ static PyObject *py_graph_build(PyObject *self, PyObject *args, PyObject *kw) {
         return PyErr_NoMemory();
     }
 
-    LZGError err = lzg_graph_build(g, seqs, (uint32_t)n_seqs, abundances,
+    LZGError err = lzg_graph_build(g, seqs, n_seqs_u32, abundances,
                                     v_genes, j_genes, smoothing, 0);
     free(seqs); free(abundances); free((void *)v_genes); free((void *)j_genes);
 
+    if (err != LZG_OK) {
+        lzg_graph_destroy(g);
+        return set_lzg_error(err);
+    }
+
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+/* ── graph_build_file(path, variant, smoothing) → capsule ───── */
+
+static PyObject *py_graph_build_file(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    const char *path = NULL;
+    const char *variant_str = "aap";
+    double smoothing = 0.0;
+
+    static char *kwlist[] = {"path", "variant", "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|sd", kwlist,
+            &path, &variant_str, &smoothing))
+        return NULL;
+
+    LZGVariant variant;
+    if (!parse_variant(variant_str, &variant)) return NULL;
+
+    LZGGraph *g = lzg_graph_create(variant);
+    if (!g) return PyErr_NoMemory();
+
+    LZGError err = lzg_graph_build_plain_file(g, path, smoothing);
     if (err != LZG_OK) {
         lzg_graph_destroy(g);
         return set_lzg_error(err);
@@ -838,19 +912,20 @@ static PyObject *py_posterior(PyObject *self, PyObject *args, PyObject *kw) {
     if (!g) return NULL;
 
     Py_ssize_t n;
+    uint32_t n_u32 = 0;
+    if (!pyssize_to_u32(PyList_GET_SIZE(seq_list), "sequences", &n_u32))
+        return NULL;
     const char **seqs = pylist_to_cstrings(seq_list, &n);
     if (!seqs) return NULL;
 
-    uint32_t *abundances = NULL;
-    if (abund_obj != Py_None && PyList_Check(abund_obj)) {
-        abundances = (uint32_t *)malloc(n * sizeof(uint32_t));
-        if (!abundances) { free(seqs); return PyErr_NoMemory(); }
-        for (Py_ssize_t i = 0; i < n; i++)
-            abundances[i] = (uint32_t)PyLong_AsUnsignedLong(PyList_GET_ITEM(abund_obj, i));
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
     }
 
     LZGGraph *post = NULL;
-    LZGError err = lzg_graph_posterior(g, seqs, (uint32_t)n, abundances, kappa, &post);
+    LZGError err = lzg_graph_posterior(g, seqs, n_u32, abundances, kappa, &post);
     free(seqs); free(abundances);
     if (err != LZG_OK) return set_lzg_error(err);
     return PyCapsule_New(post, CAPSULE_NAME, capsule_destructor);
@@ -1223,8 +1298,9 @@ static PyObject *py_graph_edges(PyObject *self, PyObject *arg) {
                 Py_XDECREF(src_label); Py_XDECREF(dst_label);
                 Py_DECREF(list); return NULL;
             }
-            PyObject *tup = Py_BuildValue("(NNdI)",
-                src_label, dst_label, g->edge_weights[e], g->edge_counts[e]);
+            PyObject *tup = Py_BuildValue("(NNdK)",
+                src_label, dst_label, g->edge_weights[e],
+                (unsigned long long)g->edge_counts[e]);
             if (!tup) { Py_DECREF(list); return NULL; }
             PyList_SET_ITEM(list, idx++, tup);
         }
@@ -1243,7 +1319,8 @@ static PyObject *py_graph_length_distribution(PyObject *self, PyObject *arg) {
     for (uint32_t i = 0; i <= g->max_length; i++) {
         if (g->length_counts[i] > 0) {
             PyObject *key = PyLong_FromUnsignedLong(i);
-            PyObject *val = PyLong_FromUnsignedLong(g->length_counts[i]);
+            PyObject *val = PyLong_FromUnsignedLongLong(
+                (unsigned long long)g->length_counts[i]);
             PyDict_SetItem(dict, key, val);
             Py_DECREF(key);
             Py_DECREF(val);
@@ -1276,7 +1353,8 @@ static PyObject *py_graph_adjacency_csr(PyObject *self, PyObject *arg) {
     /* counts: list of n_edges ints */
     PyObject *ct = PyList_New(g->n_edges);
     for (uint32_t i = 0; i < g->n_edges; i++)
-        PyList_SET_ITEM(ct, i, PyLong_FromUnsignedLong(g->edge_counts[i]));
+        PyList_SET_ITEM(ct, i, PyLong_FromUnsignedLongLong(
+            (unsigned long long)g->edge_counts[i]));
 
     return Py_BuildValue("{s:N, s:N, s:N, s:N, s:I, s:I}",
         "row_offsets", ro, "col_indices", ci,
@@ -1313,6 +1391,7 @@ static PyObject *py_graph_degrees(PyObject *self, PyObject *arg) {
 
 static PyMethodDef module_methods[] = {
     {"graph_build",             (PyCFunction)py_graph_build,           METH_VARARGS | METH_KEYWORDS, NULL},
+    {"graph_build_file",        (PyCFunction)py_graph_build_file,      METH_VARARGS | METH_KEYWORDS, NULL},
     {"graph_info",              py_graph_info,                         METH_O, NULL},
     {"simulate",                (PyCFunction)py_simulate,              METH_VARARGS | METH_KEYWORDS, NULL},
     {"gene_simulate",           (PyCFunction)py_gene_simulate,         METH_VARARGS | METH_KEYWORDS, NULL},

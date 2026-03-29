@@ -27,6 +27,22 @@ bool        lzg_hm_put(LZGHashMap *map, uint64_t key, uint64_t value);
 /** Lookup. Returns pointer to value or NULL. */
 uint64_t   *lzg_hm_get(const LZGHashMap *map, uint64_t key);
 
+/**
+ * Lookup or insert in a single probe walk. Returns a writable value slot.
+ * If the key is absent, inserts it with `initial_value`.
+ * If `inserted` is non-NULL, it is set to true iff a new entry was created.
+ */
+uint64_t   *lzg_hm_get_or_insert(LZGHashMap *map, uint64_t key,
+                                 uint64_t initial_value, bool *inserted);
+
+/**
+ * Add `delta` to the value stored at `key`, inserting `delta` if absent.
+ * Returns a writable value slot after the update.
+ * If `inserted` is non-NULL, it is set to true iff a new entry was created.
+ */
+uint64_t   *lzg_hm_add_u64(LZGHashMap *map, uint64_t key,
+                           uint64_t delta, bool *inserted);
+
 /** Delete. Returns true if found. */
 bool        lzg_hm_delete(LZGHashMap *map, uint64_t key);
 

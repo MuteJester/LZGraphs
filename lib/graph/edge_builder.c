@@ -14,7 +14,7 @@ LZGEdgeBuilder *lzg_eb_create(uint32_t initial_capacity) {
     eb->edge_map = lzg_hm_create(initial_capacity * 2);
     eb->src_ids  = malloc(initial_capacity * sizeof(uint32_t));
     eb->dst_ids  = malloc(initial_capacity * sizeof(uint32_t));
-    eb->counts   = malloc(initial_capacity * sizeof(uint32_t));
+    eb->counts   = malloc(initial_capacity * sizeof(uint64_t));
     eb->capacity = initial_capacity;
     eb->n_edges  = 0;
 
@@ -36,34 +36,35 @@ void lzg_eb_destroy(LZGEdgeBuilder *eb) {
 
 LZGError lzg_eb_record(LZGEdgeBuilder *eb,
                         uint32_t src_id, uint32_t dst_id,
-                        uint32_t count) {
-    uint64_t key = lzg_eb_pack_key(src_id, dst_id);
-    uint64_t *existing = lzg_hm_get(eb->edge_map, key);
-
-    if (existing) {
-        /* Edge exists — increment count */
-        uint32_t idx = (uint32_t)*existing;
-        eb->counts[idx] += count;
-        return LZG_OK;
-    }
-
-    /* New edge — grow arrays if needed */
+                        uint64_t count,
+                        uint32_t *out_edge_idx) {
     if (eb->n_edges >= eb->capacity) {
         uint32_t new_cap = eb->capacity * 2;
         eb->src_ids = realloc(eb->src_ids, new_cap * sizeof(uint32_t));
         eb->dst_ids = realloc(eb->dst_ids, new_cap * sizeof(uint32_t));
-        eb->counts  = realloc(eb->counts,  new_cap * sizeof(uint32_t));
+        eb->counts  = realloc(eb->counts,  new_cap * sizeof(uint64_t));
         eb->capacity = new_cap;
         if (!eb->src_ids || !eb->dst_ids || !eb->counts)
             return LZG_ERR_ALLOC;
     }
 
-    uint32_t idx = eb->n_edges;
+    uint64_t key = lzg_eb_pack_key(src_id, dst_id);
+    bool inserted = false;
+    uint64_t *slot = lzg_hm_get_or_insert(eb->edge_map, key,
+                                          (uint64_t)eb->n_edges,
+                                          &inserted);
+    uint32_t idx = (uint32_t)*slot;
+
+    if (!inserted) {
+        eb->counts[idx] += count;
+        if (out_edge_idx) *out_edge_idx = idx;
+        return LZG_OK;
+    }
+
     eb->src_ids[idx] = src_id;
     eb->dst_ids[idx] = dst_id;
     eb->counts[idx]  = count;
     eb->n_edges++;
-
-    lzg_hm_put(eb->edge_map, key, (uint64_t)idx);
+    if (out_edge_idx) *out_edge_idx = idx;
     return LZG_OK;
 }

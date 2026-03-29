@@ -104,23 +104,19 @@ static void collect_graph_edges(const LZGGraph *src,
                                  LZGHashMap *outgoing_cts) {
     for (uint32_t u = 0; u < src->n_nodes; u++) {
         uint32_t nid = intern_node_label(src, u, dst_pool);
-        lzg_hm_put(node_set, nid, 1);
+        (void)lzg_hm_get_or_insert(node_set, nid, 1, NULL);
 
         uint32_t e_start = src->row_offsets[u];
         uint32_t e_end   = src->row_offsets[u + 1];
         for (uint32_t e = e_start; e < e_end; e++) {
             uint32_t v = src->col_indices[e];
             uint32_t vid = intern_node_label(src, v, dst_pool);
-            lzg_hm_put(node_set, vid, 1);
+            (void)lzg_hm_get_or_insert(node_set, vid, 1, NULL);
 
             uint64_t ekey = ((uint64_t)nid << 32) | vid;
-            uint64_t *existing = lzg_hm_get(edge_counts, ekey);
             uint64_t count = src->edge_counts[e];
-            if (existing) *existing += count;
-            else lzg_hm_put(edge_counts, ekey, count);
-
-            uint64_t *oc = lzg_hm_get(outgoing_cts, nid);
-            if (oc) *oc += count; else lzg_hm_put(outgoing_cts, nid, count);
+            (void)lzg_hm_add_u64(edge_counts, ekey, count, NULL);
+            (void)lzg_hm_add_u64(outgoing_cts, nid, count, NULL);
         }
     }
 
@@ -139,7 +135,7 @@ static LZGError build_from_edge_map(
     LZGHashMap *initial_cts,
     LZGHashMap *terminal_cts,
     LZGHashMap *outgoing_cts,
-    uint32_t *len_counts, uint32_t max_len,
+    uint64_t *len_counts, uint32_t max_len,
     LZGGraph **out)
 {
     LZGGraph *g = calloc(1, sizeof(LZGGraph));
@@ -157,18 +153,16 @@ static LZGError build_from_edge_map(
 
         uint32_t src = (uint32_t)(edge_counts->keys[i] >> 32);
         uint32_t dst = (uint32_t)(edge_counts->keys[i] & 0xFFFFFFFF);
-        uint32_t count = (uint32_t)edge_counts->values[i];
+        uint64_t count = edge_counts->values[i];
 
         if (count == 0) continue; /* dropped edge */
-        lzg_eb_record(eb, src, dst, count);
+        lzg_eb_record(eb, src, dst, count, NULL);
     }
 
     /* Rebuild outgoing_cts from the filtered edges to be consistent */
     lzg_hm_clear(outgoing_cts);
     for (uint32_t i = 0; i < eb->n_edges; i++) {
-        uint64_t *oc = lzg_hm_get(outgoing_cts, eb->src_ids[i]);
-        if (oc) *oc += eb->counts[i];
-        else lzg_hm_put(outgoing_cts, eb->src_ids[i], eb->counts[i]);
+        (void)lzg_hm_add_u64(outgoing_cts, eb->src_ids[i], eb->counts[i], NULL);
     }
 
     LZGError err = lzg_graph_finalize_from_edges(
@@ -184,10 +178,10 @@ static LZGError build_from_edge_map(
 /* Merge length distributions                                      */
 /* ═══════════════════════════════════════════════════════════════ */
 
-static uint32_t *merge_lengths(const LZGGraph *a, const LZGGraph *b,
+static uint64_t *merge_lengths(const LZGGraph *a, const LZGGraph *b,
                                 uint32_t *out_max) {
     uint32_t ml = (a->max_length > b->max_length) ? a->max_length : b->max_length;
-    uint32_t *lc = calloc(ml + 1, sizeof(uint32_t));
+    uint64_t *lc = calloc(ml + 1, sizeof(uint64_t));
     for (uint32_t i = 0; i <= a->max_length; i++) lc[i] += a->length_counts[i];
     for (uint32_t i = 0; i <= b->max_length; i++) lc[i] += b->length_counts[i];
     *out_max = ml;
@@ -215,7 +209,7 @@ LZGError lzg_graph_union(const LZGGraph *a, const LZGGraph *b,
     collect_graph_edges(b, pool, ec, ns, ic, tc, oc);
 
     uint32_t ml;
-    uint32_t *lc = merge_lengths(a, b, &ml);
+    uint64_t *lc = merge_lengths(a, b, &ml);
 
     return build_from_edge_map(a->variant, a->smoothing_alpha,
                                 0, pool,
@@ -262,18 +256,16 @@ LZGError lzg_graph_intersection(const LZGGraph *a, const LZGGraph *b,
         uint64_t *b_val = lzg_hm_get(ec_b, ec_a->keys[i]);
         if (!b_val) continue; /* not in B — skip */
 
-        uint32_t count_a = (uint32_t)ec_a->values[i];
-        uint32_t count_b = (uint32_t)*b_val;
-        uint32_t count = (count_a < count_b) ? count_a : count_b;
+        uint64_t count_a = ec_a->values[i];
+        uint64_t count_b = *b_val;
+        uint64_t count = (count_a < count_b) ? count_a : count_b;
 
         uint32_t src = (uint32_t)(ec_a->keys[i] >> 32);
         uint32_t dst = (uint32_t)(ec_a->keys[i] & 0xFFFFFFFF);
         lzg_hm_put(ec, ec_a->keys[i], count);
-        lzg_hm_put(ns, src, 1);
-        lzg_hm_put(ns, dst, 1);
-
-        uint64_t *o = lzg_hm_get(oc, src);
-        if (o) *o += count; else lzg_hm_put(oc, src, count);
+        (void)lzg_hm_get_or_insert(ns, src, 1, NULL);
+        (void)lzg_hm_get_or_insert(ns, dst, 1, NULL);
+        (void)lzg_hm_add_u64(oc, src, count, NULL);
     }
 
     lzg_hm_destroy(ec_a); lzg_hm_destroy(ec_b);
@@ -287,7 +279,7 @@ LZGError lzg_graph_intersection(const LZGGraph *a, const LZGGraph *b,
     lzg_hm_clear(ic); lzg_hm_clear(tc);
 
     uint32_t ml;
-    uint32_t *lc = merge_lengths(a, b, &ml); /* approximate */
+    uint64_t *lc = merge_lengths(a, b, &ml); /* approximate */
 
     return build_from_edge_map(a->variant, a->smoothing_alpha,
                                 0, pool,
@@ -331,21 +323,19 @@ LZGError lzg_graph_difference(const LZGGraph *a, const LZGGraph *b,
         if (ec_a->keys[i] == LZG_HM_EMPTY || ec_a->keys[i] == LZG_HM_DELETED)
             continue;
 
-        uint32_t count_a = (uint32_t)ec_a->values[i];
+        uint64_t count_a = ec_a->values[i];
         uint64_t *b_val = lzg_hm_get(ec_b, ec_a->keys[i]);
-        uint32_t count_b = b_val ? (uint32_t)*b_val : 0;
+        uint64_t count_b = b_val ? *b_val : 0;
 
-        int32_t diff = (int32_t)count_a - (int32_t)count_b;
-        if (diff <= 0) continue; /* edge fully subtracted */
+        if (count_a <= count_b) continue; /* edge fully subtracted */
+        uint64_t diff = count_a - count_b;
 
         uint32_t src = (uint32_t)(ec_a->keys[i] >> 32);
         uint32_t dst = (uint32_t)(ec_a->keys[i] & 0xFFFFFFFF);
-        lzg_hm_put(ec, ec_a->keys[i], (uint32_t)diff);
-        lzg_hm_put(ns, src, 1);
-        lzg_hm_put(ns, dst, 1);
-
-        uint64_t *o = lzg_hm_get(oc, src);
-        if (o) *o += (uint32_t)diff; else lzg_hm_put(oc, src, (uint32_t)diff);
+        lzg_hm_put(ec, ec_a->keys[i], diff);
+        (void)lzg_hm_get_or_insert(ns, src, 1, NULL);
+        (void)lzg_hm_get_or_insert(ns, dst, 1, NULL);
+        (void)lzg_hm_add_u64(oc, src, diff, NULL);
     }
 
     lzg_hm_destroy(ec_a); lzg_hm_destroy(ec_b); lzg_hm_destroy(ns_a);
@@ -368,8 +358,8 @@ LZGError lzg_graph_difference(const LZGGraph *a, const LZGGraph *b,
     lzg_hm_destroy(ic); lzg_hm_destroy(tc);
 
     uint32_t ml = a->max_length;
-    uint32_t *lc = calloc(ml + 1, sizeof(uint32_t));
-    memcpy(lc, a->length_counts, (ml + 1) * sizeof(uint32_t));
+    uint64_t *lc = calloc(ml + 1, sizeof(uint64_t));
+    memcpy(lc, a->length_counts, (ml + 1) * sizeof(uint64_t));
 
     return build_from_edge_map(a->variant, a->smoothing_alpha,
                                 0, pool,
@@ -412,7 +402,7 @@ LZGError lzg_graph_weighted_merge(const LZGGraph *a, const LZGGraph *b,
     for (uint32_t i = 0; i < ec_a->capacity; i++) {
         if (ec_a->keys[i] == LZG_HM_EMPTY || ec_a->keys[i] == LZG_HM_DELETED)
             continue;
-        uint32_t c = (uint32_t)round(alpha * ec_a->values[i]);
+        uint64_t c = (uint64_t)round(alpha * ec_a->values[i]);
         if (c == 0) continue;
         lzg_hm_put(ec, ec_a->keys[i], c);
     }
@@ -421,11 +411,9 @@ LZGError lzg_graph_weighted_merge(const LZGGraph *a, const LZGGraph *b,
     for (uint32_t i = 0; i < ec_b->capacity; i++) {
         if (ec_b->keys[i] == LZG_HM_EMPTY || ec_b->keys[i] == LZG_HM_DELETED)
             continue;
-        uint32_t c = (uint32_t)round(beta * ec_b->values[i]);
+        uint64_t c = (uint64_t)round(beta * ec_b->values[i]);
         if (c == 0) continue;
-        uint64_t *existing = lzg_hm_get(ec, ec_b->keys[i]);
-        if (existing) *existing += c;
-        else lzg_hm_put(ec, ec_b->keys[i], c);
+        (void)lzg_hm_add_u64(ec, ec_b->keys[i], c, NULL);
     }
 
     /* Rebuild outgoing from merged edges */
@@ -433,8 +421,7 @@ LZGError lzg_graph_weighted_merge(const LZGGraph *a, const LZGGraph *b,
         if (ec->keys[i] == LZG_HM_EMPTY || ec->keys[i] == LZG_HM_DELETED)
             continue;
         uint32_t src = (uint32_t)(ec->keys[i] >> 32);
-        uint64_t *o = lzg_hm_get(oc, src);
-        if (o) *o += ec->values[i]; else lzg_hm_put(oc, src, ec->values[i]);
+        (void)lzg_hm_add_u64(oc, src, ec->values[i], NULL);
     }
 
     lzg_hm_destroy(ec_a); lzg_hm_destroy(ec_b);
@@ -450,8 +437,7 @@ LZGError lzg_graph_weighted_merge(const LZGGraph *a, const LZGGraph *b,
     for (uint32_t i = 0; i < ic_b->capacity; i++) {
         if (ic_b->keys[i] != LZG_HM_EMPTY && ic_b->keys[i] != LZG_HM_DELETED) {
             uint64_t c = (uint64_t)round(beta * ic_b->values[i]);
-            uint64_t *ex = lzg_hm_get(ic_m, ic_b->keys[i]);
-            if (ex) *ex += c; else if (c > 0) lzg_hm_put(ic_m, ic_b->keys[i], c);
+            if (c > 0) (void)lzg_hm_add_u64(ic_m, ic_b->keys[i], c, NULL);
         }
     }
     lzg_hm_destroy(ic); lzg_hm_destroy(ic_b);
@@ -466,14 +452,13 @@ LZGError lzg_graph_weighted_merge(const LZGGraph *a, const LZGGraph *b,
     for (uint32_t i = 0; i < tc_b->capacity; i++) {
         if (tc_b->keys[i] != LZG_HM_EMPTY && tc_b->keys[i] != LZG_HM_DELETED) {
             uint64_t c = (uint64_t)round(beta * tc_b->values[i]);
-            uint64_t *ex = lzg_hm_get(tc_m, tc_b->keys[i]);
-            if (ex) *ex += c; else if (c > 0) lzg_hm_put(tc_m, tc_b->keys[i], c);
+            if (c > 0) (void)lzg_hm_add_u64(tc_m, tc_b->keys[i], c, NULL);
         }
     }
     lzg_hm_destroy(tc); lzg_hm_destroy(tc_b);
 
     uint32_t ml;
-    uint32_t *lc = merge_lengths(a, b, &ml);
+    uint64_t *lc = merge_lengths(a, b, &ml);
 
     return build_from_edge_map(a->variant, a->smoothing_alpha,
                                 0, pool,

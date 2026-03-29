@@ -34,7 +34,7 @@
  */
 LZGError lzg_graph_posterior(const LZGGraph *prior,
                         const char **sequences, uint32_t n_seqs,
-                        const uint32_t *abundances,
+                        const uint64_t *abundances,
                         double kappa,
                         LZGGraph **out);
 

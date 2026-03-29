@@ -1,6 +1,6 @@
 /**
  * @file io.c
- * @brief LZG2 section-based binary serialization with CRC-32C.
+ * @brief LZG2/3 section-based binary serialization with CRC-32C.
  */
 #include "lzgraph/io.h"
 #include "lzgraph/crc32c.h"
@@ -94,10 +94,10 @@ LZGError lzg_graph_save(const LZGGraph *g, const char *path) {
 
     /* EWGT: Edge weights + counts */
     {
-        uint64_t sz = ne * 8 + ne * 4;
+        uint64_t sz = ne * 8 + ne * 8;
         SectionBuf *s = sbuf_create(LZG_IO_TAG_EWGT, sz);
         memcpy(s->data, g->edge_weights, ne * 8);
-        memcpy(s->data + ne * 8, g->edge_counts, ne * 4);
+        memcpy(s->data + ne * 8, g->edge_counts, ne * 8);
         s->crc = lzg_crc32c(s->data, s->size);
         sections[n_sec++] = s;
     }
@@ -118,10 +118,10 @@ LZGError lzg_graph_save(const LZGGraph *g, const char *path) {
     /* NODE: Per-node data */
     {
         uint32_t sp_len_padded = align8(nn);
-        uint64_t sz = nn * 4 + nn * 4 + sp_len_padded + nn * 4 + nn; /* outgoing, sp_id, sp_len, pos, is_sink */
+        uint64_t sz = nn * 8 + nn * 4 + sp_len_padded + nn * 4 + nn; /* outgoing, sp_id, sp_len, pos, is_sink */
         SectionBuf *s = sbuf_create(LZG_IO_TAG_NODE, sz);
         uint8_t *p = s->data;
-        memcpy(p, g->outgoing_counts, nn * 4); p += nn * 4;
+        memcpy(p, g->outgoing_counts, nn * 8); p += nn * 8;
         memcpy(p, g->node_sp_id, nn * 4); p += nn * 4;
         memcpy(p, g->node_sp_len, nn); p += sp_len_padded;
         memcpy(p, g->node_pos, nn * 4); p += nn * 4;
@@ -134,10 +134,10 @@ LZGError lzg_graph_save(const LZGGraph *g, const char *path) {
 
     /* LEND: Length distribution */
     {
-        uint64_t sz = 4 + (g->max_length + 1) * 4;
+        uint64_t sz = 4 + (g->max_length + 1) * 8;
         SectionBuf *s = sbuf_create(LZG_IO_TAG_LEND, sz);
         memcpy(s->data, &g->max_length, 4);
-        memcpy(s->data + 4, g->length_counts, (g->max_length + 1) * 4);
+        memcpy(s->data + 4, g->length_counts, (g->max_length + 1) * 8);
         s->crc = lzg_crc32c(s->data, s->size);
         sections[n_sec++] = s;
     }
@@ -176,8 +176,8 @@ LZGError lzg_graph_save(const LZGGraph *g, const char *path) {
         /* VJ joint */
         gene_sz += gd->n_vj_pairs * (4 + 4 + 8);
         /* Per-edge CSR */
-        gene_sz += (ne + 1) * 4 + gd->total_v_entries * (4 + 4);  /* v_offsets + ids + counts */
-        gene_sz += (ne + 1) * 4 + gd->total_j_entries * (4 + 4);  /* j_offsets + ids + counts */
+        gene_sz += (ne + 1) * 4 + gd->total_v_entries * (4 + 8);  /* v_offsets + ids + counts */
+        gene_sz += (ne + 1) * 4 + gd->total_j_entries * (4 + 8);  /* j_offsets + ids + counts */
 
         SectionBuf *gs = sbuf_create(LZG_IO_TAG_GENE, gene_sz);
         uint8_t *gp = gs->data;
@@ -211,11 +211,11 @@ LZGError lzg_graph_save(const LZGGraph *g, const char *path) {
         /* Per-edge V CSR */
         memcpy(gp, gd->v_offsets, (ne + 1) * 4); gp += (ne + 1) * 4;
         memcpy(gp, gd->v_gene_ids, gd->total_v_entries * 4); gp += gd->total_v_entries * 4;
-        memcpy(gp, gd->v_gene_counts, gd->total_v_entries * 4); gp += gd->total_v_entries * 4;
+        memcpy(gp, gd->v_gene_counts, gd->total_v_entries * 8); gp += gd->total_v_entries * 8;
         /* Per-edge J CSR */
         memcpy(gp, gd->j_offsets, (ne + 1) * 4); gp += (ne + 1) * 4;
         memcpy(gp, gd->j_gene_ids, gd->total_j_entries * 4); gp += gd->total_j_entries * 4;
-        memcpy(gp, gd->j_gene_counts, gd->total_j_entries * 4); gp += gd->total_j_entries * 4;
+        memcpy(gp, gd->j_gene_counts, gd->total_j_entries * 8); gp += gd->total_j_entries * 8;
 
         gs->crc = lzg_crc32c(gs->data, gs->size);
         sections[n_sec++] = gs;
@@ -331,6 +331,9 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
     if (hdr.min_reader_version > LZG_IO_FORMAT_VERSION) {
         fclose(f); return LZG_FAIL(LZG_ERR_IO_VERSION, "file '%s' requires format version %u (we support %u)", path, hdr.min_reader_version, LZG_IO_FORMAT_VERSION);
     }
+    if (hdr.format_version < 2 || hdr.format_version > LZG_IO_FORMAT_VERSION) {
+        fclose(f); return LZG_FAIL(LZG_ERR_IO_VERSION, "unsupported format version %u in '%s'", hdr.format_version, path);
+    }
     if (hdr.endian_tag != LZG_IO_ENDIAN_LE) {
         fclose(f); return LZG_FAIL(LZG_ERR_IO_CORRUPT, "unsupported endianness in '%s'", path);
     }
@@ -368,6 +371,7 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
     g->n_nodes = hdr.n_nodes;
     g->n_edges = hdr.n_edges;
     uint32_t nn = g->n_nodes, ne = g->n_edges;
+    bool counts64 = hdr.format_version >= 3;
 
     /* ── STRP: String pool ── */
     {
@@ -403,9 +407,14 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         g->edge_weights = malloc(ne * 8);
-        g->edge_counts  = malloc(ne * 4);
+        g->edge_counts  = malloc(ne * 8);
         memcpy(g->edge_weights, buf, ne * 8);
-        memcpy(g->edge_counts, buf + ne * 8, ne * 4);
+        if (counts64) {
+            memcpy(g->edge_counts, buf + ne * 8, ne * 8);
+        } else {
+            uint32_t *src = (uint32_t *)(buf + ne * 8);
+            for (uint32_t i = 0; i < ne; i++) g->edge_counts[i] = src[i];
+        }
         free(buf);
     }
 
@@ -430,13 +439,19 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         uint32_t sp_len_padded = align8(nn);
-        g->outgoing_counts = malloc(nn * 4);
+        g->outgoing_counts = malloc(nn * 8);
         g->node_sp_id      = malloc(nn * 4);
         g->node_sp_len     = malloc(nn);
         g->node_pos        = malloc(nn * 4);
         g->node_is_sink    = malloc(nn);
         uint8_t *p = buf;
-        memcpy(g->outgoing_counts, p, nn * 4); p += nn * 4;
+        if (counts64) {
+            memcpy(g->outgoing_counts, p, nn * 8); p += nn * 8;
+        } else {
+            uint32_t *src = (uint32_t *)p;
+            for (uint32_t i = 0; i < nn; i++) g->outgoing_counts[i] = src[i];
+            p += nn * 4;
+        }
         memcpy(g->node_sp_id, p, nn * 4); p += nn * 4;
         memcpy(g->node_sp_len, p, nn); p += sp_len_padded;
         memcpy(g->node_pos, p, nn * 4); p += nn * 4;
@@ -452,8 +467,13 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
         if (!e) goto fail;
         uint8_t *buf; READ_SECTION(e, buf);
         memcpy(&g->max_length, buf, 4);
-        g->length_counts = malloc((g->max_length + 1) * 4);
-        memcpy(g->length_counts, buf + 4, (g->max_length + 1) * 4);
+        g->length_counts = malloc((g->max_length + 1) * 8);
+        if (counts64) {
+            memcpy(g->length_counts, buf + 4, (g->max_length + 1) * 8);
+        } else {
+            uint32_t *src = (uint32_t *)(buf + 4);
+            for (uint32_t i = 0; i <= g->max_length; i++) g->length_counts[i] = src[i];
+        }
         free(buf);
     }
 
@@ -536,18 +556,30 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
             /* Per-edge V CSR */
             gd->v_offsets = malloc((ne + 1) * 4);
             gd->v_gene_ids = malloc(gd->total_v_entries * 4);
-            gd->v_gene_counts = malloc(gd->total_v_entries * 4);
+            gd->v_gene_counts = malloc(gd->total_v_entries * 8);
             memcpy(gd->v_offsets, rp, (ne + 1) * 4); rp += (ne + 1) * 4;
             memcpy(gd->v_gene_ids, rp, gd->total_v_entries * 4); rp += gd->total_v_entries * 4;
-            memcpy(gd->v_gene_counts, rp, gd->total_v_entries * 4); rp += gd->total_v_entries * 4;
+            if (counts64) {
+                memcpy(gd->v_gene_counts, rp, gd->total_v_entries * 8); rp += gd->total_v_entries * 8;
+            } else {
+                uint32_t *src = (uint32_t *)rp;
+                for (uint32_t i = 0; i < gd->total_v_entries; i++) gd->v_gene_counts[i] = src[i];
+                rp += gd->total_v_entries * 4;
+            }
 
             /* Per-edge J CSR */
             gd->j_offsets = malloc((ne + 1) * 4);
             gd->j_gene_ids = malloc(gd->total_j_entries * 4);
-            gd->j_gene_counts = malloc(gd->total_j_entries * 4);
+            gd->j_gene_counts = malloc(gd->total_j_entries * 8);
             memcpy(gd->j_offsets, rp, (ne + 1) * 4); rp += (ne + 1) * 4;
             memcpy(gd->j_gene_ids, rp, gd->total_j_entries * 4); rp += gd->total_j_entries * 4;
-            memcpy(gd->j_gene_counts, rp, gd->total_j_entries * 4); rp += gd->total_j_entries * 4;
+            if (counts64) {
+                memcpy(gd->j_gene_counts, rp, gd->total_j_entries * 8); rp += gd->total_j_entries * 8;
+            } else {
+                uint32_t *src = (uint32_t *)rp;
+                for (uint32_t i = 0; i < gd->total_j_entries; i++) gd->j_gene_counts[i] = src[i];
+                rp += gd->total_j_entries * 4;
+            }
 
             g->gene_data = gd;
             free(buf);
@@ -583,6 +615,8 @@ LZGError lzg_graph_load(const char *path, LZGGraph **out) {
             break;
         }
     }
+
+    (void)lzg_graph_ensure_query_edge_hashes(g);
 
     *out = g;
     return LZG_OK;

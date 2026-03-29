@@ -44,6 +44,61 @@ static bool is_sink_node(const LZGGraph *g, uint32_t node) {
     return g->node_is_sink ? g->node_is_sink[node] : false;
 }
 
+static inline uint64_t query_node_key(const LZGGraph *g,
+                                      uint32_t sp_id, uint32_t pos) {
+    if (g->variant == LZG_VARIANT_NAIVE)
+        return ((uint64_t)sp_id << 32) | (uint64_t)UINT32_MAX;
+    return ((uint64_t)sp_id << 32) | (uint64_t)pos;
+}
+
+static LZGError ensure_query_node_map(LZGGraph *g) {
+    if (g->query_node_map) return LZG_OK;
+
+    LZGHashMap *map = lzg_hm_create(g->n_nodes * 2);
+    if (!map) return LZG_FAIL(LZG_ERR_ALLOC, "failed to allocate query node map");
+
+    for (uint32_t i = 0; i < g->n_nodes; i++) {
+        uint64_t key = query_node_key(g, g->node_sp_id[i], g->node_pos[i]);
+        lzg_hm_put(map, key, (uint64_t)i);
+    }
+    g->query_node_map = map;
+    return LZG_OK;
+}
+
+static char *query_wrap_sentinels(const char *str, uint32_t len, uint32_t *out_len,
+                                  char *stack_buf, size_t stack_cap, bool *used_heap) {
+    *out_len = len + 2;
+    size_t need = (size_t)(*out_len) + 1u;
+    char *wrapped = NULL;
+    if (need <= stack_cap) {
+        wrapped = stack_buf;
+        *used_heap = false;
+    } else {
+        wrapped = malloc(need);
+        *used_heap = true;
+    }
+    if (!wrapped) return NULL;
+    wrapped[0] = LZG_START_SENTINEL;
+    memcpy(wrapped + 1, str, len);
+    wrapped[len + 1] = LZG_END_SENTINEL;
+    wrapped[len + 2] = '\0';
+    return wrapped;
+}
+
+static LZGError query_decompose_sequence(const char *seq, uint32_t seq_len,
+                                         LZGStringPool *pool, LZGTokens *tokens) {
+    uint32_t wlen = 0;
+    char wrapped_stack[512];
+    bool wrapped_heap = false;
+    char *wrapped = query_wrap_sentinels(seq, seq_len, &wlen,
+                                         wrapped_stack, sizeof(wrapped_stack),
+                                         &wrapped_heap);
+    if (!wrapped) return LZG_ERR_ALLOC;
+    LZGError err = lzg_lz76_decompose(wrapped, wlen, pool, tokens);
+    if (wrapped_heap) free(wrapped);
+    return err;
+}
+
 /* ═══════════════════════════════════════════════════════════════ */
 /* Simulate                                                        */
 /* ═══════════════════════════════════════════════════════════════ */
@@ -52,6 +107,8 @@ LZGError lzg_simulate(const LZGGraph *g, uint32_t n,
                        LZGRng *rng, LZGSimResult *out) {
     if (!g || !rng || !out) return LZG_FAIL(LZG_ERR_NULL_ARG, "graph, rng, and output must not be NULL");
     if (!g->topo_valid) return LZG_FAIL(LZG_ERR_NOT_BUILT, "graph not finalized");
+    if (lzg_graph_ensure_query_edge_hashes((LZGGraph *)g) != LZG_OK)
+        return LZG_FAIL(LZG_ERR_ALLOC, "failed to initialize query edge hash cache");
 
     uint32_t root = g->root_node;
     LZG_DEBUG("simulate: generating %u sequences from root node %u", n, root);
@@ -79,8 +136,6 @@ LZGError lzg_simulate(const LZGGraph *g, uint32_t n,
         stack[0].sp_len = 0;  /* @ doesn't contribute to output */
         stack[0].n_blacklisted = 0;
         depth = 1;
-
-        double log_p = 0.0;
 
         while (depth > 0 && depth < MAX_WALK_DEPTH) {
             SimFrame *top = &stack[depth - 1];
@@ -116,8 +171,7 @@ LZGError lzg_simulate(const LZGGraph *g, uint32_t n,
                 depth--;
 
                 /* Rebuild dictionary from stack */
-                lzg_wd_destroy(&wd);
-                wd = lzg_wd_create();
+                lzg_wd_reset(&wd);
                 lzg_wd_record_node(&wd, g, stack[0].node);
                 for (uint32_t d = 1; d < depth; d++)
                     lzg_wd_record_edge(&wd, g, stack[d].edge_taken);
@@ -125,8 +179,6 @@ LZGError lzg_simulate(const LZGGraph *g, uint32_t n,
                 SimFrame *parent = &stack[depth - 1];
                 if (parent->n_blacklisted < MAX_BLACKLIST)
                     parent->blacklist[parent->n_blacklisted++] = dead_edge;
-
-                log_p = 0.0; /* will be recomputed by walk_log_prob */
                 continue;
             }
 
@@ -177,8 +229,6 @@ LZGError lzg_simulate(const LZGGraph *g, uint32_t n,
         out[seq_idx].sequence = strdup(seq_buf);
         out[seq_idx].seq_len  = seq_pos;
         out[seq_idx].n_tokens = depth > 0 ? depth - 1 : 0; /* exclude @ */
-
-        /* Compute exact log-probability by retracing */
         out[seq_idx].log_prob = lzg_walk_log_prob(g, seq_buf, seq_pos);
 
         lzg_wd_destroy(&wd);
@@ -195,46 +245,20 @@ double lzg_walk_log_prob(const LZGGraph *g,
                           const char *seq, uint32_t seq_len) {
     if (!g || !seq || seq_len == 0) return LZG_LOG_EPS;
     if (!g->topo_valid) return LZG_LOG_EPS;
+    LZGGraph *gm = (LZGGraph *)g;
+    if (lzg_graph_ensure_query_edge_hashes(gm) != LZG_OK) return LZG_LOG_EPS;
+    if (ensure_query_node_map(gm) != LZG_OK) return LZG_LOG_EPS;
 
-    /* Encode sequence via LZ76 (wraps with @...$ internally) */
-    uint32_t node_ids[LZG_MAX_TOKENS], sp_ids[LZG_MAX_TOKENS];
-    uint32_t n_tokens;
-    LZGError err = lzg_lz76_encode(seq, seq_len, (LZGStringPool *)g->pool,
-                                    g->variant, node_ids, sp_ids, &n_tokens);
+    /* Decompose sequence structurally, then resolve tokens to graph nodes. */
+    LZGTokens tokens;
+    LZGError err = query_decompose_sequence(seq, seq_len, (LZGStringPool *)g->pool, &tokens);
+    uint32_t n_tokens = tokens.count;
     if (err != LZG_OK || n_tokens == 0) return LZG_LOG_EPS;
-
-    /* Build label → graph node index map */
-    LZGHashMap *label_map = lzg_hm_create(g->n_nodes * 2);
-    for (uint32_t i = 0; i < g->n_nodes; i++) {
-        const char *nsp = lzg_sp_get(g->pool, g->node_sp_id[i]);
-        uint32_t pos = g->node_pos[i];
-        char buf[256];
-        int len;
-        switch (g->variant) {
-            case LZG_VARIANT_AAP:
-                len = snprintf(buf, sizeof(buf), "%s_%u", nsp, pos);
-                break;
-            case LZG_VARIANT_NDP: {
-                uint32_t nsp_len = g->node_sp_len[i];
-                uint32_t start_pos = pos - nsp_len;
-                uint32_t frame = start_pos % 3;
-                len = snprintf(buf, sizeof(buf), "%s%u_%u", nsp, frame, pos);
-                break;
-            }
-            case LZG_VARIANT_NAIVE:
-                len = snprintf(buf, sizeof(buf), "%s", nsp);
-                break;
-            default:
-                len = snprintf(buf, sizeof(buf), "%s_%u", nsp, pos);
-                break;
-        }
-        uint32_t lid = lzg_sp_intern_n((LZGStringPool *)g->pool, buf, (uint32_t)len);
-        lzg_hm_put(label_map, (uint64_t)lid, (uint64_t)i);
-    }
 
     /* Walk dictionary for exact LZ constraint checking */
     LZGWalkDict wd = lzg_wd_create();
     double log_p = 0.0;
+    uint32_t prev_nid = UINT32_MAX;
 
     /*
      * With sentinels, the token sequence is: [@, C, A, S, SL, ..., T$]
@@ -243,7 +267,8 @@ double lzg_walk_log_prob(const LZGGraph *g,
      * The last token contains $ (sink). No stop probability.
      */
     for (uint32_t t = 0; t < n_tokens; t++) {
-        uint64_t *gi = lzg_hm_get(label_map, (uint64_t)node_ids[t]);
+        uint64_t key = query_node_key(g, tokens.sp_ids[t], tokens.positions[t]);
+        uint64_t *gi = lzg_hm_get(g->query_node_map, key);
         if (!gi) { log_p = LZG_LOG_EPS; break; }
         uint32_t nid = (uint32_t)*gi;
 
@@ -251,13 +276,9 @@ double lzg_walk_log_prob(const LZGGraph *g,
             /* First token is @: verify it's the root, no probability factor */
             if (nid != g->root_node) { log_p = LZG_LOG_EPS; break; }
             lzg_wd_record_node(&wd, g, nid);
+            prev_nid = nid;
             continue;
         }
-
-        /* Previous node */
-        uint64_t *prev_gi = lzg_hm_get(label_map, (uint64_t)node_ids[t - 1]);
-        if (!prev_gi) { log_p = LZG_LOG_EPS; break; }
-        uint32_t prev_nid = (uint32_t)*prev_gi;
 
         /* Compute Z over LZ-valid edges from previous node */
         uint32_t e_start = g->row_offsets[prev_nid];
@@ -275,18 +296,17 @@ double lzg_walk_log_prob(const LZGGraph *g,
 
         /* Record token */
         lzg_wd_record_node(&wd, g, nid);
+        prev_nid = nid;
     }
 
     /* Verify walk ends at a $-sink node */
     if (log_p > LZG_LOG_EPS && n_tokens > 0) {
-        uint64_t *last_gi = lzg_hm_get(label_map, (uint64_t)node_ids[n_tokens - 1]);
-        if (!last_gi || !is_sink_node(g, (uint32_t)*last_gi)) {
+        if (!is_sink_node(g, prev_nid)) {
             log_p = LZG_LOG_EPS;
         }
     }
 
     lzg_wd_destroy(&wd);
-    lzg_hm_destroy(label_map);
     return log_p;
 }
 

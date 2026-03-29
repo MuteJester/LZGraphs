@@ -359,18 +359,43 @@ static void test_walk_dict_manual(void) {
     ASSERT_MSG(!(wd.single_char_bits & (1u << lzg_aa_to_bit('G'))), "G not in bits");
     /* SL: already in dict → blocked for continuing */
     uint64_t sl_h = lzg_hash_bytes("SL", 2);
-    ASSERT_MSG(lzg_hm_get(wd.tokens, sl_h) != NULL, "SL in dict");
+    ASSERT_MSG(lzg_wd_contains_hash(&wd, sl_h), "SL in dict");
     /* SG: prefix S in dict, SG not in dict → allowed */
     uint64_t sg_h = lzg_hash_bytes("SG", 2);
-    ASSERT_MSG(lzg_hm_get(wd.tokens, sg_h) == NULL, "SG not in dict");
+    ASSERT_MSG(!lzg_wd_contains_hash(&wd, sg_h), "SG not in dict");
     uint64_t s_h = lzg_hash_bytes("S", 1);
-    ASSERT_MSG(lzg_hm_get(wd.tokens, s_h) != NULL, "S in dict");
+    ASSERT_MSG(lzg_wd_contains_hash(&wd, s_h), "S in dict");
     /* XY: prefix X not in dict → blocked */
     uint64_t x_h = lzg_hash_bytes("X", 1);
-    ASSERT_MSG(lzg_hm_get(wd.tokens, x_h) == NULL, "X not in dict");
+    ASSERT_MSG(!lzg_wd_contains_hash(&wd, x_h), "X not in dict");
 
     lzg_wd_destroy(&wd);
     lzg_sp_destroy(pool);
+    PASS();
+}
+
+static void test_walk_dict_overflow_fallback(void) {
+    LZGWalkDict wd = lzg_wd_create();
+
+    for (uint64_t i = 0; i < 220; i++) {
+        uint64_t h = 0x9e3779b97f4a7c15ULL ^ (i * 0x100000001b3ULL);
+        ASSERT_MSG(lzg_wd_record_hash(&wd, h), "record hash succeeds");
+        ASSERT_MSG(lzg_wd_contains_hash(&wd, h), "inserted hash is present");
+    }
+
+    ASSERT_MSG(wd.overflow != NULL, "overflow fallback allocated");
+
+    for (uint64_t i = 0; i < 220; i++) {
+        uint64_t h = 0x9e3779b97f4a7c15ULL ^ (i * 0x100000001b3ULL);
+        ASSERT_MSG(lzg_wd_contains_hash(&wd, h), "overflow lookup succeeds");
+    }
+
+    lzg_wd_reset(&wd);
+    ASSERT_MSG(wd.single_char_bits == 0, "reset clears single-char bits");
+    ASSERT_MSG(!lzg_wd_contains_hash(&wd, 0x9e3779b97f4a7c15ULL), "reset clears hashes");
+    ASSERT_MSG(wd.overflow != NULL, "overflow map retained for reuse");
+
+    lzg_wd_destroy(&wd);
     PASS();
 }
 
@@ -501,6 +526,7 @@ int main(void) {
     RUN_TEST(test_edge_weights_normalized);
     RUN_TEST(test_frequency_ordering);
     RUN_TEST(test_walk_dict_manual);
+    RUN_TEST(test_walk_dict_overflow_fallback);
     RUN_TEST(test_save_load_lzpgen);
     RUN_TEST(test_simulate_valid_chars);
     RUN_TEST(test_case3_repeated_final_token);

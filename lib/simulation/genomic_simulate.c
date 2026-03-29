@@ -116,8 +116,7 @@ static bool genomic_walk(
             depth--;
 
             /* Rebuild dictionary from stack */
-            lzg_wd_destroy(&wd);
-            wd = lzg_wd_create();
+            lzg_wd_reset(&wd);
             lzg_wd_record_node(&wd, g, stack[0].node);
             for (uint32_t d = 1; d < depth; d++)
                 lzg_wd_record_edge(&wd, g, stack[d].edge_used);
@@ -189,6 +188,8 @@ LZGError lzg_gene_simulate(const LZGGraph *g, uint32_t n,
     if (!g || !rng || !out) return LZG_FAIL(LZG_ERR_NULL_ARG, "graph, rng, and output must not be NULL");
     if (!g->gene_data) return LZG_FAIL(LZG_ERR_NO_GENE_DATA, "graph has no V/J gene annotations");
     if (!g->topo_valid) return LZG_FAIL(LZG_ERR_NOT_BUILT, "graph not finalized");
+    if (lzg_graph_ensure_query_edge_hashes((LZGGraph *)g) != LZG_OK)
+        return LZG_FAIL(LZG_ERR_ALLOC, "failed to initialize query edge hash cache");
 
     const LZGGeneData *gd = (const LZGGeneData *)g->gene_data;
     if (gd->n_vj_pairs == 0) return LZG_FAIL(LZG_ERR_NO_GENE_DATA, "no VJ pairs in gene data");
@@ -238,6 +239,8 @@ LZGError lzg_gene_simulate_vj(const LZGGraph *g, uint32_t n,
     if (!g || !rng || !out) return LZG_FAIL(LZG_ERR_NULL_ARG, "graph, rng, and output must not be NULL");
     if (!g->gene_data) return LZG_FAIL(LZG_ERR_NO_GENE_DATA, "graph has no V/J gene annotations");
     if (!g->topo_valid) return LZG_FAIL(LZG_ERR_NOT_BUILT, "graph not finalized");
+    if (lzg_graph_ensure_query_edge_hashes((LZGGraph *)g) != LZG_OK)
+        return LZG_FAIL(LZG_ERR_ALLOC, "failed to initialize query edge hash cache");
 
     const LZGGeneData *gd = (const LZGGeneData *)g->gene_data;
 

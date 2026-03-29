@@ -21,6 +21,30 @@ def _tagged(prefix, key, value):
     print(f"{prefix}\t{key}\t{value}")
 
 
+_LOG_PRIORITIES = {
+    'none': 0,
+    'error': 1,
+    'warn': 2,
+    'info': 3,
+    'debug': 4,
+    'trace': 5,
+}
+
+
+def _effective_log_level(args, default='info'):
+    level = getattr(args, 'log_level', None)
+    if level:
+        return level
+    if getattr(args, 'quiet', False):
+        return 'none'
+    return default
+
+
+def _cli_log_enabled(args, level='info'):
+    current = _effective_log_level(args)
+    return _LOG_PRIORITIES.get(current, 0) >= _LOG_PRIORITIES.get(level, 0)
+
+
 # ── Input helpers ───────────────────────────────────────────
 
 
@@ -43,6 +67,14 @@ def _add_json_arg(p):
     p.add_argument('--json', action='store_true', help='JSON output')
 
 
+def _add_input_contract_args(p):
+    p.add_argument('--strict-input', action='store_true',
+                   help='fail on mixed or malformed input records')
+    p.add_argument('--expect-format', choices=['plain', 'plain_seqcount', 'tabular'],
+                   default=None,
+                   help='require a specific input format')
+
+
 def _get_graph(path):
     """Load a graph, with timing."""
     from . import LZGraph
@@ -60,15 +92,117 @@ def _out(args):
     return sys.stdout
 
 
+def _emit_validation_report(args, report):
+    if hasattr(args, 'json') and args.json:
+        print(json.dumps(report, indent=2))
+        return
+
+    print(f"# lzg validate-input v{__version__} — {os.path.basename(report['path'])}")
+    _tagged('VL', 'ok', 'yes' if report['ok'] else 'no')
+    _tagged('VL', 'detected_kind', report['detected_kind'])
+    _tagged('VL', 'mode', report['mode'] or 'none')
+    _tagged('VL', 'strict_input', 'yes' if report['strict_input'] else 'no')
+    _tagged('VL', 'total_lines', report['total_lines'])
+    _tagged('VL', 'records', report['records'])
+    _tagged('VL', 'blank_lines', report['blank_lines'])
+    _tagged('VL', 'plain_records', report['plain_records'])
+    _tagged('VL', 'seqcount_records', report['seqcount_records'])
+    _tagged('VL', 'tabular_rows', report['tabular_rows'])
+    _tagged('VL', 'errors', report['error_count'])
+    _tagged('VL', 'warnings', report['warning_count'])
+    if report['expect_format']:
+        _tagged('VL', 'expect_format', report['expect_format'])
+    if report['seq_column']:
+        _tagged('VL', 'seq_column', report['seq_column'])
+    if report['abundance_column']:
+        _tagged('VL', 'abundance_column', report['abundance_column'])
+    if report['v_column']:
+        _tagged('VL', 'v_column', report['v_column'])
+    if report['j_column']:
+        _tagged('VL', 'j_column', report['j_column'])
+    for issue in report['issues']:
+        line = issue.get('line')
+        label = issue['level'].upper()
+        msg = f"line={line} {issue['message']}" if line is not None else issue['message']
+        _tagged(label, 'issue', msg)
+
+
+def cmd_validate_input(args):
+    from ._io import validate_input
+
+    report = validate_input(
+        args.input,
+        seq_column=args.seq_column,
+        v_column=args.v_column,
+        j_column=args.j_column,
+        abundance_column=args.abundance_column,
+        variant=args.variant,
+        no_genes=args.no_genes,
+        strict_input=args.strict_input,
+        expect_format=args.expect_format,
+    )
+    _emit_validation_report(args, report)
+    if not report['ok']:
+        sys.exit(2)
+
+
 # ── Commands ────────────────────────────────────────────────
 
 
 def cmd_build(args):
     from . import LZGraph, set_log_level
-    from ._io import read_sequences
+    from ._io import detect_input_kind, read_sequences, validate_input
 
-    if not args.quiet:
-        set_log_level('info')
+    active_log_level = _effective_log_level(args, default='info')
+    set_log_level(active_log_level)
+
+    input_kind = detect_input_kind(args.input, variant=args.variant) if args.input != '-' else None
+    can_stream_plain = (
+        args.input != '-'
+        and not args.input.endswith('.gz')
+        and input_kind in ('plain', 'plain_seqcount')
+    )
+
+    if can_stream_plain and (args.strict_input or args.expect_format is not None):
+        if _cli_log_enabled(args, 'info'):
+            _stderr(f"[build] phase=validate-input status=start input={args.input}")
+        t_validate = time.time()
+        report = validate_input(
+            args.input,
+            variant=args.variant,
+            strict_input=args.strict_input,
+            expect_format=args.expect_format,
+        )
+        if _cli_log_enabled(args, 'info'):
+            _stderr(
+                f"[build] phase=validate-input status={'ok' if report['ok'] else 'error'} "
+                f"kind={report['detected_kind']} mode={report['mode']} "
+                f"records={report['records']} errors={report['error_count']} "
+                f"warnings={report['warning_count']} elapsed={time.time()-t_validate:.2f}s"
+            )
+        if not report['ok']:
+            raise ValueError(report['summary'])
+
+    if can_stream_plain:
+        t1 = time.time()
+        g = LZGraph.from_file(
+            args.input,
+            variant=args.variant,
+            smoothing=args.smoothing,
+        )
+        if _cli_log_enabled(args, 'info'):
+            _stderr(f"[build] phase=construct mode=stream variant={args.variant} "
+                    f"nodes={g.n_nodes} edges={g.n_edges} elapsed={time.time()-t1:.2f}s")
+        if _cli_log_enabled(args, 'info'):
+            _stderr(f"[build] phase=save status=start output={args.output}")
+        t2 = time.time()
+        g.save(args.output)
+        sz = os.path.getsize(args.output)
+        if _cli_log_enabled(args, 'info'):
+            _stderr(f"[build] phase=save status=done output={args.output} "
+                    f"size_kb={sz/1024:.1f} elapsed={time.time()-t2:.2f}s")
+        set_log_level('none')
+        return
 
     t0 = time.time()
     data = read_sequences(
@@ -76,16 +210,18 @@ def cmd_build(args):
         v_column=args.v_column, j_column=args.j_column,
         abundance_column=args.abundance_column,
         variant=args.variant, no_genes=args.no_genes,
+        strict_input=args.strict_input,
+        expect_format=args.expect_format,
     )
     n = len(data['sequences'])
     has_genes = data['v_genes'] is not None and data['j_genes'] is not None
-    if not args.quiet:
+    if _cli_log_enabled(args, 'info'):
         gene_info = ""
         if has_genes:
             nv = len(set(data['v_genes']))
             nj = len(set(data['j_genes']))
             gene_info = f" ({nv} V genes, {nj} J genes)"
-        _stderr(f"[build] {n} sequences read{gene_info} ({time.time()-t0:.2f}s)")
+        _stderr(f"[build] phase=read sequences={n}{gene_info} elapsed={time.time()-t0:.2f}s")
 
     t1 = time.time()
     g = LZGraph(
@@ -96,13 +232,18 @@ def cmd_build(args):
         j_genes=data['j_genes'],
         smoothing=args.smoothing,
     )
-    if not args.quiet:
-        _stderr(f"[build] {g.n_nodes} nodes, {g.n_edges} edges ({time.time()-t1:.2f}s)")
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[build] phase=construct mode=in_memory variant={args.variant} "
+                f"nodes={g.n_nodes} edges={g.n_edges} elapsed={time.time()-t1:.2f}s")
 
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[build] phase=save status=start output={args.output}")
+    t2 = time.time()
     g.save(args.output)
     sz = os.path.getsize(args.output)
-    if not args.quiet:
-        _stderr(f"[build] saved {args.output} ({sz/1024:.1f} KB)")
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[build] phase=save status=done output={args.output} "
+                f"size_kb={sz/1024:.1f} elapsed={time.time()-t2:.2f}s")
 
     set_log_level('none')
 
@@ -440,23 +581,25 @@ def cmd_posterior(args):
     from . import LZGraph, set_log_level
     from ._io import read_sequences
 
-    if not args.quiet:
-        set_log_level('info')
+    active_log_level = _effective_log_level(args, default='info')
+    set_log_level(active_log_level)
 
     g = LZGraph.load(args.prior)
     data = read_sequences(args.new_data, seq_column=args.seq_column,
                           abundance_column=args.abundance_column,
                           variant=g.variant)
 
-    if not args.quiet:
-        _stderr(f"[posterior] {len(data['sequences'])} new sequences, kappa={args.kappa}")
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[posterior] phase=update sequences={len(data['sequences'])} kappa={args.kappa}")
 
     post = g.posterior(data['sequences'], abundances=data['abundances'],
                        kappa=args.kappa)
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[posterior] phase=save status=start output={args.output}")
     post.save(args.output)
 
-    if not args.quiet:
-        _stderr(f"[posterior] saved {args.output}")
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[posterior] phase=save status=done output={args.output}")
     set_log_level('none')
 
 
@@ -490,6 +633,9 @@ def build_parser():
     )
     p.add_argument('--version', action='version', version=f'lzg {__version__}')
     p.add_argument('-q', '--quiet', action='store_true', help='suppress progress')
+    p.add_argument('--log-level', choices=['none', 'error', 'warn', 'info', 'debug', 'trace'],
+                   default=None,
+                   help="logging verbosity [default: info unless --quiet]")
 
     sub = p.add_subparsers(dest='command', title='commands')
 
@@ -499,12 +645,25 @@ def build_parser():
     b.add_argument('-o', '--output', required=True, help='Output .lzg file')
     _add_variant_arg(b)
     _add_seq_column_arg(b)
+    _add_input_contract_args(b)
     b.add_argument('--v-column', default='v_call', help='V gene column [default: v_call]')
     b.add_argument('--j-column', default='j_call', help='J gene column [default: j_call]')
     b.add_argument('-a', '--abundance-column', default=None, help='Abundance column')
     b.add_argument('--no-genes', action='store_true', help='Ignore gene columns')
     b.add_argument('--smoothing', type=float, default=0.0, help='Laplace smoothing [default: 0.0]')
     # min-initial-count removed (sentinel model)
+
+    # ── validate-input ──
+    vi = sub.add_parser('validate-input', help='Validate an input file without building')
+    vi.add_argument('input', help='Input file (.txt, .tsv, .csv, .gz, or - for stdin)')
+    _add_variant_arg(vi)
+    _add_seq_column_arg(vi)
+    _add_input_contract_args(vi)
+    vi.add_argument('--v-column', default='v_call', help='V gene column [default: v_call]')
+    vi.add_argument('--j-column', default='j_call', help='J gene column [default: j_call]')
+    vi.add_argument('-a', '--abundance-column', default=None, help='Abundance column')
+    vi.add_argument('--no-genes', action='store_true', help='Ignore gene columns')
+    _add_json_arg(vi)
 
     # ── info ──
     i = sub.add_parser('info', help='Inspect a saved graph')
@@ -605,6 +764,7 @@ def build_parser():
 
 _DISPATCH = {
     'build': cmd_build,
+    'validate-input': cmd_validate_input,
     'info': cmd_info,
     'score': cmd_score,
     'simulate': cmd_simulate,

@@ -55,6 +55,36 @@ class LZGraph:
         obj._gene_cache = None
         return obj
 
+    @classmethod
+    def from_file(cls, path, *, variant='aap', smoothing=0.0,
+                  strict_input=False, expect_format=None):
+        """Build directly from a plain text file without Python list materialization.
+
+        Supported file formats:
+        - one sequence per line
+        - ``sequence<TAB>abundance``
+
+        This path is intended for large plain repertoire files and does not
+        support headered tabular inputs or gene columns.
+        """
+        if not isinstance(path, str):
+            raise TypeError("path must be a string")
+        if not path:
+            raise ValueError("path must be non-empty")
+        if strict_input or expect_format is not None:
+            from ._io import validate_input
+            report = validate_input(
+                path,
+                variant=variant,
+                strict_input=strict_input,
+                expect_format=expect_format,
+            )
+            if not report['ok']:
+                raise ValueError(report['summary'])
+        return cls._from_capsule(
+            _c.graph_build_file(path, variant, smoothing)
+        )
+
     # ── Dunder methods ──────────────────────────────────────
 
     def __repr__(self):
@@ -242,7 +272,7 @@ class LZGraph:
             - row_offsets: np.ndarray[uint32] of shape (n_nodes + 1,)
             - col_indices: np.ndarray[uint32] of shape (n_edges,)
             - weights: np.ndarray[float64] of shape (n_edges,) — transition probabilities
-            - counts: np.ndarray[uint32] of shape (n_edges,) — raw counts
+            - counts: np.ndarray[uint64] of shape (n_edges,) — raw counts
 
         Example:
             >>> from scipy.sparse import csr_matrix
@@ -255,7 +285,7 @@ class LZGraph:
             'row_offsets': np.array(raw['row_offsets'], dtype=np.uint32),
             'col_indices': np.array(raw['col_indices'], dtype=np.uint32),
             'weights': np.array(raw['weights'], dtype=np.float64),
-            'counts': np.array(raw['counts'], dtype=np.uint32),
+            'counts': np.array(raw['counts'], dtype=np.uint64),
         }
 
     def successors(self, node_label):

@@ -52,6 +52,15 @@ class TestPosterior:
         assert isinstance(post, LZGraph)
         assert post.n_nodes == aap_graph.n_nodes
 
+    def test_posterior_abundance_overflow_raises(self, aap_graph, aap_sequences):
+        with pytest.raises(OverflowError, match='abundances'):
+            aap_graph.posterior(aap_sequences[:2], abundances=[1, 2**64], kappa=10.0)
+
+    def test_posterior_large_abundance_supported(self, aap_graph, aap_sequences):
+        post = aap_graph.posterior(aap_sequences[:2], abundances=[1, 2**32], kappa=10.0)
+        assert isinstance(post, LZGraph)
+        assert post.n_nodes == aap_graph.n_nodes
+
 
 class TestIO:
     def test_save_load_roundtrip(self, aap_graph, tmp_lzg):
@@ -74,6 +83,14 @@ class TestIO:
         assert loaded.has_gene_data is True
         assert set(loaded.v_genes) == set(aap_gene_graph.v_genes)
         assert set(loaded.j_genes) == set(aap_gene_graph.j_genes)
+
+    def test_large_count_roundtrip(self, tmp_lzg):
+        big = 2**32
+        g = LZGraph(['CASSLGIRRT'], variant='aap', abundances=[big])
+        g.save(tmp_lzg)
+        loaded = LZGraph.load(tmp_lzg)
+        assert loaded.length_distribution == {10: big}
+        assert max(c for _, _, _, c in loaded.all_edges) == big
 
     def test_load_nonexistent(self):
         with pytest.raises(OSError):

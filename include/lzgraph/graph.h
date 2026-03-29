@@ -37,7 +37,7 @@ typedef struct LZGGraph_ {
 
     /* ── Per-edge data (parallel to col_indices) ── */
     double   *edge_weights;    /* [n_edges]: normalized P(dst|src)         */
-    uint32_t *edge_counts;     /* [n_edges]: raw transition counts         */
+    uint64_t *edge_counts;     /* [n_edges]: raw transition counts         */
 
     /* ── Per-edge LZ constraint info ── */
     uint32_t *edge_sp_id;      /* [n_edges]: interned subpattern of dst    */
@@ -45,7 +45,7 @@ typedef struct LZGGraph_ {
     uint32_t *edge_prefix_id;  /* [n_edges]: interned prefix of dst sp     */
 
     /* ── Per-node data ── */
-    uint32_t *outgoing_counts; /* [n_nodes]: total raw outgoing count      */
+    uint64_t *outgoing_counts; /* [n_nodes]: total raw outgoing count      */
     uint32_t *node_sp_id;      /* [n_nodes]: interned subpattern string    */
     uint8_t  *node_sp_len;     /* [n_nodes]: subpattern character length   */
     uint32_t *node_pos;        /* [n_nodes]: cumulative position integer   */
@@ -59,7 +59,7 @@ typedef struct LZGGraph_ {
     bool      topo_valid;
 
     /* ── Length distribution ── */
-    uint32_t *length_counts;   /* indexed by sequence length               */
+    uint64_t *length_counts;   /* indexed by sequence length               */
     uint32_t  max_length;      /* largest observed sequence length         */
 
     /* ── String pool (owns all string data) ── */
@@ -71,6 +71,14 @@ typedef struct LZGGraph_ {
 
     /* ── Gene data (optional, NULL if no gene columns provided) ── */
     struct LZGGeneData_ *gene_data;
+
+    /* ── Transient query cache (not serialized) ── */
+    LZGHashMap *query_node_map; /* structural key -> node index */
+    uint64_t   *edge_sp_hash;   /* [n_edges]: hash of destination token     */
+    uint64_t   *edge_prefix_hash; /* [n_edges]: hash of prefix token or 0   */
+    uint64_t   *node_sp_hash;   /* [n_nodes]: hash of node token            */
+    uint8_t    *edge_single_char_idx; /* [n_edges]: aa bit index or UINT8_MAX */
+    uint8_t    *node_single_char_idx; /* [n_nodes]: aa bit index or UINT8_MAX */
 } LZGGraph;
 
 /** Allocate and initialize an empty graph. */
@@ -95,11 +103,24 @@ void lzg_graph_destroy(LZGGraph *g);
 LZGError lzg_graph_build(LZGGraph *g,
                           const char **sequences,
                           uint32_t n_seqs,
-                          const uint32_t *abundances,
+                          const uint64_t *abundances,
                           const char **v_genes,
                           const char **j_genes,
                           double smoothing,
                           uint32_t min_init);
+
+/**
+ * Build a graph from a plain text file without materializing all sequences in Python.
+ *
+ * Supported input formats:
+ * - one sequence per line
+ * - sequence<TAB>abundance
+ *
+ * Gene columns and headered tabular formats are not supported by this path.
+ */
+LZGError lzg_graph_build_plain_file(LZGGraph *g,
+                                     const char *path,
+                                     double smoothing);
 
 /** Compute topological sort (cached, invalidated on structural changes). */
 LZGError lzg_graph_topo_sort(LZGGraph *g);
@@ -116,7 +137,7 @@ LZGError lzg_graph_finalize_from_edges(
     LZGHashMap *initial_counts,
     LZGHashMap *terminal_counts,
     LZGHashMap *outgoing_counts,
-    uint32_t *len_counts, uint32_t max_len);
+    uint64_t *len_counts, uint32_t max_len);
 
 /* ── Recalculation flags ───────────────────────────────────── */
 
@@ -131,6 +152,12 @@ typedef enum {
  * Topology (row_offsets, col_indices) must remain unchanged.
  */
 LZGError lzg_graph_recalculate(LZGGraph *g, uint32_t flags);
+
+/**
+ * Internal: ensure transient query-side edge hash caches exist.
+ * These caches are derived from immutable edge metadata and are not serialized.
+ */
+LZGError lzg_graph_ensure_query_edge_hashes(LZGGraph *g);
 
 /** Get the number of successors for node `node_id`. */
 static inline uint32_t lzg_graph_out_degree(const LZGGraph *g, uint32_t node_id) {

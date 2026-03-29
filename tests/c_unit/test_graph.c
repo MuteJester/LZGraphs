@@ -98,9 +98,9 @@ static void test_edge_builder(void) {
     LZGEdgeBuilder *eb = lzg_eb_create(16);
     ASSERT_MSG(eb != NULL, "create");
 
-    lzg_eb_record(eb, 0, 1, 3);
-    lzg_eb_record(eb, 0, 1, 2);  /* same edge, should increment */
-    lzg_eb_record(eb, 1, 2, 1);
+    lzg_eb_record(eb, 0, 1, 3, NULL);
+    lzg_eb_record(eb, 0, 1, 2, NULL);  /* same edge, should increment */
+    lzg_eb_record(eb, 1, 2, 1, NULL);
 
     ASSERT_MSG(eb->n_edges == 2, "2 unique edges");
     ASSERT_MSG(eb->counts[0] == 5, "0→1 count=5 (3+2)");

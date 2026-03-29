@@ -1,6 +1,6 @@
 /**
  * @file io.h
- * @brief LZG2 binary file format: section-based save/load with CRC-32C.
+ * @brief LZG binary file format: section-based save/load with CRC-32C.
  *
  * File extension: .lzg
  * See FILE_FORMAT.md for the complete specification.
@@ -14,7 +14,7 @@
 /* ── Format constants ──────────────────────────────────────── */
 
 #define LZG_IO_MAGIC           0x4C5A4732u  /* "LZG2" */
-#define LZG_IO_FORMAT_VERSION         2
+#define LZG_IO_FORMAT_VERSION         3
 #define LZG_IO_ENDIAN_LE       0x01
 #define LZG_IO_TRAILER_MAGIC   0x454E444Cu  /* "ENDL" */
 
@@ -50,8 +50,8 @@
 LZG_PACKED_BEGIN
 typedef struct LZG_PACKED_ATTR {
     uint32_t magic;               /* 0x4C5A4732 */
-    uint16_t format_version;      /* 2 */
-    uint16_t min_reader_version;  /* 2 */
+    uint16_t format_version;      /* current format version */
+    uint16_t min_reader_version;  /* minimum supported reader version */
     uint8_t  endian_tag;          /* 0x01 = LE */
     uint8_t  variant;             /* 0=AAP, 1=NDP, 2=Naive */
     uint8_t  compression;         /* 0=none, 1=zstd, 2=gzip */

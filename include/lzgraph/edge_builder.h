@@ -20,7 +20,7 @@ typedef struct LZGEdgeBuilder_ {
     LZGHashMap *edge_map;      /* key: pack(src,dst), value: edge index  */
     uint32_t   *src_ids;       /* [n_edges] source node IDs             */
     uint32_t   *dst_ids;       /* [n_edges] destination node IDs        */
-    uint32_t   *counts;        /* [n_edges] raw transition counts       */
+    uint64_t   *counts;        /* [n_edges] raw transition counts       */
     uint32_t    n_edges;
     uint32_t    capacity;
 } LZGEdgeBuilder;
@@ -34,10 +34,12 @@ void lzg_eb_destroy(LZGEdgeBuilder *eb);
 /**
  * Record a transition from src → dst with the given count.
  * If the edge already exists, increments its count.
+ * If `out_edge_idx` is non-NULL, returns the edge index that was updated.
  */
 LZGError lzg_eb_record(LZGEdgeBuilder *eb,
                         uint32_t src_id, uint32_t dst_id,
-                        uint32_t count);
+                        uint64_t count,
+                        uint32_t *out_edge_idx);
 
 /** Pack key from (src, dst) pair. */
 static inline uint64_t lzg_eb_pack_key(uint32_t src, uint32_t dst) {

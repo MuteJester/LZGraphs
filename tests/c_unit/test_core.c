@@ -102,6 +102,30 @@ static void test_hm_delete(void) {
     PASS();
 }
 
+static void test_hm_get_or_insert_and_add(void) {
+    LZGHashMap *m = lzg_hm_create(16);
+    bool inserted = false;
+
+    uint64_t *v = lzg_hm_get_or_insert(m, 7, 11, &inserted);
+    ASSERT_MSG(v && *v == 11, "insert initial");
+    ASSERT_MSG(inserted == true, "inserted=true");
+
+    v = lzg_hm_get_or_insert(m, 7, 99, &inserted);
+    ASSERT_MSG(v && *v == 11, "existing unchanged");
+    ASSERT_MSG(inserted == false, "inserted=false");
+
+    v = lzg_hm_add_u64(m, 7, 5, &inserted);
+    ASSERT_MSG(v && *v == 16, "existing incremented");
+    ASSERT_MSG(inserted == false, "add existing");
+
+    v = lzg_hm_add_u64(m, 8, 3, &inserted);
+    ASSERT_MSG(v && *v == 3, "missing inserted with delta");
+    ASSERT_MSG(inserted == true, "add inserted");
+
+    lzg_hm_destroy(m);
+    PASS();
+}
+
 /* ═══════════════════════════ string_pool.h ══════════════════════ */
 
 static void test_sp_intern(void) {
@@ -176,6 +200,7 @@ int main(void) {
     RUN_TEST(test_hm_basic);
     RUN_TEST(test_hm_many);
     RUN_TEST(test_hm_delete);
+    RUN_TEST(test_hm_get_or_insert_and_add);
 
     printf("\n[string_pool]\n");
     RUN_TEST(test_sp_intern);

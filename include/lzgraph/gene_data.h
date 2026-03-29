@@ -26,13 +26,13 @@ typedef struct LZGGeneData_ {
     /* ── Per-edge V gene counts (CSR-within-CSR) ── */
     uint32_t *v_offsets;      /* [n_edges + 1]: range per edge         */
     uint32_t *v_gene_ids;     /* [total_v_entries]: interned gene IDs  */
-    uint32_t *v_gene_counts;  /* [total_v_entries]: raw counts         */
+    uint64_t *v_gene_counts;  /* [total_v_entries]: raw counts         */
     uint32_t  total_v_entries;
 
     /* ── Per-edge J gene counts (CSR-within-CSR) ── */
     uint32_t *j_offsets;
     uint32_t *j_gene_ids;
-    uint32_t *j_gene_counts;
+    uint64_t *j_gene_counts;
     uint32_t  total_j_entries;
 
     /* ── Graph-level marginal distributions ── */

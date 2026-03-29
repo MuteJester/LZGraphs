@@ -11,6 +11,45 @@ static uint32_t next_pow2(uint32_t v) {
     v |= v >> 8; v |= v >> 16; return v + 1;
 }
 
+static inline uint64_t hm_mix64(uint64_t x) {
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+    return x;
+}
+
+static uint32_t hm_find_existing(const LZGHashMap *m, uint64_t key) {
+    uint32_t mask = m->capacity - 1;
+    uint32_t idx = (uint32_t)(hm_mix64(key) & mask);
+    while (1) {
+        uint64_t k = m->keys[idx];
+        if (k == key) return idx;
+        if (k == LZG_HM_EMPTY) return UINT32_MAX;
+        idx = (idx + 1) & mask;
+    }
+}
+
+static uint32_t hm_find_insert_slot(const LZGHashMap *m, uint64_t key, bool *found) {
+    uint32_t mask = m->capacity - 1;
+    uint32_t idx = (uint32_t)(hm_mix64(key) & mask);
+    uint32_t tomb = UINT32_MAX;
+    while (1) {
+        uint64_t k = m->keys[idx];
+        if (k == key) {
+            *found = true;
+            return idx;
+        }
+        if (k == LZG_HM_EMPTY) {
+            *found = false;
+            return (tomb != UINT32_MAX) ? tomb : idx;
+        }
+        if (k == LZG_HM_DELETED && tomb == UINT32_MAX) tomb = idx;
+        idx = (idx + 1) & mask;
+    }
+}
+
 LZGHashMap *lzg_hm_create(uint32_t initial_capacity) {
     if (initial_capacity < 16) initial_capacity = 16;
     initial_capacity = next_pow2(initial_capacity);
@@ -42,10 +81,10 @@ static void hm_resize(LZGHashMap *m, uint32_t new_cap) {
     m->capacity = new_cap;
     m->count = m->tombstones = 0;
     memset(m->keys, 0xFF, new_cap * sizeof(uint64_t));
-    uint32_t mask = new_cap - 1;
     for (uint32_t i = 0; i < oc; i++) {
         if (ok[i] != LZG_HM_EMPTY && ok[i] != LZG_HM_DELETED) {
-            uint32_t idx = (uint32_t)(ok[i] & mask);
+            uint32_t mask = new_cap - 1;
+            uint32_t idx = (uint32_t)(hm_mix64(ok[i]) & mask);
             while (m->keys[idx] != LZG_HM_EMPTY) idx = (idx + 1) & mask;
             m->keys[idx] = ok[i];
             m->values[idx] = ov[i];
@@ -58,46 +97,61 @@ static void hm_resize(LZGHashMap *m, uint32_t new_cap) {
 bool lzg_hm_put(LZGHashMap *m, uint64_t key, uint64_t value) {
     if ((m->count + m->tombstones) * 5 > m->capacity * 3)
         hm_resize(m, m->capacity * 2);
-    uint32_t mask = m->capacity - 1;
-    uint32_t idx = (uint32_t)(key & mask);
-    uint32_t tomb = UINT32_MAX;
-    while (1) {
-        uint64_t k = m->keys[idx];
-        if (k == key)       { m->values[idx] = value; return false; }
-        if (k == LZG_HM_EMPTY) {
-            if (tomb != UINT32_MAX) { idx = tomb; m->tombstones--; }
-            m->keys[idx] = key; m->values[idx] = value; m->count++;
-            return true;
-        }
-        if (k == LZG_HM_DELETED && tomb == UINT32_MAX) tomb = idx;
-        idx = (idx + 1) & mask;
+    bool found = false;
+    uint32_t idx = hm_find_insert_slot(m, key, &found);
+    if (found) {
+        m->values[idx] = value;
+        return false;
     }
+    if (m->keys[idx] == LZG_HM_DELETED) m->tombstones--;
+    m->keys[idx] = key;
+    m->values[idx] = value;
+    m->count++;
+    return true;
 }
 
 uint64_t *lzg_hm_get(const LZGHashMap *m, uint64_t key) {
-    uint32_t mask = m->capacity - 1;
-    uint32_t idx = (uint32_t)(key & mask);
-    while (1) {
-        uint64_t k = m->keys[idx];
-        if (k == key)       return (uint64_t *)&m->values[idx];
-        if (k == LZG_HM_EMPTY) return NULL;
-        idx = (idx + 1) & mask;
+    uint32_t idx = hm_find_existing(m, key);
+    if (idx == UINT32_MAX) return NULL;
+    return (uint64_t *)&m->values[idx];
+}
+
+uint64_t *lzg_hm_get_or_insert(LZGHashMap *m, uint64_t key,
+                               uint64_t initial_value, bool *inserted) {
+    if ((m->count + m->tombstones) * 5 > m->capacity * 3)
+        hm_resize(m, m->capacity * 2);
+
+    bool found = false;
+    uint32_t idx = hm_find_insert_slot(m, key, &found);
+    if (found) {
+        if (inserted) *inserted = false;
+        return &m->values[idx];
     }
+
+    if (m->keys[idx] == LZG_HM_DELETED) m->tombstones--;
+    m->keys[idx] = key;
+    m->values[idx] = initial_value;
+    m->count++;
+    if (inserted) *inserted = true;
+    return &m->values[idx];
+}
+
+uint64_t *lzg_hm_add_u64(LZGHashMap *m, uint64_t key,
+                         uint64_t delta, bool *inserted) {
+    bool created = false;
+    uint64_t *slot = lzg_hm_get_or_insert(m, key, delta, &created);
+    if (!created) *slot += delta;
+    if (inserted) *inserted = created;
+    return slot;
 }
 
 bool lzg_hm_delete(LZGHashMap *m, uint64_t key) {
-    uint32_t mask = m->capacity - 1;
-    uint32_t idx = (uint32_t)(key & mask);
-    while (1) {
-        uint64_t k = m->keys[idx];
-        if (k == key) {
-            m->keys[idx] = LZG_HM_DELETED;
-            m->count--; m->tombstones++;
-            return true;
-        }
-        if (k == LZG_HM_EMPTY) return false;
-        idx = (idx + 1) & mask;
-    }
+    uint32_t idx = hm_find_existing(m, key);
+    if (idx == UINT32_MAX) return false;
+    m->keys[idx] = LZG_HM_DELETED;
+    m->count--;
+    m->tombstones++;
+    return true;
 }
 
 void lzg_hm_clear(LZGHashMap *m) {

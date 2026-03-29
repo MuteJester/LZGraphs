@@ -47,7 +47,7 @@ double lzg_edge_v_prob(const LZGGeneData *gd, uint32_t edge_idx,
     if (idx < 0) return 0.0;
 
     /* Sum counts for this edge's V genes */
-    uint32_t total = 0;
+    uint64_t total = 0;
     for (uint32_t i = lo; i < hi; i++) total += gd->v_gene_counts[i];
     return total > 0 ? (double)gd->v_gene_counts[idx] / total : 0.0;
 }
@@ -61,7 +61,7 @@ double lzg_edge_j_prob(const LZGGeneData *gd, uint32_t edge_idx,
     int32_t idx = bsearch_u32(gd->j_gene_ids, lo, hi, j_gene_id);
     if (idx < 0) return 0.0;
 
-    uint32_t total = 0;
+    uint64_t total = 0;
     for (uint32_t i = lo; i < hi; i++) total += gd->j_gene_counts[i];
     return total > 0 ? (double)gd->j_gene_counts[idx] / total : 0.0;
 }

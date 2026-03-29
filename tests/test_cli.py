@@ -27,6 +27,13 @@ def seq_file(tmp_path):
 
 
 @pytest.fixture
+def seq_count_file(tmp_path):
+    p = tmp_path / 'seq_counts.txt'
+    p.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\t2\nCASSQETQYF\t1\n')
+    return str(p)
+
+
+@pytest.fixture
 def lzg_file(tmp_path, seq_file):
     p = str(tmp_path / 'test.lzg')
     run_lzg('-q', 'build', seq_file, '-o', p)
@@ -47,11 +54,73 @@ class TestBuild:
         assert rc == 0
         assert os.path.exists(out_path)
 
+    def test_build_plain_seqcount_txt(self, seq_count_file, tmp_path):
+        out_path = str(tmp_path / 'out_counts.lzg')
+        _, stderr, rc = run_lzg('-q', 'build', seq_count_file, '-o', out_path)
+        assert rc == 0
+        assert os.path.exists(out_path)
+
+    def test_build_plain_large_seqcount_txt(self, tmp_path):
+        seq_count_file = tmp_path / 'seq_counts_large.txt'
+        seq_count_file.write_text(f'CASSLGIRRT\t{2**32}\n')
+        out_path = str(tmp_path / 'out_counts_large.lzg')
+        _, stderr, rc = run_lzg('-q', 'build', str(seq_count_file), '-o', out_path)
+        assert rc == 0
+        assert os.path.exists(out_path)
+
     def test_build_stdin(self, tmp_path):
         out_path = str(tmp_path / 'out.lzg')
         _, _, rc = run_lzg('-q', 'build', '-', '-o', out_path,
                            input_text='CASSLGIRRT\nCASSLGYEQYF\n')
         assert rc == 0
+
+    def test_build_log_level_info_emits_phase_logs(self, seq_count_file, tmp_path):
+        out_path = str(tmp_path / 'out_logged.lzg')
+        _, stderr, rc = run_lzg('--log-level', 'info', 'build', seq_count_file, '-o', out_path)
+        assert rc == 0
+        assert 'phase=ingest' in stderr
+        assert 'phase=finalize' in stderr
+        assert 'phase=save status=done' in stderr
+
+    def test_build_quiet_overridden_by_explicit_log_level(self, seq_count_file, tmp_path):
+        out_path = str(tmp_path / 'out_logged_quiet.lzg')
+        _, stderr, rc = run_lzg('-q', '--log-level', 'info', 'build', seq_count_file, '-o', out_path)
+        assert rc == 0
+        assert 'phase=ingest' in stderr
+
+    def test_build_strict_input_fails_on_mixed_seqcount(self, tmp_path):
+        mixed = tmp_path / 'mixed_seqcount.txt'
+        mixed.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\n')
+        out_path = str(tmp_path / 'mixed_out.lzg')
+        _, stderr, rc = run_lzg(
+            '--log-level', 'info',
+            'build', str(mixed), '-o', out_path,
+            '--strict-input', '--expect-format', 'plain_seqcount',
+        )
+        assert rc != 0
+        assert 'phase=validate-input status=error' in stderr
+
+
+class TestValidateInput:
+    def test_validate_input_plain_seqcount(self, seq_count_file):
+        out, _, rc = run_lzg('validate-input', seq_count_file, '--strict-input',
+                             '--expect-format', 'plain_seqcount')
+        assert rc == 0
+        assert 'VL\tok\tyes' in out
+        assert 'VL\tmode\tplain_seqcount' in out
+
+    def test_validate_input_json_failure(self, tmp_path):
+        mixed = tmp_path / 'mixed_validate.txt'
+        mixed.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\n')
+        out, _, rc = run_lzg(
+            'validate-input', str(mixed),
+            '--strict-input', '--expect-format', 'plain_seqcount',
+            '--json',
+        )
+        assert rc == 2
+        data = json.loads(out)
+        assert data['ok'] is False
+        assert data['mode'] == 'mixed'
 
 
 class TestInfo:
