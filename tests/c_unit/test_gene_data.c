@@ -140,6 +140,17 @@ static void test_per_edge_gene_csr(void) {
         if (lzg_edge_has_j(gd, e, j1_id)) found_j = true;
     ASSERT_MSG(found_j, "TRBJ1-1 found on at least one edge");
 
+    for (uint32_t e = 0; e < g->n_edges; e++) {
+        uint32_t vlo = gd->v_offsets[e], vhi = gd->v_offsets[e + 1];
+        uint32_t jlo = gd->j_offsets[e], jhi = gd->j_offsets[e + 1];
+        for (uint32_t i = vlo + 1; i < vhi; i++)
+            ASSERT_MSG(gd->v_gene_ids[i - 1] < gd->v_gene_ids[i],
+                       "V gene ids sorted and unique per edge");
+        for (uint32_t i = jlo + 1; i < jhi; i++)
+            ASSERT_MSG(gd->j_gene_ids[i - 1] < gd->j_gene_ids[i],
+                       "J gene ids sorted and unique per edge");
+    }
+
     lzg_graph_destroy(g);
     PASS();
 }

@@ -65,6 +65,57 @@ typedef struct {
     bool warned_mixed_mode;
 } LZGStreamBuildStats;
 
+static void sort_compact_gene_segment(uint32_t lo, uint32_t hi,
+                                      uint32_t *gene_ids,
+                                      uint64_t *gene_counts) {
+    if (hi - lo < 2) return;
+
+    for (uint32_t i = lo + 1; i < hi; i++) {
+        uint32_t key_id = gene_ids[i];
+        uint64_t key_count = gene_counts[i];
+        uint32_t j = i;
+        while (j > lo && gene_ids[j - 1] > key_id) {
+            gene_ids[j] = gene_ids[j - 1];
+            gene_counts[j] = gene_counts[j - 1];
+            j--;
+        }
+        gene_ids[j] = key_id;
+        gene_counts[j] = key_count;
+    }
+}
+
+static uint32_t sort_compact_gene_csr(uint32_t n_edges,
+                                      uint32_t *offsets,
+                                      uint32_t *gene_ids,
+                                      uint64_t *gene_counts) {
+    uint32_t old_lo = 0;
+    uint32_t write = 0;
+
+    offsets[0] = 0;
+    for (uint32_t e = 0; e < n_edges; e++) {
+        uint32_t old_hi = offsets[e + 1];
+        uint32_t seg_start = write;
+
+        sort_compact_gene_segment(old_lo, old_hi, gene_ids, gene_counts);
+
+        for (uint32_t i = old_lo; i < old_hi; i++) {
+            if (write > seg_start && gene_ids[write - 1] == gene_ids[i]) {
+                gene_counts[write - 1] += gene_counts[i];
+            } else {
+                gene_ids[write] = gene_ids[i];
+                gene_counts[write] = gene_counts[i];
+                write++;
+            }
+        }
+
+        offsets[e] = seg_start;
+        offsets[e + 1] = write;
+        old_lo = old_hi;
+    }
+
+    return write;
+}
+
 /* ── Create / Destroy ──────────────────────────────────────── */
 
 LZGGraph *lzg_graph_create(LZGVariant variant) {
@@ -1346,6 +1397,9 @@ static LZGError finalize_from_structural_edges(
                 }
             }
             free(v_cursor);
+            gd->total_v_entries = sort_compact_gene_csr(ne, gd->v_offsets,
+                                                        gd->v_gene_ids,
+                                                        gd->v_gene_counts);
 
             if (edge_j_genes && builder_to_csr) {
                 for (uint32_t i = 0; i < edge_j_genes->capacity; i++) {
@@ -1381,6 +1435,9 @@ static LZGError finalize_from_structural_edges(
                 }
             }
             free(j_cursor);
+            gd->total_j_entries = sort_compact_gene_csr(ne, gd->j_offsets,
+                                                        gd->j_gene_ids,
+                                                        gd->j_gene_counts);
         }
 
         g->gene_data = gd;
@@ -1673,6 +1730,9 @@ static LZGError finalize_from_edges(
                 }
             }
             free(v_cursor);
+            gd->total_v_entries = sort_compact_gene_csr(ne, gd->v_offsets,
+                                                        gd->v_gene_ids,
+                                                        gd->v_gene_counts);
 
             /* Same for J genes */
             if (edge_j_genes && builder_to_csr) {
@@ -1709,6 +1769,9 @@ static LZGError finalize_from_edges(
                 }
             }
             free(j_cursor);
+            gd->total_j_entries = sort_compact_gene_csr(ne, gd->j_offsets,
+                                                        gd->j_gene_ids,
+                                                        gd->j_gene_counts);
         }
 
         g->gene_data = gd;
