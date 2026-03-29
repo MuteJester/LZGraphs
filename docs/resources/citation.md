@@ -39,7 +39,7 @@ For citing the software itself:
   author = {Konstantinovsky, Thomas},
   title = {LZGraphs: LZ76-Based Graphs for TCR Repertoire Analysis},
   url = {https://github.com/MuteJester/LZGraphs},
-  version = {3.0.0},
+  version = {3.0.1},
   year = {2026}
 }
 ```

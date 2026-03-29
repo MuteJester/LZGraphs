@@ -256,9 +256,9 @@ LZGError lzg_graph_save(const LZGGraph *g, const char *path) {
     hdr.n_edges = ne;
     hdr.n_sequences = 0; /* not tracked currently */
     hdr.creation_timestamp = (uint64_t)time(NULL);
-    hdr.lib_version_major = 2;
-    hdr.lib_version_minor = 5;
-    hdr.lib_version_patch = 0;
+    hdr.lib_version_major = 3;
+    hdr.lib_version_minor = 0;
+    hdr.lib_version_patch = 1;
     hdr.header_crc32c = lzg_crc32c(&hdr, 40);
 
     fwrite(&hdr, 64, 1, f);

@@ -135,7 +135,7 @@ LZGraphs excels at **repertoire-level** questions (how diverse? how similar? how
 The comparisons above were produced using:
 
 - **OLGA v1.3.0** with the default `human_T_beta` model (pre-fitted on IGoR default parameters)
-- **LZGraphs v3.0.0** trained on 5,000 CDR3 amino acid sequences from the same repertoire
+- **LZGraphs v3.0.1** trained on 5,000 CDR3 amino acid sequences from the same repertoire
 - **Real data:** 5,000 TRB CDR3 amino acid sequences with V/J gene annotations
 - Pgen scored on 300 sequences; 3-mer analysis on the full 5,000
 - Spearman rank correlation for Pgen comparison; cosine similarity for 3-mer comparison

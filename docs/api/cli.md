@@ -23,7 +23,7 @@ lzg --version
 ```
 
 ```text
-lzg 3.0.0
+lzg 3.0.1
 ```
 
 ```bash
@@ -195,7 +195,7 @@ lzg info repertoire.lzg
 ```
 
 ```text
-# lzg info v3.0.0 — repertoire.lzg
+# lzg info v3.0.1 — repertoire.lzg
 GR	variant	aap
 GR	nodes	9842
 GR	edges	27531
@@ -375,7 +375,7 @@ lzg diversity repertoire.lzg
 ```
 
 ```text
-# lzg diversity v3.0.0
+# lzg diversity v3.0.1
 HL	0	318204000.0000
 HL	1	4021.3312
 HL	2	1847.5590
@@ -427,7 +427,7 @@ lzg compare healthy.lzg disease.lzg
 ```
 
 ```text
-# lzg compare v3.0.0 — healthy.lzg vs disease.lzg
+# lzg compare v3.0.1 — healthy.lzg vs disease.lzg
 CP	jsd	0.142837
 CP	nodes_a	9842
 CP	nodes_b	11204

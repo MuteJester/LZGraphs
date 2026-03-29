@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.0.1] - 2026
+
+### Fixed
+- Improved large-file graph construction with streaming plain-text ingestion, safer capacity handling, and `uint64` count support.
+- Fixed plain `sequence<TAB>count` parsing and added stricter input-validation pathways in the CLI and Python APIs.
+- Improved save metadata to record the correct library version in `.lzg` files.
+
+### Changed
+- Significantly accelerated Foundation-graph query paths for `lzpgen()` and `simulate()` without changing graph or traversal semantics.
+- Improved long-running build logging with clearer progress, phase reporting, and operational safety checks.
+
+---
+
 ## [3.0.0] - 2026
 
 **Major Rewrite: High-Performance C-Core**
