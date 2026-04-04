@@ -7,7 +7,7 @@ name = "LZGraphs"
 dynamic = ["version"]
 description = "High-performance LZ76 compression graphs for immune receptor repertoire analysis"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.9"
 authors = [
     {name = "Thomas Konstantinovsky", email = "thomaskon90@gmail.com"}
@@ -33,7 +33,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Information Analysis",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
@@ -68,7 +67,7 @@ Homepage = "https://github.com/MuteJester/LZGraphs"
 Documentation = "https://mutejester.github.io/LZGraphs/"
 Repository = "https://github.com/MuteJester/LZGraphs"
 Issues = "https://github.com/MuteJester/LZGraphs/issues"
-Changelog = "https://github.com/MuteJester/LZGraphs/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/MuteJester/LZGraphs/blob/master/docs/resources/changelog.md"
 
 [project.scripts]
 lzg = "LZGraphs.cli:main"

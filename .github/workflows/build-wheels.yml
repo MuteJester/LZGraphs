@@ -1,8 +1,6 @@
 name: Build & Publish
 
 on:
-  release:
-    types: [published]
   push:
     tags: ["v*"]
   workflow_dispatch:
@@ -80,18 +78,23 @@ jobs:
           python-version: "3.12"
       - run: pip install build
       - run: python -m build --sdist
+      - name: Verify sdist installs cleanly
+        run: |
+          python -m venv /tmp/lzg-sdist-venv
+          /tmp/lzg-sdist-venv/bin/pip install dist/*.tar.gz
+          /tmp/lzg-sdist-venv/bin/python -c "from LZGraphs import LZGraph; print('LZGraphs sdist OK')"
       - uses: actions/upload-artifact@v4
         with:
           name: sdist
           path: dist/*.tar.gz
 
   # ═══════════════════════════════════════════════════════════
-  # Publish to PyPI (only on release/tag, not dispatch)
+  # Publish to PyPI (only on tag pushes, not dispatch)
   # ═══════════════════════════════════════════════════════════
   publish:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
 
     permissions:
       id-token: write  # for trusted publishing
@@ -110,3 +113,32 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+  # ═══════════════════════════════════════════════════════════
+  # Create GitHub release and attach built artifacts
+  # ═══════════════════════════════════════════════════════════
+  create_release:
+    needs: [publish]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
