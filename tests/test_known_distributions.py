@@ -656,6 +656,32 @@ class TestTwoSequenceCoinFlip:
             f"D(2) = {d2:.4f}, expected {self.theoretical_d2:.4f}"
         )
 
+    def test_d0_matches_direct_mc_formula_for_custom_n(self, graph):
+        """Custom-n D(0) should use the classical support estimator."""
+        n = 4096
+        sim = graph.simulate(n, seed=33333)
+        expected = float(np.mean(np.exp(-sim.log_probs)))
+        d0 = graph.hill_number(0.0, n=n)
+
+        assert abs(d0 - expected) < 1e-10, (
+            f"D(0) = {d0:.12f}, direct MC = {expected:.12f}"
+        )
+
+    def test_batch_hill_numbers_match_direct_mc_formula(self, graph):
+        """Batch Hill numbers should reuse the same classical MC sample."""
+        n = 4096
+        sim = graph.simulate(n, seed=44444)
+        expected = np.array([
+            np.mean(np.exp(-sim.log_probs)),
+            np.exp(-np.mean(sim.log_probs)),
+            np.mean(np.exp(sim.log_probs)) ** -1.0,
+        ], dtype=np.float64)
+        actual = graph.hill_numbers([0.0, 1.0, 2.0], n=n)
+
+        assert np.allclose(actual, expected, rtol=0.0, atol=1e-10), (
+            f"actual={actual}, expected={expected}"
+        )
+
     def test_only_two_distinct_sequences(self, sim):
         """With completely disjoint paths, no novel sequences should appear."""
         unique = set(sim.sequences)
@@ -713,6 +739,15 @@ class TestSymmetricCoinFlip:
         for alpha in [0, 1.0, 2.0, 5.0]:
             d = graph.hill_number(alpha)
             assert abs(d - 2.0) < 0.3, f"D({alpha}) = {d:.4f}, expected 2.0"
+
+    def test_custom_n_hill_numbers_match_theory(self, graph):
+        """The custom sample count should still converge to the exact values."""
+        actual = graph.hill_numbers([0.0, 1.0, 2.0], n=20000)
+        expected = np.array([2.0, 2.0, 2.0], dtype=np.float64)
+
+        assert np.allclose(actual, expected, rtol=0.0, atol=0.08), (
+            f"actual={actual}, expected={expected}"
+        )
 
     def test_simulation_is_balanced(self, sim):
         """Each sequence should appear ~50% of the time."""

@@ -2,9 +2,8 @@
  * @file diversity.h
  * @brief Diversity metrics: perplexity, entropy rate, K-diversity, saturation.
  *
- * All probability-based metrics use the LZ-constrained model
- * (via lzg_walk_log_prob), giving correct values under
- * the proper probability distribution.
+ * All probability-based metrics use the public constrained walk model
+ * exposed through lzg_walk_log_prob().
  *
  * Counting-based metrics (K-diversity, saturation) operate on
  * raw sequences without touching the probability model.

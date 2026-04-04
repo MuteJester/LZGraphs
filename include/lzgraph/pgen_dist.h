@@ -2,14 +2,19 @@
  * @file pgen_dist.h
  * @brief LZPgen distribution: moments, analytical Gaussian mixture, pdf/cdf.
  *
- * The PGEN distribution characterizes the probability of generation
- * (log P(seq)) across all sequences producible by the graph.
+ * The PGEN distribution characterizes log-probability mass over graph walks.
  *
- * lzg_pgen_moments() computes exact mean, variance, skewness, kurtosis
- * via 5-dimensional moment propagation through the LZ-constrained DP.
+ * Important: the current implementation is powered by the unconstrained
+ * topological forward DP in forward.c. Its moments and Gaussian mixture
+ * therefore summarize the graph-topology walk law, not the exact
+ * LZ-constrained per-history walk law used by lzg_walk_log_prob().
+ *
+ * lzg_pgen_moments() computes mean, variance, skewness, kurtosis via
+ * 5-dimensional moment propagation through that unconstrained forward DP.
  *
  * lzg_pgen_analytical_distribution() produces a Gaussian mixture
- * (one component per walk length) for fast pdf/cdf/ppf evaluation.
+ * (one component per walk length) for fast pdf/cdf/ppf evaluation of
+ * the same unconstrained approximation.
  */
 #ifndef LZGRAPH_PGEN_DIST_H
 #define LZGRAPH_PGEN_DIST_H
@@ -21,12 +26,12 @@
 /* ── Moment results ────────────────────────────────────────── */
 
 typedef struct {
-    double mean;           /* E[log P]                     */
-    double variance;       /* Var[log P]                   */
+    double mean;           /* E[log P] under the unconstrained forward law */
+    double variance;       /* Var[log P] under the same law                */
     double std;            /* sqrt(variance)               */
     double skewness;       /* standardized 3rd cumulant    */
     double kurtosis;       /* standardized 4th cumulant    */
-    double total_mass;     /* Σ π(s) over valid walks      */
+    double total_mass;     /* total absorbed mass in the unconstrained forward DP */
 } LZGPgenMoments;
 
 LZGError lzg_pgen_moments(const LZGGraph *g, LZGPgenMoments *out);
@@ -47,8 +52,8 @@ typedef struct {
 } LZGPgenDist;
 
 /**
- * Compute the analytical PGEN distribution as a Gaussian mixture.
- * One component per walk length, with exact per-length (weight, mean, std).
+ * Compute the analytical PGEN distribution as a Gaussian mixture over the
+ * unconstrained forward-DP walk law. One component per walk length.
  */
 LZGError lzg_pgen_analytical(const LZGGraph *g, LZGPgenDist *out);
 

@@ -50,22 +50,25 @@ static void test_moments_basic(void) {
     PASS();
 }
 
-static void test_moments_vs_entropy(void) {
-    /* mean from moments = -entropy_nats from effective_diversity */
+static void test_moments_are_unconstrained_relative_to_raw_diagnostics(void) {
+    /* pgen_moments() stays on the unconstrained forward-DP law. */
     LZGGraph *g = build_graph();
 
     LZGPgenMoments mom;
     lzg_pgen_moments(g, &mom);
 
-    LZGEffectiveDiversity div;
-    lzg_effective_diversity(g, &div);
+    LZGPgenDiagnostics diag;
+    lzg_pgen_diagnostics(g, 1e-12, &diag);
 
-    printf("\n    moments.mean=%.4f, -entropy=%.4f",
-           mom.mean, -div.entropy_nats);
+    printf("\n    moments.total_mass=%.4f, raw_absorbed=%.4f",
+           mom.total_mass, diag.total_absorbed);
 
-    /* They should agree: mean(log P) = -H */
-    ASSERT_MSG(fabs(mom.mean + div.entropy_nats) < 0.1,
-               "mean ≈ -entropy");
+    ASSERT_MSG(fabs(mom.total_mass - 1.0) < 1e-12,
+               "forward-DP total mass stays unit-normalized");
+    ASSERT_MSG(fabs(diag.total_absorbed - (47.0 / 48.0)) < 0.02,
+               "raw absorbed mass tracks leaky-graph value");
+    ASSERT_MSG(fabs(mom.total_mass - diag.total_absorbed) > 1e-3,
+               "pgen_moments and raw diagnostics describe different laws");
 
     lzg_graph_destroy(g);
     PASS();
@@ -153,7 +156,7 @@ int main(void) {
 
     printf("[pgen_dist]\n");
     RUN_TEST(test_moments_basic);
-    RUN_TEST(test_moments_vs_entropy);
+    RUN_TEST(test_moments_are_unconstrained_relative_to_raw_diagnostics);
     RUN_TEST(test_analytical_basic);
     RUN_TEST(test_pdf_cdf);
     RUN_TEST(test_rvs);

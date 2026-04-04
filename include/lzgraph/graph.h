@@ -17,6 +17,8 @@
 #include "lzgraph/hash_map.h"
 #include "lzgraph/edge_builder.h"
 
+struct LZGExactModel_;
+
 /**
  * LZGraph — directed acyclic graph with sentinel-bounded walks.
  *
@@ -79,6 +81,7 @@ typedef struct LZGGraph_ {
     uint64_t   *node_sp_hash;   /* [n_nodes]: hash of node token            */
     uint8_t    *edge_single_char_idx; /* [n_edges]: aa bit index or UINT8_MAX */
     uint8_t    *node_single_char_idx; /* [n_nodes]: aa bit index or UINT8_MAX */
+    struct LZGExactModel_ *exact_model_cache; /* accepted-model normalizer cache */
 } LZGGraph;
 
 /** Allocate and initialize an empty graph. */

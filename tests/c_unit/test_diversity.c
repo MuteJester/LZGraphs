@@ -56,6 +56,16 @@ static void test_repertoire_perplexity(void) {
     PASS();
 }
 
+static void test_repertoire_perplexity_zero_prob_is_infinite(void) {
+    const char *mixed[] = { "CASSLGIRRT", "XXXXXXXXXX" };
+    LZGGraph *g = build_graph();
+    double pp = lzg_repertoire_perplexity(g, mixed, 2);
+    printf("\n    repertoire PP with zero-prob seq = %.2f", pp);
+    ASSERT_MSG(isinf(pp), "zero-probability sequence forces infinite repertoire perplexity");
+    lzg_graph_destroy(g);
+    PASS();
+}
+
 static void test_path_entropy_rate(void) {
     LZGGraph *g = build_graph();
     double h = lzg_path_entropy_rate(g, seqs, N_SEQS);
@@ -146,6 +156,7 @@ int main(void) {
     printf("[perplexity]\n");
     RUN_TEST(test_sequence_perplexity);
     RUN_TEST(test_repertoire_perplexity);
+    RUN_TEST(test_repertoire_perplexity_zero_prob_is_infinite);
     RUN_TEST(test_path_entropy_rate);
 
     printf("\n[k_diversity]\n");

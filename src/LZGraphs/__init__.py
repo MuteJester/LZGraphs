@@ -3,7 +3,7 @@
 High-performance C backend with full LZ76 dictionary constraint enforcement.
 """
 
-__version__ = "3.0.1"
+__version__ = "3.0.2"
 
 from ._graph import LZGraph
 from ._pgen_dist import PgenDistribution

@@ -2,14 +2,14 @@
  * @file simulate.h
  * @brief LZ76-constrained sequence simulation and walk probability.
  *
- * simulate() generates sequences by random walks that respect LZ76
- * dictionary constraints at every step: single-char tokens must be
- * novel, multi-char tokens must extend a known prefix. Edge weights
- * are renormalized over the LZ-valid successor set at each step.
+ * simulate() generates sequences from a scalable accepted-sequence
+ * approximation: raw constrained walks are sampled forward until one
+ * reaches a terminal sink, and probabilities are normalized by a cached
+ * Monte Carlo estimate of the graph's absorption mass.
  *
- * walk_log_probability() computes the log-probability of a given
- * sequence under the same LZ-constrained model by re-encoding via
- * LZ76 and tracing the canonical walk with renormalized weights.
+ * walk_log_probability() uses that same cached normalization estimate, so
+ * its output stays consistent with simulate() without materializing the full
+ * history-expanded exact state space.
  */
 #ifndef LZGRAPH_SIMULATE_H
 #define LZGRAPH_SIMULATE_H
@@ -31,12 +31,12 @@ typedef struct {
 } LZGSimResult;
 
 /**
- * Simulate n sequences from the LZ-constrained generative model.
+ * Simulate n sequences from the public accepted-sequence model.
  *
- * Each walk enforces LZ76 dictionary constraints: at each step, only
- * successors whose subpattern is LZ76-valid given the accumulated
- * dictionary are eligible. Edge weights are renormalized over the
- * valid subset.
+ * Each trial walk enforces LZ76 dictionary constraints exactly, stops on
+ * dead ends, and retries until a completed sink-reaching walk is obtained.
+ * This keeps generation scalable on large graphs while still returning only
+ * completed accepted walks.
  *
  * @param g          The graph (must be finalized + topo-sorted).
  * @param n          Number of sequences to generate.
@@ -55,12 +55,12 @@ static inline void lzg_sim_result_free(LZGSimResult *r) {
 }
 
 /**
- * Compute the log-probability of a sequence under the LZ-constrained model.
+ * Compute the log-probability of a sequence under the public accepted model.
  *
- * The sequence is re-encoded via LZ76, producing its canonical walk.
- * At each step, the edge weight is renormalized by the sum of weights
- * of LZ-valid successors (given the accumulated LZ dictionary at that
- * point in the walk). This makes the result consistent with simulate().
+ * The sequence is re-encoded via LZ76, producing its canonical raw
+ * constrained walk, and then normalized by the same cached Monte Carlo
+ * absorption estimate used by simulate(). This keeps lzpgen() consistent
+ * with public generation semantics without the exact state explosion.
  *
  * @param g       The graph.
  * @param seq     Null-terminated amino acid sequence.
@@ -102,6 +102,11 @@ typedef struct {
  *   1. Sample a (V,J) pair from the joint VJ distribution
  *   2. Walk with edges filtered by LZ + live + V/J gene presence
  *   3. Backtrack on dead ends (stack with blacklist)
+ *
+ * The reported log_prob is the gene-conditional walk probability: the
+ * product of transition probabilities over gene-filtered, LZ-valid edges.
+ * This is a different probability law from the unconditional model returned
+ * by simulate() / lzg_walk_log_prob(). The two are not directly comparable.
  *
  * @param g     Graph with gene_data != NULL.
  * @param n     Number of sequences to generate.

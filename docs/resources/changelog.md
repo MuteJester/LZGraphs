@@ -6,6 +6,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.0.2] - 2026
+
+### Fixed
+- Restored scalable public `simulate()` and `lzpgen()` semantics on large graphs while preserving sequence/log-prob consistency.
+- Improved probability diagnostics, classical Hill-number estimation, and zero-probability repertoire perplexity handling.
+- Added a standalone C benchmark harness for graph loading, simulation, scoring, analytics, and I/O throughput measurements.
+
+### Changed
+- Refactored the C core into smaller internal modules across simulation, graph finalization/build ingest, analytics, PGEN distribution, I/O, graph operations, occupancy, and diversity.
+- Clarified public documentation around constrained simulation, approximate accepted-walk normalization, and the unconstrained forward-DP `pgen_dist` approximation.
+
+---
+
 ## [3.0.1] - 2026
 
 ### Fixed

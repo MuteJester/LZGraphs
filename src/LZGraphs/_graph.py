@@ -135,10 +135,20 @@ class LZGraph:
 
     @property
     def path_count(self):
-        """Estimated number of distinct LZ-valid walks (Chao1 lower bound)."""
+        """Estimated number of distinct LZ-valid walks."""
         if not hasattr(self, '_path_count_cache'):
-            self._path_count_cache = int(_c.path_count(self._cap))
+            self._path_count_cache = float(_c.path_count(self._cap))
         return self._path_count_cache
+
+    def path_count_estimate(self, n=None):
+        """Estimated number of distinct LZ-valid walks.
+
+        Args:
+            n: Optional Monte Carlo sample count.
+        """
+        if n is None:
+            return float(_c.path_count(self._cap))
+        return float(_c.path_count(self._cap, int(n)))
 
     # ── Structural properties ────────────────────────────────
 
@@ -318,7 +328,7 @@ class LZGraph:
 
     def simulate(self, n, *, seed=None, v_gene=None, j_gene=None,
                  sample_genes=False):
-        """Generate n sequences from the LZ-constrained generative model.
+        """Generate n completed sequences from the public constrained model.
 
         Args:
             n: Number of sequences to generate.
@@ -358,7 +368,7 @@ class LZGraph:
     # ── LZPGEN ──────────────────────────────────────────────
 
     def lzpgen(self, sequence, *, log=True):
-        """Probability of sequence(s) under the LZ-constrained model.
+        """Probability of sequence(s) under the public constrained model.
 
         Args:
             sequence: A single string, or a list of strings.
@@ -379,7 +389,7 @@ class LZGraph:
     # ── Analytics ───────────────────────────────────────────
 
     def effective_diversity(self):
-        """Effective diversity: exp(Shannon entropy). Equivalent to D(1)."""
+        """Effective diversity of the public accepted-walk model: exp(Shannon entropy)."""
         return _c.effective_diversity(self._cap)
 
     def diversity_profile(self):
@@ -389,13 +399,28 @@ class LZGraph:
         """
         return _c.diversity_profile(self._cap)
 
-    def hill_number(self, alpha):
-        """Hill diversity number D(alpha)."""
-        return _c.hill_number(self._cap, float(alpha))
+    def hill_number(self, alpha, n=None):
+        """Hill diversity number D(alpha).
 
-    def hill_numbers(self, orders):
-        """Hill numbers for multiple orders. Returns np.ndarray."""
-        result = _c.hill_numbers(self._cap, [float(o) for o in orders])
+        Args:
+            alpha: Hill order.
+            n: Optional Monte Carlo sample count.
+        """
+        if n is None:
+            return _c.hill_number(self._cap, float(alpha))
+        return _c.hill_number(self._cap, float(alpha), int(n))
+
+    def hill_numbers(self, orders, n=None):
+        """Hill numbers for multiple orders. Returns np.ndarray.
+
+        Args:
+            orders: Iterable of Hill orders.
+            n: Optional Monte Carlo sample count shared across all orders.
+        """
+        if n is None:
+            result = _c.hill_numbers(self._cap, [float(o) for o in orders])
+        else:
+            result = _c.hill_numbers(self._cap, [float(o) for o in orders], int(n))
         return np.array(result, dtype=np.float64)
 
     def hill_curve(self, orders=None):
@@ -410,11 +435,17 @@ class LZGraph:
         }
 
     def power_sum(self, alpha):
-        """Raw power sum M(alpha) = sum_s pi(s)^alpha."""
+        """Power sum M(alpha) = sum_s pi(s)^alpha of the public accepted-walk model."""
         return _c.power_sum(self._cap, float(alpha))
 
     def pgen_diagnostics(self, atol=1e-6):
-        """Check if the model is a proper probability distribution."""
+        """Monte Carlo estimate of absorbed vs leaked mass of the raw structural law.
+
+        Returns a dict with keys: total_absorbed, total_leaked,
+        initial_prob_sum, is_proper, mc_samples. Note that total_absorbed=1.0
+        means no leaks were observed in mc_samples trials, not that the graph
+        is proven leak-free.
+        """
         return _c.pgen_diagnostics(self._cap, atol)
 
     def pgen_dynamic_range(self):
@@ -428,11 +459,11 @@ class LZGraph:
     # ── PGEN Distribution ───────────────────────────────────
 
     def pgen_moments(self):
-        """Moments of the log-PGEN distribution."""
+        """Moments of the unconstrained forward-DP log-PGEN approximation."""
         return _c.pgen_moments(self._cap)
 
     def pgen_distribution(self):
-        """Analytical Gaussian mixture of log-PGEN."""
+        """Analytical Gaussian mixture for the unconstrained forward-DP approximation."""
         from ._pgen_dist import PgenDistribution
         raw = _c.pgen_analytical(self._cap)
         return PgenDistribution(raw)
@@ -470,12 +501,120 @@ class LZGraph:
         return _c.sequence_perplexity(self._cap, sequence)
 
     def repertoire_perplexity(self, sequences):
-        """Average perplexity across a repertoire."""
+        """Average perplexity across a repertoire. Returns inf if any sequence has zero probability."""
         return _c.repertoire_perplexity(self._cap, list(sequences))
 
     def path_entropy_rate(self, sequences):
         """Entropy rate (bits/token) estimated from sequences."""
         return _c.path_entropy_rate(self._cap, list(sequences))
+
+    def approximation_diagnostics(self, test_sequences, test_counts=None):
+        """Quantify the coarse-graph approximation quality against held-out data.
+
+        Measures how well the model's probability assignments match empirical
+        frequencies from held-out sequences. This quantifies the cost of the
+        LZ76 history coarsening: the graph collapses exponentially many
+        dictionary histories into shared nodes, so edge weights reflect a
+        marginal over histories rather than any single history-conditioned
+        distribution.
+
+        Args:
+            test_sequences: list of held-out sequences (may contain repeats).
+            test_counts: optional integer counts for each unique sequence.
+                If None, counts are inferred from repeated entries in
+                test_sequences.
+
+        Returns:
+            dict with keys:
+            - coverage: fraction of test mass with model P(s) > 0
+            - cross_entropy_nats: H(empirical, model) over covered sequences
+            - empirical_entropy_nats: H(empirical) over covered sequences
+            - kl_divergence_nats: cross_entropy - empirical_entropy
+            - perplexity: exp(cross_entropy) — effective support size
+            - mean_log_prob: mean model log P(s) over covered sequences
+            - median_log_prob: median model log P(s) over covered sequences
+            - rank_correlation: Spearman rho (model prob vs empirical freq)
+            - n_unique: number of unique test sequences
+            - n_covered: number with model P(s) > 0
+        """
+        _LOG_EPS_THRESH = -690.0
+
+        # Deduplicate and count
+        if test_counts is not None:
+            unique_seqs = list(test_sequences)
+            counts = np.asarray(test_counts, dtype=np.float64)
+        else:
+            from collections import Counter
+            counter = Counter(test_sequences)
+            unique_seqs = list(counter.keys())
+            counts = np.array([counter[s] for s in unique_seqs], dtype=np.float64)
+
+        n_unique = len(unique_seqs)
+        if n_unique == 0:
+            return {
+                'coverage': 0.0, 'cross_entropy_nats': float('inf'),
+                'empirical_entropy_nats': 0.0, 'kl_divergence_nats': float('inf'),
+                'perplexity': float('inf'), 'mean_log_prob': float('-inf'),
+                'median_log_prob': float('-inf'), 'rank_correlation': float('nan'),
+                'n_unique': 0, 'n_covered': 0,
+            }
+
+        # Score all unique sequences
+        log_probs = np.array(self.lzpgen(unique_seqs), dtype=np.float64)
+
+        # Identify covered sequences (model assigns nonzero probability)
+        covered = log_probs > _LOG_EPS_THRESH
+        n_covered = int(covered.sum())
+        total_mass = counts.sum()
+        covered_mass = counts[covered].sum()
+        coverage = covered_mass / total_mass if total_mass > 0 else 0.0
+
+        if n_covered == 0:
+            return {
+                'coverage': 0.0, 'cross_entropy_nats': float('inf'),
+                'empirical_entropy_nats': 0.0, 'kl_divergence_nats': float('inf'),
+                'perplexity': float('inf'), 'mean_log_prob': float('-inf'),
+                'median_log_prob': float('-inf'), 'rank_correlation': float('nan'),
+                'n_unique': n_unique, 'n_covered': 0,
+            }
+
+        # Empirical distribution over covered sequences
+        c_counts = counts[covered]
+        c_log_probs = log_probs[covered]
+        c_total = c_counts.sum()
+        p_emp = c_counts / c_total
+
+        # Cross-entropy: H(empirical, model) = -sum p_emp * log_model
+        cross_entropy = -float(np.dot(p_emp, c_log_probs))
+
+        # Empirical entropy: H(empirical) = -sum p_emp * log(p_emp)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            log_p_emp = np.where(p_emp > 0, np.log(p_emp), 0.0)
+        empirical_entropy = -float(np.dot(p_emp, log_p_emp))
+
+        # KL divergence: D_KL(empirical || model)
+        kl_div = cross_entropy - empirical_entropy
+
+        # Rank correlation (Spearman) between model prob and empirical freq
+        # Requires >= 3 covered sequences with non-constant counts
+        rank_corr = float('nan')
+        if n_covered >= 3 and c_counts.min() != c_counts.max():
+            from scipy.stats import spearmanr
+            rho, _ = spearmanr(c_log_probs, c_counts)
+            rank_corr = float(rho)
+
+        return {
+            'coverage': float(coverage),
+            'cross_entropy_nats': float(cross_entropy),
+            'empirical_entropy_nats': float(empirical_entropy),
+            'kl_divergence_nats': float(kl_div),
+            'perplexity': float(np.exp(cross_entropy)),
+            'mean_log_prob': float(c_log_probs.mean()),
+            'median_log_prob': float(np.median(c_log_probs)),
+            'rank_correlation': rank_corr,
+            'n_unique': n_unique,
+            'n_covered': n_covered,
+        }
 
     # ── Graph Operations ────────────────────────────────────
 

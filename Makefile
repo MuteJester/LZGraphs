@@ -6,7 +6,7 @@ LDFLAGS = -lm
 SRCS = $(shell find lib -name '*.c')
 OBJS = $(patsubst lib/%.c, build/%.o, $(SRCS))
 
-.PHONY: all clean test
+.PHONY: all clean test bench_ops
 
 all: build/liblzgraph.a
 
@@ -123,3 +123,8 @@ build/test_walk_dict: tests/c_unit/test_walk_dict.c build/liblzgraph.a | build_d
 
 clean:
 	rm -rf build
+
+bench_ops: build/bench_ops
+
+build/bench_ops: tools/bench_ops.c build/liblzgraph.a | build_dirs
+	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@

@@ -2,261 +2,153 @@
  * @file analytics.c
  * @brief Graph analytics via simulation with exact-probability estimators.
  *
- * Each simulated walk carries its exact log-probability from the
- * LZ-constrained walk engine. We use these exact probabilities —
- * not empirical frequencies — for Hill numbers and entropy estimation.
+ * Each simulated walk follows the raw constrained process once:
+ * it either reaches a sink (absorbed) or gets stranded at a dead end (leaked).
+ * Absorbed samples carry exact walk probabilities; leaked samples contribute
+ * zero mass to raw power-sum estimates.
  *
  * Estimators:
- *   D(0): Chao1 lower bound from frequencies (can't do better without enumeration)
- *   D(1): exp(-(1/N) Σ log P(s_i))  — unbiased, negligible Jensen bias at N≥1000
- *   D(2): 1 / ((1/N) Σ P(s_i))  — unbiased for Simpson concentration
- *   D(α): ((1/N) Σ P(s_i)^(α-1))^{1/(1-α)}  — unbiased importance-sampling
- *   H:    -(1/N) Σ log P(s_i)  — unbiased for Shannon entropy
+ *   M(a): (1/N) Σ I_abs * P(s_i)^(a-1)   = raw power sum Σ P(s)^a
+ *   D(0): support size over absorbed sequences
+ *   D(1): exp(H_cond), where H_cond is Shannon entropy of the
+ *         absorbed-conditional distribution
+ *   D(a): classical Hill number on the absorbed-conditional distribution:
+ *         (M(a) / M(1)^a)^{1/(1-a)}
  *
- * Why exact-probability estimators beat frequency-based:
- *   When true diversity >> N (most sequences unique in simulation),
- *   frequency-based entropy saturates at log(N). But each sample carries
- *   its exact P(s), so the probability-based estimator captures the full
- *   diversity even from a small sample.
+ * This keeps diagnostics honest on leaky graphs while preserving
+ * classical Hill semantics on the normalized completed-sequence law.
  */
 #include "lzgraph/analytics.h"
-#include "lzgraph/simulate.h"
-#include "lzgraph/rng.h"
-#include "lzgraph/hash_map.h"
-#include <stdlib.h>
+#include "analytics_mc.h"
+#include "../simulation/exact_model.h"
 #include <math.h>
 #include <string.h>
 
-/* Default MC sample size. 10K gives ~1% accuracy for D(1), D(2). */
-#define MC_N_SAMPLES 10000
-
-/* ── Shared: simulate N walks, return log-probs ───────────── */
-
-typedef struct {
-    double   *log_probs;   /* [n]: exact log P(s_i) per walk            */
-    uint32_t  n;           /* number of simulations                     */
-    /* Frequency data (for D(0) Chao1 estimation) */
-    uint32_t  n_unique;
-    uint32_t  f1;          /* singletons                                */
-    uint32_t  f2;          /* doubletons                                */
-} MCResult;
-
-static LZGError run_mc(const LZGGraph *g, uint32_t n_samples,
-                        uint64_t seed, MCResult *out) {
-    LZGRng rng;
-    lzg_rng_seed(&rng, seed);
-
-    LZGSimResult *results = calloc(n_samples, sizeof(LZGSimResult));
-    if (!results) return LZG_ERR_ALLOC;
-
-    LZGError err = lzg_simulate(g, n_samples, &rng, results);
-    if (err != LZG_OK) { free(results); return err; }
-
-    /* Extract log-probs and compute frequency stats */
-    out->log_probs = malloc(n_samples * sizeof(double));
-    out->n = n_samples;
-
-    LZGHashMap *counts = lzg_hm_create(n_samples * 2);
-    for (uint32_t i = 0; i < n_samples; i++) {
-        out->log_probs[i] = results[i].log_prob;
-        uint64_t h = lzg_hash_bytes(results[i].sequence, results[i].seq_len);
-        uint64_t *existing = lzg_hm_get(counts, h);
-        if (existing) (*existing)++;
-        else lzg_hm_put(counts, h, 1);
-        lzg_sim_result_free(&results[i]);
-    }
-    free(results);
-
-    /* Count singletons and doubletons for Chao1 */
-    out->n_unique = counts->count;
-    out->f1 = 0;
-    out->f2 = 0;
-    for (uint32_t i = 0; i < counts->capacity; i++) {
-        if (counts->keys[i] != LZG_HM_EMPTY &&
-            counts->keys[i] != LZG_HM_DELETED) {
-            uint32_t f = (uint32_t)counts->values[i];
-            if (f == 1) out->f1++;
-            if (f == 2) out->f2++;
-        }
-    }
-    lzg_hm_destroy(counts);
-    return LZG_OK;
-}
-
-static void free_mc(MCResult *r) {
-    free(r->log_probs);
-    r->log_probs = NULL;
-}
-
-/* ── Chao1 (for D(0) only — frequency-based lower bound) ──── */
-
-static double chao1(const MCResult *r) {
-    double s = (double)r->n_unique;
-    double f1 = (double)r->f1;
-    double f2 = (double)r->f2;
-    if (f2 > 0) return s + f1 * f1 / (2.0 * f2);
-    return s + f1 * (f1 - 1.0) / 2.0;
-}
+#define MC_PATH_COUNT_SEED         54321ULL
+#define MC_EFFECTIVE_DIVERSITY_SEED 11111ULL
+#define MC_POWER_SUM_SEED          22222ULL
+#define MC_HILL_NUMBER_SEED        33333ULL
+#define MC_HILL_NUMBERS_SEED       44444ULL
+#define MC_DYNAMIC_RANGE_SEED      12345ULL
 
 /* ═══════════════════════════════════════════════════════════════ */
 /* Public API                                                      */
 /* ═══════════════════════════════════════════════════════════════ */
 
 LZGError lzg_graph_path_count(const LZGGraph *g, double *out) {
+    return lzg_graph_path_count_mc(g, 0, out);
+}
+
+LZGError lzg_graph_path_count_mc(const LZGGraph *g, uint32_t n_samples,
+                                  double *out) {
     if (!g || !out) return LZG_ERR_INVALID_ARG;
-    MCResult mc;
-    LZGError err = run_mc(g, MC_N_SAMPLES, 54321, &mc);
+    LZGAnalyticsMCResult mc;
+    LZGError err = lzg_analytics_mc_run(g, n_samples, MC_PATH_COUNT_SEED, &mc);
     if (err != LZG_OK) return err;
-    *out = chao1(&mc);
-    free_mc(&mc);
+    *out = lzg_analytics_mc_support_estimate(&mc);
+    lzg_analytics_mc_free(&mc);
     return LZG_OK;
 }
 
 LZGError lzg_pgen_diagnostics(const LZGGraph *g, double atol, LZGPgenDiagnostics *out) {
+    double absorbed;
+    LZGError err;
+
     if (!g || !out) return LZG_ERR_INVALID_ARG;
     out->initial_prob_sum = 1.0;
 
-    MCResult mc;
-    LZGError err = run_mc(g, 1000, 99999, &mc);
+    /* Use the raw-walk MC estimate (not the accepted-walk model, which
+       would always report 1.0 since it rejection-samples to absorption). */
+    err = lzg_exact_model_ensure((LZGGraph *)g);
     if (err != LZG_OK) return err;
 
-    uint32_t valid = 0;
-    for (uint32_t i = 0; i < mc.n; i++)
-        if (mc.log_probs[i] > LZG_LOG_EPS + 1.0) valid++;
-
-    out->total_absorbed = (double)valid / mc.n;
-    out->total_leaked = 1.0 - out->total_absorbed;
-    out->is_proper = valid > (uint32_t)(mc.n * 0.95);
-
-    free_mc(&mc);
+    absorbed = lzg_exact_model_root_absorption(g);
+    out->total_absorbed = absorbed;
+    out->total_leaked = 1.0 - absorbed;
+    out->is_proper = fabs(absorbed - 1.0) < atol;
+    out->mc_samples = lzg_exact_model_mc_samples(g);
     return LZG_OK;
 }
 
 LZGError lzg_effective_diversity(const LZGGraph *g, LZGEffectiveDiversity *out) {
     if (!g || !out) return LZG_ERR_INVALID_ARG;
 
-    MCResult mc;
-    LZGError err = run_mc(g, MC_N_SAMPLES, 11111, &mc);
+    LZGAnalyticsMCResult mc;
+    LZGError err = lzg_analytics_mc_run(g, 0, MC_EFFECTIVE_DIVERSITY_SEED, &mc);
     if (err != LZG_OK) return err;
 
-    /* H = -(1/N) Σ log P(s_i) — unbiased for Shannon entropy */
+    /* H_cond = -E_q[log π(S)] + log M(1), where q is the absorbed law. */
     double sum_lp = 0.0;
     uint32_t valid = 0;
-    for (uint32_t i = 0; i < mc.n; i++) {
-        if (mc.log_probs[i] > LZG_LOG_EPS + 1.0) {
-            sum_lp += mc.log_probs[i];
-            valid++;
-        }
+    double absorbed = lzg_analytics_mc_absorbed_mass(&mc);
+    lzg_analytics_mc_entropy_stats(&mc, &sum_lp, &valid);
+
+    if (valid == 0 || absorbed <= 0.0) {
+        memset(out, 0, sizeof(*out));
+        lzg_analytics_mc_free(&mc);
+        return LZG_OK;
     }
 
-    if (valid == 0) { memset(out, 0, sizeof(*out)); free_mc(&mc); return LZG_OK; }
-
-    out->entropy_nats = -sum_lp / valid;
+    double support = lzg_analytics_mc_support_estimate(&mc);
+    out->entropy_nats = -(sum_lp / valid) + log(absorbed);
     out->entropy_bits = out->entropy_nats / log(2.0);
     out->effective_diversity = exp(out->entropy_nats);
-    out->uniformity = chao1(&mc) > 0 ? out->effective_diversity / chao1(&mc) : 0.0;
+    out->uniformity = support > 0.0
+        ? fmin(out->effective_diversity / support, 1.0)
+        : 0.0;
 
-    free_mc(&mc);
+    lzg_analytics_mc_free(&mc);
     return LZG_OK;
 }
 
 LZGError lzg_power_sum(const LZGGraph *g, double alpha, double *out_m) {
     if (!g || !out_m) return LZG_ERR_INVALID_ARG;
 
-    MCResult mc;
-    LZGError err = run_mc(g, MC_N_SAMPLES, 22222, &mc);
+    LZGAnalyticsMCResult mc;
+    LZGError err = lzg_analytics_mc_run(g, 0, MC_POWER_SUM_SEED, &mc);
     if (err != LZG_OK) return err;
 
     /* M̂(α) = (1/N) Σ exp((α-1) * log P(s_i)) — unbiased importance sampling */
-    double sum = 0.0;
-    uint32_t valid = 0;
-    for (uint32_t i = 0; i < mc.n; i++) {
-        if (mc.log_probs[i] > LZG_LOG_EPS + 1.0) {
-            sum += exp((alpha - 1.0) * mc.log_probs[i]);
-            valid++;
-        }
-    }
-
-    *out_m = valid > 0 ? sum / valid : 0.0;
-    free_mc(&mc);
+    *out_m = lzg_analytics_mc_power_mean(&mc, alpha);
+    lzg_analytics_mc_free(&mc);
     return LZG_OK;
 }
 
 LZGError lzg_hill_number(const LZGGraph *g, double alpha, double *out_d) {
+    return lzg_hill_number_mc(g, alpha, 0, out_d);
+}
+
+LZGError lzg_hill_number_mc(const LZGGraph *g, double alpha,
+                             uint32_t n_samples, double *out_d) {
     if (!g || !out_d) return LZG_ERR_INVALID_ARG;
 
-    MCResult mc;
-    LZGError err = run_mc(g, MC_N_SAMPLES, 33333, &mc);
+    LZGAnalyticsMCResult mc;
+    LZGError err = lzg_analytics_mc_run(g, n_samples, MC_HILL_NUMBER_SEED, &mc);
     if (err != LZG_OK) return err;
 
-    if (fabs(alpha) < 1e-12) {
-        /* D(0) = Chao1 richness (lower bound from frequencies) */
-        *out_d = chao1(&mc);
-    } else if (fabs(alpha - 1.0) < 1e-12) {
-        /* D(1) = exp(H) where H = -(1/N) Σ log P(s_i) */
-        double sum_lp = 0.0;
-        uint32_t valid = 0;
-        for (uint32_t i = 0; i < mc.n; i++) {
-            if (mc.log_probs[i] > LZG_LOG_EPS + 1.0) {
-                sum_lp += mc.log_probs[i];
-                valid++;
-            }
-        }
-        *out_d = valid > 0 ? exp(-sum_lp / valid) : 0.0;
-    } else {
-        /* D(α) = M(α)^{1/(1-α)} where M(α) = (1/N) Σ P(s_i)^(α-1) */
-        double sum = 0.0;
-        uint32_t valid = 0;
-        for (uint32_t i = 0; i < mc.n; i++) {
-            if (mc.log_probs[i] > LZG_LOG_EPS + 1.0) {
-                sum += exp((alpha - 1.0) * mc.log_probs[i]);
-                valid++;
-            }
-        }
-        double m_alpha = valid > 0 ? sum / valid : 0.0;
-        *out_d = m_alpha > 0 ? pow(m_alpha, 1.0 / (1.0 - alpha)) : 0.0;
-    }
-
-    free_mc(&mc);
+    *out_d = lzg_analytics_mc_hill_estimate(&mc, alpha);
+    lzg_analytics_mc_free(&mc);
     return LZG_OK;
 }
 
 LZGError lzg_hill_numbers(const LZGGraph *g, const double *orders,
                            uint32_t n, double *out) {
+    return lzg_hill_numbers_mc(g, orders, n, 0, out);
+}
+
+LZGError lzg_hill_numbers_mc(const LZGGraph *g, const double *orders,
+                              uint32_t n, uint32_t n_samples, double *out) {
+    if (!g || !orders || !out) return LZG_ERR_INVALID_ARG;
     /* Single simulation, compute all orders from it */
-    MCResult mc;
-    LZGError err = run_mc(g, MC_N_SAMPLES, 44444, &mc);
+    LZGAnalyticsMCResult mc;
+    LZGError err = lzg_analytics_mc_run(g, n_samples, MC_HILL_NUMBERS_SEED, &mc);
     if (err != LZG_OK) return err;
 
     for (uint32_t i = 0; i < n; i++) {
-        double alpha = orders[i];
-        if (fabs(alpha) < 1e-12) {
-            out[i] = chao1(&mc);
-        } else if (fabs(alpha - 1.0) < 1e-12) {
-            double sum_lp = 0.0;
-            uint32_t valid = 0;
-            for (uint32_t j = 0; j < mc.n; j++) {
-                if (mc.log_probs[j] > LZG_LOG_EPS + 1.0) {
-                    sum_lp += mc.log_probs[j];
-                    valid++;
-                }
-            }
-            out[i] = valid > 0 ? exp(-sum_lp / valid) : 0.0;
-        } else {
-            double sum = 0.0;
-            uint32_t valid = 0;
-            for (uint32_t j = 0; j < mc.n; j++) {
-                if (mc.log_probs[j] > LZG_LOG_EPS + 1.0) {
-                    sum += exp((alpha - 1.0) * mc.log_probs[j]);
-                    valid++;
-                }
-            }
-            double m = valid > 0 ? sum / valid : 0.0;
-            out[i] = m > 0 ? pow(m, 1.0 / (1.0 - alpha)) : 0.0;
-        }
+        out[i] = lzg_analytics_mc_hill_estimate(&mc, orders[i]);
     }
 
-    free_mc(&mc);
+    lzg_analytics_mc_free(&mc);
     return LZG_OK;
 }
 
@@ -267,21 +159,21 @@ LZGError lzg_hill_numbers(const LZGGraph *g, const double *orders,
 LZGError lzg_pgen_dynamic_range(const LZGGraph *g, LZGDynamicRange *out) {
     if (!g || !out) return LZG_ERR_INVALID_ARG;
 
-    MCResult mc;
-    LZGError err = run_mc(g, 10000, 12345, &mc);
+    LZGAnalyticsMCResult mc;
+    LZGError err = lzg_analytics_mc_run(g, 10000, MC_DYNAMIC_RANGE_SEED, &mc);
     if (err != LZG_OK) return err;
 
     double min_lp = 0.0, max_lp = -1e300;
     bool first = true;
     for (uint32_t i = 0; i < mc.n; i++) {
         double lp = mc.log_probs[i];
-        if (lp > LZG_LOG_EPS + 1.0) {
+        if (lzg_analytics_mc_is_valid_log_prob(lp)) {
             if (first || lp > max_lp) max_lp = lp;
             if (first || lp < min_lp) min_lp = lp;
             first = false;
         }
     }
-    free_mc(&mc);
+    lzg_analytics_mc_free(&mc);
 
     out->max_log_prob = max_lp;
     out->min_log_prob = min_lp;

@@ -1,11 +1,11 @@
-"""PgenDistribution — scipy-like Gaussian mixture for log-PGEN."""
+"""PgenDistribution — scipy-like Gaussian mixture for the forward-DP log-PGEN approximation."""
 
 import numpy as np
 from . import _clzgraph as _c
 
 
 class PgenDistribution:
-    """Gaussian mixture model of the log-PGEN distribution.
+    """Gaussian mixture model of the forward-DP log-PGEN approximation.
 
     Created by LZGraph.pgen_distribution(). Provides scipy-like interface.
     """

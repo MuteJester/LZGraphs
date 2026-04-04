@@ -1,6 +1,6 @@
 # Performance Benchmarks
 
-All benchmarks were run on a single core (Intel/AMD x86_64 Linux, Python 3.12, LZGraphs 3.0.1) using a dataset of 5,000 CDR3 amino acid sequences (mean length 14.7 characters). The resulting graph has 1,721 nodes and 9,644 edges.
+All benchmarks were run on a single core (Intel/AMD x86_64 Linux, Python 3.12, LZGraphs 3.0.2) using a dataset of 5,000 CDR3 amino acid sequences (mean length 14.7 characters). The resulting graph has 1,721 nodes and 9,644 edges.
 
 Times are wall-clock averages across multiple runs. Your results will vary depending on hardware, dataset size, and sequence diversity.
 

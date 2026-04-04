@@ -476,14 +476,17 @@ static PyObject *py_lzpgen(PyObject *self, PyObject *args) {
     return NULL;
 }
 
-/* ── path_count(capsule) → float ─────────────────────────── */
+/* ── path_count(capsule[, n]) → float ─────────────────────── */
 
-static PyObject *py_path_count(PyObject *self, PyObject *arg) {
+static PyObject *py_path_count(PyObject *self, PyObject *args) {
     (void)self;
-    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    PyObject *cap;
+    unsigned int n_samples = 0;
+    if (!PyArg_ParseTuple(args, "O|I", &cap, &n_samples)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
     if (!g) return NULL;
     double count;
-    LZGError err = lzg_graph_path_count(g, &count);
+    LZGError err = lzg_graph_path_count_mc(g, (uint32_t)n_samples, &count);
     if (err != LZG_OK) return set_lzg_error(err);
     return PyFloat_FromDouble(count);
 }
@@ -520,12 +523,14 @@ static PyObject *py_diversity_profile(PyObject *self, PyObject *arg) {
 
 static PyObject *py_hill_number(PyObject *self, PyObject *args) {
     (void)self;
-    PyObject *cap; double alpha;
-    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    PyObject *cap;
+    double alpha;
+    unsigned int n_samples = 0;
+    if (!PyArg_ParseTuple(args, "Od|I", &cap, &alpha, &n_samples)) return NULL;
     LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
     if (!g) return NULL;
     double d;
-    LZGError err = lzg_hill_number(g, alpha, &d);
+    LZGError err = lzg_hill_number_mc(g, alpha, (uint32_t)n_samples, &d);
     if (err != LZG_OK) return set_lzg_error(err);
     return PyFloat_FromDouble(d);
 }
@@ -535,7 +540,9 @@ static PyObject *py_hill_number(PyObject *self, PyObject *args) {
 static PyObject *py_hill_numbers(PyObject *self, PyObject *args) {
     (void)self;
     PyObject *cap, *orders_list;
-    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &orders_list)) return NULL;
+    unsigned int n_samples = 0;
+    if (!PyArg_ParseTuple(args, "OO!|I", &cap, &PyList_Type,
+                          &orders_list, &n_samples)) return NULL;
     LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
     if (!g) return NULL;
 
@@ -548,7 +555,8 @@ static PyObject *py_hill_numbers(PyObject *self, PyObject *args) {
         orders[i] = PyFloat_AsDouble(PyList_GET_ITEM(orders_list, i));
     if (PyErr_Occurred()) { free(orders); free(out); return NULL; }
 
-    LZGError err = lzg_hill_numbers(g, orders, (uint32_t)n, out);
+    LZGError err = lzg_hill_numbers_mc(g, orders, (uint32_t)n,
+                                       (uint32_t)n_samples, out);
     free(orders);
     if (err != LZG_OK) { free(out); return set_lzg_error(err); }
 
@@ -619,11 +627,12 @@ static PyObject *py_pgen_diagnostics(PyObject *self, PyObject *args) {
     LZGPgenDiagnostics diag;
     LZGError err = lzg_pgen_diagnostics(g, atol, &diag);
     if (err != LZG_OK) return set_lzg_error(err);
-    return Py_BuildValue("{s:d, s:d, s:d, s:O}",
+    return Py_BuildValue("{s:d, s:d, s:d, s:O, s:I}",
         "total_absorbed", diag.total_absorbed,
         "total_leaked", diag.total_leaked,
         "initial_prob_sum", diag.initial_prob_sum,
-        "is_proper", diag.is_proper ? Py_True : Py_False);
+        "is_proper", diag.is_proper ? Py_True : Py_False,
+        "mc_samples", diag.mc_samples);
 }
 
 /* ── pgen_dynamic_range(capsule) → float ──────────────────── */
@@ -1396,7 +1405,7 @@ static PyMethodDef module_methods[] = {
     {"simulate",                (PyCFunction)py_simulate,              METH_VARARGS | METH_KEYWORDS, NULL},
     {"gene_simulate",           (PyCFunction)py_gene_simulate,         METH_VARARGS | METH_KEYWORDS, NULL},
     {"lzpgen",                  py_lzpgen,                             METH_VARARGS, NULL},
-    {"path_count",              py_path_count,                         METH_O, NULL},
+    {"path_count",              py_path_count,                         METH_VARARGS, NULL},
     {"effective_diversity",     py_effective_diversity,                 METH_O, NULL},
     {"diversity_profile",       py_diversity_profile,                  METH_O, NULL},
     {"hill_number",             py_hill_number,                        METH_VARARGS, NULL},

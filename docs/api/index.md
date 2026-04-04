@@ -108,5 +108,5 @@ All variants share the same methods. See the [LZGraph reference](lzgraph.md) for
 
 ```python
 import LZGraphs
-print(LZGraphs.__version__)  # 3.0.1
+print(LZGraphs.__version__)  # 3.0.2
 ```
