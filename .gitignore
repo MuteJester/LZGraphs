@@ -138,8 +138,20 @@ cython_debug/
 
 main.py
 
+# Claude session/config
+.claude/
+
+# LaTeX build artifacts
+*.aux
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+
 # Private local analysis
 .private/
+.research/
 
 # Docusaurus
 website/node_modules/

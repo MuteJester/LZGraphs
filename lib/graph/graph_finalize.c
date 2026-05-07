@@ -376,10 +376,11 @@ LZGError lzg_graph_recalculate(LZGGraph *g, uint32_t flags) {
         double alpha = g->smoothing_alpha;
         for (uint32_t u = 0; u < g->n_nodes; u++) {
             uint32_t e_start = g->row_offsets[u];
-            uint32_t e_end = g->row_offsets[u + 1];
-            uint64_t total = g->outgoing_counts[u];
-            uint32_t k = e_end - e_start;
+            uint32_t e_end   = g->row_offsets[u + 1];
+            uint32_t k       = e_end - e_start;
+            if (k == 0) continue;
 
+            uint64_t total = g->outgoing_counts[u];
             for (uint32_t e = e_start; e < e_end; e++) {
                 if (alpha > 0.0) {
                     g->edge_weights[e] = (g->edge_counts[e] + alpha) /

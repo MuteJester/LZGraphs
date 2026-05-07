@@ -24,6 +24,9 @@
 #include "lzgraph/posterior.h"
 #include "lzgraph/gene_data.h"
 #include "lzgraph/rng.h"
+#include "lzgraph/flashback.h"
+#include "lzgraph/flashback_graph.h"
+#include "lzgraph/fbg.h"
 
 #include <string.h>
 #include <math.h>
@@ -1095,6 +1098,384 @@ static PyObject *py_lz76_decompose(PyObject *self, PyObject *arg) {
     return result;
 }
 
+/* ── flashback_decompose(string) → list[str] ───────────────── */
+
+static PyObject *py_flashback_decompose(PyObject *self, PyObject *arg) {
+    (void)self;
+    const char *seq = PyUnicode_AsUTF8(arg);
+    if (!seq) return NULL;
+    uint32_t len = (uint32_t)strlen(seq);
+
+    LZGStringPool *pool = lzg_sp_create(64);
+    if (!pool) return PyErr_NoMemory();
+
+    LZGFlashbackTokens tokens;
+    LZGError err = lzg_flashback_decompose(seq, len, pool, &tokens);
+    if (err != LZG_OK) {
+        lzg_sp_destroy(pool);
+        return set_lzg_error(err);
+    }
+
+    PyObject *result = PyList_New(tokens.count);
+    for (uint32_t i = 0; i < tokens.count; i++) {
+        const char *sp = lzg_sp_get(pool, tokens.sp_ids[i]);
+        PyList_SET_ITEM(result, i, PyUnicode_FromString(sp));
+    }
+    lzg_sp_destroy(pool);
+    return result;
+}
+
+/* ── flashback_reverse(list[str]) → str ────────────────────── */
+
+static PyObject *py_flashback_reverse(PyObject *self, PyObject *arg) {
+    (void)self;
+    if (!PyList_Check(arg)) {
+        PyErr_SetString(PyExc_TypeError, "argument must be a list of strings");
+        return NULL;
+    }
+
+    Py_ssize_t n = PyList_GET_SIZE(arg);
+    LZGStringPool *pool = lzg_sp_create(64);
+    if (!pool) return PyErr_NoMemory();
+
+    LZGFlashbackTokens tokens;
+    tokens.count = (uint32_t)n;
+
+    for (Py_ssize_t i = 0; i < n; i++) {
+        const char *s = PyUnicode_AsUTF8(PyList_GET_ITEM(arg, i));
+        if (!s) { lzg_sp_destroy(pool); return NULL; }
+        tokens.sp_ids[i] = lzg_sp_intern(pool, s);
+    }
+
+    char buf[2048];
+    uint32_t out_len = 0;
+    LZGError err = lzg_flashback_reverse(pool, &tokens, buf, sizeof(buf), &out_len);
+    lzg_sp_destroy(pool);
+
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyUnicode_FromStringAndSize(buf, out_len);
+}
+
+/* ══════════════════════════════════════════════════════════════ */
+/* FlashBackGraph Python wrappers                                  */
+/* ══════════════════════════════════════════════════════════════ */
+
+static PyObject *py_fb_graph_build(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *seq_list, *abund_obj = Py_None;
+    double smoothing = 0.0;
+    static char *kwlist[] = {"sequences", "abundances", "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "O!|Od", kwlist,
+            &PyList_Type, &seq_list, &abund_obj, &smoothing))
+        return NULL;
+
+    Py_ssize_t n_seqs;
+    uint32_t n_seqs_u32 = 0;
+    if (!pyssize_to_u32(PyList_GET_SIZE(seq_list), "sequences", &n_seqs_u32))
+        return NULL;
+    const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_NAIVE);
+    if (!g) { free(seqs); free(abundances); return PyErr_NoMemory(); }
+
+    LZGError err = lzg_flashback_graph_build(g, seqs, n_seqs_u32, abundances, smoothing);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) { lzg_graph_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_fb_graph_build_file(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    const char *path = NULL;
+    double smoothing = 0.0;
+    static char *kwlist[] = {"path", "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|d", kwlist, &path, &smoothing))
+        return NULL;
+
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_NAIVE);
+    if (!g) return PyErr_NoMemory();
+    LZGError err = lzg_flashback_graph_build_file(g, path, smoothing);
+    if (err != LZG_OK) { lzg_graph_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_fb_simulate(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    unsigned int n;
+    long long seed = -1;
+    static char *kwlist[] = {"graph", "n", "seed", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OI|L", kwlist, &cap, &n, &seed))
+        return NULL;
+
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    LZGRng rng;
+    if (seed >= 0) lzg_rng_seed(&rng, (uint64_t)seed);
+    else lzg_rng_seed(&rng, (uint64_t)((size_t)cap ^ 0xFB0CAFE));
+
+    LZGSimResult *results = calloc(n, sizeof(LZGSimResult));
+    if (!results) return PyErr_NoMemory();
+
+    LZGError err = lzg_flashback_simulate(g, n, &rng, results);
+    if (err != LZG_OK) { free(results); return set_lzg_error(err); }
+
+    PyObject *sl = PyList_New(n), *lp = PyList_New(n), *nt = PyList_New(n);
+    for (unsigned int i = 0; i < n; i++) {
+        PyList_SET_ITEM(sl, i, PyUnicode_FromString(results[i].sequence ? results[i].sequence : ""));
+        PyList_SET_ITEM(lp, i, PyFloat_FromDouble(results[i].log_prob));
+        PyList_SET_ITEM(nt, i, PyLong_FromUnsignedLong(results[i].n_tokens));
+        lzg_sim_result_free(&results[i]);
+    }
+    free(results);
+    return Py_BuildValue("(OOO)", sl, lp, nt);
+}
+
+static PyObject *py_fb_pgen(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *seq_arg;
+    if (!PyArg_ParseTuple(args, "OO", &cap, &seq_arg)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    if (PyUnicode_Check(seq_arg)) {
+        const char *seq = PyUnicode_AsUTF8(seq_arg);
+        if (!seq) return NULL;
+        return PyFloat_FromDouble(lzg_flashback_pgen(g, seq, (uint32_t)strlen(seq)));
+    }
+    if (PyList_Check(seq_arg)) {
+        Py_ssize_t n = PyList_GET_SIZE(seq_arg);
+        PyObject *result = PyList_New(n);
+        for (Py_ssize_t i = 0; i < n; i++) {
+            const char *seq = PyUnicode_AsUTF8(PyList_GET_ITEM(seq_arg, i));
+            if (!seq) { Py_DECREF(result); return NULL; }
+            double lp = lzg_flashback_pgen(g, seq, (uint32_t)strlen(seq));
+            PyList_SET_ITEM(result, i, PyFloat_FromDouble(lp));
+        }
+        return result;
+    }
+    PyErr_SetString(PyExc_TypeError, "sequence must be str or list[str]");
+    return NULL;
+}
+
+static PyObject *py_fb_top_k_walks(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    unsigned int k = 100;
+    int most_probable = 1;
+    static char *kwlist[] = {"graph", "k", "most_probable", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "O|Ip", kwlist, &cap, &k, &most_probable))
+        return NULL;
+
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    LZGSimResult *results = calloc(k, sizeof(LZGSimResult));
+    if (!results) return PyErr_NoMemory();
+
+    uint32_t actual_k = 0;
+    LZGError err = lzg_top_k_walks(g, k, (bool)most_probable, results, &actual_k);
+    if (err != LZG_OK) { free(results); return set_lzg_error(err); }
+
+    PyObject *sl = PyList_New(actual_k);
+    PyObject *lp = PyList_New(actual_k);
+    for (uint32_t i = 0; i < actual_k; i++) {
+        PyList_SET_ITEM(sl, i, PyUnicode_FromString(results[i].sequence ? results[i].sequence : ""));
+        PyList_SET_ITEM(lp, i, PyFloat_FromDouble(results[i].log_prob));
+        lzg_sim_result_free(&results[i]);
+    }
+    free(results);
+    return Py_BuildValue("(OO)", sl, lp);
+}
+
+static PyObject *py_fb_path_count(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    double count;
+    LZGError err = lzg_flashback_path_count(g, &count);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(count);
+}
+
+static PyObject *py_fb_effective_diversity(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGEffectiveDiversity ed;
+    LZGError err = lzg_flashback_effective_diversity(g, &ed);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:d}",
+        "entropy_nats", ed.entropy_nats, "entropy_bits", ed.entropy_bits,
+        "effective_diversity", ed.effective_diversity, "uniformity", ed.uniformity);
+}
+
+static PyObject *py_fb_power_sum(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    double m;
+    LZGError err = lzg_flashback_power_sum(g, alpha, &m);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(m);
+}
+
+static PyObject *py_fb_hill_number(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    double d;
+    LZGError err = lzg_flashback_hill_number(g, alpha, &d);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(d);
+}
+
+static PyObject *py_fb_hill_numbers(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *orders_list;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &orders_list)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    Py_ssize_t n = PyList_GET_SIZE(orders_list);
+    double *orders = malloc(n * sizeof(double));
+    double *out = malloc(n * sizeof(double));
+    if (!orders || !out) { free(orders); free(out); return PyErr_NoMemory(); }
+    for (Py_ssize_t i = 0; i < n; i++)
+        orders[i] = PyFloat_AsDouble(PyList_GET_ITEM(orders_list, i));
+    LZGError err = lzg_flashback_hill_numbers(g, orders, (uint32_t)n, out);
+    free(orders);
+    if (err != LZG_OK) { free(out); return set_lzg_error(err); }
+    PyObject *result = PyList_New(n);
+    for (Py_ssize_t i = 0; i < n; i++)
+        PyList_SET_ITEM(result, i, PyFloat_FromDouble(out[i]));
+    free(out);
+    return result;
+}
+
+static PyObject *py_fb_dynamic_range(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGDynamicRange dr;
+    LZGError err = lzg_flashback_dynamic_range(g, &dr);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:d}",
+        "max_log_prob", dr.max_log_prob, "min_log_prob", dr.min_log_prob,
+        "dynamic_range_nats", dr.dynamic_range_nats,
+        "dynamic_range_orders", dr.dynamic_range_orders);
+}
+
+static PyObject *py_fb_pgen_diagnostics(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double atol;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &atol)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGPgenDiagnostics diag;
+    LZGError err = lzg_flashback_pgen_diagnostics(g, atol, &diag);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:O,s:I}",
+        "total_absorbed", diag.total_absorbed, "total_leaked", diag.total_leaked,
+        "initial_prob_sum", diag.initial_prob_sum,
+        "is_proper", diag.is_proper ? Py_True : Py_False,
+        "mc_samples", diag.mc_samples);
+}
+
+/* ── fb_fix_special_nodes(capsule) → None ──────────────────── */
+
+/* ── fb_posterior(cap, sequences, abundances, kappa) → cap ───── */
+
+static PyObject *py_fb_posterior(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap, *seq_list;
+    PyObject *abund_obj = Py_None;
+    double kappa = 1.0;
+
+    static char *kwlist[] = {"graph", "sequences", "abundances", "kappa", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OO!|Od", kwlist,
+            &cap, &PyList_Type, &seq_list, &abund_obj, &kappa))
+        return NULL;
+
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    Py_ssize_t n = PyList_GET_SIZE(seq_list);
+    uint32_t n_u32 = 0;
+    if (!pyssize_to_u32(n, "sequences", &n_u32)) return NULL;
+
+    const char **seqs = pylist_to_cstrings(seq_list, &n);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGGraph *post = NULL;
+    LZGError err = lzg_flashback_graph_posterior(
+        g, seqs, n_u32, abundances, kappa, &post);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyCapsule_New(post, CAPSULE_NAME, capsule_destructor);
+}
+
+/* ── fb_subtract(cap, sequences, abundances) → cap ───── */
+
+static PyObject *py_fb_subtract(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap, *seq_list;
+    PyObject *abund_obj = Py_None;
+
+    static char *kwlist[] = {"graph", "sequences", "abundances", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OO!|O", kwlist,
+            &cap, &PyList_Type, &seq_list, &abund_obj))
+        return NULL;
+
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    Py_ssize_t n = PyList_GET_SIZE(seq_list);
+    uint32_t n_u32 = 0;
+    if (!pyssize_to_u32(n, "sequences", &n_u32)) return NULL;
+
+    const char **seqs = pylist_to_cstrings(seq_list, &n);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGGraph *sub = NULL;
+    LZGError err = lzg_flashback_graph_subtract(
+        g, seqs, n_u32, abundances, &sub);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyCapsule_New(sub, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_fb_fix_special_nodes(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    lzg_flashback_fix_special_nodes(g);
+    Py_RETURN_NONE;
+}
+
 /* ── k_diversity(seqs, k, variant, draws, seed) → dict ────── */
 
 static PyObject *py_k_diversity(PyObject *self, PyObject *args, PyObject *kw) {
@@ -1398,6 +1779,35 @@ static PyObject *py_graph_degrees(PyObject *self, PyObject *arg) {
 
 /* ── Module method table ──────────────────────────────────── */
 
+/* Forward declarations for FBG wrappers (definitions are below). */
+static PyObject *py_fbg_build(PyObject *self, PyObject *args, PyObject *kw);
+static PyObject *py_fbg_build_file(PyObject *self, PyObject *args, PyObject *kw);
+static PyObject *py_fbg_info(PyObject *self, PyObject *arg);
+static PyObject *py_fbg_nts(PyObject *self, PyObject *arg);
+static PyObject *py_fbg_rules_at(PyObject *self, PyObject *args);
+static PyObject *py_fbg_decompose(PyObject *self, PyObject *args);
+static PyObject *py_fbg_tree_to_string(PyObject *self, PyObject *args);
+static PyObject *py_fbg_length_counts(PyObject *self, PyObject *arg);
+static PyObject *py_fbg_pgen(PyObject *self, PyObject *args);
+static PyObject *py_fbg_pgen_mle(PyObject *self, PyObject *args);
+static PyObject *py_fbg_pgen_batch(PyObject *self, PyObject *args);
+static PyObject *py_fbg_nt_unseen_mass(PyObject *self, PyObject *args);
+static PyObject *py_fbg_rule_marginal(PyObject *self, PyObject *args);
+static PyObject *py_fbg_path_count_series(PyObject *self, PyObject *args);
+static PyObject *py_fbg_length_distribution(PyObject *self, PyObject *args);
+static PyObject *py_fbg_entropy(PyObject *self, PyObject *arg);
+static PyObject *py_fbg_effective_diversity(PyObject *self, PyObject *arg);
+static PyObject *py_fbg_power_sum(PyObject *self, PyObject *args);
+static PyObject *py_fbg_hill_number(PyObject *self, PyObject *args);
+static PyObject *py_fbg_hill_numbers(PyObject *self, PyObject *args);
+static PyObject *py_fbg_simulate(PyObject *self, PyObject *args, PyObject *kw);
+static PyObject *py_fbg_top_k_sequences(PyObject *self, PyObject *args, PyObject *kw);
+static PyObject *py_fbg_dynamic_range(PyObject *self, PyObject *args);
+static PyObject *py_fbg_posterior(PyObject *self, PyObject *args, PyObject *kw);
+static PyObject *py_fbg_subtract(PyObject *self, PyObject *args, PyObject *kw);
+static PyObject *py_fbg_save(PyObject *self, PyObject *args);
+static PyObject *py_fbg_load(PyObject *self, PyObject *arg);
+
 static PyMethodDef module_methods[] = {
     {"graph_build",             (PyCFunction)py_graph_build,           METH_VARARGS | METH_KEYWORDS, NULL},
     {"graph_build_file",        (PyCFunction)py_graph_build_file,      METH_VARARGS | METH_KEYWORDS, NULL},
@@ -1439,6 +1849,23 @@ static PyMethodDef module_methods[] = {
     {"gene_info",               py_gene_info,                          METH_O, NULL},
     {"find_gene_id",            py_find_gene_id,                       METH_VARARGS, NULL},
     {"lz76_decompose",          py_lz76_decompose,                     METH_O, NULL},
+    {"flashback_decompose",     py_flashback_decompose,                METH_O, NULL},
+    {"flashback_reverse",       py_flashback_reverse,                  METH_O, NULL},
+    {"fb_graph_build",          (PyCFunction)py_fb_graph_build,        METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fb_graph_build_file",     (PyCFunction)py_fb_graph_build_file,   METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fb_simulate",             (PyCFunction)py_fb_simulate,           METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fb_pgen",                 py_fb_pgen,                            METH_VARARGS, NULL},
+    {"fb_path_count",           py_fb_path_count,                      METH_O, NULL},
+    {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},
+    {"fb_power_sum",            py_fb_power_sum,                       METH_VARARGS, NULL},
+    {"fb_hill_number",          py_fb_hill_number,                     METH_VARARGS, NULL},
+    {"fb_hill_numbers",         py_fb_hill_numbers,                    METH_VARARGS, NULL},
+    {"fb_dynamic_range",        py_fb_dynamic_range,                   METH_O, NULL},
+    {"fb_pgen_diagnostics",     py_fb_pgen_diagnostics,                METH_VARARGS, NULL},
+    {"fb_top_k_walks",          (PyCFunction)py_fb_top_k_walks,        METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fb_fix_special_nodes",    py_fb_fix_special_nodes,               METH_O, NULL},
+    {"fb_posterior",            (PyCFunction)py_fb_posterior,          METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fb_subtract",             (PyCFunction)py_fb_subtract,           METH_VARARGS | METH_KEYWORDS, NULL},
     {"k_diversity",             (PyCFunction)py_k_diversity,            METH_VARARGS | METH_KEYWORDS, NULL},
     {"saturation_curve",        (PyCFunction)py_saturation_curve,      METH_VARARGS | METH_KEYWORDS, NULL},
     {"set_log_level",           py_set_log_level,                      METH_O, NULL},
@@ -1448,8 +1875,827 @@ static PyMethodDef module_methods[] = {
     {"graph_length_distribution", py_graph_length_distribution,        METH_O, NULL},
     {"graph_adjacency_csr",     py_graph_adjacency_csr,                METH_O, NULL},
     {"graph_degrees",           py_graph_degrees,                      METH_O, NULL},
+
+    /* ── FlashBackGrammar (new PCFG variant) ─────────────── */
+    {"fbg_build",               (PyCFunction)py_fbg_build,             METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fbg_build_file",          (PyCFunction)py_fbg_build_file,        METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fbg_info",                py_fbg_info,                           METH_O, NULL},
+    {"fbg_nts",                 py_fbg_nts,                            METH_O, NULL},
+    {"fbg_rules_at",            py_fbg_rules_at,                       METH_VARARGS, NULL},
+    {"fbg_decompose",           py_fbg_decompose,                      METH_VARARGS, NULL},
+    {"fbg_tree_to_string",      py_fbg_tree_to_string,                 METH_VARARGS, NULL},
+    {"fbg_length_counts",       py_fbg_length_counts,                  METH_O, NULL},
+    {"fbg_pgen",                py_fbg_pgen,                           METH_VARARGS, NULL},
+    {"fbg_pgen_mle",            py_fbg_pgen_mle,                       METH_VARARGS, NULL},
+    {"fbg_pgen_batch",          py_fbg_pgen_batch,                     METH_VARARGS, NULL},
+    {"fbg_nt_unseen_mass",      py_fbg_nt_unseen_mass,                 METH_VARARGS, NULL},
+    {"fbg_rule_marginal",       py_fbg_rule_marginal,                  METH_VARARGS, NULL},
+    {"fbg_path_count_series",   py_fbg_path_count_series,              METH_VARARGS, NULL},
+    {"fbg_length_distribution", py_fbg_length_distribution,            METH_VARARGS, NULL},
+    {"fbg_entropy",             py_fbg_entropy,                        METH_O, NULL},
+    {"fbg_effective_diversity", py_fbg_effective_diversity,            METH_O, NULL},
+    {"fbg_power_sum",           py_fbg_power_sum,                      METH_VARARGS, NULL},
+    {"fbg_hill_number",         py_fbg_hill_number,                    METH_VARARGS, NULL},
+    {"fbg_hill_numbers",        py_fbg_hill_numbers,                   METH_VARARGS, NULL},
+    {"fbg_simulate",            (PyCFunction)py_fbg_simulate,          METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fbg_top_k_sequences",     (PyCFunction)py_fbg_top_k_sequences,   METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fbg_dynamic_range",       py_fbg_dynamic_range,                  METH_VARARGS, NULL},
+    {"fbg_posterior",           (PyCFunction)py_fbg_posterior,         METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fbg_subtract",            (PyCFunction)py_fbg_subtract,          METH_VARARGS | METH_KEYWORDS, NULL},
+    {"fbg_save",                py_fbg_save,                           METH_VARARGS, NULL},
+    {"fbg_load",                py_fbg_load,                           METH_O, NULL},
+
     {NULL, NULL, 0, NULL}
 };
+
+/* ══════════════════════════════════════════════════════════════ */
+/* FlashBackGrammar bindings                                     */
+/* ══════════════════════════════════════════════════════════════ */
+
+static const char *FBG_CAPSULE_NAME = "LZGFbg";
+
+static void fbg_capsule_destructor(PyObject *capsule) {
+    LZGFbg *g = (LZGFbg *)PyCapsule_GetPointer(capsule, FBG_CAPSULE_NAME);
+    if (g) lzg_fbg_destroy(g);
+}
+
+static LZGFbg *fbg_from_capsule(PyObject *capsule) {
+    return (LZGFbg *)PyCapsule_GetPointer(capsule, FBG_CAPSULE_NAME);
+}
+
+static int parse_abundance_mode(const char *s, LZGFbgAbundanceMode *out) {
+    if (!s || !strcmp(s, "linear")) { *out = LZG_FBG_ABUND_LINEAR; return 1; }
+    if (!strcmp(s, "none"))         { *out = LZG_FBG_ABUND_NONE;   return 1; }
+    if (!strcmp(s, "log"))          { *out = LZG_FBG_ABUND_LOG;    return 1; }
+    PyErr_Format(PyExc_ValueError,
+                 "abundance_mode must be 'none', 'linear', or 'log' (got %R)",
+                 s ? PyUnicode_FromString(s) : Py_None);
+    return 0;
+}
+
+static int parse_backoff(const char *s, LZGFbgBackoff *out) {
+    if (!s || !strcmp(s, "none")) { *out = LZG_FBG_BACKOFF_NONE; return 1; }
+    if (!strcmp(s, "gt"))         { *out = LZG_FBG_BACKOFF_GT;   return 1; }
+    PyErr_Format(PyExc_ValueError,
+                 "backoff must be 'none' or 'gt' (got %R)",
+                 s ? PyUnicode_FromString(s) : Py_None);
+    return 0;
+}
+
+/* ── fbg_build(sequences, abundances=None, abundance_mode='linear',
+ *             smoothing=0.0, backoff='none') → capsule ─────── */
+
+static PyObject *py_fbg_build(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *seq_list;
+    PyObject *abund_obj = Py_None;
+    const char *mode_str = "linear";
+    const char *backoff_str = "none";
+    double smoothing = 0.0;
+    static char *kwlist[] = {"sequences", "abundances", "abundance_mode",
+                             "smoothing", "backoff", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "O!|Osds", kwlist,
+            &PyList_Type, &seq_list, &abund_obj, &mode_str, &smoothing,
+            &backoff_str))
+        return NULL;
+
+    LZGFbgAbundanceMode mode;
+    LZGFbgBackoff backoff;
+    if (!parse_abundance_mode(mode_str, &mode)) return NULL;
+    if (!parse_backoff(backoff_str, &backoff)) return NULL;
+
+    Py_ssize_t n_seqs;
+    uint32_t n_seqs_u32 = 0;
+    if (!pyssize_to_u32(PyList_GET_SIZE(seq_list), "sequences", &n_seqs_u32))
+        return NULL;
+    const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGFbg *g = lzg_fbg_new();
+    if (!g) { free(seqs); free(abundances); return PyErr_NoMemory(); }
+
+    LZGError err = lzg_fbg_build(g, seqs, n_seqs_u32, abundances,
+                                  mode, smoothing, backoff);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) { lzg_fbg_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, FBG_CAPSULE_NAME, fbg_capsule_destructor);
+}
+
+/* ── fbg_build_file(path, abundance_mode, smoothing, backoff) → cap ─ */
+
+static PyObject *py_fbg_build_file(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    const char *path = NULL;
+    const char *mode_str = "linear";
+    const char *backoff_str = "none";
+    double smoothing = 0.0;
+    static char *kwlist[] = {"path", "abundance_mode", "smoothing", "backoff", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|sds", kwlist,
+            &path, &mode_str, &smoothing, &backoff_str))
+        return NULL;
+
+    LZGFbgAbundanceMode mode;
+    LZGFbgBackoff backoff;
+    if (!parse_abundance_mode(mode_str, &mode)) return NULL;
+    if (!parse_backoff(backoff_str, &backoff)) return NULL;
+
+    LZGFbg *g = lzg_fbg_new();
+    if (!g) return PyErr_NoMemory();
+
+    /* Release the GIL — this can run for many minutes on a multi-GB file. */
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_fbg_build_file(g, path, mode, smoothing, backoff);
+    Py_END_ALLOW_THREADS
+    if (err != LZG_OK) { lzg_fbg_destroy(g); return set_lzg_error(err); }
+
+    return PyCapsule_New(g, FBG_CAPSULE_NAME, fbg_capsule_destructor);
+}
+
+/* ── fbg_info(cap) → dict ──────────────────────────────────── */
+
+static PyObject *py_fbg_info(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGFbg *g = fbg_from_capsule(arg);
+    if (!g) return NULL;
+
+    PyObject *d = PyDict_New();
+    if (!d) return NULL;
+    #define SET_ULONG(k, v) do { PyObject *o = PyLong_FromUnsignedLong((unsigned long)(v)); PyDict_SetItemString(d, k, o); Py_DECREF(o); } while (0)
+    #define SET_DOUBLE(k, v) do { PyObject *o = PyFloat_FromDouble((double)(v)); PyDict_SetItemString(d, k, o); Py_DECREF(o); } while (0)
+    #define SET_BOOL(k, v) do { PyObject *o = PyBool_FromLong((long)(v)); PyDict_SetItemString(d, k, o); Py_DECREF(o); } while (0)
+
+    SET_ULONG("n_nts", g->n_nts);
+    SET_ULONG("n_rules", g->n_rules);
+    SET_ULONG("n_internal_rules", g->n_internal);
+    SET_ULONG("n_leaf_rules", g->n_rules - g->n_internal);
+    SET_ULONG("alphabet_size", g->alphabet_size);
+    SET_ULONG("max_length", g->max_length);
+    SET_DOUBLE("spectral_radius", g->spectral_radius);
+    SET_BOOL("is_consistent", g->is_consistent);
+    SET_DOUBLE("smoothing", g->smoothing);
+    SET_ULONG("abundance_mode", g->abundance_mode);
+    SET_ULONG("backoff", g->backoff);
+    SET_ULONG("start_nt", g->start_nt);
+
+    #undef SET_ULONG
+    #undef SET_DOUBLE
+    #undef SET_BOOL
+    return d;
+}
+
+/* ── fbg_nts(cap) → list of (a_char:str, z_char:str, is_start:bool, total:float, unseen_mass:float, n_rules:int) ── */
+
+static PyObject *py_fbg_nts(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGFbg *g = fbg_from_capsule(arg);
+    if (!g) return NULL;
+
+    PyObject *list = PyList_New(g->n_nts);
+    if (!list) return NULL;
+    for (uint32_t i = 0; i < g->n_nts; i++) {
+        const LZGFbgNT *nt = &g->nts[i];
+        char a_ch = (char)g->idx_to_char[nt->a];
+        char z_ch = (char)g->idx_to_char[nt->z];
+        PyObject *tup = Py_BuildValue("(s#s#OdkI)",
+            &a_ch, (Py_ssize_t)1,
+            &z_ch, (Py_ssize_t)1,
+            nt->is_start ? Py_True : Py_False,
+            nt->total_count,
+            (unsigned long)nt->n_rules,
+            (unsigned int)nt->unseen_mass);   /* placeholder, replaced below */
+        /* Rebuild with correct unseen_mass as double — Py_BuildValue doesn't
+         * do two doubles + bool nicely, so fix here. */
+        Py_DECREF(tup);
+        tup = PyTuple_New(6);
+        PyTuple_SET_ITEM(tup, 0, PyUnicode_FromStringAndSize(&a_ch, 1));
+        PyTuple_SET_ITEM(tup, 1, PyUnicode_FromStringAndSize(&z_ch, 1));
+        Py_INCREF(nt->is_start ? Py_True : Py_False);
+        PyTuple_SET_ITEM(tup, 2, nt->is_start ? Py_True : Py_False);
+        PyTuple_SET_ITEM(tup, 3, PyFloat_FromDouble(nt->total_count));
+        PyTuple_SET_ITEM(tup, 4, PyLong_FromUnsignedLong(nt->n_rules));
+        PyTuple_SET_ITEM(tup, 5, PyFloat_FromDouble(nt->unseen_mass));
+        PyList_SET_ITEM(list, i, tup);
+    }
+    return list;
+}
+
+/* ── fbg_rules_at(cap, nt_index) → list of rule dicts ──────── */
+
+static PyObject *py_fbg_rules_at(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    unsigned int nt_idx;
+    if (!PyArg_ParseTuple(args, "OI", &cap, &nt_idx)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    if (nt_idx >= g->n_nts) {
+        PyErr_Format(PyExc_IndexError, "nt_idx %u out of range [0, %u)",
+                     nt_idx, g->n_nts);
+        return NULL;
+    }
+
+    const LZGFbgNT *nt = &g->nts[nt_idx];
+    PyObject *list = PyList_New(nt->n_rules);
+    if (!list) return NULL;
+
+    static const char *KIND_NAMES[] = {
+        "internal", "leaf_single", "leaf_run", "leaf_pair"
+    };
+    for (uint32_t r = 0; r < nt->n_rules; r++) {
+        const LZGFbgRule *rule = &g->rules[nt->rule_offset + r];
+        char a_ch = (char)g->idx_to_char[rule->a_char];
+        char z_ch = (char)g->idx_to_char[rule->z_char];
+        char dst_a_ch = rule->kind == LZG_FBG_RULE_INTERNAL
+                        ? (char)g->idx_to_char[rule->dst_a] : '\0';
+        char dst_z_ch = rule->kind == LZG_FBG_RULE_INTERNAL
+                        ? (char)g->idx_to_char[rule->dst_z] : '\0';
+
+        PyObject *d = PyDict_New();
+        if (!d) { Py_DECREF(list); return NULL; }
+        PyDict_SetItemString(d, "kind",
+            PyUnicode_FromString(KIND_NAMES[rule->kind]));
+        PyDict_SetItemString(d, "a_char", PyUnicode_FromStringAndSize(&a_ch, 1));
+        PyDict_SetItemString(d, "z_char", PyUnicode_FromStringAndSize(&z_ch, 1));
+        PyDict_SetItemString(d, "a_run_len",
+            PyLong_FromUnsignedLong(rule->a_run_len));
+        PyDict_SetItemString(d, "z_run_len",
+            PyLong_FromUnsignedLong(rule->z_run_len));
+        if (rule->kind == LZG_FBG_RULE_INTERNAL) {
+            PyDict_SetItemString(d, "dst_a",
+                PyUnicode_FromStringAndSize(&dst_a_ch, 1));
+            PyDict_SetItemString(d, "dst_z",
+                PyUnicode_FromStringAndSize(&dst_z_ch, 1));
+        }
+        PyDict_SetItemString(d, "count", PyLong_FromUnsignedLongLong(rule->count));
+        PyDict_SetItemString(d, "weight", PyFloat_FromDouble(rule->weight));
+        PyList_SET_ITEM(list, r, d);
+    }
+    return list;
+}
+
+/* ── fbg_decompose(cap, seq) → list of step dicts ──────────── */
+
+static PyObject *py_fbg_decompose(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    const char *seq;
+    Py_ssize_t seq_len;
+    if (!PyArg_ParseTuple(args, "Os#", &cap, &seq, &seq_len)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    LZGFbgStep steps[LZG_FBG_MAX_STEPS];
+    uint32_t n_steps = 0;
+    LZGError err = lzg_fbg_decompose(g, seq, (uint32_t)seq_len, steps, &n_steps);
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    static const char *KIND_NAMES[] = {
+        "internal", "leaf_single", "leaf_run", "leaf_pair"
+    };
+    PyObject *list = PyList_New(n_steps);
+    if (!list) return NULL;
+    for (uint32_t i = 0; i < n_steps; i++) {
+        const LZGFbgStep *s = &steps[i];
+        char a_ch = (char)g->idx_to_char[s->a_char];
+        char z_ch = (char)g->idx_to_char[s->z_char];
+
+        PyObject *d = PyDict_New();
+        PyDict_SetItemString(d, "kind",
+            PyUnicode_FromString(KIND_NAMES[s->kind]));
+        PyDict_SetItemString(d, "is_start",
+            PyBool_FromLong(s->is_start));
+        PyDict_SetItemString(d, "a_char", PyUnicode_FromStringAndSize(&a_ch, 1));
+        PyDict_SetItemString(d, "z_char", PyUnicode_FromStringAndSize(&z_ch, 1));
+        PyDict_SetItemString(d, "a_run_len", PyLong_FromUnsignedLong(s->a_run_len));
+        PyDict_SetItemString(d, "z_run_len", PyLong_FromUnsignedLong(s->z_run_len));
+        if (s->kind == LZG_FBG_RULE_INTERNAL) {
+            char da = (char)g->idx_to_char[s->dst_a];
+            char dz = (char)g->idx_to_char[s->dst_z];
+            PyDict_SetItemString(d, "dst_a", PyUnicode_FromStringAndSize(&da, 1));
+            PyDict_SetItemString(d, "dst_z", PyUnicode_FromStringAndSize(&dz, 1));
+        }
+        PyList_SET_ITEM(list, i, d);
+    }
+    return list;
+}
+
+/* ── fbg_tree_to_string(cap, [step_dicts]) → str ─────────────── */
+
+static PyObject *py_fbg_tree_to_string(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    PyObject *step_list;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &step_list))
+        return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    Py_ssize_t n = PyList_GET_SIZE(step_list);
+    if (n <= 0 || n > LZG_FBG_MAX_STEPS) {
+        PyErr_SetString(PyExc_ValueError,
+                        "steps list must have 1..LZG_FBG_MAX_STEPS entries");
+        return NULL;
+    }
+    LZGFbgStep steps[LZG_FBG_MAX_STEPS];
+    for (Py_ssize_t i = 0; i < n; i++) {
+        PyObject *d = PyList_GET_ITEM(step_list, i);
+        if (!PyDict_Check(d)) {
+            PyErr_Format(PyExc_TypeError, "step %zd must be a dict", i);
+            return NULL;
+        }
+        memset(&steps[i], 0, sizeof(steps[i]));
+        /* Simplified parser: expects the dict shape produced by py_fbg_decompose. */
+        const char *kind_s = PyUnicode_AsUTF8(PyDict_GetItemString(d, "kind"));
+        if      (!strcmp(kind_s, "internal"))    steps[i].kind = LZG_FBG_RULE_INTERNAL;
+        else if (!strcmp(kind_s, "leaf_single")) steps[i].kind = LZG_FBG_RULE_LEAF_SINGLE;
+        else if (!strcmp(kind_s, "leaf_run"))    steps[i].kind = LZG_FBG_RULE_LEAF_RUN;
+        else if (!strcmp(kind_s, "leaf_pair"))   steps[i].kind = LZG_FBG_RULE_LEAF_PAIR;
+        else {
+            PyErr_Format(PyExc_ValueError, "unknown kind %s", kind_s);
+            return NULL;
+        }
+        const char *a_s = PyUnicode_AsUTF8(PyDict_GetItemString(d, "a_char"));
+        const char *z_s = PyUnicode_AsUTF8(PyDict_GetItemString(d, "z_char"));
+        steps[i].a_char = g->char_to_idx[(uint8_t)a_s[0]];
+        steps[i].z_char = g->char_to_idx[(uint8_t)z_s[0]];
+        steps[i].a_run_len = (uint8_t)PyLong_AsUnsignedLong(
+            PyDict_GetItemString(d, "a_run_len"));
+        steps[i].z_run_len = (uint8_t)PyLong_AsUnsignedLong(
+            PyDict_GetItemString(d, "z_run_len"));
+        if (steps[i].kind == LZG_FBG_RULE_INTERNAL) {
+            const char *da = PyUnicode_AsUTF8(PyDict_GetItemString(d, "dst_a"));
+            const char *dz = PyUnicode_AsUTF8(PyDict_GetItemString(d, "dst_z"));
+            steps[i].dst_a = g->char_to_idx[(uint8_t)da[0]];
+            steps[i].dst_z = g->char_to_idx[(uint8_t)dz[0]];
+        }
+        PyObject *is_start = PyDict_GetItemString(d, "is_start");
+        steps[i].is_start = is_start && PyObject_IsTrue(is_start) ? 1 : 0;
+    }
+    char out[2048];
+    uint32_t out_len = 0;
+    LZGError err = lzg_fbg_tree_to_string(g, steps, (uint32_t)n,
+                                           out, sizeof(out), &out_len);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyUnicode_FromStringAndSize(out, (Py_ssize_t)out_len);
+}
+
+/* ── fbg_length_counts(cap) → list[int] ─────────────────────── */
+
+static PyObject *py_fbg_length_counts(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGFbg *g = fbg_from_capsule(arg);
+    if (!g) return NULL;
+    uint32_t n = g->max_length + 1;
+    PyObject *list = PyList_New(n);
+    if (!list) return NULL;
+    for (uint32_t i = 0; i < n; i++)
+        PyList_SET_ITEM(list, i, PyLong_FromUnsignedLongLong(g->length_counts[i]));
+    return list;
+}
+
+/* ── fbg_pgen(cap, seq) / fbg_pgen_mle(cap, seq) → float ──── */
+
+static PyObject *py_fbg_pgen(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    const char *seq;
+    Py_ssize_t seq_len;
+    if (!PyArg_ParseTuple(args, "Os#", &cap, &seq, &seq_len)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    double lp = lzg_fbg_pgen(g, seq, (uint32_t)seq_len);
+    return PyFloat_FromDouble(lp);
+}
+
+static PyObject *py_fbg_pgen_mle(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    const char *seq;
+    Py_ssize_t seq_len;
+    if (!PyArg_ParseTuple(args, "Os#", &cap, &seq, &seq_len)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    double lp = lzg_fbg_pgen_mle(g, seq, (uint32_t)seq_len);
+    return PyFloat_FromDouble(lp);
+}
+
+static PyObject *py_fbg_pgen_batch(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    PyObject *seq_list;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &seq_list))
+        return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    Py_ssize_t n;
+    const char **seqs = pylist_to_cstrings(seq_list, &n);
+    if (!seqs) return NULL;
+
+    double *out = (double *)malloc((size_t)n * sizeof(double));
+    if (!out) { free(seqs); return PyErr_NoMemory(); }
+
+    LZGError err = lzg_fbg_pgen_batch(g, seqs, (uint32_t)n, out);
+    free(seqs);
+    if (err != LZG_OK) { free(out); return set_lzg_error(err); }
+
+    PyObject *list = PyList_New(n);
+    for (Py_ssize_t i = 0; i < n; i++)
+        PyList_SET_ITEM(list, i, PyFloat_FromDouble(out[i]));
+    free(out);
+    return list;
+}
+
+/* ── fbg_nt_unseen_mass(cap, nt_idx) → float ──────────────── */
+
+static PyObject *py_fbg_nt_unseen_mass(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    unsigned int nt_idx;
+    if (!PyArg_ParseTuple(args, "OI", &cap, &nt_idx)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    if (nt_idx >= g->n_nts) {
+        PyErr_Format(PyExc_IndexError, "nt_idx out of range");
+        return NULL;
+    }
+    return PyFloat_FromDouble(g->nts[nt_idx].unseen_mass);
+}
+
+/* ── fbg_rule_marginal(cap, rule_dict) → float ────────────── */
+
+static PyObject *py_fbg_rule_marginal(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    PyObject *rule;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyDict_Type, &rule))
+        return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g || !g->rule_marginal) return PyFloat_FromDouble(0.0);
+
+    /* Decode the rule dict into kind + chars + run lens. */
+    const char *kind_s = PyUnicode_AsUTF8(PyDict_GetItemString(rule, "kind"));
+    uint8_t kind;
+    if (!strcmp(kind_s, "internal"))    kind = LZG_FBG_RULE_INTERNAL;
+    else if (!strcmp(kind_s, "leaf_single")) kind = LZG_FBG_RULE_LEAF_SINGLE;
+    else if (!strcmp(kind_s, "leaf_run"))    kind = LZG_FBG_RULE_LEAF_RUN;
+    else if (!strcmp(kind_s, "leaf_pair"))   kind = LZG_FBG_RULE_LEAF_PAIR;
+    else { PyErr_Format(PyExc_ValueError, "unknown kind %s", kind_s); return NULL; }
+
+    const char *a_s = PyUnicode_AsUTF8(PyDict_GetItemString(rule, "a_char"));
+    const char *z_s = PyUnicode_AsUTF8(PyDict_GetItemString(rule, "z_char"));
+    uint8_t a_char = g->char_to_idx[(uint8_t)a_s[0]];
+    uint8_t z_char = g->char_to_idx[(uint8_t)z_s[0]];
+    uint8_t a_run = (uint8_t)PyLong_AsUnsignedLong(PyDict_GetItemString(rule, "a_run_len"));
+    uint8_t z_run = (uint8_t)PyLong_AsUnsignedLong(PyDict_GetItemString(rule, "z_run_len"));
+    uint8_t dst_a = 0, dst_z = 0;
+    if (kind == LZG_FBG_RULE_INTERNAL) {
+        const char *da = PyUnicode_AsUTF8(PyDict_GetItemString(rule, "dst_a"));
+        const char *dz = PyUnicode_AsUTF8(PyDict_GetItemString(rule, "dst_z"));
+        dst_a = g->char_to_idx[(uint8_t)da[0]];
+        dst_z = g->char_to_idx[(uint8_t)dz[0]];
+    }
+
+    /* Rebuild the packed key (same formula as fbg_internal.h). */
+    uint64_t key = (uint64_t)kind;
+    switch (kind) {
+    case LZG_FBG_RULE_INTERNAL:
+        key |= ((uint64_t)a_run) << 8;
+        key |= ((uint64_t)z_run) << 16;
+        key |= ((uint64_t)dst_a) << 24;
+        key |= ((uint64_t)dst_z) << 32;
+        break;
+    case LZG_FBG_RULE_LEAF_SINGLE:
+        key |= ((uint64_t)a_char) << 8;
+        break;
+    case LZG_FBG_RULE_LEAF_RUN:
+        key |= ((uint64_t)a_char) << 8;
+        key |= ((uint64_t)a_run)  << 16;
+        break;
+    case LZG_FBG_RULE_LEAF_PAIR:
+        key |= ((uint64_t)a_char) << 8;
+        key |= ((uint64_t)a_run)  << 16;
+        key |= ((uint64_t)z_char) << 24;
+        key |= ((uint64_t)z_run)  << 32;
+        break;
+    }
+
+    uint64_t *slot = lzg_hm_get(g->rule_marginal, key);
+    if (!slot) return PyFloat_FromDouble(0.0);
+    double d;
+    memcpy(&d, slot, sizeof(d));
+    return PyFloat_FromDouble(d);
+}
+
+/* ── fbg_path_count_series / fbg_length_distribution ──────── */
+
+static PyObject *fbg_series_impl(PyObject *args, bool weighted) {
+    PyObject *cap;
+    unsigned int L_max;
+    if (!PyArg_ParseTuple(args, "OI", &cap, &L_max)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    double *buf = (double *)calloc((size_t)(L_max + 1), sizeof(double));
+    if (!buf) return PyErr_NoMemory();
+
+    LZGError err = weighted
+        ? lzg_fbg_length_distribution(g, L_max, buf)
+        : lzg_fbg_path_count_series(g, L_max, buf);
+    if (err != LZG_OK) { free(buf); return set_lzg_error(err); }
+
+    PyObject *list = PyList_New(L_max + 1);
+    for (unsigned int i = 0; i <= L_max; i++)
+        PyList_SET_ITEM(list, i, PyFloat_FromDouble(buf[i]));
+    free(buf);
+    return list;
+}
+
+static PyObject *py_fbg_path_count_series(PyObject *self, PyObject *args) {
+    (void)self;
+    return fbg_series_impl(args, /*weighted=*/false);
+}
+
+static PyObject *py_fbg_length_distribution(PyObject *self, PyObject *args) {
+    (void)self;
+    return fbg_series_impl(args, /*weighted=*/true);
+}
+
+/* ── fbg_entropy / fbg_effective_diversity ────────────────── */
+
+static PyObject *py_fbg_entropy(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGFbg *g = fbg_from_capsule(arg);
+    if (!g) return NULL;
+    double H = 0.0;
+    LZGError err = lzg_fbg_entropy(g, &H);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(H);
+}
+
+static PyObject *py_fbg_effective_diversity(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGFbg *g = fbg_from_capsule(arg);
+    if (!g) return NULL;
+    LZGEffectiveDiversity ed;
+    LZGError err = lzg_fbg_effective_diversity(g, &ed);
+    if (err != LZG_OK) return set_lzg_error(err);
+    PyObject *d = PyDict_New();
+    PyDict_SetItemString(d, "entropy_nats", PyFloat_FromDouble(ed.entropy_nats));
+    PyDict_SetItemString(d, "entropy_bits", PyFloat_FromDouble(ed.entropy_bits));
+    PyDict_SetItemString(d, "effective_diversity",
+        PyFloat_FromDouble(ed.effective_diversity));
+    PyDict_SetItemString(d, "uniformity", PyFloat_FromDouble(ed.uniformity));
+    return d;
+}
+
+/* ── fbg_power_sum / fbg_hill_number / fbg_hill_numbers ───── */
+
+static PyObject *py_fbg_power_sum(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    double M = 0.0;
+    LZGError err = lzg_fbg_power_sum(g, alpha, &M);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(M);
+}
+
+static PyObject *py_fbg_hill_number(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    double D = 0.0;
+    LZGError err = lzg_fbg_hill_number(g, alpha, &D);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(D);
+}
+
+static PyObject *py_fbg_hill_numbers(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    PyObject *alpha_list;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &alpha_list))
+        return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    Py_ssize_t n = PyList_GET_SIZE(alpha_list);
+    double *alphas = (double *)malloc((size_t)n * sizeof(double));
+    if (!alphas) return PyErr_NoMemory();
+    for (Py_ssize_t i = 0; i < n; i++) {
+        alphas[i] = PyFloat_AsDouble(PyList_GET_ITEM(alpha_list, i));
+        if (PyErr_Occurred()) { free(alphas); return NULL; }
+    }
+    double *out = (double *)malloc((size_t)n * sizeof(double));
+    if (!out) { free(alphas); return PyErr_NoMemory(); }
+
+    LZGError err = lzg_fbg_hill_numbers(g, alphas, (uint32_t)n, out);
+    free(alphas);
+    if (err != LZG_OK) { free(out); return set_lzg_error(err); }
+
+    PyObject *list = PyList_New(n);
+    for (Py_ssize_t i = 0; i < n; i++)
+        PyList_SET_ITEM(list, i, PyFloat_FromDouble(out[i]));
+    free(out);
+    return list;
+}
+
+/* ── fbg_simulate / fbg_top_k_sequences / fbg_dynamic_range ── */
+
+static PyObject *py_fbg_simulate(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    unsigned int n;
+    long long seed = -1;
+    static char *kwlist[] = {"grammar", "n", "seed", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OI|L", kwlist,
+            &cap, &n, &seed)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    LZGRng rng;
+    if (seed >= 0) lzg_rng_seed(&rng, (uint64_t)seed);
+    else lzg_rng_seed(&rng, (uint64_t)((size_t)cap ^ 0xFB65A7ULL));
+
+    LZGSimResult *results = (LZGSimResult *)calloc(n, sizeof(LZGSimResult));
+    if (!results) return PyErr_NoMemory();
+    LZGError err = lzg_fbg_simulate(g, n, &rng, results);
+    if (err != LZG_OK) { free(results); return set_lzg_error(err); }
+
+    PyObject *seqs = PyList_New(n);
+    PyObject *lps  = PyList_New(n);
+    PyObject *nts  = PyList_New(n);
+    for (unsigned int i = 0; i < n; i++) {
+        PyList_SET_ITEM(seqs, i, PyUnicode_FromString(
+            results[i].sequence ? results[i].sequence : ""));
+        PyList_SET_ITEM(lps,  i, PyFloat_FromDouble(results[i].log_prob));
+        PyList_SET_ITEM(nts,  i, PyLong_FromUnsignedLong(results[i].n_tokens));
+        lzg_sim_result_free(&results[i]);
+    }
+    free(results);
+    return Py_BuildValue("(OOO)", seqs, lps, nts);
+}
+
+static PyObject *py_fbg_top_k_sequences(PyObject *self, PyObject *args,
+                                         PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    unsigned int K;
+    int most_probable = 1;
+    unsigned int L_max = 30;
+    static char *kwlist[] = {"grammar", "k", "most_probable", "max_length", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OI|pI", kwlist,
+            &cap, &K, &most_probable, &L_max)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    LZGSimResult *results = (LZGSimResult *)calloc(K, sizeof(LZGSimResult));
+    if (!results) return PyErr_NoMemory();
+    uint32_t n_out = 0;
+    LZGError err = lzg_fbg_top_k_sequences(g, K, (bool)most_probable,
+                                            L_max, results, &n_out);
+    if (err != LZG_OK) { free(results); return set_lzg_error(err); }
+
+    PyObject *seqs = PyList_New(n_out);
+    PyObject *lps  = PyList_New(n_out);
+    PyObject *nts  = PyList_New(n_out);
+    for (uint32_t i = 0; i < n_out; i++) {
+        PyList_SET_ITEM(seqs, i, PyUnicode_FromString(
+            results[i].sequence ? results[i].sequence : ""));
+        PyList_SET_ITEM(lps,  i, PyFloat_FromDouble(results[i].log_prob));
+        PyList_SET_ITEM(nts,  i, PyLong_FromUnsignedLong(results[i].n_tokens));
+        lzg_sim_result_free(&results[i]);
+    }
+    free(results);
+    return Py_BuildValue("(OOO)", seqs, lps, nts);
+}
+
+static PyObject *py_fbg_dynamic_range(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    unsigned int L_max;
+    if (!PyArg_ParseTuple(args, "OI", &cap, &L_max)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    LZGDynamicRange dr;
+    LZGError err = lzg_fbg_dynamic_range(g, L_max, &dr);
+    if (err != LZG_OK) return set_lzg_error(err);
+    PyObject *d = PyDict_New();
+    PyDict_SetItemString(d, "max_log_prob", PyFloat_FromDouble(dr.max_log_prob));
+    PyDict_SetItemString(d, "min_log_prob", PyFloat_FromDouble(dr.min_log_prob));
+    PyDict_SetItemString(d, "dynamic_range_nats",
+                          PyFloat_FromDouble(dr.dynamic_range_nats));
+    PyDict_SetItemString(d, "dynamic_range_orders",
+                          PyFloat_FromDouble(dr.dynamic_range_orders));
+    return d;
+}
+
+/* ── fbg_posterior / fbg_subtract ─────────────────────────── */
+
+static PyObject *py_fbg_posterior(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    PyObject *seq_list;
+    PyObject *abund_obj = Py_None;
+    double kappa = 1.0;
+    static char *kwlist[] = {"grammar", "sequences", "abundances", "kappa", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OO!|Od", kwlist,
+            &cap, &PyList_Type, &seq_list, &abund_obj, &kappa))
+        return NULL;
+    LZGFbg *prior = fbg_from_capsule(cap);
+    if (!prior) return NULL;
+
+    Py_ssize_t n_seqs;
+    const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGFbg *post = NULL;
+    LZGError err = lzg_fbg_posterior(prior, seqs, (uint32_t)n_seqs,
+                                      abundances, kappa, &post);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    return PyCapsule_New(post, FBG_CAPSULE_NAME, fbg_capsule_destructor);
+}
+
+static PyObject *py_fbg_subtract(PyObject *self, PyObject *args, PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    PyObject *seq_list;
+    PyObject *abund_obj = Py_None;
+    static char *kwlist[] = {"grammar", "sequences", "abundances", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OO!|O", kwlist,
+            &cap, &PyList_Type, &seq_list, &abund_obj))
+        return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+
+    Py_ssize_t n_seqs;
+    const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGFbg *sub_g = NULL;
+    LZGError err = lzg_fbg_subtract(g, seqs, (uint32_t)n_seqs,
+                                     abundances, &sub_g);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    return PyCapsule_New(sub_g, FBG_CAPSULE_NAME, fbg_capsule_destructor);
+}
+
+/* ── fbg_save / fbg_load ──────────────────────────────────── */
+
+static PyObject *py_fbg_save(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    const char *path;
+    if (!PyArg_ParseTuple(args, "Os", &cap, &path)) return NULL;
+    LZGFbg *g = fbg_from_capsule(cap);
+    if (!g) return NULL;
+    LZGError err = lzg_fbg_save(g, path);
+    if (err != LZG_OK) return set_lzg_error(err);
+    Py_RETURN_NONE;
+}
+
+static PyObject *py_fbg_load(PyObject *self, PyObject *arg) {
+    (void)self;
+    if (!PyUnicode_Check(arg)) {
+        PyErr_SetString(PyExc_TypeError, "fbg_load: expected a str path");
+        return NULL;
+    }
+    const char *path = PyUnicode_AsUTF8(arg);
+    if (!path) return NULL;
+    LZGFbg *g = NULL;
+    LZGError err = lzg_fbg_load(path, &g);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyCapsule_New(g, FBG_CAPSULE_NAME, fbg_capsule_destructor);
+}
 
 /* ── Module definition ────────────────────────────────────── */
 

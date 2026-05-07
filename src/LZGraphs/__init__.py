@@ -6,6 +6,16 @@ High-performance C backend with full LZ76 dictionary constraint enforcement.
 __version__ = "3.0.2"
 
 from ._graph import LZGraph
+from ._flashback_graph import FlashBackGraph
+from ._flashback_grammar import FlashBackGrammar
+from ._foundation_scaffold import (
+    FoundationScaffoldAligner,
+    FoundationScaffoldAlignment,
+    FoundationScaffoldBatch,
+    FoundationScaffoldEvent,
+    FoundationScaffoldTokenState,
+    ScaffoldPosteriorCandidate,
+)
 from ._pgen_dist import PgenDistribution
 from ._simulation_result import SimulationResult
 from ._errors import LZGraphError, NoGeneDataError, ConvergenceError, CorruptFileError
@@ -40,6 +50,26 @@ def lz76_decompose(sequence):
     Example: lz76_decompose('CASSLGIRRT') -> ['C','A','S','SL','G','I','R','RT']
     """
     return _c.lz76_decompose(sequence)
+
+
+def flashback_decompose(sequence):
+    """FlashBack decomposition of a sequence.
+
+    Recursively peels matching runs from both ends of '@<seq>$'.
+
+    Example: flashback_decompose('CASSAYFF') ->
+        ['@$_1{0}', 'CFF_1{1}', 'AY_1{2}', 'SSA_0{3}']
+    """
+    return _c.flashback_decompose(sequence)
+
+
+def flashback_reverse(tokens):
+    """Reverse a FlashBack decomposition back to the original sequence.
+
+    Example: flashback_reverse(['@$_1{0}', 'CFF_1{1}', 'AY_1{2}', 'SSA_0{3}'])
+        -> 'CASSAYFF'
+    """
+    return _c.flashback_reverse(list(tokens))
 
 
 def set_log_level(level='info'):
@@ -79,6 +109,14 @@ def set_log_callback(callback, level='info'):
 
 __all__ = [
     'LZGraph',
+    'FlashBackGraph',
+    'FlashBackGrammar',
+    'FoundationScaffoldAligner',
+    'FoundationScaffoldAlignment',
+    'FoundationScaffoldBatch',
+    'FoundationScaffoldEvent',
+    'FoundationScaffoldTokenState',
+    'ScaffoldPosteriorCandidate',
     'PgenDistribution',
     'SimulationResult',
     'LZGraphError',
@@ -89,6 +127,8 @@ __all__ = [
     'k_diversity',
     'saturation_curve',
     'lz76_decompose',
+    'flashback_decompose',
+    'flashback_reverse',
     'set_log_level',
     'set_log_callback',
 ]

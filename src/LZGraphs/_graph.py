@@ -263,6 +263,76 @@ class LZGraph:
         """In-degree of each node as a numpy array (indexed by node ID)."""
         return np.array(self._get_degrees()['in_degrees'], dtype=np.uint32)
 
+    @property
+    def initial_nodes(self):
+        """Node labels with in-degree 0 (excluding sentinel nodes)."""
+        all_n = self.all_nodes
+        in_deg = self._get_degrees()['in_degrees']
+        return [n for n, d in zip(all_n, in_deg)
+                if d == 0 and not n.startswith('@') and '$' not in n]
+
+    @property
+    def terminal_nodes(self):
+        """Node labels with out-degree 0 (excluding sentinel nodes)."""
+        all_n = self.all_nodes
+        out_deg = self._get_degrees()['out_degrees']
+        return [n for n, d in zip(all_n, out_deg)
+                if d == 0 and not n.startswith('@') and '$' not in n]
+
+    @property
+    def hub_nodes(self):
+        """Top nodes by total degree (in + out), descending.
+
+        Returns list of (node_label, in_degree, out_degree) tuples,
+        excluding sentinel nodes, sorted by total degree.
+        """
+        all_n = self.all_nodes
+        degs = self._get_degrees()
+        in_deg = degs['in_degrees']
+        out_deg = degs['out_degrees']
+        entries = [
+            (n, int(i), int(o))
+            for n, i, o in zip(all_n, in_deg, out_deg)
+            if not n.startswith('@') and '$' not in n
+        ]
+        entries.sort(key=lambda x: x[1] + x[2], reverse=True)
+        return entries
+
+    @property
+    def node_degree_map(self):
+        """Dict mapping node label -> (in_degree, out_degree).
+
+        Excludes sentinel nodes.
+        """
+        all_n = self.all_nodes
+        degs = self._get_degrees()
+        in_deg = degs['in_degrees']
+        out_deg = degs['out_degrees']
+        return {
+            n: (int(i), int(o))
+            for n, i, o in zip(all_n, in_deg, out_deg)
+            if not n.startswith('@') and '$' not in n
+        }
+
+    @property
+    def edge_weight_map(self):
+        """Dict mapping (src, dst) -> transition probability.
+
+        Excludes edges involving sentinel nodes.
+        """
+        return {(e[0], e[1]): e[2] for e in self.edges}
+
+    @property
+    def isolated_nodes(self):
+        """Nodes with both in-degree and out-degree 0 (excluding sentinels)."""
+        all_n = self.all_nodes
+        degs = self._get_degrees()
+        in_deg = degs['in_degrees']
+        out_deg = degs['out_degrees']
+        return [n for n, i, o in zip(all_n, in_deg, out_deg)
+                if i == 0 and o == 0
+                and not n.startswith('@') and '$' not in n]
+
     def _get_summary(self):
         if not hasattr(self, '_summary_cache'):
             self._summary_cache = _c.summary(self._cap)
@@ -290,16 +360,66 @@ class LZGraph:
             >>> A = csr_matrix((csr['weights'], csr['col_indices'], csr['row_offsets']),
             ...                shape=(graph.n_nodes, graph.n_nodes))
         """
-        raw = _c.graph_adjacency_csr(self._cap)
+        csr = self._get_csr()
         return {
-            'row_offsets': np.array(raw['row_offsets'], dtype=np.uint32),
-            'col_indices': np.array(raw['col_indices'], dtype=np.uint32),
-            'weights': np.array(raw['weights'], dtype=np.float64),
-            'counts': np.array(raw['counts'], dtype=np.uint64),
+            'row_offsets': csr['row_offsets'].copy(),
+            'col_indices': csr['col_indices'].copy(),
+            'weights': csr['weights'].copy(),
+            'counts': csr['counts'].copy(),
         }
 
+    def _get_csr(self):
+        if not hasattr(self, '_csr_cache'):
+            raw = _c.graph_adjacency_csr(self._cap)
+            self._csr_cache = {
+                'row_offsets': np.array(raw['row_offsets'], dtype=np.uint32),
+                'col_indices': np.array(raw['col_indices'], dtype=np.uint32),
+                'weights': np.array(raw['weights'], dtype=np.float64),
+                'counts': np.array(raw['counts'], dtype=np.uint64),
+            }
+        return self._csr_cache
+
+    def _get_node_index(self):
+        """Cached label → integer index dict."""
+        if not hasattr(self, '_node_index'):
+            self._node_index = {n: i for i, n in enumerate(self.all_nodes)}
+        return self._node_index
+
+    def _get_reverse_csr(self):
+        """Build a reverse (transpose) CSR for predecessor lookups."""
+        if not hasattr(self, '_rcsr_cache'):
+            csr = self._get_csr()
+            n = len(csr['row_offsets']) - 1
+            col = csr['col_indices']
+            w = csr['weights']
+            c = csr['counts']
+            in_deg = np.zeros(n, dtype=np.uint32)
+            for j in col:
+                in_deg[j] += 1
+            r_offsets = np.zeros(n + 1, dtype=np.uint32)
+            np.cumsum(in_deg, out=r_offsets[1:])
+            r_col = np.empty(len(col), dtype=np.uint32)
+            r_w = np.empty(len(col), dtype=np.float64)
+            r_c = np.empty(len(col), dtype=np.uint64)
+            pos = r_offsets[:-1].copy()
+            for src in range(n):
+                for e in range(csr['row_offsets'][src], csr['row_offsets'][src + 1]):
+                    dst = col[e]
+                    p = pos[dst]
+                    r_col[p] = src
+                    r_w[p] = w[e]
+                    r_c[p] = c[e]
+                    pos[dst] += 1
+            self._rcsr_cache = {
+                'row_offsets': r_offsets,
+                'col_indices': r_col,
+                'weights': r_w,
+                'counts': r_c,
+            }
+        return self._rcsr_cache
+
     def successors(self, node_label):
-        """Get successor nodes and edge weights for a given node.
+        """Get successor nodes with edge weights.
 
         Args:
             node_label: Node label string (e.g., 'C_1' for AAP).
@@ -307,22 +427,38 @@ class LZGraph:
         Returns:
             List of (target_label, weight, count) tuples.
         """
-        # Find node index
-        all_nodes = self.all_nodes
-        try:
-            idx = all_nodes.index(node_label)
-        except ValueError:
+        idx_map = self._get_node_index()
+        idx = idx_map.get(node_label)
+        if idx is None:
             raise KeyError(f"node '{node_label}' not found in graph")
+        csr = self._get_csr()
+        nodes = self._all_nodes_cache
+        start = csr['row_offsets'][idx]
+        end = csr['row_offsets'][idx + 1]
+        col = csr['col_indices']
+        w = csr['weights']
+        c = csr['counts']
+        return [(nodes[col[e]], float(w[e]), int(c[e]))
+                for e in range(start, end)]
 
-        raw = _c.graph_adjacency_csr(self._cap)
-        start = raw['row_offsets'][idx]
-        end = raw['row_offsets'][idx + 1]
+    def predecessors(self, node_label):
+        """Get predecessor nodes with edge weights.
 
-        result = []
-        for e in range(start, end):
-            dst_idx = raw['col_indices'][e]
-            result.append((all_nodes[dst_idx], raw['weights'][e], raw['counts'][e]))
-        return result
+        Returns list of (source_label, weight, count) tuples.
+        """
+        idx_map = self._get_node_index()
+        idx = idx_map.get(node_label)
+        if idx is None:
+            raise KeyError(f"node '{node_label}' not found in graph")
+        rcsr = self._get_reverse_csr()
+        nodes = self._all_nodes_cache
+        start = rcsr['row_offsets'][idx]
+        end = rcsr['row_offsets'][idx + 1]
+        col = rcsr['col_indices']
+        w = rcsr['weights']
+        c = rcsr['counts']
+        return [(nodes[col[e]], float(w[e]), int(c[e]))
+                for e in range(start, end)]
 
     # ── Simulation ──────────────────────────────────────────
 

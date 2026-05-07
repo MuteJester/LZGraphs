@@ -192,3 +192,13 @@ archs = ["arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
+
+[tool.pyright]
+# Make the Benchmarking platform's `scripts` package resolvable from
+# the workspace root. The platform's own pyrightconfig.json applies
+# when Pyright is invoked from inside the Benchmarking folder; this
+# section covers the case where the IDE / language server is rooted
+# at the LZGraphs repo top level.
+extraPaths = [".research/FlashBackGraph_Repertoire/Benchmarking"]
+reportMissingTypeStubs = "none"
+pythonVersion = "3.12"

@@ -2,6 +2,7 @@
 #include "io_internal.h"
 #include "lzgraph/crc32c.h"
 #include "lzgraph/gene_data.h"
+#include "lzgraph/graph.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
