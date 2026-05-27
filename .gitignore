@@ -70,6 +70,9 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# Superpowers brainstorm/plan artifacts (local-only, not for publication)
+docs/superpowers/
+
 # PyBuilder
 .pybuilder/
 target/

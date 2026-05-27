@@ -3,9 +3,10 @@ probability, exact analytics, file streaming, and abundance weighting."""
 
 import numpy as np
 import pytest
+from LZGraphs._constants import LOG_EPS_THRESHOLD, LOG_EPS_AT_FLOOR
 from collections import Counter
 from LZGraphs import (
-    FlashBackGraph, flashback_decompose, flashback_reverse,
+    FlashBackGraph, FlashBackStream, flashback_decompose, flashback_reverse,
 )
 
 SEQS = [
@@ -156,10 +157,10 @@ class TestStructural:
 class TestPgen:
     def test_training_sequences_have_positive_prob(self, fb_graph):
         for s in SEQS:
-            assert fb_graph.flashback_pgen(s) > -690.0
+            assert fb_graph.pgen(s) > LOG_EPS_THRESHOLD
 
     def test_unknown_sequence_has_zero_prob(self, fb_graph):
-        assert fb_graph.flashback_pgen('ZZZZZZ') < -689.0
+        assert fb_graph.pgen('ZZZZZZ') < LOG_EPS_AT_FLOOR
 
     def test_contains_operator(self, fb_graph):
         assert 'CASSLGIRRT' in fb_graph
@@ -180,24 +181,24 @@ class TestPgen:
                 if csr['col_indices'][e] == dst:
                     manual += np.log(csr['weights'][e])
                     break
-        api = fb_graph.flashback_pgen(seq)
+        api = fb_graph.pgen(seq)
         assert abs(manual - api) < 1e-10
 
     def test_batch_pgen(self, fb_graph):
-        batch = fb_graph.flashback_pgen(list(set(SEQS)))
+        batch = fb_graph.pgen(list(set(SEQS)))
         assert isinstance(batch, np.ndarray)
-        assert all(lp > -690.0 for lp in batch)
+        assert all(lp > LOG_EPS_THRESHOLD for lp in batch)
 
     def test_pgen_exp(self, fb_graph):
-        p = fb_graph.flashback_pgen(SEQS[0], log=False)
+        p = fb_graph.pgen(SEQS[0], log=False)
         assert 0 < p <= 1.0
 
     def test_abundances_shift_probabilities(self):
         g_equal = FlashBackGraph(['CASSLGIRRT', 'CASSAYFF'])
         g_heavy = FlashBackGraph(['CASSLGIRRT', 'CASSAYFF'],
                                  abundances=[1000, 1])
-        lp_eq = g_equal.flashback_pgen('CASSLGIRRT')
-        lp_hv = g_heavy.flashback_pgen('CASSLGIRRT')
+        lp_eq = g_equal.pgen('CASSLGIRRT')
+        lp_hv = g_heavy.pgen('CASSLGIRRT')
         # Heavy weighting should increase probability
         assert lp_hv > lp_eq
 
@@ -224,7 +225,7 @@ class TestSimulation:
     def test_simulated_sequences_have_positive_pgen(self, fb_graph):
         sim = fb_graph.simulate(50, seed=42)
         for s in set(sim.sequences):
-            assert fb_graph.flashback_pgen(s) > -690.0
+            assert fb_graph.pgen(s) > LOG_EPS_THRESHOLD
 
     def test_simulation_frequencies_match_model(self):
         g = FlashBackGraph(['CASSLGIRRT'] * 5 + ['CASSAYFF'] * 3 +
@@ -234,7 +235,7 @@ class TestSimulation:
         total = sum(counts.values())
         for s in counts:
             emp = counts[s] / total
-            model_p = np.exp(g.flashback_pgen(s))
+            model_p = np.exp(g.pgen(s))
             # Within 5% relative error for 50K samples
             assert abs(emp - model_p) / model_p < 0.05, \
                 f"{s}: emp={emp:.4f} model={model_p:.4f}"
@@ -340,7 +341,7 @@ class TestFileIO:
         assert gf.n_edges == gm.n_edges
         assert gf.path_count == gm.path_count
         for s in ['CASSLGIRRT', 'CASSAYFF', 'HELLO']:
-            assert abs(gf.flashback_pgen(s) - gm.flashback_pgen(s)) < 1e-10
+            assert abs(gf.pgen(s) - gm.pgen(s)) < 1e-10
 
     def test_from_file_plain(self, tmp_path):
         p = tmp_path / 'plain.txt'
@@ -474,23 +475,13 @@ class TestPosterior:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Subtract / without / remove_sequences
+# Subtract / without
 # ═══════════════════════════════════════════════════════════════
 
 class TestWithout:
     def test_signature(self, fb_graph):
         sub = fb_graph.without(['CASSLGIRRT'])
         assert isinstance(sub, FlashBackGraph)
-
-    def test_alias(self, fb_graph):
-        """without() and remove_sequences() must produce identical graphs."""
-        g1 = fb_graph.without(['CASSLGIRRT'])
-        g2 = fb_graph.remove_sequences(['CASSLGIRRT'])
-        c1 = g1.adjacency_csr()
-        c2 = g2.adjacency_csr()
-        assert g1.n_edges == g2.n_edges
-        assert np.allclose(c1['weights'], c2['weights'])
-        assert np.array_equal(c1['counts'], c2['counts'])
 
     def test_leave_one_out_matches_direct_build(self):
         """Subtracting one sequence must match rebuilding from the remainder."""
@@ -577,9 +568,9 @@ class TestWithout:
     def test_pgen_drops_after_subtract(self):
         """The subtracted sequence must drop from pgen>0 to pgen=0 if uniquely contributed."""
         g = FlashBackGraph(['CASSLGIRRT'])
-        assert g.flashback_pgen('CASSLGIRRT') > -690.0
+        assert g.pgen('CASSLGIRRT') > LOG_EPS_THRESHOLD
         g2 = g.without(['CASSLGIRRT'])
-        assert g2.flashback_pgen('CASSLGIRRT') < -689.0
+        assert g2.pgen('CASSLGIRRT') < LOG_EPS_AT_FLOOR
 
     def test_string_raises(self, fb_graph):
         with pytest.raises(TypeError):
@@ -593,5 +584,168 @@ class TestWithout:
         """The subtracted graph should still be a DAG with valid topo order."""
         g2 = fb_graph.without(['CASSLGIRRT'])
         assert g2.is_dag
+
+
+# ═══════════════════════════════════════════════════════════════
+# Streaming construction (FlashBackStream)
+# ═══════════════════════════════════════════════════════════════
+
+class TestStreamConstruction:
+    """The streaming builder must produce a graph bit-identical to a
+    batch-built graph constructed from the same sequence pool, and
+    enforce a clean lifecycle (no use-after-finalize, no double-free)."""
+
+    def test_basic_open_finalize(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        g = s.finalize()
+        assert g.n_nodes > 0
+        assert g.n_edges > 0
+
+    def test_peek_grows_with_adds(self):
+        s = FlashBackStream()
+        before = s.peek()
+        assert before == {'n_nodes': 0, 'n_edges': 0}
+        s.add_sequences(SEQS[:2])
+        mid = s.peek()
+        assert mid['n_nodes'] > 0
+        assert mid['n_edges'] > 0
+        s.add_sequences(SEQS[2:])
+        after = s.peek()
+        assert after['n_nodes'] >= mid['n_nodes']
+        assert after['n_edges'] >= mid['n_edges']
+        s.finalize()
+
+    def test_streaming_matches_batch_unweighted(self):
+        g_batch = FlashBackGraph(SEQS)
+        s = FlashBackStream()
+        s.add_sequences(SEQS[:3])
+        s.add_sequences(SEQS[3:])
+        g_stream = s.finalize()
+        assert g_batch.n_nodes == g_stream.n_nodes
+        assert g_batch.n_edges == g_stream.n_edges
+        a, b = g_batch._get_csr(), g_stream._get_csr()
+        assert np.array_equal(a['row_offsets'], b['row_offsets'])
+        assert np.array_equal(a['col_indices'], b['col_indices'])
+        assert np.allclose(a['weights'], b['weights'])
+
+    def test_streaming_matches_batch_weighted(self):
+        abundances = [10, 5, 3, 3, 2, 1]
+        g_batch = FlashBackGraph(SEQS, abundances=abundances)
+        s = FlashBackStream()
+        s.add_sequences(SEQS[:3], abundances=abundances[:3])
+        s.add_sequences(SEQS[3:], abundances=abundances[3:])
+        g_stream = s.finalize()
+        a, b = g_batch._get_csr(), g_stream._get_csr()
+        assert np.allclose(a['weights'], b['weights'])
+
+    def test_pgen_matches_batch(self):
+        g_batch = FlashBackGraph(SEQS)
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        g_stream = s.finalize()
+        for seq in SEQS:
+            p_b = g_batch.pgen(seq, log=True)
+            p_s = g_stream.pgen(seq, log=True)
+            assert abs(p_b - p_s) < 1e-10
+
+    def test_smoothing_propagates(self):
+        s = FlashBackStream(smoothing=0.5)
+        s.add_sequences(SEQS)
+        g_stream = s.finalize()
+        g_batch = FlashBackGraph(SEQS, smoothing=0.5)
+        a, b = g_batch._get_csr(), g_stream._get_csr()
+        assert np.allclose(a['weights'], b['weights'])
+
+    def test_add_after_finalize_raises(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        s.finalize()
+        with pytest.raises(RuntimeError):
+            s.add_sequences(['CASSAYFF'])
+
+    def test_double_finalize_raises(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        s.finalize()
+        with pytest.raises(RuntimeError):
+            s.finalize()
+
+    def test_abort_after_finalize_is_noop(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        s.finalize()
+        s.abort()  # must not raise
+
+    def test_abort_releases_resources(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        s.abort()
+        with pytest.raises(RuntimeError):
+            s.add_sequences(['CASSAYFF'])
+        with pytest.raises(RuntimeError):
+            s.finalize()
+
+    def test_context_manager_finalizes_via_exit(self):
+        with FlashBackStream() as s:
+            s.add_sequences(SEQS)
+            assert s.peek()['n_edges'] > 0
+        # __exit__ on a non-finalized stream calls abort
+        with pytest.raises(RuntimeError):
+            s.add_sequences(SEQS)
+
+    def test_context_manager_does_not_clobber_explicit_finalize(self):
+        with FlashBackStream() as s:
+            s.add_sequences(SEQS)
+            g = s.finalize()
+        # Graph is independent of stream lifecycle.
+        assert g.n_nodes > 0
+
+    def test_empty_add_is_noop(self):
+        s = FlashBackStream()
+        s.add_sequences([])
+        assert s.peek() == {'n_nodes': 0, 'n_edges': 0}
+        s.add_sequences(SEQS)
+        s.add_sequences([])
+        peek = s.peek()
+        s.finalize()
+        # empty adds didn't perturb anything
+        assert peek['n_edges'] > 0
+
+    def test_string_input_raises(self):
+        s = FlashBackStream()
+        with pytest.raises(TypeError):
+            s.add_sequences('CASSLGIRRT')  # single string, not list
+
+    def test_many_small_batches_match_one_big(self):
+        # Stream the SEQS one at a time vs in one big batch.
+        s_big = FlashBackStream()
+        s_big.add_sequences(SEQS)
+        g_big = s_big.finalize()
+
+        s_small = FlashBackStream()
+        for seq in SEQS:
+            s_small.add_sequences([seq])
+        g_small = s_small.finalize()
+
+        a, b = g_big._get_csr(), g_small._get_csr()
+        assert np.array_equal(a['row_offsets'], b['row_offsets'])
+        assert np.array_equal(a['col_indices'], b['col_indices'])
+        assert np.allclose(a['weights'], b['weights'])
+
+    def test_peek_after_finalize_returns_zeros(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        s.finalize()
+        assert s.peek() == {'n_nodes': 0, 'n_edges': 0}
+
+    def test_simulate_on_streamed_graph(self):
+        s = FlashBackStream()
+        s.add_sequences(SEQS)
+        g = s.finalize()
+        sim = g.simulate(5, seed=0)
+        assert len(sim.sequences) == 5
+        for seq in sim.sequences:
+            assert isinstance(seq, str) and len(seq) > 0
 
 

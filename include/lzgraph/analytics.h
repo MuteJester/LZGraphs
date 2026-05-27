@@ -35,32 +35,6 @@ LZGError lzg_graph_path_count(const LZGGraph *g, double *out_count);
 LZGError lzg_graph_path_count_mc(const LZGGraph *g, uint32_t n_samples,
                                   double *out_count);
 
-/* ── PGEN diagnostics ───────────────────────────────────────── */
-
-typedef struct {
-    double total_absorbed;          /* MC estimate of absorbed mass (≤ 1.0) */
-    double total_leaked;            /* 1 - total_absorbed                   */
-    double initial_prob_sum;        /* should be 1.0                        */
-    bool   is_proper;               /* |total_absorbed - 1.0| < atol       */
-    uint32_t mc_samples;            /* number of MC samples used            */
-} LZGPgenDiagnostics;
-
-/**
- * Estimate absorption/leakage of the raw structural walk law via Monte Carlo.
- *
- * total_absorbed is a Monte Carlo estimate (not an exact proof): it reports
- * the fraction of raw constrained walks that reached a sink node out of
- * mc_samples trials. A value of 1.0 means "no leaks were observed," not
- * "the graph is mathematically proven leak-free." Rare leakage events may
- * be missed if mc_samples is too small relative to the leakage probability.
- *
- * @param g    The graph.
- * @param atol Tolerance for is_proper check.
- * @param out  Output diagnostics.
- */
-LZGError lzg_pgen_diagnostics(const LZGGraph *g, double atol,
-                               LZGPgenDiagnostics *out);
-
 /* ── Effective diversity ────────────────────────────────────── */
 
 typedef struct {
@@ -114,17 +88,6 @@ LZGError lzg_hill_numbers(const LZGGraph *g, const double *orders,
 LZGError lzg_hill_numbers_mc(const LZGGraph *g, const double *orders,
                               uint32_t n, uint32_t n_samples, double *out);
 
-/* ── PGEN dynamic range ─────────────────────────────────────── */
-
-typedef struct {
-    double max_log_prob;             /* log P of most probable walk  */
-    double min_log_prob;             /* log P of least probable walk */
-    double dynamic_range_nats;
-    double dynamic_range_orders;     /* range / ln(10)               */
-} LZGDynamicRange;
-
-LZGError lzg_pgen_dynamic_range(const LZGGraph *g, LZGDynamicRange *out);
-
 /* ── Hill curve ────────────────────────────────────────────── */
 
 typedef struct {
@@ -146,5 +109,46 @@ LZGError lzg_hill_curve(const LZGGraph *g, const double *orders,
                          uint32_t n, LZGHillCurve *out);
 
 void lzg_hill_curve_free(LZGHillCurve *hc);
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Diagnostics                                                     */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/* ── PGEN diagnostics ───────────────────────────────────────── */
+
+typedef struct {
+    double total_absorbed;          /* MC estimate of absorbed mass (≤ 1.0) */
+    double total_leaked;            /* 1 - total_absorbed                   */
+    double initial_prob_sum;        /* should be 1.0                        */
+    bool   is_proper;               /* |total_absorbed - 1.0| < atol       */
+    uint32_t mc_samples;            /* number of MC samples used            */
+} LZGPgenDiagnostics;
+
+/**
+ * Estimate absorption/leakage of the raw structural walk law via Monte Carlo.
+ *
+ * total_absorbed is a Monte Carlo estimate (not an exact proof): it reports
+ * the fraction of raw constrained walks that reached a sink node out of
+ * mc_samples trials. A value of 1.0 means "no leaks were observed," not
+ * "the graph is mathematically proven leak-free." Rare leakage events may
+ * be missed if mc_samples is too small relative to the leakage probability.
+ *
+ * @param g    The graph.
+ * @param atol Tolerance for is_proper check.
+ * @param out  Output diagnostics.
+ */
+LZGError lzg_pgen_diagnostics(const LZGGraph *g, double atol,
+                               LZGPgenDiagnostics *out);
+
+/* ── PGEN dynamic range ─────────────────────────────────────── */
+
+typedef struct {
+    double max_log_prob;             /* log P of most probable walk  */
+    double min_log_prob;             /* log P of least probable walk */
+    double dynamic_range_nats;
+    double dynamic_range_orders;     /* range / ln(10)               */
+} LZGDynamicRange;
+
+LZGError lzg_pgen_dynamic_range(const LZGGraph *g, LZGDynamicRange *out);
 
 #endif /* LZGRAPH_ANALYTICS_H */

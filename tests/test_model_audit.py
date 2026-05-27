@@ -114,7 +114,7 @@ class TestSimulationValidity:
         max_delta = 0.0
         mismatches = 0
         for seq, sim_lp in zip(result.sequences, result.log_probs):
-            score_lp = large_graph.lzpgen(seq)
+            score_lp = large_graph.pgen(seq)
             delta = abs(sim_lp - score_lp)
             max_delta = max(max_delta, delta)
             if delta > 0.01:
@@ -130,7 +130,7 @@ class TestTrainingLZPGEN:
     def test_all_training_have_positive_prob(self, large_data, large_graph):
         """Every training sequence should have positive LZPGEN."""
         seqs = large_data[0]
-        lps = large_graph.lzpgen(seqs[:200])
+        lps = large_graph.pgen(seqs[:200])
         zero_count = np.sum(lps < -600)
         assert zero_count == 0, f"{zero_count}/200 training seqs have zero prob"
 
@@ -145,7 +145,7 @@ class TestTrainingLZPGEN:
         if not case3_seqs:
             pytest.skip("no case-3 sequences in dataset")
 
-        lps = large_graph.lzpgen(case3_seqs[:50])
+        lps = large_graph.pgen(case3_seqs[:50])
         zero_count = np.sum(lps < -600)
         assert zero_count == 0, f"{zero_count}/{len(lps)} case-3 seqs have zero prob"
 
@@ -161,11 +161,11 @@ class TestAbundance:
 
         # Equal counts
         g_equal = LZGraph(seqs, variant='aap')
-        lp_equal = g_equal.lzpgen('CASSLGIRRT')
+        lp_equal = g_equal.pgen('CASSLGIRRT')
 
         # CASSLGIRRT has 10x abundance
         g_weighted = LZGraph(seqs, variant='aap', abundances=[10, 1, 1])
-        lp_weighted = g_weighted.lzpgen('CASSLGIRRT')
+        lp_weighted = g_weighted.pgen('CASSLGIRRT')
 
         assert lp_weighted > lp_equal, \
             f"weighted ({lp_weighted:.4f}) should be > equal ({lp_equal:.4f})"
@@ -177,8 +177,8 @@ class TestAbundance:
         g_repeat = LZGraph(seqs * 5, variant='aap')
         g_abund = LZGraph(seqs, variant='aap', abundances=[5, 5])
 
-        lp_r = g_repeat.lzpgen('CASSLGIRRT')
-        lp_a = g_abund.lzpgen('CASSLGIRRT')
+        lp_r = g_repeat.pgen('CASSLGIRRT')
+        lp_a = g_abund.pgen('CASSLGIRRT')
         assert abs(lp_r - lp_a) < 0.1, f"repeat={lp_r:.4f} vs abund={lp_a:.4f}"
 
 
@@ -196,7 +196,7 @@ class TestDistributionSanity:
         result = g.simulate(2000, seed=42)
         counts = Counter(result.sequences)
         most_common_seq = counts.most_common(1)[0][0]
-        lp = g.lzpgen(most_common_seq)
+        lp = g.pgen(most_common_seq)
         assert lp > -10.0, f"most common sim seq has low prob: {lp:.4f}"
 
     def test_log_probs_all_negative(self):
@@ -251,7 +251,7 @@ class TestNDPVariant:
         g = LZGraph(nt_seqs * 3, variant='ndp')
 
         for seq in nt_seqs:
-            lp = g.lzpgen(seq)
+            lp = g.pgen(seq)
             assert lp > -600, f"NDP seq '{seq[:20]}...' has zero prob: {lp:.2f}"
 
 
@@ -263,20 +263,20 @@ class TestEdgeCases:
     def test_unseen_sequence_zero_prob(self):
         """A sequence with no matching nodes gets LZG_LOG_EPS."""
         g = LZGraph(['CASSLGIRRT', 'CASSLGYEQYF'], variant='aap')
-        lp = g.lzpgen('ZZZZZZZZZZZ')
+        lp = g.pgen('ZZZZZZZZZZZ')
         assert lp < -600
 
     def test_partial_match_zero_prob(self):
         """A sequence matching only the first few tokens then diverging."""
         g = LZGraph(['CASSLGIRRT', 'CASSLGYEQYF'], variant='aap')
         # Starts like training but ends differently
-        lp = g.lzpgen('CASSLGXXXX')
+        lp = g.pgen('CASSLGXXXX')
         assert lp < -600
 
     def test_single_char_sequence(self):
         """Very short sequence."""
         g = LZGraph(['CASSLGIRRT', 'CASSLGYEQYF'] * 3, variant='aap')
-        lp = g.lzpgen('C')
+        lp = g.pgen('C')
         # 'C' is the first token of every training seq, but it alone
         # needs to end at a terminal node — which it likely isn't
         assert isinstance(lp, float)
@@ -284,7 +284,7 @@ class TestEdgeCases:
     def test_empty_sequence_handled(self):
         """Empty string should get LZG_LOG_EPS."""
         g = LZGraph(['CASSLGIRRT'], variant='aap')
-        lp = g.lzpgen('')
+        lp = g.pgen('')
         assert lp < -600
 
     def test_save_load_simulation_consistent(self, tmp_path):

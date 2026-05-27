@@ -2,10 +2,11 @@
  * @file string_pool.c
  * @brief String interning with FNV-1a hashed open-addressing table.
  */
-#include "lzgraph/string_pool.h"
-#include "lzgraph/hash_map.h"   /* for lzg_hash_bytes */
 #include <stdlib.h>
 #include <string.h>
+
+#include "lzgraph/string_pool.h"
+#include "lzgraph/hash_map.h"   /* for lzg_hash_bytes */
 
 static uint32_t next_pow2(uint32_t v) {
     v--; v |= v >> 1; v |= v >> 2; v |= v >> 4;
@@ -28,11 +29,20 @@ LZGStringPool *lzg_sp_create(uint32_t initial_capacity) {
     for (uint32_t i = 0; i < p->ht_cap; i++)
         p->ht_ids[i] = LZG_SP_NOT_FOUND;
 
+    p->refcount = 1;
+    return p;
+}
+
+LZGStringPool *lzg_sp_retain(LZGStringPool *p) {
+    if (!p) return NULL;
+    p->refcount++;
     return p;
 }
 
 void lzg_sp_destroy(LZGStringPool *p) {
     if (!p) return;
+    if (p->refcount > 1) { p->refcount--; return; }
+    /* refcount == 1 (or 0 from miscount): free for real */
     for (uint32_t i = 0; i < p->count; i++) free(p->strings[i]);
     free(p->strings); free(p->str_lens);
     free(p->ht_hashes); free(p->ht_ids);

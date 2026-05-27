@@ -2,10 +2,11 @@
  * @file common.c
  * @brief Shared utility implementations: amino acid mapping, error context.
  */
-#include "lzgraph/common.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+
+#include "lzgraph/common.h"
 
 /* ── Thread-local error context ────────────────────────────── */
 

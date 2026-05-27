@@ -1,0 +1,34 @@
+{
+  "effective_diversity": 97722.76171698143,
+  "hill_numbers_q0_1_2_3": [
+    1555300.624587849,
+    97756.41024959616,
+    14086.737140544674,
+    4554.560648064625
+  ],
+  "path_count": 2261802.8453634586,
+  "path_count_estimate": 2261802.8453634586,
+  "pgen_diagnostics": {
+    "initial_prob_sum": 1.0,
+    "is_proper": false,
+    "mc_samples": 4096,
+    "total_absorbed": 0.6640625,
+    "total_leaked": 0.3359375
+  },
+  "pgen_dynamic_range": 6.097796647332991,
+  "pgen_dynamic_range_detail": {
+    "dynamic_range_nats": 14.040695660258017,
+    "dynamic_range_orders": 6.097796647332991,
+    "max_log_prob": -5.935512791326925,
+    "min_log_prob": -19.97620845158494
+  },
+  "pgen_moments": {
+    "kurtosis": 0.15521977521627006,
+    "mean": -14.288403476884296,
+    "skewness": -0.485384821106277,
+    "std": 3.185616498120006,
+    "total_mass": 1.0000000000000009,
+    "variance": 10.14815247309437
+  },
+  "power_sum_alpha_2": 6.648602316855235e-05
+}

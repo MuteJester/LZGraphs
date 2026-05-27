@@ -1074,7 +1074,7 @@ def fbg():
 
 def test_class_repr_and_len(fbg):
     assert repr(fbg).startswith("FlashBackGrammar(")
-    assert len(fbg) == fbg.n_rules > 0
+    assert len(fbg) == fbg.n_sequences > 0
 
 
 def test_class_contains(fbg):
@@ -1097,21 +1097,21 @@ def test_class_properties(fbg):
 
 def test_class_pgen_scalar_and_batch(fbg):
     # Scalar
-    lp = fbg.flashback_pgen(TRAIN[0])
+    lp = fbg.pgen(TRAIN[0])
     assert lp > -100 and lp <= 0
-    p = fbg.flashback_pgen(TRAIN[0], log=False)
+    p = fbg.pgen(TRAIN[0], log=False)
     assert abs(p - math.exp(lp)) < 1e-12
     # Batch
-    lps = fbg.flashback_pgen(TRAIN)
+    lps = fbg.pgen(TRAIN)
     assert len(lps) == len(TRAIN)
-    ps = fbg.flashback_pgen(TRAIN, log=False)
+    ps = fbg.pgen(TRAIN, log=False)
     assert abs(ps[0] - math.exp(lps[0])) < 1e-12
 
 
 def test_class_pgen_mle_distinct_from_backoff():
     fbg_gt = FlashBackGrammar(TRAIN, backoff='gt')
     seq = HELDOUT[0]
-    lp_backoff = fbg_gt.flashback_pgen(seq)
+    lp_backoff = fbg_gt.pgen(seq)
     lp_mle = fbg_gt.pgen_mle(seq)
     # For a held-out that needs backoff, lp_mle should be at ε and lp_backoff above.
     assert lp_mle <= proto.LOG_EPS + 1.0
@@ -1136,7 +1136,7 @@ def test_class_path_count(fbg):
     assert len(series) == 21
     total = fbg.path_count(20)
     assert abs(total - series.sum()) < 1e-9
-    ld = fbg.length_distribution(25)
+    ld = fbg.length_pmf(25)
     assert abs(ld.sum() - 1.0) < 1e-9
 
 
@@ -1278,8 +1278,8 @@ def test_integration_alongside_flashback_graph():
 
     # Both should recognize all training seqs.
     for seq in TRAIN:
-        assert fbg.flashback_pgen(seq) > -100
-        assert fbg_graph.flashback_pgen(seq) > -100
+        assert fbg.pgen(seq) > -100
+        assert fbg_graph.pgen(seq) > -100
 
     # Grammar has FEWER distinct non-terminals than graph has nodes (the
     # cross-depth-sharing compactness win).

@@ -25,9 +25,7 @@
 #include "lzgraph/io.h"
 
 static int pass_count = 0, fail_count = 0;
-#define RUN_TEST(fn) do { printf("  %-55s ", #fn); fn(); } while(0)
-#define ASSERT_MSG(cond, msg) do { if (!(cond)) { printf("FAIL: %s\n", msg); fail_count++; return; } } while(0)
-#define PASS() do { printf("PASS\n"); pass_count++; } while(0)
+#include "test_utils.h"
 
 static const char *train_seqs[] = {
     "CASSLGIRRT", "CASSLGYEQYF", "CASSLEPSGGTDTQYF",

@@ -92,7 +92,7 @@ class TestPgenDiagnostics:
         result = leaky.simulate(64, seed=123)
 
         for seq, sim_lp in zip(result.sequences, result.log_probs):
-            assert leaky.lzpgen(seq) == pytest.approx(sim_lp, abs=1e-12)
+            assert leaky.pgen(seq) == pytest.approx(sim_lp, abs=1e-12)
 
     def test_dynamic_range(self, aap_graph):
         dr = aap_graph.pgen_dynamic_range()

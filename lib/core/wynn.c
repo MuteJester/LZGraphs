@@ -10,9 +10,10 @@
  * The even-indexed columns eps[2m][0] are the Shanks transforms.
  * The best estimate is the last even-indexed entry computed.
  */
-#include "lzgraph/wynn.h"
 #include <stdlib.h>
 #include <math.h>
+
+#include "lzgraph/wynn.h"
 
 double lzg_wynn_epsilon(const double *partial_sums, uint32_t n) {
     if (n == 0) return 0.0;

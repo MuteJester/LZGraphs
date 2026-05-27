@@ -57,7 +57,7 @@ class TestSimulateMetadata:
         """Simulate log_probs should match lzpgen() on the same sequences."""
         result = aap_graph.simulate(20, seed=42)
         for seq, sim_lp in zip(result.sequences, result.log_probs):
-            score_lp = aap_graph.lzpgen(seq)
+            score_lp = aap_graph.pgen(seq)
             # Allow some tolerance — simulate computes incrementally
             assert abs(sim_lp - score_lp) < 1.0 or score_lp < -600
 

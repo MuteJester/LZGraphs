@@ -19,9 +19,18 @@ typedef struct {
     uint64_t  *ht_hashes;
     uint32_t  *ht_ids;     /* LZG_SP_NOT_FOUND = empty slot     */
     uint32_t   ht_cap;     /* always a power of 2               */
+
+    uint32_t   refcount;   /* shared-ownership counter; create=1 */
 } LZGStringPool;
 
 LZGStringPool *lzg_sp_create(uint32_t initial_capacity);
+
+/** Increment refcount and return the pool. Lets multiple owners share a
+ *  pool (e.g. a stream snapshot graph borrowing the builder's pool). */
+LZGStringPool *lzg_sp_retain(LZGStringPool *pool);
+
+/** Decrement refcount; frees the pool only when the count reaches zero.
+ *  Safe to call on NULL. */
 void           lzg_sp_destroy(LZGStringPool *pool);
 
 /** Intern a null-terminated string. Returns its ID (existing or new). */

@@ -1,0 +1,22 @@
+{
+  "hill_numbers_q0_1_2": [
+    "__inf__",
+    98832636.62221682,
+    2398.690553454215
+  ],
+  "log_pgen_probes": {
+    "CAAAAAAAAAA": -690.7755278982137,
+    "CASRRDGSFNEKLFF": -690.7755278982137,
+    "CASSDTSGGTDTQYF": -690.7755278982137,
+    "CASSFGQGSYEQYF": -690.7755278982137,
+    "CASSLEPSGGTDTQYF": -690.7755278982137,
+    "CASSLGIRRT": -690.7755278982137,
+    "CASSLGYEQYF": -10.583982223256012,
+    "CASSQETQYF": -690.7755278982137
+  },
+  "n_internal_rules": 1340,
+  "n_leaf_rules": 79,
+  "n_rules": 1419,
+  "n_sequences": 200,
+  "spectral_radius": 0.8629239230321116
+}

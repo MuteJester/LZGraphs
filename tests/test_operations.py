@@ -73,8 +73,8 @@ class TestIO:
     def test_lzpgen_preserved(self, aap_graph, tmp_lzg):
         aap_graph.save(tmp_lzg)
         loaded = LZGraph.load(tmp_lzg)
-        lp1 = aap_graph.lzpgen('CASSLGIRRT')
-        lp2 = loaded.lzpgen('CASSLGIRRT')
+        lp1 = aap_graph.pgen('CASSLGIRRT')
+        lp2 = loaded.pgen('CASSLGIRRT')
         assert abs(lp1 - lp2) < 1e-10
 
     def test_gene_roundtrip(self, aap_gene_graph, tmp_lzg):

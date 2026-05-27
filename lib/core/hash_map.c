@@ -2,9 +2,10 @@
  * @file hash_map.c
  * @brief Open-addressing hash map with linear probing.
  */
-#include "lzgraph/hash_map.h"
 #include <stdlib.h>
 #include <string.h>
+
+#include "lzgraph/hash_map.h"
 
 static uint32_t next_pow2(uint32_t v) {
     v--; v |= v >> 1; v |= v >> 2; v |= v >> 4;

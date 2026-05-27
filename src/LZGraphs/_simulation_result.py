@@ -1,4 +1,7 @@
 """Simulation result container."""
+from __future__ import annotations
+
+from typing import Iterator
 
 import numpy as np
 
@@ -15,18 +18,30 @@ class SimulationResult:
 
     __slots__ = ('sequences', 'log_probs', 'n_tokens', 'v_genes', 'j_genes')
 
-    def __init__(self, sequences, log_probs, n_tokens,
-                 v_genes=None, j_genes=None):
+    sequences: list[str]
+    log_probs: np.ndarray
+    n_tokens: np.ndarray
+    v_genes: list[str] | None
+    j_genes: list[str] | None
+
+    def __init__(
+        self,
+        sequences: list[str],
+        log_probs,
+        n_tokens,
+        v_genes: list[str] | None = None,
+        j_genes: list[str] | None = None,
+    ) -> None:
         self.sequences = sequences
         self.log_probs = np.asarray(log_probs, dtype=np.float64)
         self.n_tokens = np.asarray(n_tokens, dtype=np.uint32)
         self.v_genes = v_genes
         self.j_genes = j_genes
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self.sequences)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.sequences)
 
     def __getitem__(self, idx):
@@ -40,5 +55,5 @@ class SimulationResult:
             )
         return self.sequences[idx]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"SimulationResult(n={len(self)})"

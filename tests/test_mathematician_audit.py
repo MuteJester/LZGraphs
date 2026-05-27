@@ -107,7 +107,7 @@ class TestNoveltyRate:
         if not novel:
             pytest.skip("no novel sequences")
 
-        lps = graph.lzpgen(novel)
+        lps = graph.pgen(novel)
         zero_count = np.sum(lps < -600)
         assert zero_count == 0, f"{zero_count}/{len(novel)} novel seqs have zero LZPGEN"
 
@@ -124,12 +124,12 @@ class TestDiscrimination:
 
         # In-distribution: held-out real sequences
         holdout = all_seqs[4000:]  # last 1000
-        in_scores = graph.lzpgen(holdout)
+        in_scores = graph.pgen(holdout)
 
         # Out-of-distribution: random amino acid strings
         rand_seqs = [''.join(rng.choice(AA, size=rng.integers(8, 18)))
                      for _ in range(500)]
-        out_scores = graph.lzpgen(rand_seqs)
+        out_scores = graph.pgen(rand_seqs)
 
         # AUC via Mann-Whitney U
         U, p = mannwhitneyu(in_scores, out_scores, alternative='greater')
@@ -153,7 +153,7 @@ class TestConvergence:
             idx = rng.choice(len(all_seqs), size=n, replace=False)
             subset = [all_seqs[i] for i in idx]
             g = LZGraph(subset, variant='aap')
-            lps = g.lzpgen(probe_seqs)
+            lps = g.pgen(probe_seqs)
             valid = lps[lps > -600]
             mean_lzpgens.append(np.mean(valid) if len(valid) > 0 else -999)
 
@@ -193,8 +193,8 @@ class TestBootstrapStability:
         g1 = LZGraph([all_seqs[i] for i in idx1], variant='aap')
         g2 = LZGraph([all_seqs[i] for i in idx2], variant='aap')
 
-        s1 = g1.lzpgen(probe_seqs)
-        s2 = g2.lzpgen(probe_seqs)
+        s1 = g1.pgen(probe_seqs)
+        s2 = g2.pgen(probe_seqs)
 
         mask = (s1 > -600) & (s2 > -600)
         if mask.sum() > 10:
@@ -213,7 +213,7 @@ class TestLZPGENCalibration:
         most_common = counts.most_common(50)
         seqs = [s for s, _ in most_common]
         freqs = np.array([c for _, c in most_common], dtype=float)
-        lzpgens = graph.lzpgen(seqs)
+        lzpgens = graph.pgen(seqs)
 
         mask = (lzpgens > -600) & (freqs > 1)
         if mask.sum() > 5:

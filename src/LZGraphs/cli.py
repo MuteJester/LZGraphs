@@ -314,7 +314,7 @@ def cmd_score(args):
         _stderr("[score] no sequences to score")
         return
 
-    lps = g.lzpgen(seqs)
+    lps = g.pgen(seqs)
     if not args.prob:
         values = lps
     else:

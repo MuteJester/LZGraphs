@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>High-performance LZ76 compression graphs for immune receptor repertoire analysis</strong>
+  <strong>LZ76 and FlashBack compression graphs for immune receptor repertoire analysis</strong>
 </p>
 
 <p align="center">
@@ -25,21 +25,46 @@
 
 ---
 
-**LZGraphs** is a Python library that transforms T-cell and B-cell receptor CDR3 sequences into probabilistic directed graphs using the Lempel-Ziv 76 compression algorithm. Built on a C core with Python bindings, it provides:
+**LZGraphs** is a Python library that turns T-cell and B-cell receptor CDR3 sequences into probabilistic directed graphs. It ships two graph families on a shared C core:
 
-- **Exact generation probabilities** for any CDR3 sequence
-- **LZ76-constrained sequence simulation** that guarantees valid outputs
-- **Analytical diversity metrics** (Hill numbers, richness predictions, sharing spectra)
-- **Graph algebra** (union, intersection, difference) for repertoire comparison
-- **ML feature extraction** with fixed-size vectors for classification pipelines
-- **Bayesian posterior personalization** to adapt population models to individuals
-- **A CLI tool** (`lzg`) for terminal-based analysis
+- [`LZGraph`](#quick-start-lzgraph): built from **Lempel-Ziv 76** compression. Supports V/J gene annotation, three encoding variants, and a `lzg` CLI.
+- [`FlashBackGraph`](#quick-start-flashbackgraph): a **Markovian DAG** built from FlashBack tokenization (recursive run-peeling from both ends of the sentinel-wrapped sequence). Diversity, entropy, and path counting have closed-form forward-DP solutions; sequence simulation is still sampled.
 
-## Quick Start
+Both classes share a common surface for scoring, simulation, diversity, graph algebra, posterior personalization, and binary serialization. See [When to use which](#when-to-use-which) for a comparison.
+
+<p align="center">
+  <img src="docs/images/example_graph.png" alt="Example LZGraph built from 3 CDR3 sequences" width="700">
+  <br>
+  <em>An <code>LZGraph</code> built from three CDR3s. <code>@</code> and <code>$</code> are start/end sentinels; subpattern nodes carry position suffixes.</em>
+</p>
+
+## Installation
 
 ```bash
 pip install LZGraphs
 ```
+
+Requires Python 3.9 or later. Wheels are published for Linux, macOS, and Windows (CPython 3.9–3.12). Release history: [CHANGELOG.md](CHANGELOG.md).
+
+## Input format
+
+For programmatic use, all classes accept a plain list of CDR3 strings:
+
+```python
+LZGraph(['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', ...], variant='aap')
+```
+
+For files (the CLI and `FlashBackGraph.from_file`), three formats are supported:
+
+| Format | Layout | Example |
+|---|---|---|
+| Plain | one sequence per line | `CASSLEPSGGTDTQYF` |
+| Seq + count | `sequence\tcount` (tab-separated) | `CASSLEPSGGTDTQYF\t42` |
+| AIRR-compatible TSV | tab-separated, with header row | `junction_aa`, `v_call`, `j_call`, ... |
+
+For AIRR TSV: the sequence column is auto-detected from `junction_aa` / `cdr3_amino_acid` / `cdr3_aa` (variant `aap`), `junction` / `cdr3_rearrangement` (variant `ndp`), or any column named `sequence`/`cdr3`/`seq`. Gene calls come from `v_call` / `j_call` and must use IMGT-style notation (e.g. `TRBV5-1*01`). Gzipped inputs (`.tsv.gz`) are supported transparently.
+
+## Quick Start: LZGraph
 
 ```python
 from LZGraphs import LZGraph
@@ -52,7 +77,7 @@ graph = LZGraph(
 )
 
 # Score a sequence
-log_p = graph.lzpgen('CASSLEPSGGTDTQYF')
+log_p = graph.pgen('CASSLEPSGGTDTQYF')
 print(f"log P(gen) = {log_p:.2f}")
 
 # Simulate new sequences
@@ -79,6 +104,14 @@ result = graph.simulate(100, sample_genes=True, seed=42)
 print(result.v_genes[0], result.j_genes[0])
 ```
 
+### LZGraph encoding variants
+
+| Variant | Input | Node format | Best for |
+|---------|-------|-------------|----------|
+| `'aap'` | Amino acid CDR3 | `C_2`, `SL_6` | Most TCR/BCR analysis |
+| `'ndp'` | Nucleotide CDR3 | `TG0_4` | Nucleotide-level analysis |
+| `'naive'` | Any strings | `C`, `SL` | Motif discovery, ML features |
+
 ### Command line
 
 ```bash
@@ -89,28 +122,78 @@ lzg simulate rep.lzg -n 10000 --seed 42
 lzg compare healthy.lzg disease.lzg
 ```
 
-## Graph Variants
+## Quick Start: FlashBackGraph
 
-One unified `LZGraph` class with three encoding schemes:
+```python
+from LZGraphs import FlashBackGraph
 
-| Variant | Input | Node format | Best for |
-|---------|-------|-------------|----------|
-| `'aap'` | Amino acid CDR3 | `C_2`, `SL_6` | Most TCR/BCR analysis |
-| `'ndp'` | Nucleotide CDR3 | `TG0_4` | Nucleotide-level analysis |
-| `'naive'` | Any strings | `C`, `SL` | Motif discovery, ML features |
+# Build a Markovian DAG from CDR3 sequences
+graph = FlashBackGraph(
+    ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF',
+     'CASSLGQGSTEAFF', 'CASSLGIRRT'],
+)
+
+# Score a sequence (exact forward DP, no MC)
+log_p = graph.pgen('CASSLEPSGGTDTQYF')
+print(f"log P(gen) = {log_p:.2f}")
+
+# Simulate from the Markovian distribution
+result = graph.simulate(1000, seed=42)
+
+# Diversity, entropy, path count: closed-form via forward DP
+print(f"D(1) = {graph.effective_diversity():.1f}")
+print(f"D(2) = {graph.hill_number(2):.1f}")
+print(f"# distinct paths = {graph.path_count:.3e}")
+```
+
+### Build from a file (streaming, constant memory)
+
+```python
+graph = FlashBackGraph.from_file('repertoire.tsv')   # one seq per line, or seq\tcount
+```
+
+For incremental / checkpointed builds over very large repertoires, use `FlashBackStream`: same accumulator with `add_sequences()`, `snapshot()`, and `finalize()`. See the class docstring (`help(FlashBackStream)`) for the streaming protocol.
+
+## When to use which
+
+|  | `LZGraph` | `FlashBackGraph` |
+|---|-----------|------------------|
+| Tokenization | LZ76 dictionary | FlashBack (run-peeling) |
+| Structure | LZ-constrained walks | Markovian DAG |
+| Diversity / entropy / path count | Analytical (with MC where needed) | Closed-form forward DP |
+| V/J gene annotation & gene-conditioned simulation | Yes | No |
+| Encoding variants | `aap`, `ndp`, `naive` | Single representation |
+| CLI tool (`lzg`) | Yes | No |
+| Streaming / incremental build | No | Yes (`FlashBackStream`) |
+
+## Performance
+
+Benchmark figures below are from a single CPU core on a 5,000-sequence amino-acid CDR3 repertoire (mean length 14.7 aa; resulting LZGraph has ~1,700 nodes, ~9,600 edges). See [docs/resources/benchmarks.md](docs/resources/benchmarks.md) for the full table and methodology.
+
+| Operation | Throughput |
+|---|---|
+| Graph construction | ~50,000 sequences/sec (5k seqs in <100 ms) |
+| `pgen()` scoring | ~5,000 sequences/sec (constant across batch sizes) |
+| `simulate()` | ~4,800 sequences/sec |
+| Hill numbers via MC (10k walks) | ~2 sec |
+| Load / save `.lzg` | ~100× faster than rebuilding |
+
+For repertoires of ~100k sequences and above, graph construction stays linear and saved `.lzg` files round-trip in seconds. FlashBackGraph's `from_file` and `FlashBackStream` paths operate in bounded memory; we have built and validated graphs with >70,000 nodes and >11M edges this way.
 
 ## Key Capabilities
+
+In the snippets below, `graph` denotes a method that works on either class; `lz_graph` denotes an `LZGraph` instance and `fb_graph` denotes a `FlashBackGraph` instance. Method names marked LZGraph-only or FlashBackGraph-only are not implemented on the other class.
 
 ### Scoring & Simulation
 
 ```python
-# Log-probability of a sequence
-graph.lzpgen('CASSLEPSGGTDTQYF')              # single
-graph.lzpgen(['seq1', 'seq2', 'seq3'])         # batch → np.ndarray
+# Log-probability of a sequence (works on LZGraph and FlashBackGraph alike)
+graph.pgen('CASSLEPSGGTDTQYF')               # single → float
+graph.pgen(['seq1', 'seq2', 'seq3'])          # batch  → np.ndarray
 
-# Simulate with optional gene constraints
+# Simulate (both classes)
 result = graph.simulate(1000, seed=42)
-result = graph.simulate(100, v_gene='TRBV5-1*01', j_gene='TRBJ2-7*01')
+result = lz_graph.simulate(100, v_gene='TRBV5-1*01', j_gene='TRBJ2-7*01')  # LZGraph only
 ```
 
 ### Diversity & Analytics
@@ -119,41 +202,51 @@ result = graph.simulate(100, v_gene='TRBV5-1*01', j_gene='TRBJ2-7*01')
 graph.effective_diversity()          # exp(Shannon entropy)
 graph.hill_number(2)                 # inverse Simpson
 graph.hill_numbers([0, 1, 2, 5])     # multiple orders → np.ndarray
-graph.predicted_richness(100_000)    # expected unique seqs at depth
-graph.predicted_overlap(10000, 50000)# expected shared sequences
-graph.pgen_distribution()            # analytical Gaussian mixture
+
+# LZGraph-only
+lz_graph.pgen_distribution()         # analytical log-pgen distribution (Gaussian mixture)
+lz_graph.predicted_richness(100_000) # expected unique seqs at depth
+lz_graph.predicted_overlap(10000, 50000)        # expected shared sequences
+lz_graph.predict_sharing([1000]*5, max_k=5)     # sharing spectrum across donors
+
+# FlashBackGraph-only (closed-form)
+fb_graph.path_count                  # exact count of distinct walks
+fb_graph.flashback_fbas('CASSLEPSGGTDTQYF')     # FlashBack alignment to the graph
+fb_graph.pgen_moments()              # exact moments of log-pgen distribution
 ```
 
 ### Graph Algebra
 
 ```python
-combined = graph_a | graph_b          # union
-shared   = graph_a & graph_b          # intersection
-unique_a = graph_a - graph_b          # difference
-personal = population.posterior(patient_seqs, kappa=10.0)  # Bayesian update
+combined = graph_a | graph_b          # union          (LZGraph and FlashBackGraph)
+shared   = graph_a & graph_b          # intersection   (both)
+unique_a = graph_a - graph_b          # difference     (both)
+personal = population.posterior(patient_seqs, kappa=10.0)  # Bayesian update (both)
 ```
 
 ### Repertoire Comparison
 
 ```python
 from LZGraphs import jensen_shannon_divergence
-jsd = jensen_shannon_divergence(graph_a, graph_b)  # 0 = identical, 1 = max different
+jsd = jensen_shannon_divergence(graph_a, graph_b)  # natural log (nats): 0.0 identical, ln(2) ≈ 0.693 disjoint
 ```
 
 ### ML Feature Extraction
 
 ```python
-# Project any repertoire into a fixed reference space
-features = reference.feature_aligned(LZGraph(sample_seqs, variant='aap'))
-stats = graph.feature_stats()           # 15-element summary vector
-profile = graph.feature_mass_profile()  # position-based mass distribution
+graph.feature_stats()                 # 15-element summary vector (both classes)
+
+# LZGraph-only
+lz_reference.feature_aligned(lz_sample)   # project sample into a fixed reference space
+lz_graph.feature_mass_profile()           # position-based mass distribution
 ```
 
 ### Serialization
 
 ```python
-graph.save('repertoire.lzg')           # fast binary format
+graph.save('repertoire.lzg')                   # shared binary format (both classes)
 loaded = LZGraph.load('repertoire.lzg')
+loaded = FlashBackGraph.load('repertoire.lzg')
 ```
 
 ## Documentation
@@ -162,23 +255,33 @@ Full documentation with tutorials, concept guides, and API reference:
 
 **[https://MuteJester.github.io/LZGraphs/](https://MuteJester.github.io/LZGraphs/)**
 
-- [Quick Start](https://MuteJester.github.io/LZGraphs/getting-started/quickstart/) — build your first graph in 5 minutes
-- [Tutorials](https://MuteJester.github.io/LZGraphs/tutorials/) — graph construction, sequence analysis, diversity metrics
-- [API Reference](https://MuteJester.github.io/LZGraphs/api/lzgraph/) — complete class and function reference
-- [CLI Reference](https://MuteJester.github.io/LZGraphs/api/cli/) — terminal tool documentation
+- [Quick Start](https://MuteJester.github.io/LZGraphs/getting-started/quickstart/): build your first graph in 5 minutes
+- [Tutorials](https://MuteJester.github.io/LZGraphs/tutorials/): graph construction, sequence analysis, diversity metrics
+- [API Reference](https://MuteJester.github.io/LZGraphs/api/lzgraph/): complete class and function reference
+- [CLI Reference](https://MuteJester.github.io/LZGraphs/api/cli/): terminal tool documentation
 
 ## Citation
 
-If you use LZGraphs in your research, please cite:
+If you use LZGraphs in published research, please cite the methods paper. If you also want to cite a specific software version, add the software entry below.
 
 ```bibtex
-@article{konstantinovsky2023lzgraphs,
-  title={A Novel Approach to T-Cell Receptor Beta Chain (TCRB) Repertoire Encoding
-         Using Lossless String Compression},
-  author={Konstantinovsky, Thomas and Nagar, Maor and Louzoun, Yoram},
+@article{konstantinovsky2023novel,
+  title={A novel approach to T-cell receptor beta chain ({TCRB}) repertoire encoding using lossless string compression},
+  author={Konstantinovsky, Thomas and Yaari, Gur},
   journal={Bioinformatics},
+  volume={39},
+  number={7},
+  pages={btad426},
   year={2023},
-  publisher={Oxford University Press}
+  publisher={Oxford University Press},
+  doi={10.1093/bioinformatics/btad426}
+}
+
+@software{lzgraphs_software,
+  author={Konstantinovsky, Thomas},
+  title={{LZGraphs}: {LZ76} and {FlashBack} compression graphs for immune repertoire analysis},
+  url={https://github.com/MuteJester/LZGraphs},
+  year={2026}
 }
 ```
 
@@ -186,10 +289,30 @@ If you use LZGraphs in your research, please cite:
 
 Contributions are welcome. Please open an issue or submit a pull request.
 
+### Local development setup
+
+LZGraphs builds a CPython extension from a C library at install time, so a working C toolchain is required:
+
+- **Linux**: `gcc` or `clang` (any version supporting C11)
+- **macOS**: Xcode command-line tools (`xcode-select --install`)
+- **Windows**: Visual Studio Build Tools with the "Desktop development with C++" workload
+
+Then:
+
+```bash
+git clone https://github.com/MuteJester/LZGraphs.git
+cd LZGraphs
+pip install -e ".[dev]"   # editable install + dev extras (pytest, pytest-cov, ruff, scipy, build)
+pytest                    # run the test suite (~490 tests)
+```
+
+### PR checklist
+
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/my-feature`)
-3. Commit your changes
-4. Push and open a Pull Request
+3. Add tests for new functionality; make sure `pytest` and `pytest tests/regression/` both pass
+4. Commit your changes (small, focused commits preferred)
+5. Push and open a Pull Request describing the motivation and any API changes
 
 ## License
 
@@ -197,6 +320,6 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Contact
 
-Thomas Konstantinovsky — [thomaskon90@gmail.com](mailto:thomaskon90@gmail.com)
+Thomas Konstantinovsky, [thomaskon90@gmail.com](mailto:thomaskon90@gmail.com)
 
 [GitHub](https://github.com/MuteJester/LZGraphs) · [PyPI](https://pypi.org/project/LZGraphs/) · [Documentation](https://MuteJester.github.io/LZGraphs/)

@@ -38,7 +38,7 @@ class TestCrossValidation:
 
         positive = 0
         for s in holdout:
-            lp = g.lzpgen(s)
+            lp = g.pgen(s)
             if lp > -600:
                 positive += 1
         assert positive >= len(holdout) - 1, \
@@ -58,13 +58,13 @@ class TestProbabilityDecomposition:
 
         # Pick a training sequence
         seq = 'CASSLGIRRT'
-        lp = g.lzpgen(seq)
+        lp = g.pgen(seq)
 
         # The log_prob should be negative (not zero, not -inf)
         assert -100 < lp < 0, f"unexpected lzpgen: {lp}"
 
         # Two identical sequences should have identical LZPGEN
-        lp2 = g.lzpgen(seq)
+        lp2 = g.pgen(seq)
         assert lp == lp2, "LZPGEN should be deterministic"
 
     def test_longer_seq_lower_prob(self):
@@ -74,8 +74,8 @@ class TestProbabilityDecomposition:
                 'CASSDTSGGTDTQYF', 'CASSFGQGSYEQYF', 'CASSQETQYF'] * 3
         g = LZGraph(seqs, variant='aap')
 
-        short_lp = g.lzpgen('CASSLGIRRT')      # 10 chars
-        long_lp = g.lzpgen('CASSLEPSGGTDTQYF')  # 16 chars
+        short_lp = g.pgen('CASSLGIRRT')      # 10 chars
+        long_lp = g.pgen('CASSLEPSGGTDTQYF')  # 16 chars
 
         # Not a strict invariant (depends on edge weights), but generally true
         # The longer sequence has more steps → more probability factors → lower total
@@ -100,7 +100,7 @@ class TestNaiveVariant:
         """Naive LZPGEN should work for training sequences."""
         seqs = ['CASSLGIRRT', 'CASSLGYEQYF'] * 3
         g = LZGraph(seqs, variant='naive')
-        lp = g.lzpgen('CASSLGIRRT')
+        lp = g.pgen('CASSLGIRRT')
         # Naive might not work perfectly due to cycles, but shouldn't crash
         assert isinstance(lp, float)
 
@@ -121,8 +121,8 @@ class TestUnionLZPGEN:
         g_union = g_a | g_b
 
         # Sequences from A should still have positive prob in union
-        lp_a_in_a = g_a.lzpgen('CASSLGIRRT')
-        lp_a_in_union = g_union.lzpgen('CASSLGIRRT')
+        lp_a_in_a = g_a.pgen('CASSLGIRRT')
+        lp_a_in_union = g_union.pgen('CASSLGIRRT')
 
         assert lp_a_in_a > -600, "seq should have positive prob in its own graph"
         assert lp_a_in_union > -600, "seq should have positive prob in union"
@@ -137,7 +137,7 @@ class TestUnionLZPGEN:
         g_b = LZGraph(seqs_b * 2, variant='aap')
         g_inter = g_a & g_b
 
-        lp = g_inter.lzpgen('CASSLGIRRT')
+        lp = g_inter.pgen('CASSLGIRRT')
         assert lp > -600, f"shared seq should have positive prob in intersection: {lp}"
 
 
@@ -189,7 +189,7 @@ class TestPrefixExactness:
 
         # All training sequences should have positive LZPGEN
         for s in ['CASSLGIRRT', 'CASSGQETQYF', 'CASSLAETQYF']:
-            lp = g.lzpgen(s)
+            lp = g.pgen(s)
             assert lp > -600, f"'{s}' should have positive prob: {lp:.2f}"
 
 
@@ -200,9 +200,9 @@ class TestPrefixExactness:
 class TestBatchConsistency:
     def test_batch_matches_individual(self, aap_graph, aap_sequences):
         """lzpgen(list) should match individual lzpgen(str) calls."""
-        batch = aap_graph.lzpgen(aap_sequences)
+        batch = aap_graph.pgen(aap_sequences)
         for i, seq in enumerate(aap_sequences):
-            individual = aap_graph.lzpgen(seq)
+            individual = aap_graph.pgen(seq)
             assert abs(batch[i] - individual) < 1e-10, \
                 f"mismatch for {seq}: batch={batch[i]}, individual={individual}"
 
@@ -219,8 +219,8 @@ class TestStopProbability:
         seqs = ['CASSLG', 'CASSLGIRRT', 'CASSLGYEQYF'] * 3
         g = LZGraph(seqs, variant='aap')
 
-        lp_short = g.lzpgen('CASSLG')
-        lp_long = g.lzpgen('CASSLGIRRT')
+        lp_short = g.pgen('CASSLG')
+        lp_long = g.pgen('CASSLGIRRT')
 
         # Both should have positive probability
         assert lp_short > -600, f"short seq: {lp_short}"
@@ -247,7 +247,7 @@ class TestSimulationReconstruction:
         result = aap_graph.simulate(200, seed=123)
         failures = []
         for i, seq in enumerate(result.sequences):
-            lp = aap_graph.lzpgen(seq)
+            lp = aap_graph.pgen(seq)
             if lp <= -600:
                 failures.append((i, seq, lp, result.log_probs[i]))
 

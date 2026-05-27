@@ -23,7 +23,7 @@ build_dirs:
 	@mkdir -p $(sort $(dir $(OBJS)))
 
 # Test runners
-test: test_core test_graph test_forward test_simulate test_analytics test_occupancy test_io_posterior test_pgen_dist test_variants test_gene_data test_sharing test_graph_ops test_diversity test_features test_genomic_simulate test_walk_dict
+test: test_core test_graph test_forward test_simulate test_analytics test_occupancy test_io test_posterior test_pgen_dist test_ndp test_gene_data test_sharing test_graph_ops test_diversity test_features test_genomic_simulate test_walk_dict
 
 test_core: build/test_core
 	./build/test_core
@@ -61,10 +61,16 @@ test_occupancy: build/test_occupancy
 build/test_occupancy: tests/c_unit/test_occupancy.c build/liblzgraph.a | build_dirs
 	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
 
-test_io_posterior: build/test_io_posterior
-	./build/test_io_posterior
+test_io: build/test_io
+	./build/test_io
 
-build/test_io_posterior: tests/c_unit/test_io_posterior.c build/liblzgraph.a | build_dirs
+build/test_io: tests/c_unit/test_io.c build/liblzgraph.a | build_dirs
+	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
+
+test_posterior: build/test_posterior
+	./build/test_posterior
+
+build/test_posterior: tests/c_unit/test_posterior.c build/liblzgraph.a | build_dirs
 	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
 
 test_pgen_dist: build/test_pgen_dist
@@ -73,10 +79,10 @@ test_pgen_dist: build/test_pgen_dist
 build/test_pgen_dist: tests/c_unit/test_pgen_dist.c build/liblzgraph.a | build_dirs
 	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
 
-test_variants: build/test_variants
-	./build/test_variants
+test_ndp: build/test_ndp
+	./build/test_ndp
 
-build/test_variants: tests/c_unit/test_variants.c build/liblzgraph.a | build_dirs
+build/test_ndp: tests/c_unit/test_ndp.c build/liblzgraph.a | build_dirs
 	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
 
 test_gene_data: build/test_gene_data

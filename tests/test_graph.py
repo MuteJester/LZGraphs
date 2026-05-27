@@ -298,7 +298,7 @@ class TestDunders:
         assert 'nodes=' in r
 
     def test_len(self, aap_graph):
-        assert len(aap_graph) == aap_graph.n_nodes
+        assert len(aap_graph) == aap_graph.n_sequences
 
     def test_contains_known(self, aap_graph):
         assert 'CASSLGIRRT' in aap_graph

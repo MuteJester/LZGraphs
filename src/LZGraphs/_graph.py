@@ -1,12 +1,27 @@
 """LZGraph — Python wrapper around C-LZGraph."""
+from __future__ import annotations
+
+import os
+from typing import Any, Iterable, overload
 
 import numpy as np
+
 from . import _clzgraph as _c
+from ._constants import LOG_EPS_THRESHOLD
 from ._errors import LZGraphError, NoGeneDataError
+from ._graph_common import _GraphCommonMixin
 from ._simulation_result import SimulationResult
+from ._types import (
+    ApproximationDiagnostics,
+    DynamicRange,
+    PgenDiagnostics,
+    PgenMoments,
+    SharingSpectrum,
+    Summary,
+)
 
 
-class LZGraph:
+class LZGraph(_GraphCommonMixin):
     """LZ76 compression graph for sequence repertoire analysis.
 
     Wraps the C-LZGraph library for high-performance graph construction,
@@ -20,17 +35,25 @@ class LZGraph:
         j_genes: J gene annotation per sequence. None = no gene data.
         smoothing: Laplace smoothing alpha for edge weights.
     """
+    # ── Lazy-cache slots (populated by first access) ──
+    _all_edges_cache = None
+    _all_nodes_cache = None
+    _edges_cache = None
+    _length_dist_cache = None
+    _nodes_cache = None
+    _path_count_cache = None
+
 
     def __init__(
         self,
-        sequences,
+        sequences: Iterable[str],
         *,
-        variant='aap',
-        abundances=None,
-        v_genes=None,
-        j_genes=None,
-        smoothing=0.0,
-    ):
+        variant: str = 'aap',
+        abundances: Iterable[int] | None = None,
+        v_genes: Iterable[str] | None = None,
+        j_genes: Iterable[str] | None = None,
+        smoothing: float = 0.0,
+    ) -> None:
         if not sequences:
             raise ValueError("sequences must be a non-empty list")
         if isinstance(sequences, str):
@@ -47,7 +70,7 @@ class LZGraph:
         self._gene_cache = None
 
     @classmethod
-    def _from_capsule(cls, capsule):
+    def _from_capsule(cls, capsule: Any) -> "LZGraph":
         """Internal: wrap an existing C capsule."""
         obj = object.__new__(cls)
         obj._cap = capsule
@@ -56,8 +79,15 @@ class LZGraph:
         return obj
 
     @classmethod
-    def from_file(cls, path, *, variant='aap', smoothing=0.0,
-                  strict_input=False, expect_format=None):
+    def from_file(
+        cls,
+        path: str | os.PathLike,
+        *,
+        variant: str = "aap",
+        smoothing: float = 0.0,
+        strict_input: bool = False,
+        expect_format: str | None = None,
+    ) -> "LZGraph":
         """Build directly from a plain text file without Python list materialization.
 
         Supported file formats:
@@ -67,8 +97,7 @@ class LZGraph:
         This path is intended for large plain repertoire files and does not
         support headered tabular inputs or gene columns.
         """
-        if not isinstance(path, str):
-            raise TypeError("path must be a string")
+        path = os.fspath(path)
         if not path:
             raise ValueError("path must be non-empty")
         if strict_input or expect_format is not None:
@@ -87,60 +116,45 @@ class LZGraph:
 
     # ── Dunder methods ──────────────────────────────────────
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"LZGraph(variant='{self.variant}', "
                 f"nodes={self.n_nodes}, edges={self.n_edges})")
-
-    def __len__(self):
-        return self.n_nodes
-
-    def __contains__(self, sequence):
-        return self.lzpgen(sequence) > -690.0
-
-    def __or__(self, other):
-        return self.union(other)
-
-    def __and__(self, other):
-        return self.intersection(other)
-
-    def __sub__(self, other):
-        return self.difference(other)
 
     # ── Basic properties ──────────────────────────────────────
 
     @property
-    def n_nodes(self):
+    def n_nodes(self) -> int:
         """Number of nodes in the graph (including sentinel nodes)."""
         return self._info['n_nodes']
 
     @property
-    def n_edges(self):
+    def n_edges(self) -> int:
         """Number of directed edges in the graph."""
         return self._info['n_edges']
 
     @property
-    def variant(self):
+    def variant(self) -> str:
         """Graph encoding variant: 'aap', 'ndp', or 'naive'."""
         return self._info['variant']
 
     @property
-    def has_gene_data(self):
+    def has_gene_data(self) -> bool:
         """Whether V/J gene annotation data is available."""
         return self._info['has_gene_data']
 
     @property
-    def is_dag(self):
+    def is_dag(self) -> bool:
         """Whether the graph is a directed acyclic graph."""
         return self._info['is_dag']
 
     @property
-    def path_count(self):
+    def path_count(self) -> float:
         """Estimated number of distinct LZ-valid walks."""
-        if not hasattr(self, '_path_count_cache'):
+        if self._path_count_cache is None:
             self._path_count_cache = float(_c.path_count(self._cap))
         return self._path_count_cache
 
-    def path_count_estimate(self, n=None):
+    def path_count_estimate(self, n: int | None = None) -> float:
         """Estimated number of distinct LZ-valid walks.
 
         Args:
@@ -153,24 +167,24 @@ class LZGraph:
     # ── Structural properties ────────────────────────────────
 
     @property
-    def n_sequences(self):
+    def n_sequences(self) -> int:
         """Total number of sequences used to build the graph."""
         return sum(self.length_distribution.values())
 
     @property
-    def length_distribution(self):
+    def length_distribution(self) -> dict[int, int]:
         """Sequence length distribution: {length: count}.
 
         Example:
             >>> graph.length_distribution
             {10: 42, 11: 138, 12: 267, ...}
         """
-        if not hasattr(self, '_length_dist_cache'):
+        if self._length_dist_cache is None:
             self._length_dist_cache = _c.graph_length_distribution(self._cap)
         return dict(self._length_dist_cache)
 
     @property
-    def nodes(self):
+    def nodes(self) -> list[str]:
         """List of node label strings (excluding @ and $ sentinels).
 
         For AAP variant: labels like 'C_1', 'A_2', 'SL_5'.
@@ -179,7 +193,7 @@ class LZGraph:
 
         Use ``all_nodes`` to include sentinel nodes.
         """
-        if not hasattr(self, '_nodes_cache'):
+        if self._nodes_cache is None:
             raw = _c.graph_nodes(self._cap)
             self._all_nodes_cache = raw
             self._nodes_cache = [n for n in raw
@@ -187,14 +201,14 @@ class LZGraph:
         return list(self._nodes_cache)
 
     @property
-    def all_nodes(self):
+    def all_nodes(self) -> list[str]:
         """List of all node label strings, including @ and $ sentinels."""
-        if not hasattr(self, '_all_nodes_cache'):
+        if self._all_nodes_cache is None:
             self._all_nodes_cache = _c.graph_nodes(self._cap)
         return list(self._all_nodes_cache)
 
     @property
-    def edges(self):
+    def edges(self) -> list[tuple[str, str, float, int]]:
         """List of (source, target, weight, count) tuples for all edges.
 
         - source/target: node label strings
@@ -204,7 +218,7 @@ class LZGraph:
         Excludes edges involving @ and $ sentinel nodes.
         Use ``all_edges`` to include sentinel edges.
         """
-        if not hasattr(self, '_edges_cache'):
+        if self._edges_cache is None:
             raw = _c.graph_edges(self._cap)
             self._all_edges_cache = raw
             self._edges_cache = [
@@ -215,34 +229,34 @@ class LZGraph:
         return list(self._edges_cache)
 
     @property
-    def all_edges(self):
+    def all_edges(self) -> list[tuple[str, str, float, int]]:
         """List of all (source, target, weight, count) tuples, including sentinels."""
-        if not hasattr(self, '_all_edges_cache'):
+        if self._all_edges_cache is None:
             self._all_edges_cache = _c.graph_edges(self._cap)
         return list(self._all_edges_cache)
 
     @property
-    def n_initial(self):
+    def n_initial(self) -> int:
         """Number of initial states (nodes reachable from root)."""
         return self._get_summary()['n_initial']
 
     @property
-    def n_terminal(self):
+    def n_terminal(self) -> int:
         """Number of terminal (sink) nodes."""
         return self._get_summary()['n_terminal']
 
     @property
-    def max_out_degree(self):
+    def max_out_degree(self) -> int:
         """Maximum out-degree of any node."""
         return self._get_summary()['max_out_degree']
 
     @property
-    def max_in_degree(self):
+    def max_in_degree(self) -> int:
         """Maximum in-degree of any node."""
         return self._get_summary()['max_in_degree']
 
     @property
-    def density(self):
+    def density(self) -> float:
         """Graph density: n_edges / (n_nodes * (n_nodes - 1)).
 
         For a DAG with n nodes, the maximum possible edges is n*(n-1)/2,
@@ -254,98 +268,18 @@ class LZGraph:
         return self.n_edges / (n * (n - 1))
 
     @property
-    def out_degrees(self):
+    def out_degrees(self) -> np.ndarray:
         """Out-degree of each node as a numpy array (indexed by node ID)."""
         return np.array(self._get_degrees()['out_degrees'], dtype=np.uint32)
 
     @property
-    def in_degrees(self):
+    def in_degrees(self) -> np.ndarray:
         """In-degree of each node as a numpy array (indexed by node ID)."""
         return np.array(self._get_degrees()['in_degrees'], dtype=np.uint32)
 
-    @property
-    def initial_nodes(self):
-        """Node labels with in-degree 0 (excluding sentinel nodes)."""
-        all_n = self.all_nodes
-        in_deg = self._get_degrees()['in_degrees']
-        return [n for n, d in zip(all_n, in_deg)
-                if d == 0 and not n.startswith('@') and '$' not in n]
-
-    @property
-    def terminal_nodes(self):
-        """Node labels with out-degree 0 (excluding sentinel nodes)."""
-        all_n = self.all_nodes
-        out_deg = self._get_degrees()['out_degrees']
-        return [n for n, d in zip(all_n, out_deg)
-                if d == 0 and not n.startswith('@') and '$' not in n]
-
-    @property
-    def hub_nodes(self):
-        """Top nodes by total degree (in + out), descending.
-
-        Returns list of (node_label, in_degree, out_degree) tuples,
-        excluding sentinel nodes, sorted by total degree.
-        """
-        all_n = self.all_nodes
-        degs = self._get_degrees()
-        in_deg = degs['in_degrees']
-        out_deg = degs['out_degrees']
-        entries = [
-            (n, int(i), int(o))
-            for n, i, o in zip(all_n, in_deg, out_deg)
-            if not n.startswith('@') and '$' not in n
-        ]
-        entries.sort(key=lambda x: x[1] + x[2], reverse=True)
-        return entries
-
-    @property
-    def node_degree_map(self):
-        """Dict mapping node label -> (in_degree, out_degree).
-
-        Excludes sentinel nodes.
-        """
-        all_n = self.all_nodes
-        degs = self._get_degrees()
-        in_deg = degs['in_degrees']
-        out_deg = degs['out_degrees']
-        return {
-            n: (int(i), int(o))
-            for n, i, o in zip(all_n, in_deg, out_deg)
-            if not n.startswith('@') and '$' not in n
-        }
-
-    @property
-    def edge_weight_map(self):
-        """Dict mapping (src, dst) -> transition probability.
-
-        Excludes edges involving sentinel nodes.
-        """
-        return {(e[0], e[1]): e[2] for e in self.edges}
-
-    @property
-    def isolated_nodes(self):
-        """Nodes with both in-degree and out-degree 0 (excluding sentinels)."""
-        all_n = self.all_nodes
-        degs = self._get_degrees()
-        in_deg = degs['in_degrees']
-        out_deg = degs['out_degrees']
-        return [n for n, i, o in zip(all_n, in_deg, out_deg)
-                if i == 0 and o == 0
-                and not n.startswith('@') and '$' not in n]
-
-    def _get_summary(self):
-        if not hasattr(self, '_summary_cache'):
-            self._summary_cache = _c.summary(self._cap)
-        return self._summary_cache
-
-    def _get_degrees(self):
-        if not hasattr(self, '_degrees_cache'):
-            self._degrees_cache = _c.graph_degrees(self._cap)
-        return self._degrees_cache
-
     # ── Adjacency ────────────────────────────────────────────
 
-    def adjacency_csr(self):
+    def adjacency_csr(self) -> dict[str, np.ndarray]:
         """CSR (Compressed Sparse Row) adjacency representation.
 
         Returns a dict with numpy arrays ready for scipy.sparse.csr_matrix:
@@ -368,102 +302,17 @@ class LZGraph:
             'counts': csr['counts'].copy(),
         }
 
-    def _get_csr(self):
-        if not hasattr(self, '_csr_cache'):
-            raw = _c.graph_adjacency_csr(self._cap)
-            self._csr_cache = {
-                'row_offsets': np.array(raw['row_offsets'], dtype=np.uint32),
-                'col_indices': np.array(raw['col_indices'], dtype=np.uint32),
-                'weights': np.array(raw['weights'], dtype=np.float64),
-                'counts': np.array(raw['counts'], dtype=np.uint64),
-            }
-        return self._csr_cache
-
-    def _get_node_index(self):
-        """Cached label → integer index dict."""
-        if not hasattr(self, '_node_index'):
-            self._node_index = {n: i for i, n in enumerate(self.all_nodes)}
-        return self._node_index
-
-    def _get_reverse_csr(self):
-        """Build a reverse (transpose) CSR for predecessor lookups."""
-        if not hasattr(self, '_rcsr_cache'):
-            csr = self._get_csr()
-            n = len(csr['row_offsets']) - 1
-            col = csr['col_indices']
-            w = csr['weights']
-            c = csr['counts']
-            in_deg = np.zeros(n, dtype=np.uint32)
-            for j in col:
-                in_deg[j] += 1
-            r_offsets = np.zeros(n + 1, dtype=np.uint32)
-            np.cumsum(in_deg, out=r_offsets[1:])
-            r_col = np.empty(len(col), dtype=np.uint32)
-            r_w = np.empty(len(col), dtype=np.float64)
-            r_c = np.empty(len(col), dtype=np.uint64)
-            pos = r_offsets[:-1].copy()
-            for src in range(n):
-                for e in range(csr['row_offsets'][src], csr['row_offsets'][src + 1]):
-                    dst = col[e]
-                    p = pos[dst]
-                    r_col[p] = src
-                    r_w[p] = w[e]
-                    r_c[p] = c[e]
-                    pos[dst] += 1
-            self._rcsr_cache = {
-                'row_offsets': r_offsets,
-                'col_indices': r_col,
-                'weights': r_w,
-                'counts': r_c,
-            }
-        return self._rcsr_cache
-
-    def successors(self, node_label):
-        """Get successor nodes with edge weights.
-
-        Args:
-            node_label: Node label string (e.g., 'C_1' for AAP).
-
-        Returns:
-            List of (target_label, weight, count) tuples.
-        """
-        idx_map = self._get_node_index()
-        idx = idx_map.get(node_label)
-        if idx is None:
-            raise KeyError(f"node '{node_label}' not found in graph")
-        csr = self._get_csr()
-        nodes = self._all_nodes_cache
-        start = csr['row_offsets'][idx]
-        end = csr['row_offsets'][idx + 1]
-        col = csr['col_indices']
-        w = csr['weights']
-        c = csr['counts']
-        return [(nodes[col[e]], float(w[e]), int(c[e]))
-                for e in range(start, end)]
-
-    def predecessors(self, node_label):
-        """Get predecessor nodes with edge weights.
-
-        Returns list of (source_label, weight, count) tuples.
-        """
-        idx_map = self._get_node_index()
-        idx = idx_map.get(node_label)
-        if idx is None:
-            raise KeyError(f"node '{node_label}' not found in graph")
-        rcsr = self._get_reverse_csr()
-        nodes = self._all_nodes_cache
-        start = rcsr['row_offsets'][idx]
-        end = rcsr['row_offsets'][idx + 1]
-        col = rcsr['col_indices']
-        w = rcsr['weights']
-        c = rcsr['counts']
-        return [(nodes[col[e]], float(w[e]), int(c[e]))
-                for e in range(start, end)]
-
     # ── Simulation ──────────────────────────────────────────
 
-    def simulate(self, n, *, seed=None, v_gene=None, j_gene=None,
-                 sample_genes=False):
+    def simulate(
+        self,
+        n: int,
+        *,
+        seed: int | None = None,
+        v_gene: str | None = None,
+        j_gene: str | None = None,
+        sample_genes: bool = False,
+    ) -> SimulationResult:
         """Generate n completed sequences from the public constrained model.
 
         Args:
@@ -503,7 +352,12 @@ class LZGraph:
 
     # ── LZPGEN ──────────────────────────────────────────────
 
-    def lzpgen(self, sequence, *, log=True):
+    @overload
+    def pgen(self, sequence: str, *, log: bool = True) -> float: ...
+    @overload
+    def pgen(self, sequence: list[str], *, log: bool = True) -> np.ndarray: ...
+
+    def pgen(self, sequence, *, log=True):
         """Probability of sequence(s) under the public constrained model.
 
         Args:
@@ -524,18 +378,18 @@ class LZGraph:
 
     # ── Analytics ───────────────────────────────────────────
 
-    def effective_diversity(self):
+    def effective_diversity(self) -> float:
         """Effective diversity of the public accepted-walk model: exp(Shannon entropy)."""
         return _c.effective_diversity(self._cap)
 
-    def diversity_profile(self):
+    def diversity_profile(self) -> dict[str, Any]:
         """Full Shannon diversity breakdown.
 
         Returns dict with entropy_nats, entropy_bits, effective_diversity, uniformity.
         """
         return _c.diversity_profile(self._cap)
 
-    def hill_number(self, alpha, n=None):
+    def hill_number(self, alpha: float, n: int | None = None) -> float:
         """Hill diversity number D(alpha).
 
         Args:
@@ -546,7 +400,7 @@ class LZGraph:
             return _c.hill_number(self._cap, float(alpha))
         return _c.hill_number(self._cap, float(alpha), int(n))
 
-    def hill_numbers(self, orders, n=None):
+    def hill_numbers(self, orders: Iterable[float], n: int | None = None) -> np.ndarray:
         """Hill numbers for multiple orders. Returns np.ndarray.
 
         Args:
@@ -559,7 +413,7 @@ class LZGraph:
             result = _c.hill_numbers(self._cap, [float(o) for o in orders], int(n))
         return np.array(result, dtype=np.float64)
 
-    def hill_curve(self, orders=None):
+    def hill_curve(self, orders: Iterable[float] | None = None) -> dict[str, np.ndarray]:
         """Hill diversity curve.
 
         Returns {'orders': np.ndarray, 'values': np.ndarray}.
@@ -570,11 +424,11 @@ class LZGraph:
             'values': np.array(raw['values'], dtype=np.float64),
         }
 
-    def power_sum(self, alpha):
+    def power_sum(self, alpha: float) -> float:
         """Power sum M(alpha) = sum_s pi(s)^alpha of the public accepted-walk model."""
         return _c.power_sum(self._cap, float(alpha))
 
-    def pgen_diagnostics(self, atol=1e-6):
+    def pgen_diagnostics(self, atol: float = 1e-6) -> PgenDiagnostics:
         """Monte Carlo estimate of absorbed vs leaked mass of the raw structural law.
 
         Returns a dict with keys: total_absorbed, total_leaked,
@@ -584,17 +438,17 @@ class LZGraph:
         """
         return _c.pgen_diagnostics(self._cap, atol)
 
-    def pgen_dynamic_range(self):
+    def pgen_dynamic_range(self) -> float:
         """Dynamic range of PGEN in orders of magnitude."""
         return _c.pgen_dynamic_range(self._cap)
 
-    def pgen_dynamic_range_detail(self):
+    def pgen_dynamic_range_detail(self) -> DynamicRange:
         """Full dynamic range breakdown."""
         return _c.pgen_dynamic_range_detail(self._cap)
 
     # ── PGEN Distribution ───────────────────────────────────
 
-    def pgen_moments(self):
+    def pgen_moments(self) -> PgenMoments:
         """Moments of the unconstrained forward-DP log-PGEN approximation."""
         return _c.pgen_moments(self._cap)
 
@@ -606,15 +460,15 @@ class LZGraph:
 
     # ── Occupancy ───────────────────────────────────────────
 
-    def predicted_richness(self, depth):
+    def predicted_richness(self, depth: float) -> float:
         """Expected distinct sequences at sampling depth d."""
         return _c.predicted_richness(self._cap, float(depth))
 
-    def predicted_overlap(self, d_i, d_j):
+    def predicted_overlap(self, d_i: float, d_j: float) -> float:
         """Expected shared sequences between samples at depths d_i, d_j."""
         return _c.predicted_overlap(self._cap, float(d_i), float(d_j))
 
-    def richness_curve(self, depths):
+    def richness_curve(self, depths: Iterable[float]) -> np.ndarray:
         """Predicted richness at multiple depths. Returns np.ndarray."""
         d_list = [float(d) for d in depths]
         result = _c.richness_curve(self._cap, d_list)
@@ -622,8 +476,17 @@ class LZGraph:
 
     # ── Sharing ─────────────────────────────────────────────
 
-    def predict_sharing(self, draw_counts, max_k=None):
-        """Predicted sharing spectrum across donors."""
+    def predict_sharing(
+        self,
+        draw_counts: Iterable[int],
+        max_k: int | None = None,
+    ) -> SharingSpectrum:
+        """Predicted sharing spectrum across donors.
+
+        Returns the expected number of sequences shared by exactly k donors
+        for k = 1, 2, ..., max_k. The returned ``spectrum`` array has length
+        ``max_k`` (one entry per sharing class, no entry for k=0).
+        """
         draws = [float(d) for d in draw_counts]
         mk = max_k if max_k is not None else 0
         raw = _c.predict_sharing(self._cap, draws, mk)
@@ -632,19 +495,23 @@ class LZGraph:
 
     # ── Diversity ───────────────────────────────────────────
 
-    def sequence_perplexity(self, sequence):
+    def sequence_perplexity(self, sequence: str) -> float:
         """Perplexity of a single sequence."""
         return _c.sequence_perplexity(self._cap, sequence)
 
-    def repertoire_perplexity(self, sequences):
+    def repertoire_perplexity(self, sequences: Iterable[str]) -> float:
         """Average perplexity across a repertoire. Returns inf if any sequence has zero probability."""
         return _c.repertoire_perplexity(self._cap, list(sequences))
 
-    def path_entropy_rate(self, sequences):
+    def path_entropy_rate(self, sequences: Iterable[str]) -> float:
         """Entropy rate (bits/token) estimated from sequences."""
         return _c.path_entropy_rate(self._cap, list(sequences))
 
-    def approximation_diagnostics(self, test_sequences, test_counts=None):
+    def approximation_diagnostics(
+        self,
+        test_sequences: Iterable[str],
+        test_counts: Iterable[int] | None = None,
+    ) -> ApproximationDiagnostics:
         """Quantify the coarse-graph approximation quality against held-out data.
 
         Measures how well the model's probability assignments match empirical
@@ -673,8 +540,6 @@ class LZGraph:
             - n_unique: number of unique test sequences
             - n_covered: number with model P(s) > 0
         """
-        _LOG_EPS_THRESH = -690.0
-
         # Deduplicate and count
         if test_counts is not None:
             unique_seqs = list(test_sequences)
@@ -696,10 +561,10 @@ class LZGraph:
             }
 
         # Score all unique sequences
-        log_probs = np.array(self.lzpgen(unique_seqs), dtype=np.float64)
+        log_probs = np.array(self.pgen(unique_seqs), dtype=np.float64)
 
         # Identify covered sequences (model assigns nonzero probability)
-        covered = log_probs > _LOG_EPS_THRESH
+        covered = log_probs > LOG_EPS_THRESHOLD
         n_covered = int(covered.sum())
         total_mass = counts.sum()
         covered_mass = counts[covered].sum()
@@ -754,42 +619,56 @@ class LZGraph:
 
     # ── Graph Operations ────────────────────────────────────
 
-    def union(self, other):
+    def union(self, other: "LZGraph") -> "LZGraph":
         """Union: sum edge counts from both graphs."""
         cap = _c.graph_union(self._cap, other._cap)
         return LZGraph._from_capsule(cap)
 
-    def intersection(self, other):
+    def intersection(self, other: "LZGraph") -> "LZGraph":
         """Intersection: keep shared edges, min counts."""
         cap = _c.graph_intersection(self._cap, other._cap)
         return LZGraph._from_capsule(cap)
 
-    def difference(self, other):
+    def difference(self, other: "LZGraph") -> "LZGraph":
         """Difference: subtract other's edge counts."""
         cap = _c.graph_difference(self._cap, other._cap)
         return LZGraph._from_capsule(cap)
 
-    def weighted_merge(self, other, alpha=1.0, beta=1.0):
+    def weighted_merge(
+        self, other: "LZGraph", alpha: float = 1.0, beta: float = 1.0
+    ) -> "LZGraph":
         """Weighted merge: alpha * self + beta * other."""
         cap = _c.weighted_merge(self._cap, other._cap, alpha, beta)
         return LZGraph._from_capsule(cap)
 
-    def posterior(self, sequences, *, abundances=None, kappa=1.0):
+    def posterior(
+        self,
+        sequences: Iterable[str],
+        *,
+        abundances: Iterable[int] | None = None,
+        kappa: float = 1.0,
+    ) -> "LZGraph":
         """Bayesian posterior graph given new observed sequences."""
-        cap = _c.posterior(
-            self._cap, list(sequences),
-            list(abundances) if abundances is not None else None,
-            kappa,
-        )
+        if isinstance(sequences, str):
+            raise TypeError("sequences must be a list of strings, not a single string")
+        seqs = list(sequences)
+        abs_list = list(abundances) if abundances is not None else None
+        if abs_list is not None and len(abs_list) != len(seqs):
+            raise ValueError(
+                f"abundances length {len(abs_list)} != sequences length {len(seqs)}"
+            )
+        if kappa < 0:
+            raise ValueError(f"kappa must be >= 0, got {kappa}")
+        cap = _c.posterior(self._cap, seqs, abs_list, kappa)
         return LZGraph._from_capsule(cap)
 
-    def summary(self):
+    def summary(self) -> Summary:
         """Structural summary dict."""
         return _c.summary(self._cap)
 
     # ── Features ────────────────────────────────────────────
 
-    def feature_aligned(self, query):
+    def feature_aligned(self, query: "LZGraph") -> np.ndarray:
         """Project query into this graph's node feature space.
 
         self is the reference. Returns np.ndarray of shape (self.n_nodes,).
@@ -797,31 +676,31 @@ class LZGraph:
         raw = _c.feature_aligned(self._cap, query._cap)
         return np.array(raw, dtype=np.float64)
 
-    def feature_mass_profile(self, max_pos=30):
+    def feature_mass_profile(self, max_pos: int = 30) -> np.ndarray:
         """Position-based mass distribution profile."""
         raw = _c.feature_mass_profile(self._cap, max_pos)
         return np.array(raw, dtype=np.float64)
 
-    def feature_stats(self):
+    def feature_stats(self) -> np.ndarray:
         """15-element graph statistics vector for ML pipelines."""
         raw = _c.feature_stats(self._cap)
         return np.array(raw, dtype=np.float64)
 
     # ── IO ──────────────────────────────────────────────────
 
-    def save(self, path):
-        """Save to LZG binary format (.lzg)."""
-        _c.save(self._cap, str(path))
+    def save(self, path: str | os.PathLike) -> None:
+        """Save to LZG binary format (.lzg). Accepts ``str`` or ``os.PathLike``."""
+        _c.save(self._cap, os.fspath(path))
 
     @classmethod
-    def load(cls, path):
-        """Load from LZG binary format."""
-        cap = _c.load(str(path))
+    def load(cls, path: str | os.PathLike) -> "LZGraph":
+        """Load from LZG binary format. Accepts ``str`` or ``os.PathLike``."""
+        cap = _c.load(os.fspath(path))
         return cls._from_capsule(cap)
 
     # ── Gene Data ───────────────────────────────────────────
 
-    def _ensure_gene_cache(self):
+    def _ensure_gene_cache(self) -> None:
         if self._gene_cache is None:
             raw = _c.gene_info(self._cap)
             if raw is None:
@@ -829,31 +708,31 @@ class LZGraph:
             self._gene_cache = raw
 
     @property
-    def v_genes(self):
+    def v_genes(self) -> list[str] | None:
         """V gene names in the graph."""
         self._ensure_gene_cache()
         return list(self._gene_cache['v_marginals'].keys())
 
     @property
-    def j_genes(self):
+    def j_genes(self) -> list[str] | None:
         """J gene names in the graph."""
         self._ensure_gene_cache()
         return list(self._gene_cache['j_marginals'].keys())
 
     @property
-    def v_marginals(self):
+    def v_marginals(self) -> dict[str, float] | None:
         """V gene marginal probabilities."""
         self._ensure_gene_cache()
         return dict(self._gene_cache['v_marginals'])
 
     @property
-    def j_marginals(self):
+    def j_marginals(self) -> dict[str, float] | None:
         """J gene marginal probabilities."""
         self._ensure_gene_cache()
         return dict(self._gene_cache['j_marginals'])
 
     @property
-    def vj_distribution(self):
+    def vj_distribution(self) -> dict[tuple[str, str], float] | None:
         """Joint VJ distribution."""
         self._ensure_gene_cache()
         return list(self._gene_cache['vj_distribution'])

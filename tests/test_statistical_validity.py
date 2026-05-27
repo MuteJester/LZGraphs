@@ -44,7 +44,7 @@ class TestLZPGENCalibration:
         counts = Counter(large_sim.sequences)
         unique_seqs = list(counts.keys())
         frequencies = np.array([counts[s] for s in unique_seqs], dtype=float)
-        lzpgens = np.array([graph.lzpgen(s) for s in unique_seqs])
+        lzpgens = np.array([graph.pgen(s) for s in unique_seqs])
 
         # Filter out sequences with zero LZPGEN (shouldn't happen, but safety)
         mask = lzpgens > -600
@@ -64,7 +64,7 @@ class TestLZPGENCalibration:
         """The top-LZPGEN training sequences should be the most frequent
         in simulation."""
         train_unique = list(set(TRAIN_SEQS))
-        lzpgens = {s: graph.lzpgen(s) for s in train_unique}
+        lzpgens = {s: graph.pgen(s) for s in train_unique}
         sim_counts = Counter(large_sim.sequences)
 
         # Sort training seqs by LZPGEN
@@ -136,7 +136,7 @@ class TestNovelSequences:
         if not novel:
             pytest.skip("no novel sequences to test")
 
-        lzpgens = graph.lzpgen(novel[:20])
+        lzpgens = graph.pgen(novel[:20])
         zero_count = np.sum(lzpgens < -600)
         assert zero_count == 0, f"{zero_count}/{len(lzpgens)} novel seqs have zero LZPGEN"
 

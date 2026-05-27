@@ -94,7 +94,7 @@ class TestDeterministicSinglePath:
 
     def test_lzpgen_is_zero(self, graph):
         """log P(seq) = 0 when only one walk exists."""
-        lp = graph.lzpgen(self.SEQ)
+        lp = graph.pgen(self.SEQ)
         assert abs(lp - 0.0) < 1e-6, f"expected log P = 0, got {lp}"
 
     def test_all_simulations_identical(self, sim):
@@ -192,7 +192,7 @@ class TestSharedPrefixDivergent:
     def test_all_training_seqs_have_positive_lzpgen(self, graph):
         """Every input sequence must be reachable."""
         for s in self.SEQS:
-            lp = graph.lzpgen(s)
+            lp = graph.pgen(s)
             assert lp > -100, f"lzpgen('{s}') = {lp}, expected > -100"
 
     def test_distribution_is_proper(self, graph):
@@ -216,7 +216,7 @@ class TestSharedPrefixDivergent:
         model_probs = []
         empirical_freqs = []
         for s in self.SEQS:
-            lp = graph.lzpgen(s)
+            lp = graph.pgen(s)
             model_probs.append(math.exp(lp))
             empirical_freqs.append(counts.get(s, 0) / n_sim)
 
@@ -310,7 +310,7 @@ class TestSkewedDominantSequence:
     def test_dominant_has_highest_lzpgen(self, graph):
         """The sequence with M=100 copies should have the highest P(s)."""
         all_seqs = [self.DOMINANT] + self.OTHERS
-        lzpgens = {s: graph.lzpgen(s) for s in all_seqs}
+        lzpgens = {s: graph.pgen(s) for s in all_seqs}
 
         dominant_lp = lzpgens[self.DOMINANT]
         for s in self.OTHERS:
@@ -428,9 +428,9 @@ class TestAbundanceScalingInvariance:
     def test_lzpgen_identical(self, graph_1x, graph_2x, graph_10x):
         """P(s) must be identical regardless of uniform scaling."""
         for s in self.SEQS:
-            lp_1 = graph_1x.lzpgen(s)
-            lp_2 = graph_2x.lzpgen(s)
-            lp_10 = graph_10x.lzpgen(s)
+            lp_1 = graph_1x.pgen(s)
+            lp_2 = graph_2x.pgen(s)
+            lp_10 = graph_10x.pgen(s)
 
             assert abs(lp_1 - lp_2) < 1e-6, (
                 f"lzpgen('{s}'): 1x={lp_1:.8f}, 2x={lp_2:.8f}"
@@ -566,8 +566,8 @@ class TestTwoSequenceCoinFlip:
         Because the two paths are completely disjoint (no shared
         characters), the only stochastic choice is at @.
         """
-        lp_a = graph.lzpgen(self.SEQ_A)
-        lp_b = graph.lzpgen(self.SEQ_B)
+        lp_a = graph.pgen(self.SEQ_A)
+        lp_b = graph.pgen(self.SEQ_B)
 
         expected_lp_a = math.log(self.p)
         expected_lp_b = math.log(self.q)
@@ -581,8 +581,8 @@ class TestTwoSequenceCoinFlip:
 
     def test_probabilities_sum_to_one(self, graph):
         """With disjoint paths, P(A) + P(B) should equal 1."""
-        p_a = graph.lzpgen(self.SEQ_A, log=False)
-        p_b = graph.lzpgen(self.SEQ_B, log=False)
+        p_a = graph.pgen(self.SEQ_A, log=False)
+        p_b = graph.pgen(self.SEQ_B, log=False)
 
         total = p_a + p_b
         assert abs(total - 1.0) < 0.05, (
@@ -720,8 +720,8 @@ class TestSymmetricCoinFlip:
 
     def test_equal_lzpgen(self, graph):
         """Both sequences should have P = 0.5 => log P = -0.693."""
-        lp_a = graph.lzpgen(self.SEQ_A)
-        lp_b = graph.lzpgen(self.SEQ_B)
+        lp_a = graph.pgen(self.SEQ_A)
+        lp_b = graph.pgen(self.SEQ_B)
 
         assert abs(lp_a - math.log(0.5)) < 0.05
         assert abs(lp_b - math.log(0.5)) < 0.05
@@ -789,7 +789,7 @@ class TestExtremeAsymmetry:
 
     def test_dominant_probability(self, graph):
         """P(A) ≈ 0.99."""
-        p_a = graph.lzpgen(self.SEQ_A, log=False)
+        p_a = graph.pgen(self.SEQ_A, log=False)
         assert abs(p_a - 0.99) < 0.02, f"P(A) = {p_a:.6f}, expected ~0.99"
 
     def test_entropy_near_zero(self, graph):

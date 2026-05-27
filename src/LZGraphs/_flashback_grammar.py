@@ -18,11 +18,20 @@ full design.
 from __future__ import annotations
 
 import math
+import os
+from typing import Any, Iterable, overload
 
 import numpy as np
 
 from . import _clzgraph as _c
+from ._constants import LOG_EPS_THRESHOLD
 from ._simulation_result import SimulationResult
+from ._types import (
+    DiversityProfile,
+    DynamicRange,
+    GrammarRule,
+    PgenMoments,
+)
 
 
 class FlashBackGrammar:
@@ -45,11 +54,20 @@ class FlashBackGrammar:
               backoff. Analytics (H, Hill, sampling) always use pure MLE;
               backoff only affects ``flashback_pgen``.
     """
+    # ── Lazy-cache slots (populated by first access) ──
+    _dyn_range_cache = None
+    _eff_div_cache = None
 
-    def __init__(self, sequences, *, abundances=None,
-                 abundance_mode: str = 'linear',
-                 smoothing: float = 0.0,
-                 backoff: str = 'none'):
+
+    def __init__(
+        self,
+        sequences: Iterable[str],
+        *,
+        abundances: Iterable[int] | None = None,
+        abundance_mode: str = 'linear',
+        smoothing: float = 0.0,
+        backoff: str = 'none',
+    ) -> None:
         if not sequences:
             raise ValueError("sequences must be a non-empty iterable")
         if isinstance(sequences, str):
@@ -72,15 +90,21 @@ class FlashBackGrammar:
     # ── Internal constructor for ops that return a capsule ──
 
     @classmethod
-    def _from_capsule(cls, capsule):
+    def _from_capsule(cls, capsule: Any) -> "FlashBackGrammar":
         obj = object.__new__(cls)
         obj._cap = capsule
         obj._info = _c.fbg_info(capsule)
         return obj
 
     @classmethod
-    def from_file(cls, path, *, abundance_mode: str = 'linear',
-                  smoothing: float = 0.0, backoff: str = 'none'):
+    def from_file(
+        cls,
+        path: str | os.PathLike,
+        *,
+        abundance_mode: str = "linear",
+        smoothing: float = 0.0,
+        backoff: str = "none",
+    ) -> "FlashBackGrammar":
         """Build from a plain text file by streaming.
 
         One sequence per line, or ``sequence<TAB>abundance``. The file is
@@ -89,8 +113,9 @@ class FlashBackGrammar:
         decomposition fails, are skipped with a warning count reported at
         the end.
         """
-        if not isinstance(path, str) or not path:
-            raise ValueError("path must be a non-empty string")
+        path = os.fspath(path)
+        if not path:
+            raise ValueError("path must be non-empty")
         cap = _c.fbg_build_file(
             path,
             abundance_mode=abundance_mode,
@@ -101,94 +126,95 @@ class FlashBackGrammar:
 
     # ── Dunder ──────────────────────────────────────────────
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f"FlashBackGrammar("
                 f"n_nts={self.n_nonterminals}, "
                 f"n_rules={self.n_rules}, "
                 f"ρ={self.spectral_radius:.4f})")
 
-    def __len__(self):
-        return self.n_rules
+    def __len__(self) -> int:
+        """Number of training sequences seen by this grammar."""
+        return self.n_sequences
 
-    def __contains__(self, sequence):
-        return self.flashback_pgen(sequence) > -690.0
+    def __contains__(self, sequence: str) -> bool:
+        return self.pgen(sequence) > LOG_EPS_THRESHOLD
 
     # ── Basic properties ────────────────────────────────────
 
     @property
-    def variant(self):
+    def variant(self) -> str:
         return 'flashback_grammar'
 
     @property
-    def n_nonterminals(self):
+    def n_nonterminals(self) -> int:
         """Number of non-terminals (1 for S + one per observed (a, z))."""
         return self._info['n_nts']
 
     @property
-    def n_rules(self):
+    def n_rules(self) -> int:
         """Total number of rules across all non-terminals."""
         return self._info['n_rules']
 
     @property
-    def n_internal_rules(self):
+    def n_internal_rules(self) -> int:
         return self._info['n_internal_rules']
 
     @property
-    def n_leaf_rules(self):
+    def n_leaf_rules(self) -> int:
         return self._info['n_leaf_rules']
 
     @property
-    def alphabet(self):
+    def alphabet(self) -> list[str]:
         """Observed characters including the sentinels @ and $."""
         return list(self._info.get('_alphabet', []))  # not directly exposed
 
     @property
-    def spectral_radius(self):
+    def spectral_radius(self) -> float:
         """ρ(T) — the grammar is consistent iff < 1."""
         return self._info['spectral_radius']
 
     @property
-    def is_consistent(self):
+    def is_consistent(self) -> bool:
         return self._info['is_consistent']
 
     @property
-    def smoothing(self):
+    def smoothing(self) -> float:
         return self._info['smoothing']
 
     @property
-    def backoff_mode(self):
+    def backoff_mode(self) -> str:
         m = self._info['backoff']
         return 'gt' if m == 1 else 'none'
 
     @property
-    def abundance_mode(self):
+    def abundance_mode(self) -> str:
         return ['none', 'linear', 'log'][self._info['abundance_mode']]
 
     @property
-    def max_length(self):
+    def max_length(self) -> int:
         """Longest training sequence length observed at build time."""
         return self._info['max_length']
 
     @property
-    def length_counts(self):
+    def length_counts(self) -> dict[int, int]:
         """Raw training length histogram: dict {length: count}."""
         arr = _c.fbg_length_counts(self._cap)
         return {L: int(c) for L, c in enumerate(arr) if c > 0}
 
     @property
-    def n_sequences(self):
+    def n_sequences(self) -> int:
         """Σ of raw training length counts (weighted by abundance)."""
         return sum(self.length_counts.values())
 
     # ── Non-terminals and rules ─────────────────────────────
 
     @property
-    def nonterminals(self):
+    def nonterminals(self) -> list[tuple[int, int, bool]]:
         """List of ``(a_char, z_char, is_start)`` tuples in storage order."""
         return [(a, z, bool(start))
                 for (a, z, start, _, _, _) in _c.fbg_nts(self._cap)]
 
-    def rules_at(self, a, z):
+    def rules_at(self, a: int, z: int) -> list[GrammarRule]:
         """Rules at non-terminal ``M(a, z)``.
 
         Returns list of rule dicts with keys:
@@ -200,13 +226,13 @@ class FlashBackGrammar:
             raise KeyError(f"no non-terminal M{(a, z)!r}")
         return _c.fbg_rules_at(self._cap, idx)
 
-    def rules_at_start(self):
+    def rules_at_start(self) -> list[GrammarRule]:
         """Rules at the start non-terminal S."""
         # S is always at index 0 by our convention.
         return _c.fbg_rules_at(self._cap, self._info['start_nt'])
 
     @property
-    def sentinel_rule_weights(self):
+    def sentinel_rule_weights(self) -> dict[str, float]:
         """Distribution over (first_char, last_char) pairs at S.
 
         Returns dict mapping (a', z') → weight.
@@ -217,7 +243,7 @@ class FlashBackGrammar:
                 out[(r['dst_a'], r['dst_z'])] = r['weight']
         return out
 
-    def _find_nt_index(self, a, z, *, is_start=False):
+    def _find_nt_index(self, a: int, z: int, *, is_start: bool = False) -> int:
         for i, (na, nz, start, _, _, _) in enumerate(_c.fbg_nts(self._cap)):
             if is_start and start:
                 return i
@@ -225,7 +251,7 @@ class FlashBackGrammar:
                 return i
         return None
 
-    def top_rules(self, k=20, by='weight'):
+    def top_rules(self, k: int = 20, by: str = 'weight') -> list[GrammarRule]:
         """Top-k rules across all non-terminals, sorted by weight or count."""
         if by not in ('weight', 'count'):
             raise ValueError("by must be 'weight' or 'count'")
@@ -240,7 +266,12 @@ class FlashBackGrammar:
 
     # ── Probability ─────────────────────────────────────────
 
-    def flashback_pgen(self, sequence, *, log=True):
+    @overload
+    def pgen(self, sequence: str, *, log: bool = True) -> float: ...
+    @overload
+    def pgen(self, sequence: list[str], *, log: bool = True) -> np.ndarray: ...
+
+    def pgen(self, sequence, *, log=True):
         """Exact probability of ``sequence`` under the grammar.
 
         Respects the grammar's ``backoff`` configuration.
@@ -255,6 +286,11 @@ class FlashBackGrammar:
         arr = np.array(_c.fbg_pgen_batch(self._cap, list(sequence)),
                        dtype=np.float64)
         return arr if log else np.exp(arr)
+
+    @overload
+    def pgen_mle(self, sequence: str, *, log: bool = True) -> float: ...
+    @overload
+    def pgen_mle(self, sequence: list[str], *, log: bool = True) -> np.ndarray: ...
 
     def pgen_mle(self, sequence, *, log=True):
         """Probability under pure MLE, ignoring the grammar's backoff setting.
@@ -271,47 +307,58 @@ class FlashBackGrammar:
 
     # ── Exact analytics ────────────────────────────────────
 
-    def path_count(self, max_length):
+    def path_count(self, max_length: int) -> float:
         """Total count of distinct sequences of length ≤ ``max_length``."""
         return float(np.sum(self.path_count_series(max_length)))
 
-    def path_count_series(self, max_length):
+    def path_count_series(self, max_length: int) -> np.ndarray:
         """[x^L] of Z_S(x) with unit weights — unique-sequence count per length."""
         if max_length is None or max_length < 0:
             raise ValueError("max_length must be a non-negative int")
         return np.array(_c.fbg_path_count_series(self._cap, int(max_length)),
                         dtype=np.float64)
 
-    def length_distribution(self, max_length):
-        """Probability P(len = L) for L ∈ [0, max_length]."""
+    def length_pmf(self, max_length: int) -> np.ndarray:
+        """Probability mass function P(len = L) for L ∈ [0, max_length].
+
+        Returns a numpy array of length max_length+1, summing to 1.0.
+
+        Note: distinct from ``LZGraph.length_distribution`` /
+        ``FlashBackGraph.length_distribution`` (which are empirical
+        length-count histograms over training sequences). This one is the
+        analytical PMF of sequence lengths under the grammar.
+        """
         if max_length is None or max_length < 0:
             raise ValueError("max_length must be a non-negative int")
         return np.array(_c.fbg_length_distribution(self._cap, int(max_length)),
                         dtype=np.float64)
 
-    def effective_diversity(self):
+    def diversity_profile(self) -> DiversityProfile:
+        """Full Shannon diversity breakdown (entropy_nats, entropy_bits, etc).
+        Cached per instance."""
+        if self._eff_div_cache is None:
+            self._eff_div_cache = _c.fbg_effective_diversity(self._cap)
+        return self._eff_div_cache
+
+    def effective_diversity(self) -> float:
         """Exact ``exp(H)`` — effective number of distinct sequences."""
-        return _c.fbg_effective_diversity(self._cap)['effective_diversity']
+        return self.diversity_profile()['effective_diversity']
 
-    def diversity_profile(self):
-        """Full Shannon diversity breakdown (entropy_nats, entropy_bits, etc)."""
-        return _c.fbg_effective_diversity(self._cap)
-
-    def entropy(self):
+    def entropy(self) -> float:
         """Shannon entropy of the sequence distribution (nats)."""
         return _c.fbg_entropy(self._cap)
 
-    def hill_number(self, alpha):
+    def hill_number(self, alpha: float) -> float:
         """Exact Hill number D(α)."""
         return _c.fbg_hill_number(self._cap, float(alpha))
 
-    def hill_numbers(self, orders):
+    def hill_numbers(self, orders: Iterable[float]) -> np.ndarray:
         """Exact Hill numbers for multiple α values."""
         return np.array(_c.fbg_hill_numbers(self._cap,
                                             [float(a) for a in orders]),
                         dtype=np.float64)
 
-    def hill_curve(self, orders=None):
+    def hill_curve(self, orders: Iterable[float] | None = None) -> dict[str, np.ndarray]:
         """Hill diversity curve (exact)."""
         if orders is None:
             orders = [0, 0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 4, 5, 10]
@@ -322,21 +369,27 @@ class FlashBackGrammar:
             'values': values,
         }
 
-    def power_sum(self, alpha):
+    def power_sum(self, alpha: float) -> float:
         """Exact power sum M(α) = Σ P(s)^α."""
         return _c.fbg_power_sum(self._cap, float(alpha))
 
-    def pgen_dynamic_range(self, max_length=30):
-        """Exact dynamic range in orders of magnitude (log10) up to ``max_length``."""
-        return _c.fbg_dynamic_range(self._cap, int(max_length))['dynamic_range_orders']
+    def pgen_dynamic_range_detail(self, max_length: int = 30) -> DynamicRange:
+        """Full dynamic range breakdown: max/min log-prob, nats, orders.
+        Cached per ``max_length`` value per instance."""
+        key = int(max_length)
+        if self._dyn_range_cache is None:
+            self._dyn_range_cache = {}
+        if key not in self._dyn_range_cache:
+            self._dyn_range_cache[key] = _c.fbg_dynamic_range(self._cap, key)
+        return self._dyn_range_cache[key]
 
-    def pgen_dynamic_range_detail(self, max_length=30):
-        """Full dynamic range breakdown: max/min log-prob, nats, orders."""
-        return _c.fbg_dynamic_range(self._cap, int(max_length))
+    def pgen_dynamic_range(self, max_length: int = 30) -> float:
+        """Exact dynamic range in orders of magnitude (log10) up to ``max_length``."""
+        return self.pgen_dynamic_range_detail(max_length)['dynamic_range_orders']
 
     # ── Sampling ──────────────────────────────────────────
 
-    def simulate(self, n, *, seed=None):
+    def simulate(self, n: int, *, seed: int | None = None) -> SimulationResult:
         """Generate ``n`` sequences by top-down grammar sampling.
 
         Every generated sequence is a canonical FlashBack decomposition by
@@ -346,7 +399,13 @@ class FlashBackGrammar:
         seqs, lps, nts = _c.fbg_simulate(self._cap, int(n), seed=seed_val)
         return SimulationResult(seqs, lps, nts)
 
-    def top_k_sequences(self, k=100, *, most_probable=True, max_length=30):
+    def top_k_sequences(
+        self,
+        k: int = 100,
+        *,
+        most_probable: bool = True,
+        max_length: int = 30,
+    ) -> SimulationResult:
         """Exact top-K sequences by log-probability (forward DP, no MC).
 
         Args:
@@ -363,7 +422,13 @@ class FlashBackGrammar:
 
     # ── Grammar operations ─────────────────────────────────
 
-    def posterior(self, sequences, *, abundances=None, kappa=1.0):
+    def posterior(
+        self,
+        sequences: Iterable[str],
+        *,
+        abundances: Iterable[int] | None = None,
+        kappa: float = 1.0,
+    ) -> "FlashBackGrammar":
         """Dirichlet-Multinomial posterior given new observations.
 
             w_post(r | nt) = (κ · w_prior(r | nt) + c_ind(r | nt))
@@ -387,7 +452,12 @@ class FlashBackGrammar:
                                abundances=abs_list, kappa=float(kappa))
         return FlashBackGrammar._from_capsule(cap)
 
-    def without(self, sequences, *, abundances=None):
+    def without(
+        self,
+        sequences: Iterable[str],
+        *,
+        abundances: Iterable[int] | None = None,
+    ) -> "FlashBackGrammar":
         """Return a new grammar with ``sequences`` removed from training counts.
 
         For each sequence (with abundance ``a``, defaulting to 1) the canonical
@@ -408,25 +478,23 @@ class FlashBackGrammar:
         cap = _c.fbg_subtract(self._cap, seqs, abundances=abs_list)
         return FlashBackGrammar._from_capsule(cap)
 
-    def remove_sequences(self, sequences, *, abundances=None):
-        """Alias for :meth:`without`."""
-        return self.without(sequences, abundances=abundances)
-
     # ── IO ─────────────────────────────────────────────────
 
-    def save(self, path):
-        """Save to a binary file (format: FBG1 + CRC32c check)."""
-        _c.fbg_save(self._cap, str(path))
+    def save(self, path: str | os.PathLike) -> None:
+        """Save to a binary file (format: FBG1 + CRC32c check).
+        Accepts ``str`` or ``os.PathLike``."""
+        _c.fbg_save(self._cap, os.fspath(path))
 
     @classmethod
-    def load(cls, path):
-        """Load a grammar saved with :meth:`save`."""
-        cap = _c.fbg_load(str(path))
+    def load(cls, path: str | os.PathLike) -> "FlashBackGrammar":
+        """Load a grammar saved with :meth:`save`.
+        Accepts ``str`` or ``os.PathLike``."""
+        cap = _c.fbg_load(os.fspath(path))
         return cls._from_capsule(cap)
 
     # ── Summary ────────────────────────────────────────────
 
-    def summary(self):
+    def summary(self) -> dict[str, Any]:
         """Dict of the grammar's structural + analytical highlights."""
         diversity = self.diversity_profile()
         return {

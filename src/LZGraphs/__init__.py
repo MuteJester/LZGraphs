@@ -6,7 +6,7 @@ High-performance C backend with full LZ76 dictionary constraint enforcement.
 __version__ = "3.0.2"
 
 from ._graph import LZGraph
-from ._flashback_graph import FlashBackGraph
+from ._flashback_graph import FlashBackGraph, FlashBackStream
 from ._flashback_grammar import FlashBackGrammar
 from ._foundation_scaffold import (
     FoundationScaffoldAligner,
@@ -110,6 +110,7 @@ def set_log_callback(callback, level='info'):
 __all__ = [
     'LZGraph',
     'FlashBackGraph',
+    'FlashBackStream',
     'FlashBackGrammar',
     'FoundationScaffoldAligner',
     'FoundationScaffoldAlignment',

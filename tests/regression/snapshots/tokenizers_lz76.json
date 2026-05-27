@@ -1,0 +1,127 @@
+{
+  "A": [
+    "A"
+  ],
+  "AA": [
+    "A",
+    "A"
+  ],
+  "AAA": [
+    "A",
+    "AA"
+  ],
+  "AAABBBCCCDDDEEE": [
+    "A",
+    "AA",
+    "B",
+    "BB",
+    "C",
+    "CC",
+    "D",
+    "DD",
+    "E",
+    "EE"
+  ],
+  "AABBCCDD": [
+    "A",
+    "AB",
+    "B",
+    "C",
+    "CD",
+    "D"
+  ],
+  "AABCA": [
+    "A",
+    "AB",
+    "C",
+    "A"
+  ],
+  "AB": [
+    "A",
+    "B"
+  ],
+  "ABBA": [
+    "A",
+    "B",
+    "BA"
+  ],
+  "ABCDEF": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F"
+  ],
+  "CARSLVGGLAGGPQNTEAFF": [
+    "C",
+    "A",
+    "R",
+    "S",
+    "L",
+    "V",
+    "G",
+    "GL",
+    "AG",
+    "GP",
+    "Q",
+    "N",
+    "T",
+    "E",
+    "AF",
+    "F"
+  ],
+  "CASSAYFF": [
+    "C",
+    "A",
+    "S",
+    "SA",
+    "Y",
+    "F",
+    "F"
+  ],
+  "CASSFSTCSANYGYTF": [
+    "C",
+    "A",
+    "S",
+    "SF",
+    "ST",
+    "CS",
+    "AN",
+    "Y",
+    "G",
+    "YT",
+    "F"
+  ],
+  "CASSLEPSGGTDTQYF": [
+    "C",
+    "A",
+    "S",
+    "SL",
+    "E",
+    "P",
+    "SG",
+    "G",
+    "T",
+    "D",
+    "TQ",
+    "Y",
+    "F"
+  ],
+  "CASSLGIRRT": [
+    "C",
+    "A",
+    "S",
+    "SL",
+    "G",
+    "I",
+    "R",
+    "RT"
+  ],
+  "FFFFFFFFF": [
+    "F",
+    "FF",
+    "FFF",
+    "FFF"
+  ]
+}

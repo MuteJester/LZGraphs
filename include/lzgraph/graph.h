@@ -82,6 +82,8 @@ typedef struct LZGGraph_ {
     uint8_t    *edge_single_char_idx; /* [n_edges]: aa bit index or UINT8_MAX */
     uint8_t    *node_single_char_idx; /* [n_nodes]: aa bit index or UINT8_MAX */
     struct LZGExactModel_ *exact_model_cache; /* accepted-model normalizer cache */
+    double     *node_entropy;   /* [n_nodes]: cached Shannon entropy of outgoing
+                                 * edge probabilities, NULL until first FBAS call */
 } LZGGraph;
 
 /** Allocate and initialize an empty graph. */
@@ -128,20 +130,6 @@ LZGError lzg_graph_build_plain_file(LZGGraph *g,
 /** Compute topological sort (cached, invalidated on structural changes). */
 LZGError lzg_graph_topo_sort(LZGGraph *g);
 
-/**
- * Internal: finalize a graph from pre-collected edge data.
- * Used by lzg_graph_build and lzg_graph_union.
- * All hash maps are consumed (destroyed) by this function.
- */
-LZGError lzg_graph_finalize_from_edges(
-    LZGGraph *g,
-    LZGEdgeBuilder *eb,
-    LZGHashMap *node_set,
-    LZGHashMap *initial_counts,
-    LZGHashMap *terminal_counts,
-    LZGHashMap *outgoing_counts,
-    uint64_t *len_counts, uint32_t max_len);
-
 /* ── Recalculation flags ───────────────────────────────────── */
 
 typedef enum {
@@ -156,15 +144,33 @@ typedef enum {
  */
 LZGError lzg_graph_recalculate(LZGGraph *g, uint32_t flags);
 
-/**
- * Internal: ensure transient query-side edge hash caches exist.
- * These caches are derived from immutable edge metadata and are not serialized.
- */
-LZGError lzg_graph_ensure_query_edge_hashes(LZGGraph *g);
-
 /** Get the number of successors for node `node_id`. */
 static inline uint32_t lzg_graph_out_degree(const LZGGraph *g, uint32_t node_id) {
     return g->row_offsets[node_id + 1] - g->row_offsets[node_id];
 }
+
+/* ═══════════════════════════════════════════════════════════════ */
+/* Internal: not part of the public API                            */
+/* ═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Finalize a graph from pre-collected edge data.
+ * Used by lzg_graph_build and lzg_graph_union.
+ * All hash maps are consumed (destroyed) by this function.
+ */
+LZGError lzg_graph_finalize_from_edges(
+    LZGGraph *g,
+    LZGEdgeBuilder *eb,
+    LZGHashMap *node_set,
+    LZGHashMap *initial_counts,
+    LZGHashMap *terminal_counts,
+    LZGHashMap *outgoing_counts,
+    uint64_t *len_counts, uint32_t max_len);
+
+/**
+ * Ensure transient query-side edge hash caches exist.
+ * These caches are derived from immutable edge metadata and are not serialized.
+ */
+LZGError lzg_graph_ensure_query_edge_hashes(LZGGraph *g);
 
 #endif /* LZGRAPH_GRAPH_H */

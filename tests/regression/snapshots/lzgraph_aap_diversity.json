@@ -1,0 +1,14 @@
+{
+  "path_entropy_rate_probes": 0.0,
+  "repertoire_perplexity_full": 2.485012523607873,
+  "sequence_perplexity_probes": {
+    "CAAAAAAAAAA": "__inf__",
+    "CASRRDGSFNEKLFF": "__inf__",
+    "CASSDTSGGTDTQYF": "__inf__",
+    "CASSFGQGSYEQYF": "__inf__",
+    "CASSLEPSGGTDTQYF": "__inf__",
+    "CASSLGIRRT": "__inf__",
+    "CASSLGYEQYF": "__inf__",
+    "CASSQETQYF": "__inf__"
+  }
+}
