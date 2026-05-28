@@ -92,11 +92,15 @@ print(f"D(2) = {graph.hill_number(2):.1f}")
 ### With gene annotation
 
 ```python
+from LZGraphs import LZGraph
+
+sequences = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF',
+             'CASSLEPQTFTDTFFF', 'CASSLGQGSTEAFF']
 graph = LZGraph(
     sequences,
     variant='aap',
-    v_genes=['TRBV16-1*01', 'TRBV1-1*01', ...],
-    j_genes=['TRBJ1-2*01', 'TRBJ1-5*01', ...],
+    v_genes=['TRBV16-1*01', 'TRBV1-1*01', 'TRBV5-1*01', 'TRBV7-2*03'],
+    j_genes=['TRBJ1-2*01', 'TRBJ1-5*01', 'TRBJ2-7*01', 'TRBJ1-2*01'],
 )
 
 # Gene-constrained simulation
@@ -149,7 +153,15 @@ print(f"# distinct paths = {graph.path_count:.3e}")
 ### Build from a file (streaming, constant memory)
 
 ```python
-graph = FlashBackGraph.from_file('repertoire.tsv')   # one seq per line, or seq\tcount
+from LZGraphs import FlashBackGraph
+
+# Write a tiny example file (one CDR3 per line, or seq<TAB>count for abundance)
+with open('repertoire.tsv', 'w') as f:
+    for s in ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLGQGSTEAFF']:
+        f.write(s + '\n')
+
+graph = FlashBackGraph.from_file('repertoire.tsv')
+print(graph.n_nodes, 'nodes')
 ```
 
 For incremental / checkpointed builds over very large repertoires, use `FlashBackStream`: same accumulator with `add_sequences()`, `snapshot()`, and `finalize()`. See the class docstring (`help(FlashBackStream)`) for the streaming protocol.
@@ -182,7 +194,30 @@ For repertoires of ~100k sequences and above, graph construction stays linear an
 
 ## Key Capabilities
 
-In the snippets below, `graph` denotes a method that works on either class; `lz_graph` denotes an `LZGraph` instance and `fb_graph` denotes a `FlashBackGraph` instance. Method names marked LZGraph-only or FlashBackGraph-only are not implemented on the other class.
+Every snippet in this section is paste-and-runnable after the **Setup** block below. `graph` flags a method that works on either class; `lz_graph` is an `LZGraph` instance and `fb_graph` is a `FlashBackGraph` instance. Methods marked LZGraph-only or FlashBackGraph-only are not implemented on the other class.
+
+### Setup
+
+```python
+from LZGraphs import LZGraph, FlashBackGraph, jensen_shannon_divergence
+
+seqs = ['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF',
+        'CASSLGQGSTEAFF', 'CASSLGIRRT']
+v_genes = ['TRBV5-1*01', 'TRBV5-1*01', 'TRBV5-1*01', 'TRBV7-2*03', 'TRBV7-2*03']
+j_genes = ['TRBJ2-7*01', 'TRBJ2-7*01', 'TRBJ2-7*01', 'TRBJ1-2*01', 'TRBJ1-2*01']
+
+lz_graph = LZGraph(seqs, variant='aap', v_genes=v_genes, j_genes=j_genes)
+fb_graph = FlashBackGraph(seqs)
+graph    = lz_graph                      # `graph` flags methods that work on either class
+
+graph_a      = LZGraph(seqs[:3], variant='aap')
+graph_b      = LZGraph(seqs[2:], variant='aap')
+population   = LZGraph(seqs * 4, variant='aap')
+patient_seqs = ['CASSLGIRRT', 'CASSLGQGSTEAFF']
+
+lz_reference = population
+lz_sample    = LZGraph(seqs, variant='aap')
+```
 
 ### Scoring & Simulation
 
@@ -227,7 +262,6 @@ personal = population.posterior(patient_seqs, kappa=10.0)  # Bayesian update (bo
 ### Repertoire Comparison
 
 ```python
-from LZGraphs import jensen_shannon_divergence
 jsd = jensen_shannon_divergence(graph_a, graph_b)  # natural log (nats): 0.0 identical, ln(2) ≈ 0.693 disjoint
 ```
 
@@ -244,9 +278,12 @@ lz_graph.feature_mass_profile()           # position-based mass distribution
 ### Serialization
 
 ```python
-graph.save('repertoire.lzg')                   # shared binary format (both classes)
-loaded = LZGraph.load('repertoire.lzg')
-loaded = FlashBackGraph.load('repertoire.lzg')
+# Both classes use the same .lzg binary format, but each file is class-specific.
+lz_graph.save('rep_lz.lzg')
+loaded_lz = LZGraph.load('rep_lz.lzg')
+
+fb_graph.save('rep_fb.lzg')
+loaded_fb = FlashBackGraph.load('rep_fb.lzg')
 ```
 
 ## Documentation

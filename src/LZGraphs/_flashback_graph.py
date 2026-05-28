@@ -357,16 +357,19 @@ class FlashBackGraph(_GraphCommonMixin):
     def union(self, other: "FlashBackGraph") -> "FlashBackGraph":
         """Union: sum edge counts from both graphs."""
         cap = _c.graph_union(self._cap, other._cap)
+        _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
     def intersection(self, other: "FlashBackGraph") -> "FlashBackGraph":
         """Intersection: keep shared edges, min counts."""
         cap = _c.graph_intersection(self._cap, other._cap)
+        _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
     def difference(self, other: "FlashBackGraph") -> "FlashBackGraph":
         """Difference: subtract ``other``'s edge counts."""
         cap = _c.graph_difference(self._cap, other._cap)
+        _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
     def weighted_merge(
@@ -374,6 +377,7 @@ class FlashBackGraph(_GraphCommonMixin):
     ) -> "FlashBackGraph":
         """Weighted merge: ``alpha * self + beta * other``."""
         cap = _c.weighted_merge(self._cap, other._cap, alpha, beta)
+        _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
     def posterior(
@@ -441,6 +445,7 @@ class FlashBackGraph(_GraphCommonMixin):
                 f"abundances length {len(abs_list)} != sequences length {len(seqs)}"
             )
         cap = _c.fb_subtract(self._cap, seqs, abundances=abs_list)
+        _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
     # ── Features ───────────────────────────────────────────
