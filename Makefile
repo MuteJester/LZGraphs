@@ -6,7 +6,7 @@ LDFLAGS = -lm
 VERSION          := $(shell grep -oP '__version__\s*=\s*"\K[^"]+' src/LZGraphs/__init__.py)
 TAG              ?= v$(VERSION)
 FOUNDATION_GRAPH ?= .private/foundation_assets_2026-04-19/flashback_foundation.lzg
-FOUNDATION_ASSET ?= flashback_foundation_$(TAG).lzg
+FOUNDATION_ASSET ?= flashback_foundation.lzg
 GH_REPO_SLUG     ?= MuteJester/LZGraphs
 
 # Collect all .c files under lib/
@@ -157,10 +157,12 @@ build/bench_ops: tools/bench_ops.c build/liblzgraph.a | build_dirs
 publish-foundation:
 	@test -f "$(FOUNDATION_GRAPH)" || { echo "ERROR: foundation graph not found: $(FOUNDATION_GRAPH)"; exit 1; }
 	@gh release view "$(TAG)" --repo "$(GH_REPO_SLUG)" >/dev/null 2>&1 || { echo "ERROR: release $(TAG) does not exist yet. Push the tag and let CI create the release first."; exit 1; }
-	@echo "Computing SHA-256 of $(FOUNDATION_GRAPH) ($$(du -h "$(FOUNDATION_GRAPH)" | cut -f1))..."
-	@sha256sum "$(FOUNDATION_GRAPH)" | awk -v n="$(FOUNDATION_ASSET)" '{print $$1"  "n}' > "/tmp/$(FOUNDATION_ASSET).sha256"
-	@echo "Uploading to release $(TAG) as $(FOUNDATION_ASSET) ..."
-	@gh release upload "$(TAG)" --repo "$(GH_REPO_SLUG)" --clobber \
-		"$(FOUNDATION_GRAPH)#$(FOUNDATION_ASSET)" \
-		"/tmp/$(FOUNDATION_ASSET).sha256#$(FOUNDATION_ASSET).sha256"
+	@echo "Staging $(FOUNDATION_ASSET) ($$(du -h "$(FOUNDATION_GRAPH)" | cut -f1)) and SHA-256 ..."
+	@stage=$$(mktemp -d); \
+	 ln -s "$$(realpath "$(FOUNDATION_GRAPH)")" "$$stage/$(FOUNDATION_ASSET)"; \
+	 sha256sum "$(FOUNDATION_GRAPH)" | awk -v n="$(FOUNDATION_ASSET)" '{print $$1"  "n}' > "$$stage/$(FOUNDATION_ASSET).sha256"; \
+	 echo "Uploading to release $(TAG) as $(FOUNDATION_ASSET) (+ .sha256) ..."; \
+	 gh release upload "$(TAG)" --repo "$(GH_REPO_SLUG)" --clobber \
+		"$$stage/$(FOUNDATION_ASSET)" "$$stage/$(FOUNDATION_ASSET).sha256"; \
+	 rm -rf "$$stage"
 	@echo "Done -> https://github.com/$(GH_REPO_SLUG)/releases/download/$(TAG)/$(FOUNDATION_ASSET)"
