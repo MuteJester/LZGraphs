@@ -77,10 +77,14 @@ def test_topk_snapshot(fb_graph):
     out = {
         "top10_sequences":     list(top10.sequences),
         "top10_log_probs":     list(top10.log_probs),
-        "bottom10_sequences":  list(bottom10.sequences),
+        # The bottom-K (least-probable) walk *identities* tie-break differently
+        # across platforms when many walks share the minimal probability, so we
+        # snapshot only their log-probabilities (compared with tolerance), not
+        # the exact sequence strings.
         "bottom10_log_probs":  list(bottom10.log_probs),
     }
     assert_snapshot_match("flashback_graph_topk", out)
+    assert len(bottom10.sequences) == 10
 
 
 # ───────────────────────────────────────────────────────────────
