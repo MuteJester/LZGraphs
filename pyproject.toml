@@ -60,6 +60,8 @@ dev = [
 docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.24",
+    "mkdocs-redirects>=1.2",
+    "mkdocs-jupyter>=0.24",
 ]
 
 [project.urls]

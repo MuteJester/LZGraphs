@@ -1,6 +1,7 @@
 """FlashBackGraph — Markovian graph from FlashBack decomposition."""
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Iterable, overload
 
@@ -12,11 +13,72 @@ from ._simulation_result import SimulationResult
 from ._types import (
     DiversityProfile,
     DynamicRange,
-    FbasResult,
     PgenDiagnostics,
     PgenMoments,
     Summary,
 )
+
+
+class ScaleCalibration:
+    """Length-conditional calibration for the SCALE anomaly score.
+
+    Holds the per-length median and IQR of ``-log Pgen`` measured on
+    sequences simulated from a :class:`FlashBackGraph` (built by
+    :meth:`FlashBackGraph.calibrate_scale`). Save/load as JSON to reuse a
+    calibration without re-simulating.
+    """
+
+    __slots__ = ('median_by_length', 'iqr_by_length', 'global_median',
+                 'global_iqr', 'n_sim', 'seed')
+
+    def __init__(self, *, median_by_length, iqr_by_length, global_median,
+                 global_iqr, n_sim, seed=None):
+        self.median_by_length = {int(k): float(v) for k, v in median_by_length.items()}
+        self.iqr_by_length = {int(k): float(v) for k, v in iqr_by_length.items()}
+        self.global_median = float(global_median)
+        self.global_iqr = float(global_iqr)
+        self.n_sim = int(n_sim)
+        self.seed = seed
+
+    def _stats_for_length(self, length: int) -> tuple[float, float]:
+        """Median and IQR for a length, falling back to global / 1.0."""
+        m = self.median_by_length.get(int(length), self.global_median)
+        s = self.iqr_by_length.get(int(length), self.global_iqr)
+        if not s or s <= 0.0:
+            s = self.global_iqr if self.global_iqr > 0.0 else 1.0
+        return m, s
+
+    def save(self, path: str | os.PathLike) -> None:
+        """Write the calibration to a JSON file (the SCALE cache)."""
+        payload = {
+            'median_by_length': {str(k): v for k, v in self.median_by_length.items()},
+            'iqr_by_length': {str(k): v for k, v in self.iqr_by_length.items()},
+            'global_median': self.global_median,
+            'global_iqr': self.global_iqr,
+            'n_sim': self.n_sim,
+            'seed': self.seed,
+        }
+        with open(os.fspath(path), 'w') as f:
+            json.dump(payload, f, indent=2)
+
+    @classmethod
+    def load(cls, path: str | os.PathLike) -> "ScaleCalibration":
+        """Load a calibration previously written by :meth:`save`."""
+        with open(os.fspath(path)) as f:
+            d = json.load(f)
+        return cls(
+            median_by_length=d['median_by_length'],
+            iqr_by_length=d['iqr_by_length'],
+            global_median=d['global_median'],
+            global_iqr=d['global_iqr'],
+            n_sim=d.get('n_sim', 0),
+            seed=d.get('seed'),
+        )
+
+    def __repr__(self) -> str:
+        return (f"ScaleCalibration(lengths={len(self.median_by_length)}, "
+                f"global_median={self.global_median:.3f}, "
+                f"global_iqr={self.global_iqr:.3f}, n_sim={self.n_sim})")
 
 
 class FlashBackGraph(_GraphCommonMixin):
@@ -272,23 +334,74 @@ class FlashBackGraph(_GraphCommonMixin):
         arr = np.array(raw, dtype=np.float64)
         return arr if log else np.exp(arr)
 
-    def flashback_fbas(self, sequence: str | list[str]) -> FbasResult | list[FbasResult]:
-        """FlashBack Anomaly Score for sequence(s) via the C path.
+    # ── SCALE: self-calibrated anomaly score ───────────────
 
-        Returns a dict with keys ``fbas``, ``log_pgen``, ``worst_excess``,
-        ``n_missing_tokens``, ``n_missing_edges`` for a single sequence,
-        or a list of such dicts for a list input.
+    def calibrate_scale(
+        self, *, n_sim: int = 200_000, seed: int | None = None,
+        min_count: int = 50,
+    ) -> "ScaleCalibration":
+        """Self-calibrate the SCALE anomaly score against this graph.
 
-        FBAS = max(depth_weighted_excess) + mean(depth_weighted_excess) where
-        excess at each transition is ``max(0, -log(edge_weight) - entropy(src))``
-        and depth weight linearly decays from 1.0 at depth 0 to 0.4 at the
-        final transition. Missing tokens and edges contribute fixed penalties
-        (50.0 and 30.0 respectively).
+        Simulates ``n_sim`` sequences from the graph and measures the
+        per-length median and IQR of ``-log Pgen`` on them. Returns a
+        :class:`ScaleCalibration` (the reusable cache) for :meth:`scale_score`.
 
-        ~50-100x faster than the equivalent Python ``diagnose_sequence`` loop;
-        results match to machine precision.
+        ``-log Pgen`` grows with sequence length, so a raw score is not
+        comparable across lengths. Calibrating against the graph's own
+        simulated output removes that length dependence, giving a
+        length-invariant anomaly score.
+
+        Args:
+            n_sim: Number of sequences to simulate for the reference.
+            seed: RNG seed for a reproducible calibration.
+            min_count: Minimum simulated sequences at a length for that
+                length to receive its own median/IQR; sparser lengths fall
+                back to the global median/IQR at scoring time.
         """
-        return _c.fb_fbas(self._cap, sequence)
+        sim = self.simulate(n_sim, seed=seed)
+        seqs = sim.sequences
+        neg_lp = -np.asarray(sim.log_probs, dtype=np.float64)
+        lengths = np.fromiter((len(s) for s in seqs), dtype=np.int64,
+                              count=len(seqs))
+
+        median_by_length: dict[int, float] = {}
+        iqr_by_length: dict[int, float] = {}
+        for length in np.unique(lengths):
+            vals = neg_lp[lengths == length]
+            if len(vals) < min_count:
+                continue
+            q25, q50, q75 = np.percentile(vals, [25, 50, 75])
+            median_by_length[int(length)] = float(q50)
+            iqr_by_length[int(length)] = float(q75 - q25)
+
+        gq25, gq50, gq75 = np.percentile(neg_lp, [25, 50, 75])
+        return ScaleCalibration(
+            median_by_length=median_by_length,
+            iqr_by_length=iqr_by_length,
+            global_median=float(gq50),
+            global_iqr=float(gq75 - gq25),
+            n_sim=len(seqs),
+            seed=seed,
+        )
+
+    def scale_score(self, sequence, calibration: "ScaleCalibration"):
+        """SCALE anomaly score(s); higher means more anomalous.
+
+        ``score(s) = (-log Pgen(s) - median[len(s)]) / IQR[len(s)]`` using
+        the supplied :class:`ScaleCalibration`. Lengths absent from the
+        calibration fall back to its global median/IQR.
+
+        Accepts a single string (returns ``float``) or a list of strings
+        (returns ``np.ndarray``).
+        """
+        single = isinstance(sequence, str)
+        seqs = [sequence] if single else list(sequence)
+        neg_lp = -np.atleast_1d(np.asarray(self.pgen(seqs), dtype=np.float64))
+        out = np.empty(len(seqs), dtype=np.float64)
+        for i, s in enumerate(seqs):
+            m, sd = calibration._stats_for_length(len(s))
+            out[i] = (neg_lp[i] - m) / sd
+        return float(out[0]) if single else out
 
     # ── Exact analytics ────────────────────────────────────
 

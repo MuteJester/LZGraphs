@@ -47,7 +47,6 @@ void lzg_graph_destroy(LZGGraph *g) {
     free(g->node_pos);       free(g->node_is_sink);
     free(g->topo_order);
     free(g->length_counts);
-    free(g->node_entropy);
     lzg_hm_destroy(g->query_node_map);
     lzg_sp_destroy(g->pool);
     if (g->gene_data) lzg_gene_data_destroy(g->gene_data);

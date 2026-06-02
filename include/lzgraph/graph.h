@@ -82,8 +82,6 @@ typedef struct LZGGraph_ {
     uint8_t    *edge_single_char_idx; /* [n_edges]: aa bit index or UINT8_MAX */
     uint8_t    *node_single_char_idx; /* [n_nodes]: aa bit index or UINT8_MAX */
     struct LZGExactModel_ *exact_model_cache; /* accepted-model normalizer cache */
-    double     *node_entropy;   /* [n_nodes]: cached Shannon entropy of outgoing
-                                 * edge probabilities, NULL until first FBAS call */
 } LZGGraph;
 
 /** Allocate and initialize an empty graph. */

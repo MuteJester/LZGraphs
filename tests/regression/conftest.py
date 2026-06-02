@@ -54,7 +54,7 @@ def j_genes(repertoire_rows) -> list[str]:
     return [r["j_call"] for r in repertoire_rows]
 
 
-# Small fixed probe set for per-sequence calculations (pgen, FBAS, etc.).
+# Small fixed probe set for per-sequence calculations (pgen, SCALE, etc.).
 # Mix of in-repertoire and likely-out-of-repertoire sequences.
 PROBE_SEQUENCES = [
     "CASSLGIRRT",

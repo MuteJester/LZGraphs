@@ -1,9 +1,8 @@
 """TypedDict definitions for structured dict returns across the library.
 
 These describe the shape of dicts returned by methods like ``summary()``,
-``pgen_diagnostics()``, ``flashback_fbas()``, etc. Users who want to type
-their own code against these returns can import the relevant TypedDict
-from ``LZGraphs``.
+``pgen_diagnostics()``, etc. Users who want to type their own code against
+these returns can import the relevant TypedDict from ``LZGraphs``.
 
 All TypedDicts use ``total=False`` for forward compatibility — adding new
 keys to a return dict in a future version of the library does not break
@@ -59,15 +58,6 @@ class DiversityProfile(TypedDict):
     entropy_bits: float
     effective_diversity: float
     uniformity: float
-
-
-class FbasResult(TypedDict):
-    """Return type of ``FlashBackGraph.flashback_fbas(sequence)``."""
-    fbas: float
-    log_pgen: float
-    worst_excess: float
-    n_missing_tokens: int
-    n_missing_edges: int
 
 
 class SharingSpectrum(TypedDict):

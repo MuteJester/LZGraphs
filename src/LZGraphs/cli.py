@@ -622,6 +622,210 @@ def _json_default(obj):
     raise TypeError(f"not JSON serializable: {type(obj)}")
 
 
+# ── FlashBack command group ─────────────────────────────────
+#
+# FlashBackGraph is a separate class from LZGraph and a saved .lzg file does
+# not record which family produced it, so these commands always load via
+# FlashBackGraph and live under their own `lzg flashback ...` namespace rather
+# than auto-dispatching from the generic loaders.
+
+
+def _get_fb_graph(path, quiet):
+    """Load a FlashBackGraph, with timing unless quiet."""
+    from . import FlashBackGraph
+    if quiet:
+        return FlashBackGraph.load(path)
+    t0 = time.time()
+    g = FlashBackGraph.load(path)
+    _stderr(f"[loaded] {os.path.basename(path)}: {g.n_nodes} nodes, "
+            f"{g.n_edges} edges ({time.time()-t0:.2f}s)")
+    return g
+
+
+def _fb_build(args):
+    from . import FlashBackGraph, set_log_level
+
+    set_log_level(_effective_log_level(args, default='info'))
+    if args.input == '-':
+        raw = sys.stdin.read().strip().split('\n')
+        seqs, abundances = [], []
+        for line in raw:
+            line = line.strip()
+            if not line:
+                continue
+            if '\t' in line:
+                s, c = line.split('\t', 1)
+                seqs.append(s)
+                abundances.append(int(c))
+            else:
+                seqs.append(line)
+                abundances.append(1)
+        g = FlashBackGraph(seqs, abundances=abundances, smoothing=args.smoothing)
+    else:
+        # from_file streams plain "seq" or "seq<TAB>abundance" with constant memory.
+        g = FlashBackGraph.from_file(args.input, smoothing=args.smoothing)
+    if _cli_log_enabled(args, 'info'):
+        _stderr(f"[flashback build] phase=construct nodes={g.n_nodes} "
+                f"edges={g.n_edges}")
+    g.save(args.output)
+    if _cli_log_enabled(args, 'info'):
+        sz = os.path.getsize(args.output)
+        _stderr(f"[flashback build] phase=save status=done output={args.output} "
+                f"size_kb={sz/1024:.1f}")
+    set_log_level('none')
+
+
+def _fb_info(args):
+    g = _get_fb_graph(args.graph, args.quiet)
+    if getattr(args, 'json', False):
+        d = dict(g.summary())
+        d['variant'] = g.variant
+        d['n_nodes'] = g.n_nodes
+        d['n_edges'] = g.n_edges
+        d['path_count'] = g.path_count
+        d.update(g.diversity_profile())
+        print(json.dumps(d, indent=2, default=_json_default))
+        return
+    print(f"# lzg flashback info v{__version__} — {os.path.basename(args.graph)}")
+    _tagged('GR', 'variant', g.variant)
+    _tagged('GR', 'nodes', g.n_nodes)
+    _tagged('GR', 'edges', g.n_edges)
+    _tagged('GR', 'is_dag', 'yes' if g.is_dag else 'no')
+    _tagged('GR', 'path_count', f"{g.path_count:.6g}")
+    dp = g.diversity_profile()
+    _tagged('DV', 'effective_diversity', f"{dp['effective_diversity']:.4f}")
+
+
+def _fb_score(args):
+    from ._io import read_sequences_simple
+    import numpy as np
+
+    g = _get_fb_graph(args.graph, args.quiet)
+    seqs = read_sequences_simple(args.input, seq_column=args.seq_column)
+    if not seqs:
+        _stderr("[flashback score] no sequences to score")
+        return
+    values = g.pgen(seqs)
+    if args.prob:
+        values = np.exp(values)
+    col = 'prob' if args.prob else 'pgen'
+    out = _out(args)
+    values = np.atleast_1d(values)
+    if getattr(args, 'json', False):
+        result = [{'sequence': s, col: float(v)} for s, v in zip(seqs, values)]
+        out.write(json.dumps(result, indent=2) + '\n')
+    else:
+        out.write(f"sequence\t{col}\n")
+        for s, v in zip(seqs, values):
+            out.write(f"{s}\t{float(v):.6f}\n")
+    if out is not sys.stdout:
+        out.close()
+    if not args.quiet:
+        _stderr(f"[flashback score] scored {len(seqs)} sequences")
+
+
+def _fb_simulate(args):
+    g = _get_fb_graph(args.graph, args.quiet)
+    result = g.simulate(args.count, seed=args.seed)
+    out = _out(args)
+    if getattr(args, 'json', False):
+        items = [{'sequence': result.sequences[i],
+                  'log_prob': float(result.log_probs[i])}
+                 for i in range(len(result))]
+        out.write(json.dumps(items, indent=2) + '\n')
+    elif args.with_details:
+        out.write("sequence\tlog_prob\n")
+        for i in range(len(result)):
+            out.write(f"{result.sequences[i]}\t{result.log_probs[i]:.6f}\n")
+    else:
+        for s in result:
+            out.write(s + '\n')
+    if out is not sys.stdout:
+        out.close()
+    if not args.quiet:
+        _stderr(f"[flashback simulate] generated {len(result)} sequences")
+
+
+def _fb_diversity(args):
+    import numpy as np
+
+    g = _get_fb_graph(args.graph, args.quiet)
+    orders = [float(s) for s in args.hill.split(',') if s.strip()]
+    hills = {}
+    if orders:
+        vals = np.atleast_1d(g.hill_numbers(orders))
+        hills = {o: float(v) for o, v in zip(orders, vals)}
+    dp = g.diversity_profile()
+
+    if getattr(args, 'json', False):
+        d = {'hill_numbers': {str(k): v for k, v in hills.items()}}
+        d.update(dp)
+        print(json.dumps(d, indent=2, default=_json_default))
+        return
+
+    print(f"# lzg flashback diversity v{__version__}")
+    for o in orders:
+        _tagged('HL', f"{o:g}", f"{hills[o]:.4f}")
+    _tagged('DV', 'effective_diversity', f"{dp['effective_diversity']:.4f}")
+    if 'entropy_nats' in dp:
+        _tagged('DV', 'entropy_nats', f"{dp['entropy_nats']:.4f}")
+
+
+def _fb_scale(args):
+    from . import ScaleCalibration
+    from ._io import read_sequences_simple
+    import numpy as np
+
+    g = _get_fb_graph(args.graph, args.quiet)
+    if args.calibration:
+        cal = ScaleCalibration.load(args.calibration)
+    else:
+        if not args.quiet:
+            _stderr(f"[flashback scale] calibrating "
+                    f"(n_sim={args.n_sim}, seed={args.seed})...")
+        cal = g.calibrate_scale(n_sim=args.n_sim, seed=args.seed)
+        if args.save_calibration:
+            cal.save(args.save_calibration)
+            if not args.quiet:
+                _stderr(f"[flashback scale] saved calibration to "
+                        f"{args.save_calibration}")
+    seqs = read_sequences_simple(args.input, seq_column=args.seq_column)
+    if not seqs:
+        _stderr("[flashback scale] no sequences to score")
+        return
+    scores = np.atleast_1d(g.scale_score(seqs, cal))
+    out = _out(args)
+    if getattr(args, 'json', False):
+        items = [{'sequence': s, 'scale': float(v)}
+                 for s, v in zip(seqs, scores)]
+        out.write(json.dumps(items, indent=2) + '\n')
+    else:
+        out.write("sequence\tscale\n")
+        for s, v in zip(seqs, scores):
+            out.write(f"{s}\t{float(v):.6f}\n")
+    if out is not sys.stdout:
+        out.close()
+    if not args.quiet:
+        _stderr(f"[flashback scale] scored {len(seqs)} sequences")
+
+
+def cmd_flashback(args):
+    handler = {
+        'build': _fb_build,
+        'info': _fb_info,
+        'score': _fb_score,
+        'simulate': _fb_simulate,
+        'diversity': _fb_diversity,
+        'scale': _fb_scale,
+    }.get(getattr(args, 'flashback_cmd', None))
+    if handler is None:
+        raise ValueError(
+            "a flashback subcommand is required "
+            "(build, info, score, simulate, diversity, scale)"
+        )
+    handler(args)
+
+
 # ── Argument parser ─────────────────────────────────────────
 
 
@@ -748,6 +952,60 @@ def build_parser():
     _add_output_arg(pr_s)
     _add_json_arg(pr_s)
 
+    # ── flashback ──
+    fb = sub.add_parser('flashback',
+                        help='FlashBackGraph commands (Markovian DAG, exact analytics)')
+    fb_sub = fb.add_subparsers(dest='flashback_cmd', title='flashback commands')
+
+    fb_b = fb_sub.add_parser('build', help='Build a FlashBackGraph from sequences')
+    fb_b.add_argument('input', help='Input file (.txt, .tsv, .gz, or - for stdin)')
+    fb_b.add_argument('-o', '--output', required=True, help='Output .lzg file')
+    _add_seq_column_arg(fb_b)
+    fb_b.add_argument('--smoothing', type=float, default=0.0,
+                      help='Laplace smoothing [default: 0.0]')
+
+    fb_i = fb_sub.add_parser('info', help='Inspect a saved FlashBackGraph')
+    fb_i.add_argument('graph', help='.lzg file')
+    _add_json_arg(fb_i)
+
+    fb_sc = fb_sub.add_parser('score', help='Exact generation probability for sequences')
+    fb_sc.add_argument('graph', help='.lzg file')
+    fb_sc.add_argument('input', nargs='?', default='-', help='Sequence file [default: stdin]')
+    _add_seq_column_arg(fb_sc)
+    _add_output_arg(fb_sc)
+    fb_sc.add_argument('--prob', action='store_true', help='Output probability (not log)')
+    _add_json_arg(fb_sc)
+
+    fb_sm = fb_sub.add_parser('simulate', help='Generate sequences from a FlashBackGraph')
+    fb_sm.add_argument('graph', help='.lzg file')
+    fb_sm.add_argument('-n', '--count', type=int, required=True, help='Number of sequences')
+    _add_output_arg(fb_sm)
+    fb_sm.add_argument('--seed', type=int, default=None, help='RNG seed')
+    fb_sm.add_argument('--with-details', action='store_true', help='Include log_prob')
+    _add_json_arg(fb_sm)
+
+    fb_dv = fb_sub.add_parser('diversity', help='Exact diversity metrics')
+    fb_dv.add_argument('graph', help='.lzg file')
+    fb_dv.add_argument('--hill', default='0,1,2', help='Hill orders [default: 0,1,2]')
+    _add_json_arg(fb_dv)
+
+    fb_scale = fb_sub.add_parser(
+        'scale', help='SCALE anomaly score (self-calibrated -log Pgen)')
+    fb_scale.add_argument('graph', help='.lzg file')
+    fb_scale.add_argument('input', nargs='?', default='-',
+                          help='Sequence file [default: stdin]')
+    _add_seq_column_arg(fb_scale)
+    _add_output_arg(fb_scale)
+    fb_scale.add_argument('--calibration', default=None,
+                          help='Load a saved calibration JSON instead of calibrating')
+    fb_scale.add_argument('--save-calibration', default=None,
+                          help='Save the freshly built calibration to this JSON path')
+    fb_scale.add_argument('--n-sim', type=int, default=200_000,
+                          help='Sequences to simulate for calibration [default: 200000]')
+    fb_scale.add_argument('--seed', type=int, default=None,
+                          help='Calibration RNG seed')
+    _add_json_arg(fb_scale)
+
     # ── posterior ──
     po = sub.add_parser('posterior', help='Bayesian posterior update')
     po.add_argument('prior', help='Prior .lzg graph file')
@@ -774,6 +1032,7 @@ _DISPATCH = {
     'saturation': cmd_saturation,
     'predict': cmd_predict,
     'posterior': cmd_posterior,
+    'flashback': cmd_flashback,
 }
 
 

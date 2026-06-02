@@ -1384,60 +1384,6 @@ static PyObject *py_fb_pgen(PyObject *self, PyObject *args) {
     return NULL;
 }
 
-static PyObject *fbas_result_to_dict(const LZGFbasResult *r) {
-    PyObject *d = PyDict_New();
-    if (!d) return NULL;
-    PyDict_SetItemString(d, "fbas",             PyFloat_FromDouble(r->fbas));
-    PyDict_SetItemString(d, "log_pgen",         PyFloat_FromDouble(r->log_pgen));
-    PyDict_SetItemString(d, "worst_excess",     PyFloat_FromDouble(r->worst_excess));
-    PyDict_SetItemString(d, "n_missing_tokens", PyLong_FromUnsignedLong(r->n_missing_tokens));
-    PyDict_SetItemString(d, "n_missing_edges",  PyLong_FromUnsignedLong(r->n_missing_edges));
-    return d;
-}
-
-static PyObject *py_fb_fbas(PyObject *self, PyObject *args) {
-    (void)self;
-    PyObject *cap, *seq_arg;
-    if (!PyArg_ParseTuple(args, "OO", &cap, &seq_arg)) return NULL;
-    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
-    if (!g) return NULL;
-
-    if (PyUnicode_Check(seq_arg)) {
-        const char *seq = PyUnicode_AsUTF8(seq_arg);
-        if (!seq) return NULL;
-        LZGFbasResult r;
-        LZGError err = lzg_flashback_fbas(g, seq, (uint32_t)strlen(seq), &r);
-        if (err != LZG_OK) return set_lzg_error(err);
-        return fbas_result_to_dict(&r);
-    }
-    if (PyList_Check(seq_arg)) {
-        Py_ssize_t n = PyList_GET_SIZE(seq_arg);
-        /* Pre-flatten strings to const char**. */
-        const char **seqs = malloc((size_t)n * sizeof(char *));
-        if (!seqs) return PyErr_NoMemory();
-        for (Py_ssize_t i = 0; i < n; i++) {
-            const char *s = PyUnicode_AsUTF8(PyList_GET_ITEM(seq_arg, i));
-            if (!s) { free(seqs); return NULL; }
-            seqs[i] = s;
-        }
-        LZGFbasResult *out = calloc((size_t)n, sizeof(LZGFbasResult));
-        if (!out) { free(seqs); return PyErr_NoMemory(); }
-        LZGError err = lzg_flashback_fbas_batch(g, seqs, (uint32_t)n, out);
-        free(seqs);
-        if (err != LZG_OK) { free(out); return set_lzg_error(err); }
-        PyObject *result = PyList_New(n);
-        if (!result) { free(out); return NULL; }
-        for (Py_ssize_t i = 0; i < n; i++) {
-            PyObject *d = fbas_result_to_dict(&out[i]);
-            if (!d) { Py_DECREF(result); free(out); return NULL; }
-            PyList_SET_ITEM(result, i, d);
-        }
-        free(out);
-        return result;
-    }
-    PyErr_SetString(PyExc_TypeError, "sequence must be str or list[str]");
-    return NULL;
-}
 
 static PyObject *py_fb_top_k_walks(PyObject *self, PyObject *args, PyObject *kw) {
     (void)self;
@@ -2034,7 +1980,6 @@ static PyMethodDef module_methods[] = {
     {"fb_stream_snapshot",      py_fb_stream_snapshot,                 METH_O, NULL},
     {"fb_simulate",             (PyCFunction)py_fb_simulate,           METH_VARARGS | METH_KEYWORDS, NULL},
     {"fb_pgen",                 py_fb_pgen,                            METH_VARARGS, NULL},
-    {"fb_fbas",                 py_fb_fbas,                            METH_VARARGS, NULL},
     {"fb_path_count",           py_fb_path_count,                      METH_O, NULL},
     {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},
     {"fb_power_sum",            py_fb_power_sum,                       METH_VARARGS, NULL},

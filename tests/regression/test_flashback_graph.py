@@ -1,6 +1,6 @@
 """Tier 1 regression: FlashBack graph.
 
-Locks in build statistics, pgen, FBAS, top-K walks, posterior+subtract
+Locks in build statistics, pgen, top-K walks, posterior+subtract
 round-trips, simulate, and analytics on a 200-sequence fixed input.
 
 All MC operations use fixed seeds. Snapshots are split per concern so a
@@ -65,15 +65,6 @@ def test_pgen_snapshot(fb_graph, probe_sequences):
         for seq in probe_sequences
     }
     assert_snapshot_match("flashback_graph_pgen", out)
-
-
-# ───────────────────────────────────────────────────────────────
-# FBAS
-# ───────────────────────────────────────────────────────────────
-
-def test_fbas_snapshot(fb_graph, probe_sequences):
-    out = {seq: fb_graph.flashback_fbas(seq) for seq in probe_sequences}
-    assert_snapshot_match("flashback_graph_fbas", out)
 
 
 # ───────────────────────────────────────────────────────────────

@@ -3,19 +3,13 @@
 High-performance C backend with full LZ76 dictionary constraint enforcement.
 """
 
-__version__ = "3.0.2"
+__version__ = "3.1.0"
 
 from ._graph import LZGraph
-from ._flashback_graph import FlashBackGraph, FlashBackStream
+from ._flashback_graph import FlashBackGraph, FlashBackStream, ScaleCalibration
 from ._flashback_grammar import FlashBackGrammar
-from ._foundation_scaffold import (
-    FoundationScaffoldAligner,
-    FoundationScaffoldAlignment,
-    FoundationScaffoldBatch,
-    FoundationScaffoldEvent,
-    FoundationScaffoldTokenState,
-    ScaffoldPosteriorCandidate,
-)
+# FoundationScaffold* helpers live in the private ._foundation_scaffold module.
+# They are internal for 3.1.0 and intentionally not part of the public API.
 from ._pgen_dist import PgenDistribution
 from ._simulation_result import SimulationResult
 from ._errors import LZGraphError, NoGeneDataError, ConvergenceError, CorruptFileError
@@ -111,13 +105,8 @@ __all__ = [
     'LZGraph',
     'FlashBackGraph',
     'FlashBackStream',
+    'ScaleCalibration',
     'FlashBackGrammar',
-    'FoundationScaffoldAligner',
-    'FoundationScaffoldAlignment',
-    'FoundationScaffoldBatch',
-    'FoundationScaffoldEvent',
-    'FoundationScaffoldTokenState',
-    'ScaffoldPosteriorCandidate',
     'PgenDistribution',
     'SimulationResult',
     'LZGraphError',

@@ -40,11 +40,20 @@ def lzg_file(tmp_path, seq_file):
     return p
 
 
+@pytest.fixture
+def fb_lzg_file(tmp_path, seq_file):
+    p = str(tmp_path / 'fb.lzg')
+    out, err, rc = run_lzg('-q', 'flashback', 'build', seq_file, '-o', p)
+    assert rc == 0, err
+    return p
+
+
 class TestVersion:
     def test_version(self):
+        from LZGraphs import __version__
         out, _, rc = run_lzg('--version')
         assert rc == 0
-        assert '3.0.2' in out
+        assert __version__ in out
 
 
 class TestBuild:
@@ -217,3 +226,88 @@ class TestPredict:
                              '--di', '100', '--dj', '100')
         assert rc == 0
         assert 'predicted_overlap' in out
+
+
+class TestFlashBack:
+    def test_build_creates_file(self, seq_file, tmp_path):
+        out_path = str(tmp_path / 'fb_out.lzg')
+        _, err, rc = run_lzg('-q', 'flashback', 'build', seq_file, '-o', out_path)
+        assert rc == 0, err
+        assert os.path.exists(out_path)
+
+    def test_build_seqcount(self, seq_count_file, tmp_path):
+        out_path = str(tmp_path / 'fb_counts.lzg')
+        _, err, rc = run_lzg('-q', 'flashback', 'build', seq_count_file, '-o', out_path)
+        assert rc == 0, err
+        assert os.path.exists(out_path)
+
+    def test_build_stdin(self, tmp_path):
+        out_path = str(tmp_path / 'fb_stdin.lzg')
+        _, err, rc = run_lzg('-q', 'flashback', 'build', '-', '-o', out_path,
+                             input_text='CASSLGIRRT\nCASSLGYEQYF\nCASSQETQYF\n')
+        assert rc == 0, err
+        assert os.path.exists(out_path)
+
+    def test_info_reports_flashback_variant(self, fb_lzg_file):
+        out, err, rc = run_lzg('flashback', 'info', fb_lzg_file)
+        assert rc == 0, err
+        assert 'flashback' in out
+
+    def test_info_json(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'info', fb_lzg_file, '--json')
+        assert rc == 0, err
+        d = json.loads(out)
+        assert d['variant'] == 'flashback'
+
+    def test_score_outputs_pgen(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'score', fb_lzg_file,
+                               input_text='CASSLGIRRT\nCASSQETQYF\n')
+        assert rc == 0, err
+        assert 'pgen' in out
+        assert 'CASSLGIRRT' in out
+
+    def test_simulate_generates_n(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'simulate', fb_lzg_file, '-n', '5')
+        assert rc == 0, err
+        lines = [l for l in out.strip().split('\n') if l]
+        assert len(lines) == 5
+
+    def test_diversity_reports_effective_diversity(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'diversity', fb_lzg_file)
+        assert rc == 0, err
+        assert 'effective_diversity' in out
+
+    def test_diversity_json(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'diversity', fb_lzg_file, '--json')
+        assert rc == 0, err
+        d = json.loads(out)
+        assert 'effective_diversity' in d
+
+    def test_scale_outputs_score(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'scale', fb_lzg_file,
+                               '--n-sim', '2000', '--seed', '0',
+                               input_text='CASSLGIRRT\nCASSQETQYF\n')
+        assert rc == 0, err
+        assert 'scale' in out
+        assert 'CASSLGIRRT' in out
+
+    def test_scale_json(self, fb_lzg_file):
+        out, err, rc = run_lzg('-q', 'flashback', 'scale', fb_lzg_file, '--json',
+                               '--n-sim', '2000', '--seed', '0',
+                               input_text='CASSLGIRRT\n')
+        assert rc == 0, err
+        d = json.loads(out)
+        assert isinstance(d, list)
+        assert 'scale' in d[0]
+
+    def test_scale_save_and_reuse_calibration(self, fb_lzg_file, tmp_path):
+        cal = str(tmp_path / 'cal.json')
+        _, err, rc = run_lzg('-q', 'flashback', 'scale', fb_lzg_file,
+                             '--n-sim', '2000', '--seed', '0',
+                             '--save-calibration', cal, input_text='CASSLGIRRT\n')
+        assert rc == 0, err
+        assert os.path.exists(cal)
+        out, err, rc = run_lzg('-q', 'flashback', 'scale', fb_lzg_file,
+                               '--calibration', cal, input_text='CASSLGIRRT\n')
+        assert rc == 0, err
+        assert 'CASSLGIRRT' in out
