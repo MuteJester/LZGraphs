@@ -161,3 +161,12 @@ website/node_modules/
 website/build/
 website/.docusaurus/
 wheelhouse/
+
+# Local scratch / ad-hoc doc-testing artifacts (not part of the package)
+/*.lzg
+/models/
+/test_rep.tsv
+/test_corrupt.py
+/test_lzpgen.py
+/test_saturation.py
+/test_serialization.py

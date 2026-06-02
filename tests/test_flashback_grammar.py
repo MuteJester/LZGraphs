@@ -11,11 +11,15 @@ import pytest
 
 from LZGraphs import _clzgraph
 
-# Load the prototype as reference.
+# Load the prototype as reference. It lives in the gitignored .private/ tree,
+# so on a clean checkout (e.g. CI) it is absent; skip this whole module then.
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     '..', '.private', 'flashback_grammar_2026-04-22'))
-import fbg_prototype as proto  # noqa: E402
+proto = pytest.importorskip(
+    'fbg_prototype',
+    reason='FlashBackGrammar reference prototype lives in gitignored .private/; '
+           'skipped when unavailable (e.g. CI).')  # noqa: E402
 
 TRAIN = [
     'CASSYAGLDYF', 'CASSLGQGAYEQYF', 'CASSPGTGAYEQYF', 'CASSYGYF',
