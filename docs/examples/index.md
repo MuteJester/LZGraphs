@@ -6,23 +6,52 @@ Practical examples you can copy-paste and run. Each example is self-contained an
 
 ## Jupyter Notebooks
 
-Full interactive notebooks are available on GitHub:
+Full interactive notebooks are rendered here in the docs, one set per graph
+family. Each page has a download link so you can run it locally.
+
+### LZGraph
 
 <div class="grid" markdown>
 
 <div class="card" markdown>
-### 1. [Getting Started](https://github.com/MuteJester/LZGraphs/blob/master/examples/01_Getting_Started.ipynb)
-**Beginner** — Build a graph, score sequences, simulate new ones.
+### 1. [Getting Started](lzgraph/01_Getting_Started.ipynb)
+**Beginner**: Build a graph, score sequences, simulate new ones.
 </div>
 
 <div class="card" markdown>
-### 2. [Analytics and Diversity](https://github.com/MuteJester/LZGraphs/blob/master/examples/02_Analytics_and_Diversity.ipynb)
-**Intermediate** — Hill numbers, richness predictions, occupancy models.
+### 2. [Analytics and Diversity](lzgraph/02_Analytics_and_Diversity.ipynb)
+**Intermediate**: Hill numbers, richness predictions, occupancy models.
 </div>
 
 <div class="card" markdown>
-### 3. [Advanced Usage](https://github.com/MuteJester/LZGraphs/blob/master/examples/03_Advanced_Usage.ipynb)
-**Advanced** — Posterior personalization, feature alignment, PGEN distributions.
+### 3. [Advanced Usage](lzgraph/03_Advanced_Usage.ipynb)
+**Advanced**: Posterior personalization, feature alignment, PGEN distributions.
+</div>
+
+</div>
+
+### FlashBackGraph
+
+<div class="grid" markdown>
+
+<div class="card" markdown>
+### 1. [Getting Started](flashback/01_Getting_Started.ipynb)
+**Beginner**: Build a FlashBackGraph and read exact analytics off it.
+</div>
+
+<div class="card" markdown>
+### 2. [Analytics and Diversity](flashback/02_Analytics_and_Diversity.ipynb)
+**Intermediate**: Exact Hill numbers, entropy, and PGEN.
+</div>
+
+<div class="card" markdown>
+### 3. [Advanced Usage](flashback/03_Advanced_Usage.ipynb)
+**Advanced**: Anomaly scoring, graph algebra, and personalization.
+</div>
+
+<div class="card" markdown>
+### 4. [SCALE Anomaly Detection](flashback/04_SCALE_Anomaly_Detection.ipynb)
+**Advanced**: Load the foundation graph, self-calibrate SCALE, and flag error/noise sequences with plots.
 </div>
 
 </div>
@@ -33,7 +62,7 @@ To run them locally:
 git clone https://github.com/MuteJester/LZGraphs.git
 cd LZGraphs
 pip install . && pip install jupyter
-cd examples && jupyter notebook
+cd examples && jupyter notebook   # notebooks live in examples/lzgraph and examples/flashback
 ```
 
 ---
@@ -65,7 +94,7 @@ print(f"Lengths:    {sorted(graph.length_distribution.keys())}")
 print(f"Density:    {graph.density:.4f}")
 
 # Score a known sequence
-log_p = graph.lzpgen("CASSLEPSGGTDTQYF")
+log_p = graph.pgen("CASSLEPSGGTDTQYF")
 print(f"\nlog P(CASSLEPSGGTDTQYF) = {log_p:.2f}")
 
 # Diversity
@@ -110,7 +139,7 @@ for alpha in [0, 1, 2]:
 
 # Cross-score: how probable are A's sequences under B's model?
 import numpy as np
-cross_scores = graph_b.lzpgen(seqs_a[:100])
+cross_scores = graph_b.pgen(seqs_a[:100])
 print(f"\nMean log P(A seqs | B model): {np.mean(cross_scores):.2f}")
 ```
 
@@ -181,8 +210,8 @@ print(f"Disease-specific: {disease_only.n_edges} edges")
 
 # Score a candidate against the disease-specific model
 candidate = "CASSLGQAYEQYF"
-print(f"\nlog P(candidate | disease-specific): {disease_only.lzpgen(candidate):.2f}")
-print(f"log P(candidate | healthy):          {healthy.lzpgen(candidate):.2f}")
+print(f"\nlog P(candidate | disease-specific): {disease_only.pgen(candidate):.2f}")
+print(f"log P(candidate | healthy):          {healthy.pgen(candidate):.2f}")
 ```
 
 ---
@@ -264,6 +293,6 @@ The repository includes these datasets for testing and examples:
 
 ## See Also
 
-- [Getting Started](../getting-started/quickstart.md) — installation and first graph
-- [Tutorials](../tutorials/index.md) — step-by-step learning paths
-- [API Reference](../api/index.md) — complete method documentation
+- [Getting Started](../getting-started/index.md): installation and first graph
+- [Tutorials](../tutorials/index.md): step-by-step learning paths
+- [API Reference](../api/index.md): complete method documentation

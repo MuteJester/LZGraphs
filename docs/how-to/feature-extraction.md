@@ -1,10 +1,13 @@
 ---
 tags:
+  - LZGraph
   - ML
   - Construction
 ---
 
 # Feature Extraction for Machine Learning
+
+**Applies to: LZGraph**
 
 LZGraphs provides three strategies for extracting fixed-size numerical feature vectors from repertoire graphs. These vectors can be fed directly into scikit-learn classifiers, neural networks, or any ML pipeline.
 
@@ -12,7 +15,7 @@ LZGraphs provides three strategies for extracting fixed-size numerical feature v
 
 ## The challenge
 
-Immune repertoires have variable size — one sample might have 1,000 sequences, another 50,000. Standard ML algorithms need **fixed-dimensional** input. LZGraphs solves this by projecting repertoires into consistent feature spaces derived from the graph structure.
+Immune repertoires have variable size, one sample might have 1,000 sequences, another 50,000. Standard ML algorithms need **fixed-dimensional** input. LZGraphs solves this by projecting repertoires into consistent feature spaces derived from the graph structure.
 
 ## Three strategies at a glance
 
@@ -139,7 +142,7 @@ print(f"Profile similarity: {cos_sim:.4f}")
 
 ## Strategy C: Graph statistics vector
 
-The fastest and simplest approach — a 15-element vector of scalar statistics computed from the graph:
+The fastest and simplest approach, a 15-element vector of scalar statistics computed from the graph:
 
 ```python
 graph = LZGraph(sequences, variant='aap')
@@ -235,8 +238,8 @@ print(f"Sparse adjacency: {A.shape}, nnz={A.nnz}")
 
 ## See Also
 
-- [API: `feature_aligned()`](../api/lzgraph.md#feature_aligned) — method reference
-- [API: `feature_stats()`](../api/lzgraph.md#feature_stats) — the 15-element vector
-- [API: `adjacency_csr()`](../api/lzgraph.md#adjacency_csr) — scipy-compatible CSR export
-- [Graph Construction tutorial](../tutorials/graph-construction.md) — building graphs for feature extraction
-- [Compare Repertoires](repertoire-comparison.md) — non-ML comparison approaches
+- [API: `feature_aligned()`](../api/lzgraph.md#feature_aligned): method reference
+- [API: `feature_stats()`](../api/lzgraph.md#feature_stats): the 15-element vector
+- [API: `adjacency_csr()`](../api/lzgraph.md#adjacency_csr): scipy-compatible CSR export
+- [Graph Construction tutorial](../tutorials/graph-construction.md): building graphs for feature extraction
+- [Compare Repertoires](repertoire-comparison.md): non-ML comparison approaches

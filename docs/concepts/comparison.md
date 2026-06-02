@@ -1,12 +1,13 @@
 ---
-description: Empirical comparison of LZGraphs with IGoR, OLGA, and SONIA for immune repertoire analysis.
 tags:
+  - LZGraph
   - Comparison
+description: Empirical comparison of LZGraphs with IGoR, OLGA, and SONIA for immune repertoire analysis.
 ---
 
 # Comparison with IGoR, OLGA, and SONIA
 
-LZGraphs takes a fundamentally different approach to repertoire analysis than the established V(D)J recombination tools. This page presents an **empirical comparison** — how do the models agree on real data? — along with a conceptual overview of when to use which tool.
+LZGraphs takes a fundamentally different approach to repertoire analysis than the established V(D)J recombination tools. This page presents an **empirical comparison**: how do the models agree on real data?, along with a conceptual overview of when to use which tool.
 
 ---
 
@@ -14,11 +15,11 @@ LZGraphs takes a fundamentally different approach to repertoire analysis than th
 
 The immune repertoire modeling ecosystem has two distinct approaches:
 
-**Mechanistic (IGoR → OLGA → SONIA):** Explicitly model the V(D)J recombination process — gene segment choices, deletions, N-insertions, selection pressures. These tools require germline reference databases and (for IGoR) sequence alignment. They answer *why* a sequence was generated: which gene segments, what insertion/deletion profiles.
+**Mechanistic (IGoR → OLGA → SONIA):** Explicitly model the V(D)J recombination process, gene segment choices, deletions, N-insertions, selection pressures. These tools require germline reference databases and (for IGoR) sequence alignment. They answer *why* a sequence was generated: which gene segments, what insertion/deletion profiles.
 
-**Information-theoretic (LZGraphs):** Compress sequences into a directed graph using LZ76, capturing statistical structure without assuming any generative mechanism. Requires only a list of CDR3 strings — no germline databases, no alignment, no pre-fitted models. Answers *how likely, how diverse, how similar*.
+**Information-theoretic (LZGraphs):** Compress sequences into a directed graph using LZ76, capturing statistical structure without assuming any generative mechanism. Requires only a list of CDR3 strings, no germline databases, no alignment, no pre-fitted models. Answers *how likely, how diverse, how similar*.
 
-Neither approach is "better" — they answer different questions and are often complementary.
+Neither approach is "better", they answer different questions and are often complementary.
 
 ---
 
@@ -28,8 +29,8 @@ The most direct comparison is on **generation probability (Pgen)**: given a CDR3
 
 We compared LZGraphs against OLGA (the gold-standard V(D)J Pgen tool) using two approaches:
 
-1. **OLGA-generated sequences** — 5,000 sequences sampled from OLGA's default human TRB recombination model, scored by both OLGA and LZGraphs
-2. **Real CDR3 sequences** — 300 sequences from a real TCR repertoire, scored by both models
+1. **OLGA-generated sequences**: 5,000 sequences sampled from OLGA's default human TRB recombination model, scored by both OLGA and LZGraphs
+2. **Real CDR3 sequences**: 300 sequences from a real TCR repertoire, scored by both models
 
 ### Pgen rank correlation
 
@@ -40,8 +41,8 @@ We compared LZGraphs against OLGA (the gold-standard V(D)J Pgen tool) using two 
 
 **Key finding:** The two models show strong rank correlation (ρ = 0.81 on synthetic data, ρ = 0.71 on real data), meaning they largely agree on the *ordering* of sequences from most to least probable. This is notable because:
 
-- OLGA computes Pgen by marginalizing over all V(D)J recombination scenarios — a mechanistic model with dozens of learned parameters
-- LZGraphs computes Pgen from LZ76-constrained transition probabilities — a data-driven compression model with no biological assumptions
+- OLGA computes Pgen by marginalizing over all V(D)J recombination scenarios, a mechanistic model with dozens of learned parameters
+- LZGraphs computes Pgen from LZ76-constrained transition probabilities, a data-driven compression model with no biological assumptions
 
 The correlation is not perfect (and shouldn't be): OLGA's probabilities reflect the *universal recombination process*, while LZGraphs' probabilities reflect the *specific repertoire's statistical patterns*, including selection effects.
 
@@ -67,7 +68,7 @@ Beyond scoring, both models can **generate** new sequences. How realistic are th
   <figcaption><strong>CDR3 length distributions: real sequences (gray) vs OLGA-simulated (purple) vs LZGraphs-simulated (cyan).</strong> LZGraphs closely matches the training data's length profile because it's built from that data. OLGA generates from a universal V(D)J model, producing a broader distribution with more short sequences (10-12 aa) that are underrepresented in this particular repertoire.</figcaption>
 </figure>
 
-LZGraphs simulations match the training data's length distribution almost exactly — this is by design, since the graph encodes the observed length frequencies. OLGA's universal model produces a slightly different shape because it doesn't know about this specific repertoire's V-gene usage bias or selection pressures.
+LZGraphs simulations match the training data's length distribution almost exactly, this is by design, since the graph encodes the observed length frequencies. OLGA's universal model produces a slightly different shape because it doesn't know about this specific repertoire's V-gene usage bias or selection pressures.
 
 ### 3-mer motif frequencies
 
@@ -76,7 +77,7 @@ LZGraphs simulations match the training data's length distribution almost exactl
   <figcaption><strong>3-mer amino acid frequencies in simulated vs real sequences.</strong> (A) OLGA simulations vs real (cosine similarity 0.952). (B) LZGraphs simulations vs real (cosine similarity 0.985). Each dot is one of ~8,000 observed 3-mers; the dashed line is the identity. Both models capture the amino acid composition, with LZGraphs achieving higher fidelity because it's trained on the specific data.</figcaption>
 </figure>
 
-Both models reproduce real 3-mer frequencies well, but LZGraphs achieves higher cosine similarity (0.985 vs 0.952). This advantage comes from learning data-specific motifs — for instance, if the repertoire is enriched for certain V genes that produce particular amino acid patterns, LZGraphs captures this while OLGA uses a universal model.
+Both models reproduce real 3-mer frequencies well, but LZGraphs achieves higher cosine similarity (0.985 vs 0.952). This advantage comes from learning data-specific motifs, for instance, if the repertoire is enriched for certain V genes that produce particular amino acid patterns, LZGraphs captures this while OLGA uses a universal model.
 
 ---
 
@@ -99,10 +100,10 @@ Both models reproduce real 3-mer frequencies well, but LZGraphs achieves higher 
 
 These tools are complementary. A typical combined workflow:
 
-1. **IGoR** — learn the recombination model from reference data
-2. **OLGA** — compute mechanistic Pgen for your sequences
-3. **LZGraphs** — build a graph for diversity, comparison, ML features, and occupancy predictions
-4. **SONIA** — infer selection if comparing naive vs. experienced repertoires
+1. **IGoR**: learn the recombination model from reference data
+2. **OLGA**: compute mechanistic Pgen for your sequences
+3. **LZGraphs**: build a graph for diversity, comparison, ML features, and occupancy predictions
+4. **SONIA**: infer selection if comparing naive vs. experienced repertoires
 
 LZGraphs excels at **repertoire-level** questions (how diverse? how similar? how many at depth X?) that the V(D)J tools don't address. The V(D)J tools excel at **mechanism-level** questions (what genes? what selection?) that LZGraphs doesn't address.
 
@@ -118,13 +119,13 @@ LZGraphs excels at **repertoire-level** questions (how diverse? how similar? how
 | **Requires alignment** | Yes | No | No | No |
 | **Compute Pgen** | Yes | Yes | Yes (post-selection) | Yes |
 | **Simulate sequences** | Yes | Yes | Yes | Yes |
-| **Diversity metrics** | — | — | — | Hill numbers, entropy, perplexity |
-| **Richness prediction** | — | — | — | Poisson occupancy |
-| **Repertoire comparison** | — | — | — | JSD, graph algebra |
-| **ML features** | — | — | — | 3 strategies |
-| **Bayesian posteriors** | — | — | — | Dirichlet updates |
-| **Selection inference** | — | — | Yes | — |
-| **V(D)J decomposition** | Yes | Partial | Partial | — |
+| **Diversity metrics** | - | - | - | Hill numbers, entropy, perplexity |
+| **Richness prediction** | - | - | - | Poisson occupancy |
+| **Repertoire comparison** | - | - | - | JSD, graph algebra |
+| **ML features** | - | - | - | 3 strategies |
+| **Bayesian posteriors** | - | - | - | Dirichlet updates |
+| **Selection inference** | - | - | Yes | - |
+| **V(D)J decomposition** | Yes | Partial | Partial | - |
 | **Language** | C/C++ | Python | Python + TF | C + Python |
 | **Dependencies** | autotools, POSIX | numba (opt.) | TensorFlow | numpy only |
 
@@ -135,7 +136,7 @@ LZGraphs excels at **repertoire-level** questions (how diverse? how similar? how
 The comparisons above were produced using:
 
 - **OLGA v1.3.0** with the default `human_T_beta` model (pre-fitted on IGoR default parameters)
-- **LZGraphs v3.0.2** trained on 5,000 CDR3 amino acid sequences from the same repertoire
+- **LZGraphs v3.1.0** trained on 5,000 CDR3 amino acid sequences from the same repertoire
 - **Real data:** 5,000 TRB CDR3 amino acid sequences with V/J gene annotations
 - Pgen scored on 300 sequences; 3-mer analysis on the full 5,000
 - Spearman rank correlation for Pgen comparison; cosine similarity for 3-mer comparison
@@ -154,6 +155,6 @@ The comparisons above were produced using:
 
 ## See Also
 
-- [Probability Model](probability-model.md) — how LZGraphs computes generation probabilities
-- [Diversity Metrics tutorial](../tutorials/diversity-metrics.md) — features unique to LZGraphs
-- [Feature Extraction](../how-to/feature-extraction.md) — ML capabilities with no equivalent in the V(D)J tools
+- [Probability Model](probability-model.md): how LZGraphs computes generation probabilities
+- [Diversity Metrics tutorial](../tutorials/diversity-metrics.md): features unique to LZGraphs
+- [Feature Extraction](../how-to/feature-extraction.md): ML capabilities with no equivalent in the V(D)J tools

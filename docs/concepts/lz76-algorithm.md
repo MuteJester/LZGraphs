@@ -1,6 +1,11 @@
+---
+tags:
+  - LZGraph
+---
+
 # LZ76 Algorithm
 
-The Lempel-Ziv 1976 (LZ76) algorithm is the foundation of LZGraphs. It decomposes any string into a sequence of **shortest novel subpatterns** — and this decomposition is what creates the graph structure.
+The Lempel-Ziv 1976 (LZ76) algorithm is the foundation of LZGraphs. It decomposes any string into a sequence of **shortest novel subpatterns**: and this decomposition is what creates the graph structure.
 
 Understanding LZ76 is key to understanding why the graph looks the way it does, why certain sequences share nodes, and what the "dictionary constraint" means.
 
@@ -35,23 +40,23 @@ Let's decompose `CASSLEPSGGTDTQYF` step by step. We'll track the dictionary at e
 
 | Step | Remaining string | Longest known prefix | Extend by 1 | Token | Dictionary after |
 |:---:|:---|:---|:---|:---:|:---|
-| 1 | **C**ASSLEPSGGTDTQYF | (none) | — | **C** | {C} |
-| 2 | **A**SSLEPSGGTDTQYF | (none) | — | **A** | {C, A} |
-| 3 | **S**SLEPSGGTDTQYF | (none) | — | **S** | {C, A, S} |
+| 1 | **C**ASSLEPSGGTDTQYF | (none) | - | **C** | {C} |
+| 2 | **A**SSLEPSGGTDTQYF | (none) | - | **A** | {C, A} |
+| 3 | **S**SLEPSGGTDTQYF | (none) | - | **S** | {C, A, S} |
 | 4 | **SL**EPSGGTDTQYF | S is known | +L | **SL** | {C, A, S, SL} |
-| 5 | **E**PSGGTDTQYF | (none) | — | **E** | {C, A, S, SL, E} |
-| 6 | **P**SGGTDTQYF | (none) | — | **P** | {..., P} |
+| 5 | **E**PSGGTDTQYF | (none) | - | **E** | {C, A, S, SL, E} |
+| 6 | **P**SGGTDTQYF | (none) | - | **P** | {..., P} |
 | 7 | **SG**GTDTQYF | S is known | +G | **SG** | {..., SG} |
-| 8 | **G**TDTQYF | (none) | — | **G** | {..., G} |
-| 9 | **T**DTQYF | (none) | — | **T** | {..., T} |
-| 10 | **D**TQYF | (none) | — | **D** | {..., D} |
+| 8 | **G**TDTQYF | (none) | - | **G** | {..., G} |
+| 9 | **T**DTQYF | (none) | - | **T** | {..., T} |
+| 10 | **D**TQYF | (none) | - | **D** | {..., D} |
 | 11 | **TQ**YF | T is known | +Q | **TQ** | {..., TQ} |
-| 12 | **Y**F | (none) | — | **Y** | {..., Y} |
-| 13 | **F** | (none) | — | **F** | {..., F} |
+| 12 | **Y**F | (none) | - | **Y** | {..., Y} |
+| 13 | **F** | (none) | - | **F** | {..., F} |
 
-**Result:** `[C, A, S, SL, E, P, SG, G, T, D, TQ, Y, F]` — 13 tokens from 16 characters.
+**Result:** `[C, A, S, SL, E, P, SG, G, T, D, TQ, Y, F]`: 13 tokens from 16 characters.
 
-Notice what happened at step 4: the algorithm saw `S` (already in the dictionary from step 3), so it extended by one character to get `SL` — a novel 2-character token. This "extend-by-one" rule is the heart of LZ76.
+Notice what happened at step 4: the algorithm saw `S` (already in the dictionary from step 3), so it extended by one character to get `SL`: a novel 2-character token. This "extend-by-one" rule is the heart of LZ76.
 
 ```python
 from LZGraphs import lz76_decompose
@@ -67,7 +72,7 @@ print(tokens)
 
 ### Deterministic
 
-The same input always produces the same decomposition. There's no randomness in LZ76 — it's a **greedy** algorithm that always takes the shortest novel pattern.
+The same input always produces the same decomposition. There's no randomness in LZ76, it's a **greedy** algorithm that always takes the shortest novel pattern.
 
 ### Lossless
 
@@ -80,18 +85,18 @@ assert ''.join(tokens) == "CASSLEPSGGTDTQYF"  # always true
 
 ### Unique tokens (almost)
 
-Each token is novel when it's first created — it wasn't in the dictionary before. The only exception is the **last token** of a string, which might repeat (because the string ends before we can extend a known prefix). LZGraphs handles this with sentinel characters (see below).
+Each token is novel when it's first created, it wasn't in the dictionary before. The only exception is the **last token** of a string, which might repeat (because the string ends before we can extend a known prefix). LZGraphs handles this with sentinel characters (see below).
 
 ### Compression reflects complexity
 
 Repetitive sequences compress well (fewer tokens); diverse sequences don't:
 
 ```python
-# Highly repetitive — compresses to just 4 tokens
+# Highly repetitive, compresses to just 4 tokens
 lz76_decompose("AAAAAAAAAAAA")
 # ['A', 'AA', 'AAA', 'AAAAAA']
 
-# Maximally diverse — no compression at all
+# Maximally diverse, no compression at all
 lz76_decompose("ABCDEFGHIJKL")
 # ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
 ```
@@ -102,7 +107,7 @@ This means the **number of LZ76 tokens relative to sequence length** is a natura
 
 ## From tokens to graph nodes
 
-The raw LZ76 decomposition gives you tokens like `[C, A, S, SL, E, ...]`. But the graph needs to distinguish the same character at different positions — because in a CDR3 sequence, an `S` at position 3 (the conserved serine in `CAS...`) is biologically very different from an `S` at position 10 (in the junctional region).
+The raw LZ76 decomposition gives you tokens like `[C, A, S, SL, E, ...]`. But the graph needs to distinguish the same character at different positions, because in a CDR3 sequence, an `S` at position 3 (the conserved serine in `CAS...`) is biologically very different from an `S` at position 10 (in the junctional region).
 
 LZGraphs augments each token with **positional information** depending on the graph variant:
 
@@ -124,7 +129,7 @@ For nucleotide sequences, nodes also encode the **reading frame** (codon positio
 
 ### Naive encoding (position-free)
 
-No positional information at all — nodes are just the raw subpatterns. This creates smaller, more connected graphs but loses positional specificity.
+No positional information at all, nodes are just the raw subpatterns. This creates smaller, more connected graphs but loses positional specificity.
 
 !!! info "Which encoding should I use?"
     See [Graph Variants](graph-types.md) for a detailed comparison. The short answer: use `'aap'` for amino acid CDR3s (the default), `'ndp'` for nucleotide CDR3s, and `'naive'` for position-independent analysis.
@@ -146,7 +151,7 @@ Wrapped:   @CASSLGIRRT$
 
 2. **`$` (end sentinel):** Guarantees that the last token of every decomposition is novel. Without it, the last LZ76 token could be a repeat (because the string ends before we can extend), which would violate the graph's probability model. The `$` ensures every walk ends cleanly at a terminal node.
 
-The sentinels are internal implementation details — they're hidden by default when you access `graph.nodes` or `graph.edges`, but visible via `graph.all_nodes` and `graph.all_edges`.
+The sentinels are internal implementation details, they're hidden by default when you access `graph.nodes` or `graph.edges`, but visible via `graph.all_nodes` and `graph.all_edges`.
 
 ---
 
@@ -194,7 +199,7 @@ Random strings approach this upper bound; maximally repetitive strings achieve $
 
 ## See Also
 
-- [Graph Variants](graph-types.md) — how AAP, NDP, and Naive encode these tokens differently
-- [Probability Model](probability-model.md) — how the graph defines transition probabilities
-- [Graph Construction tutorial](../tutorials/graph-construction.md) — build and inspect a real graph
-- [API: `lz76_decompose()`](../api/functions.md#lz76_decompose) — function reference
+- [Graph Variants](graph-types.md): how AAP, NDP, and Naive encode these tokens differently
+- [Probability Model](probability-model.md): how the graph defines transition probabilities
+- [Graph Construction tutorial](../tutorials/graph-construction.md): build and inspect a real graph
+- [API: `lz76_decompose()`](../api/functions.md#lz76_decompose): function reference

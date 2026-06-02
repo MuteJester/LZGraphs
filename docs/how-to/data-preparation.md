@@ -1,4 +1,11 @@
+---
+tags:
+  - LZGraph
+---
+
 # Prepare Your Data
+
+**Applies to: LZGraph**
 
 Learn how to format and clean your TCR/BCR repertoire data for use with LZGraphs.
 
@@ -123,6 +130,6 @@ If the curve of `n_nodes` starts to flatten, it means you have enough data to ca
 
 ## Next Steps
 
-- [Graph Construction tutorial](../tutorials/graph-construction.md) — Detailed construction options
-- [Choosing Graph Variants](../concepts/graph-types.md) — Choose between AAP, NDP, and Naive
-- [Quick Start](../getting-started/quickstart.md) — Build your first graph
+- [Graph Construction tutorial](../tutorials/graph-construction.md): Detailed construction options
+- [Choosing Graph Variants](../concepts/graph-types.md): Choose between AAP, NDP, and Naive
+- [LZGraph Quickstart](../getting-started/quickstart-lzgraph.md): Build your first graph

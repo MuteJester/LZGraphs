@@ -1,68 +1,93 @@
-# Tutorials
+# Learn by Family
 
-Welcome to the LZGraphs tutorials. These step-by-step guides will help you master TCR repertoire analysis using LZGraphs.
+In-depth, step-by-step tutorials. They are organized by graph family, so pick
+the track for the graph you chose in
+[Which Graph Should I Use?](../getting-started/choose-your-graph.md). The two
+tracks are independent; you can follow either or both.
 
-## Learning Path
+---
 
-We recommend following these tutorials in order:
+## LZGraph track
+
+The general-purpose family: gene-aware, scalable, ML-ready.
 
 <div class="grid" markdown>
 
 <div class="card" markdown>
 ### 1. [Graph Construction](graph-construction.md)
-**Beginner** · 15 minutes
+**Beginner · 15 min**
 
-Learn to build AAP, NDP, and Naive graph variants from your data.
+Build AAP, NDP, and Naive graph variants from your data, with gene annotations
+and abundance weighting.
 </div>
 
 <div class="card" markdown>
 ### 2. [Sequence Analysis](sequence-analysis.md)
-**Beginner** · 20 minutes
+**Beginner · 20 min**
 
-Calculate sequence probabilities, explore graph structure, and simulate new sequences.
+Score sequences with `pgen`, explore graph structure, and simulate new
+sequences.
 </div>
 
 <div class="card" markdown>
 ### 3. [Diversity Metrics](diversity-metrics.md)
-**Intermediate** · 15 minutes
+**Intermediate · 15 min**
 
-Measure repertoire complexity using k-diversity, Hill numbers, and occupancy models.
+Measure repertoire complexity with k-diversity, Hill numbers, and occupancy
+models.
 </div>
 
 </div>
+
+---
+
+## FlashBackGraph track
+
+The Markovian family: exact, sampling-free analytics and anomaly scoring.
+
+<div class="grid" markdown>
+
+<div class="card" markdown>
+### 1. [Exact Diversity](flashback-diversity.md)
+Compute Hill numbers and effective diversity exactly via forward dynamic
+programming, and understand why "exact" matters.
+</div>
+
+<div class="card" markdown>
+### 2. [Anomaly Detection](flashback-anomaly.md)
+Score sequences for surprise with SCALE, the self-calibrated anomaly score,
+and interpret the result.
+</div>
+
+<div class="card" markdown>
+### 3. [Personalization & Algebra](flashback-algebra.md)
+Bayesian posterior updates, leave-donor-out construction, and graph algebra
+(union, intersection, difference).
+</div>
+
+</div>
+
+---
 
 ## Prerequisites
 
-Before starting, ensure you have:
+- [Installed LZGraphs](../getting-started/installation.md)
+- Basic Python knowledge
+- Sample data, or use the [example datasets](../examples/index.md)
 
-- [x] Installed LZGraphs ([Installation Guide](../getting-started/installation.md))
-- [x] Basic Python knowledge
-- [x] Sample data to work with (or use our [example datasets](../examples/index.md))
+## Sample data
 
-## Sample Data
-
-All tutorials use example data included with LZGraphs:
+The LZGraph-track tutorials use example data included with LZGraphs:
 
 ```python
 import csv
 
-# Load sample data
-with open("examples/ExampleData1.csv") as f:
-    sequences = [row['cdr3_amino_acid'] for row in csv.DictReader(f)]
+with open("examples/data/ExampleData1.csv") as f:
+    sequences = [row['cdr3_rearrangement'] for row in csv.DictReader(f)]
 ```
 
-## Quick Reference
+## Next steps
 
-| Tutorial | Topics Covered |
-|----------|----------------|
-| [Graph Construction](graph-construction.md) | LZGraph variants, gene annotations, abundance weighting |
-| [Sequence Analysis](sequence-analysis.md) | lzpgen, simulate, lz76_decompose |
-| [Diversity Metrics](diversity-metrics.md) | k_diversity, hill_numbers, predicted_richness |
-
-## Next Steps
-
-After completing the tutorials:
-
-- Explore [Concepts](../concepts/index.md) for deeper understanding
-- Check [How-To Guides](../how-to/index.md) for specific tasks
-- Browse [Examples](../examples/index.md) for complete notebooks
+- [Concepts](../concepts/index.md) for deeper understanding
+- [How-To Guides](../how-to/index.md) for specific tasks
+- [Examples](../examples/index.md) for complete notebooks

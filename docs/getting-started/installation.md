@@ -6,7 +6,7 @@ This guide covers different ways to install LZGraphs and verify your installatio
 
 - **Python**: 3.9 or higher
 - **Operating System**: Windows, macOS, or Linux
-- **Dependencies**: Automatically installed (see below)
+- **C Compiler**: Required only if installing from source or if a pre-built wheel is not available for your platform (GCC, Clang, or MSVC).
 
 ## Install from PyPI
 
@@ -16,17 +16,19 @@ The recommended way to install LZGraphs is via pip:
 pip install LZGraphs
 ```
 
-This will install LZGraphs along with all required dependencies.
+LZGraphs provides pre-built binary wheels for most common platforms (Linux x86_64/aarch64, macOS arm64, Windows AMD64).
 
 ## Install from Source
 
-For the latest development version:
+If you need to install from source (e.g., for a specific architecture or development):
 
 ```bash
 git clone https://github.com/MuteJester/LZGraphs.git
 cd LZGraphs
-pip install -e .
+pip install .
 ```
+
+*Note: This requires a C compiler and Python development headers.*
 
 ### Development Installation
 
@@ -38,6 +40,14 @@ pip install -e ".[dev]"
 
 This includes additional tools for testing and code quality.
 
+### Visualization Support
+
+To use plotting features in tutorials and examples, install with the `viz` extra:
+
+```bash
+pip install "LZGraphs[viz]"
+```
+
 ## Dependencies
 
 LZGraphs automatically installs these core dependencies:
@@ -45,6 +55,11 @@ LZGraphs automatically installs these core dependencies:
 | Package | Version | Purpose |
 |---------|---------|---------|
 | `numpy` | ≥1.20 | Numerical operations |
+
+Optional extras:
+
+- `[viz]`: `matplotlib`, `seaborn` (for plotting)
+- `[dev]`: `pytest`, `ruff`, etc. (for development)
 
 ## Verify Installation
 
@@ -104,4 +119,4 @@ pip install LZGraphs
 
 ## Next Steps
 
-With LZGraphs installed, proceed to the [Quick Start](quickstart.md) guide to build your first graph.
+With LZGraphs installed, proceed to the [Core Ideas](core-ideas.md) page, then the [LZGraph Quickstart](quickstart-lzgraph.md) to build your first graph.

@@ -1,9 +1,13 @@
 ---
 tags:
+  - LZGraph
+  - FlashBackGraph
   - IO
 ---
 
 # Save and Load Graphs
+
+**Applies to: LZGraph and FlashBackGraph**
 
 Learn how to persist LZGraphs to disk using the high-performance binary format.
 

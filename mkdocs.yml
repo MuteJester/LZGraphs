@@ -8,6 +8,11 @@ edit_uri: edit/master/docs/
 
 copyright: Copyright &copy; 2024-2026 Thomas Konstantinovsky
 
+# Internal design specs live under docs/ for convenience but must not be
+# published to the public site (they are not in the nav and have no git history).
+exclude_docs: |
+  superpowers/
+
 theme:
   name: material
   custom_dir: docs/overrides
@@ -60,8 +65,14 @@ plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
   - social
-  - tags:
-      tags_file: tags.md
+  - tags
+  - redirects:
+      redirect_maps:
+        getting-started/first-steps.md: getting-started/core-ideas.md
+        getting-started/quickstart.md: getting-started/quickstart-lzgraph.md
+  - mkdocs-jupyter:
+      execute: false
+      include_source: true
   - glightbox
   - git-revision-date-localized:
       enable_creation_date: true
@@ -126,6 +137,8 @@ extra:
     ML: ml
     CLI: cli
     IO: io
+    LZGraph: lzgraph
+    FlashBackGraph: flashbackgraph
   analytics:
     feedback:
       title: Was this page helpful?
@@ -148,18 +161,31 @@ extra_javascript:
 
 nav:
   - Home: index.md
-  - Learn:
+  - Start Here:
     - getting-started/index.md
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
-    - First Steps: getting-started/first-steps.md
-    - Tutorials:
-      - tutorials/index.md
-      - Graph Construction: tutorials/graph-construction.md
-      - Sequence Analysis: tutorials/sequence-analysis.md
-      - Diversity Metrics: tutorials/diversity-metrics.md
-    - Examples: examples/index.md
-  - Guides:
+    - Install: getting-started/installation.md
+    - Core Ideas: getting-started/core-ideas.md
+    - Which Graph Should I Use?: getting-started/choose-your-graph.md
+    - LZGraph Quickstart: getting-started/quickstart-lzgraph.md
+    - FlashBackGraph Quickstart: getting-started/quickstart-flashback.md
+  - Learn by Family:
+    - tutorials/index.md
+    - 'LZGraph: Graph Construction': tutorials/graph-construction.md
+    - 'LZGraph: Sequence Analysis': tutorials/sequence-analysis.md
+    - 'LZGraph: Diversity Metrics': tutorials/diversity-metrics.md
+    - 'FlashBack: Exact Diversity': tutorials/flashback-diversity.md
+    - 'FlashBack: Anomaly Detection': tutorials/flashback-anomaly.md
+    - 'FlashBack: Personalization & Algebra': tutorials/flashback-algebra.md
+    - Examples:
+      - examples/index.md
+      - 'LZGraph: Getting Started': examples/lzgraph/01_Getting_Started.ipynb
+      - 'LZGraph: Analytics & Diversity': examples/lzgraph/02_Analytics_and_Diversity.ipynb
+      - 'LZGraph: Advanced Usage': examples/lzgraph/03_Advanced_Usage.ipynb
+      - 'FlashBack: Getting Started': examples/flashback/01_Getting_Started.ipynb
+      - 'FlashBack: Analytics & Diversity': examples/flashback/02_Analytics_and_Diversity.ipynb
+      - 'FlashBack: Advanced Usage': examples/flashback/03_Advanced_Usage.ipynb
+      - 'FlashBack: SCALE Anomaly Detection': examples/flashback/04_SCALE_Anomaly_Detection.ipynb
+  - How-To Guides:
     - how-to/index.md
     - Prepare Your Data: how-to/data-preparation.md
     - Save & Load Graphs: how-to/serialization.md
@@ -173,22 +199,25 @@ nav:
     - concepts/index.md
     - LZ76 Algorithm: concepts/lz76-algorithm.md
     - Graph Variants: concepts/graph-types.md
+    - FlashBack Exact Model: concepts/flashback-model.md
     - Probability Model: concepts/probability-model.md
     - Distribution Analytics: concepts/distribution-analytics.md
     - vs. IGoR, OLGA, SONIA: concepts/comparison.md
-  - Tags: tags.md
   - Reference:
     - api/index.md
     - LZGraph: api/lzgraph.md
+    - FlashBackGraph: api/flashback-graph.md
+    - FlashBackGrammar: api/flashback-grammar.md
     - SimulationResult: api/simulation-result.md
     - PgenDistribution: api/pgen-distribution.md
     - Module Functions: api/functions.md
     - CLI Tool: api/cli.md
     - Exceptions: api/exceptions.md
-    - Resources:
-      - Glossary: resources/glossary.md
-      - FAQ: resources/faq.md
-      - Benchmarks: resources/benchmarks.md
-      - Changelog: resources/changelog.md
-      - Citation: resources/citation.md
+  - Resources:
+    - Glossary: resources/glossary.md
+    - FAQ: resources/faq.md
+    - Benchmarks: resources/benchmarks.md
+    - Changelog: resources/changelog.md
+    - Citation: resources/citation.md
     - Architecture: architecture/c-reimplementation.md
+  - Tags: tags.md

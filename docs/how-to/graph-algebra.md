@@ -1,12 +1,15 @@
 ---
 tags:
+  - LZGraph
   - Comparison
   - Construction
 ---
 
 # Graph Algebra
 
-LZGraphs supports set-theoretic operations on graphs: **union**, **intersection**, **difference**, and **weighted merge**. These let you combine, compare, and decompose repertoires at the structural level — far more expressive than just computing a scalar divergence.
+**Applies to: LZGraph**
+
+LZGraphs supports set-theoretic operations on graphs: **union**, **intersection**, **difference**, and **weighted merge**. These let you combine, compare, and decompose repertoires at the structural level, far more expressive than just computing a scalar divergence.
 
 ---
 
@@ -20,7 +23,7 @@ LZGraphs supports set-theoretic operations on graphs: **union**, **intersection*
 | Combine cohort + individual with weights | Weighted merge | Custom linear combination of two graphs |
 | Adapt a population model to one patient | Posterior | Bayesian update (see [Personalize Graphs](posterior-personalization.md)) |
 
-All operations produce a **new `LZGraph`** — the original graphs are never modified.
+All operations produce a **new `LZGraph`**: the original graphs are never modified.
 
 ---
 
@@ -70,7 +73,7 @@ print(f"Shared:   {shared.n_edges} edges")
 print(f"Overlap:  {shared.n_edges / min(donor_a.n_edges, donor_b.n_edges):.1%}")
 ```
 
-The intersection graph represents the **public structural core** — transitions that both repertoires use. You can simulate from it to generate sequences that are plausible in both repertoires.
+The intersection graph represents the **public structural core**: transitions that both repertoires use. You can simulate from it to generate sequences that are plausible in both repertoires.
 
 ```python
 # Generate "public-like" sequences
@@ -93,7 +96,7 @@ print(f"Healthy:    {healthy_graph.n_edges} edges")
 print(f"Unique:     {disease_specific.n_edges} edges")
 ```
 
-The difference graph highlights **repertoire-specific structure** — transitions that are enriched in one sample relative to another.
+The difference graph highlights **repertoire-specific structure**: transitions that are enriched in one sample relative to another.
 
 !!! warning "Direction matters"
     Difference is **not symmetric**: `A - B` is different from `B - A`. Think of it as "what's in A but not in B."
@@ -107,8 +110,8 @@ healthy_only = healthy_graph - disease_graph
 
 # Score a candidate sequence against each
 seq = "CASSLGQAYEQYF"
-print(f"Disease-enriched model score: {disease_only.lzpgen(seq):.2f}")
-print(f"Health-enriched model score:  {healthy_only.lzpgen(seq):.2f}")
+print(f"Disease-enriched model score: {disease_only.pgen(seq):.2f}")
+print(f"Health-enriched model score:  {healthy_only.pgen(seq):.2f}")
 ```
 
 A sequence that scores high in `disease_only` but low in `healthy_only` uses transitions that are specifically enriched in the disease repertoire.
@@ -170,7 +173,7 @@ shared_abc = shared_ab & donor_c
 | `a \| b` | `a.union(b)` | $c_e = a_e + b_e$ |
 | `a & b` | `a.intersection(b)` | $c_e = \min(a_e, b_e)$, only if both > 0 |
 | `a - b` | `a.difference(b)` | $c_e = \max(a_e - b_e, 0)$, drop if 0 |
-| — | `a.weighted_merge(b, α, β)` | $c_e = \alpha \cdot a_e + \beta \cdot b_e$ |
+| - | `a.weighted_merge(b, α, β)` | $c_e = \alpha \cdot a_e + \beta \cdot b_e$ |
 
 All operations require both graphs to use the **same variant** (both `'aap'`, both `'ndp'`, etc.). Mixing variants raises an error.
 
@@ -210,6 +213,6 @@ print(f"Stable core: {stable.n_edges} edges "
 
 ## See Also
 
-- [Compare Repertoires](repertoire-comparison.md) — JSD and cross-scoring workflows
-- [Personalize Graphs](posterior-personalization.md) — Bayesian posterior (a more principled way to combine prior + data)
-- [API: LZGraph](../api/lzgraph.md#graph-algebra) — method signatures
+- [Compare Repertoires](repertoire-comparison.md): JSD and cross-scoring workflows
+- [Personalize Graphs](posterior-personalization.md): Bayesian posterior (a more principled way to combine prior + data)
+- [API: LZGraph](../api/lzgraph.md#graph-algebra): method signatures

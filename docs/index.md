@@ -6,7 +6,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 </div>
 
-**LZGraphs** is a high-performance Python library for analyzing immune receptor repertoires using Lempel-Ziv 76 compression graphs. Built on a C core, it transforms CDR3 sequences into probabilistic directed graphs that support exact probability computation, constrained sequence generation, and analytical diversity measurement — all without alignment or reference genotypes.
+**LZGraphs** is a high-performance Python library for analyzing immune receptor repertoires using Lempel-Ziv compression graphs. Built on a C core, it transforms CDR3 sequences into directed graphs that support exact probability computation, constrained sequence generation, and analytical diversity measurement, all without alignment or reference genotypes.
+
+LZGraphs provides two complementary graph families:
+
+- **LZGraph**: A space-efficient dictionary-based graph ideal for large-scale TCR/BCR analysis with V/J gene support.
+- **FlashBackGraph**: A strictly Markovian DAG that enables exact, closed-form diversity metrics and fast sequence scoring.
 
 <figure markdown="span">
   ![Example LZGraph](images/example_graph.png){ width="85%" }
@@ -18,25 +23,34 @@
 ## Quick Start
 
 ```python
-from LZGraphs import LZGraph
+from LZGraphs import LZGraph, FlashBackGraph
 
+# 1. Standard LZGraph (with V/J gene support)
 graph = LZGraph(['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF'],
                 variant='aap')
 
-graph.lzpgen('CASSLEPSGGTDTQYF')          # log generation probability
+graph.pgen('CASSLEPSGGTDTQYF')          # log generation probability
 graph.simulate(1000, seed=42)              # generate new sequences
-graph.hill_number(2)                       # inverse Simpson diversity
 graph.predicted_richness(100_000)          # richness at sequencing depth
+
+# 2. FlashBackGraph (exact diversity)
+fb_graph = FlashBackGraph(['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF'])
+fb_graph.hill_number(2)                   # exact inverse Simpson diversity
+cal = fb_graph.calibrate_scale(seed=0)    # self-calibrate the SCALE anomaly score
+fb_graph.scale_score('CASSLEPSGGTDTQYF', cal)  # SCALE: higher = more anomalous
 ```
 
 ```bash
-lzg build repertoire.tsv -o rep.lzg       # build from the command line
-lzg diversity rep.lzg                      # diversity report
-lzg simulate rep.lzg -n 10000 > synth.txt # generate sequences
+lzg build repertoire.tsv -o rep.lzg          # build from the command line
+lzg diversity rep.lzg                         # diversity report
+lzg simulate rep.lzg -n 10000 > synth.txt     # generate sequences
+lzg flashback build repertoire.txt -o fb.lzg  # FlashBackGraph commands too
 ```
 
-[:material-download: Install](getting-started/installation.md){ .md-button .md-button--primary }
-[:material-rocket-launch: Quick Start](getting-started/quickstart.md){ .md-button }
+[:material-help-circle: Which graph should I use?](getting-started/choose-your-graph.md){ .md-button .md-button--primary }
+[:material-download: Install](getting-started/installation.md){ .md-button }
+[:material-rocket-launch: LZGraph Quickstart](getting-started/quickstart-lzgraph.md){ .md-button }
+[:material-rocket-launch: FlashBack Quickstart](getting-started/quickstart-flashback.md){ .md-button }
 
 ---
 
@@ -46,17 +60,17 @@ lzg simulate rep.lzg -n 10000 > synth.txt # generate sequences
 
 <div class="card" markdown>
 ### Score sequences
-Compute the exact generation probability of any CDR3 under the repertoire model with `lzpgen()`.
+Compute the exact generation probability of any CDR3 under the repertoire model with `pgen()`, or flag anomalies with the self-calibrated SCALE score.
 </div>
 
 <div class="card" markdown>
 ### Generate sequences
-Simulate novel sequences via LZ-constrained random walks — with optional V/J gene constraints.
+Simulate novel sequences via LZ-constrained or Markovian random walks, with optional V/J gene constraints.
 </div>
 
 <div class="card" markdown>
 ### Measure diversity
-Hill numbers, Shannon entropy, predicted richness, sample overlap, and sharing spectra — analytically from the graph.
+Hill numbers, Shannon entropy, predicted richness, sample overlap, and sharing spectra, analytically from the graph.
 </div>
 
 <div class="card" markdown>
@@ -92,7 +106,7 @@ Task-oriented recipes: data prep, generation, comparison, ML features.
 LZ76 algorithm, probability model, graph variants, distribution analytics.
 
 [:material-api: **Reference**](api/index.md)
-Complete API for `LZGraph`, `SimulationResult`, CLI tool, and exceptions.
+Complete API for `LZGraph`, `FlashBackGraph`, `FlashBackGrammar`, `PgenDistribution`, the CLI tool, and exceptions.
 
 </div>
 

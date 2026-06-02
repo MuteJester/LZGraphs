@@ -1,8 +1,19 @@
+---
+tags:
+  - LZGraph
+  - FlashBackGraph
+---
+
 # Graph Variants
 
-LZGraphs provides three graph variants, each optimized for different analysis scenarios. All are handled by the unified `LZGraph` class.
+LZGraphs provides **two graph families**, built on different representations of the same LZ76 idea:
 
-## Overview Comparison
+- **The `LZGraph` family**: three variants (`aap`, `ndp`, `naive`) of a single unified class, using a coarsened LZ76 dictionary. Analytics that depend on the full sequence distribution (diversity, simulation) are estimated efficiently, with simulation used where a closed form is intractable.
+- **`FlashBackGraph`**: a separate class that builds a strictly Markovian DAG from the FlashBack decomposition. Because it is Markovian, diversity, entropy, Hill numbers, path counts, and PGEN are all computed **exactly** by forward dynamic programming.
+
+Most of this page covers the three `LZGraph` variants; the [FlashBackGraph](#flashbackgraph) section below covers the Markovian alternative.
+
+## Overview Comparison (LZGraph variants)
 
 | Feature | AAP Variant | NDP Variant | Naive Variant |
 |---------|-------------|-------------|---------------|
@@ -157,8 +168,68 @@ print(f"Nodes: {graph.n_nodes}")
 print(f"Edges: {graph.n_edges}")
 ```
 
+---
+
+## FlashBackGraph
+
+**The Markovian alternative**
+
+`FlashBackGraph` is a **separate class** (not a `variant=` of `LZGraph`). Instead of a coarsened LZ76 dictionary, it builds a strictly Markovian DAG from the **FlashBack decomposition**: the algorithm recursively peels matching character runs from both ends of the sentinel-wrapped sequence, and each resulting token becomes a node. Edges are transitions between consecutive tokens.
+
+Because the graph is Markovian, the full sequence distribution factorises over edges, so diversity, Shannon entropy, Hill numbers, path counts, and generation probability are all computed **exactly** by forward dynamic programming. No Monte Carlo simulation is needed.
+
+### When to Use
+
+- You need **exact**, reproducible diversity and entropy (no sampling variance)
+- You want self-calibrated per-sequence **anomaly scoring** (SCALE)
+- You want exact PGEN, dynamic range, and the top-K most/least probable sequences
+- You are scoring sequences against a large reference repertoire
+
+### Node Format
+
+FlashBack tokens (plus `@` and `$` sentinels marking sequence start/end). The `variant` property is always `'flashback'`.
+
+### Example
+
+```python
+from LZGraphs import FlashBackGraph
+
+fb = FlashBackGraph(sequences)
+
+# Exact analytics, computed by forward DP, not simulation
+print(f"Effective diversity: {fb.effective_diversity():.2f}")
+print(f"Inverse Simpson D(2): {fb.hill_number(2):.2f}")
+
+# Exact generation probability, and the self-calibrated SCALE anomaly score
+log_p = fb.pgen('CASSLEPSGGTDTQYF')
+cal = fb.calibrate_scale(seed=0)                # self-calibrate once
+score = fb.scale_score('CASSLEPSGGTDTQYF', cal) # SCALE: higher = more anomalous
+```
+
+### Key Features
+
+- **Exact analytics**: Hill numbers, entropy, path counts, and PGEN via forward DP, no approximation.
+- **Anomaly scoring**: SCALE (`calibrate_scale()` + `scale_score()`) gives a self-calibrated, length-invariant surprise score for sequences against the repertoire model.
+- **Graph algebra & Bayesian updates**: `union` / `intersection` / `difference` / `weighted_merge`, plus `posterior()` and `without()` for personalization and leave-donor-out construction.
+- **Streaming construction**: `FlashBackStream` builds incrementally from open-ended sources with instant running counts.
+
+## LZGraph family vs FlashBackGraph
+
+| | `LZGraph` family (`aap`/`ndp`/`naive`) | `FlashBackGraph` |
+|---|---|---|
+| **Class** | `LZGraph(..., variant=...)` | `FlashBackGraph(...)` |
+| **Representation** | Coarsened LZ76 dictionary | Strictly Markovian DAG of FlashBack tokens |
+| **Diversity / entropy** | Estimated | **Exact** (forward DP) |
+| **Sequence generation** | Random walk simulation | Random walk + exact top-K |
+| **Anomaly scoring** | - | SCALE (`scale_score()`) |
+| **Gene (V/J) annotations** | Yes | No |
+| **Best for** | General repertoire analysis, gene-aware modelling, ML features | Exact diversity/PGEN, anomaly detection, reference scoring |
+
+See the [FlashBackGraph API reference](../api/flashback-graph.md) for the full method list.
+
 ## Next Steps
 
 - [Probability Model](probability-model.md) - How graphs calculate probabilities
 - [LZ76 Algorithm](lz76-algorithm.md) - Understand the encoding
+- [FlashBackGraph API](../api/flashback-graph.md) - Full reference for the Markovian variant
 - [How-To: Repertoire Comparison](../how-to/repertoire-comparison.md) - Compare different graphs

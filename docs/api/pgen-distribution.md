@@ -64,11 +64,11 @@ densities = dist.pdf(x)  # returns np.ndarray of same shape
 |-----------|------|-------------|
 | `x` | `float` or `np.ndarray` | Log-Pgen value(s) to evaluate |
 
-**Returns:** `float` or `np.ndarray` — density value(s)
+**Returns:** `float` or `np.ndarray`: density value(s)
 
 ### `cdf(x)`
 
-Evaluate the cumulative distribution function — the probability that a random sequence has log-Pgen $\leq x$.
+Evaluate the cumulative distribution function, the probability that a random sequence has log-Pgen $\leq x$.
 
 ```python
 # What fraction of sequences have log-Pgen below -20?
@@ -78,7 +78,7 @@ print(f"{fraction_below:.1%} of sequences have log-Pgen < -20")
 
 **Parameters:** Same as `pdf`.
 
-**Returns:** `float` or `np.ndarray` — cumulative probability value(s) in $[0, 1]$.
+**Returns:** `float` or `np.ndarray`: cumulative probability value(s) in $[0, 1]$.
 
 ### `sample(n, seed=None)`
 
@@ -98,7 +98,7 @@ print(f"Std:    {samples.std():.2f}")
 | `n` | `int` | Number of samples to draw |
 | `seed` | `int` or `None` | RNG seed for reproducibility |
 
-**Returns:** `np.ndarray` of shape `(n,)` — sampled log-Pgen values.
+**Returns:** `np.ndarray` of shape `(n,)`: sampled log-Pgen values.
 
 ## Plotting the Distribution
 
@@ -147,7 +147,7 @@ A rightward shift means the repertoire tends to produce higher-probability (more
 
 ## See Also
 
-- [`LZGraph.pgen_moments()`](lzgraph.md#pgen_moments) — quick mean/variance without the full mixture
-- [`LZGraph.pgen_dynamic_range()`](lzgraph.md) — how many orders of magnitude the distribution spans
-- [Distribution Analytics (concepts)](../concepts/distribution-analytics.md) — mathematical foundations
-- [Diversity Metrics tutorial](../tutorials/diversity-metrics.md) — how the distribution relates to diversity
+- [`LZGraph.pgen_moments()`](lzgraph.md#pgen_moments): quick mean/variance without the full mixture
+- [`LZGraph.pgen_dynamic_range()`](lzgraph.md): how many orders of magnitude the distribution spans
+- [Distribution Analytics (concepts)](../concepts/distribution-analytics.md): mathematical foundations
+- [Diversity Metrics tutorial](../tutorials/diversity-metrics.md): how the distribution relates to diversity

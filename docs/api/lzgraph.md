@@ -1,5 +1,7 @@
 ---
-description: Complete API reference for the LZGraph class — construction, scoring, simulation, diversity, graph algebra, and IO.
+tags:
+  - LZGraph
+description: Complete API reference for the LZGraph class, construction, scoring, simulation, diversity, graph algebra, and IO.
 search:
   boost: 2
 ---
@@ -35,14 +37,14 @@ LZGraph(
 
 ## Core Methods
 
-### lzpgen
+### pgen
 
 ```python
-lzpgen(sequences, log=True)
+pgen(sequence, *, log=True)
 ```
 Calculate the generation probability of one or more sequences.
 
-- **Parameters**: `sequences` (str or list[str]), `log` (bool)
+- **Parameters**: `sequence` (str or list[str]), `log` (keyword-only bool)
 - **Returns**: `float` (if single) or `np.ndarray` (if list)
 
 ### simulate

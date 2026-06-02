@@ -8,6 +8,8 @@ from LZGraphs import (
     k_diversity,
     saturation_curve,
     lz76_decompose,
+    flashback_decompose,
+    flashback_reverse,
     set_log_level,
     set_log_callback,
 )
@@ -32,7 +34,7 @@ Compute the Jensen-Shannon Divergence between two LZGraphs. JSD is a symmetric, 
 | `graph_a` | `LZGraph` | First graph |
 | `graph_b` | `LZGraph` | Second graph (must be the same variant) |
 
-**Returns:** `float` — JSD value in $[0, 1]$. 0 = identical distributions, 1 = maximally different.
+**Returns:** `float`: JSD value in $[0, 1]$. 0 = identical distributions, 1 = maximally different.
 
 **Example:**
 
@@ -66,8 +68,8 @@ Subsample-based diversity metric. Repeatedly draws $k$ sequences, builds an LZGr
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `sequences` | `list[str]` | — | Input CDR3 sequences |
-| `k` | `int` | — | Subsample size |
+| `sequences` | `list[str]` | - | Input CDR3 sequences |
+| `k` | `int` | - | Subsample size |
 | `variant` | `str` | `'aap'` | Graph encoding variant |
 | `draws` | `int` | `100` | Number of resampling rounds |
 | `seed` | `int` or `None` | `None` | RNG seed for reproducibility (-1 or None = random) |
@@ -108,7 +110,7 @@ Compute the node/edge saturation curve: add sequences one at a time and record h
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `sequences` | `list[str]` | — | Input sequences (order matters) |
+| `sequences` | `list[str]` | - | Input sequences (order matters) |
 | `variant` | `str` | `'aap'` | Graph encoding variant |
 | `log_every` | `int` | `100` | Record a data point every N sequences |
 
@@ -141,7 +143,7 @@ for point in curve[:5]:
 lz76_decompose(sequence)
 ```
 
-Decompose a string into its LZ76 subpatterns. This is the raw decomposition without positional encoding — the same algorithm used internally by all graph variants.
+Decompose a string into its LZ76 subpatterns. This is the raw decomposition without positional encoding, the same algorithm used internally by all graph variants.
 
 **Parameters:**
 
@@ -149,7 +151,7 @@ Decompose a string into its LZ76 subpatterns. This is the raw decomposition with
 |-----------|------|-------------|
 | `sequence` | `str` | Input string (amino acid, nucleotide, or any characters) |
 
-**Returns:** `list[str]` — the LZ76 subpatterns.
+**Returns:** `list[str]`: the LZ76 subpatterns.
 
 **Example:**
 
@@ -166,6 +168,64 @@ print(f"Complexity: {len(tokens)} tokens for {len('CASSLEPSGGTDTQYF')} chars")
 
 !!! info "How LZ76 works"
     At each step, the algorithm finds the shortest substring that hasn't appeared before. `C` is new, `A` is new, `S` is new. Then `S` is already known, so we extend to `SL` (new). This greedy process continues until the string is consumed. See [LZ76 Algorithm](../concepts/lz76-algorithm.md) for a detailed explanation.
+
+---
+
+## FlashBack Utilities
+
+These convert between a sequence and its FlashBack token decomposition, the representation used by [FlashBackGraph](flashback-graph.md) and [FlashBackGrammar](flashback-grammar.md).
+
+### flashback_decompose
+
+```python
+flashback_decompose(sequence)
+```
+
+Decompose a sequence into FlashBack tokens. The algorithm recursively peels matching runs from both ends of the sentinel-wrapped string `@<seq>$`.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sequence` | `str` | Input string |
+
+**Returns:** `list[str]`: the FlashBack tokens.
+
+**Example:**
+
+```python
+from LZGraphs import flashback_decompose
+
+tokens = flashback_decompose("CASSAYFF")
+print(tokens)
+# ['@$_1{0}', 'CFF_1{1}', 'AY_1{2}', 'SSA_0{3}']
+```
+
+### flashback_reverse
+
+```python
+flashback_reverse(tokens)
+```
+
+Reverse a FlashBack decomposition back into the original sequence.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tokens` | `list[str]` | FlashBack tokens from `flashback_decompose` |
+
+**Returns:** `str`: the reconstructed sequence.
+
+**Example:**
+
+```python
+from LZGraphs import flashback_reverse
+
+seq = flashback_reverse(['@$_1{0}', 'CFF_1{1}', 'AY_1{2}', 'SSA_0{3}'])
+print(seq)
+# 'CASSAYFF'
+```
 
 ---
 
@@ -233,6 +293,6 @@ LZGraphs.set_log_callback(
 
 ## See Also
 
-- [LZGraph class](lzgraph.md) — the main class with all instance methods
-- [CLI Reference](cli.md) — command-line equivalents
-- [Diversity Metrics tutorial](../tutorials/diversity-metrics.md) — using k_diversity and JSD in practice
+- [LZGraph class](lzgraph.md): the main class with all instance methods
+- [CLI Reference](cli.md): command-line equivalents
+- [Diversity Metrics tutorial](../tutorials/diversity-metrics.md): using k_diversity and JSD in practice

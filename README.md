@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://MuteJester.github.io/LZGraphs/"><strong>Documentation</strong></a> &nbsp;&middot;&nbsp;
-  <a href="https://MuteJester.github.io/LZGraphs/getting-started/quickstart/"><strong>Quick Start</strong></a> &nbsp;&middot;&nbsp;
+  <a href="https://MuteJester.github.io/LZGraphs/getting-started/quickstart-lzgraph/"><strong>Quick Start</strong></a> &nbsp;&middot;&nbsp;
   <a href="https://MuteJester.github.io/LZGraphs/api/lzgraph/"><strong>API Reference</strong></a> &nbsp;&middot;&nbsp;
   <a href="https://github.com/MuteJester/LZGraphs/issues">Report Bug</a>
 </p>
@@ -148,6 +148,10 @@ result = graph.simulate(1000, seed=42)
 print(f"D(1) = {graph.effective_diversity():.1f}")
 print(f"D(2) = {graph.hill_number(2):.1f}")
 print(f"# distinct paths = {graph.path_count:.3e}")
+
+# SCALE: self-calibrated anomaly score for flagging atypical / error sequences
+cal = graph.calibrate_scale(seed=42)               # calibrate once against the graph
+print(f"SCALE = {graph.scale_score('CASSLEPSGGTDTQYF', cal):.2f}")  # higher = more anomalous
 ```
 
 ### Build from a file (streaming, constant memory)
@@ -173,6 +177,7 @@ For incremental / checkpointed builds over very large repertoires, use `FlashBac
 | Tokenization | LZ76 dictionary | FlashBack (run-peeling) |
 | Structure | LZ-constrained walks | Markovian DAG |
 | Diversity / entropy / path count | Analytical (with MC where needed) | Closed-form forward DP |
+| Self-calibrated anomaly scoring (SCALE) | No | Yes |
 | V/J gene annotation & gene-conditioned simulation | Yes | No |
 | Encoding variants | `aap`, `ndp`, `naive` | Single representation |
 | CLI tool (`lzg`) | Yes | No |
@@ -246,7 +251,8 @@ lz_graph.predict_sharing([1000]*5, max_k=5)     # sharing spectrum across donors
 
 # FlashBackGraph-only (closed-form)
 fb_graph.path_count                  # exact count of distinct walks
-fb_graph.flashback_fbas('CASSLEPSGGTDTQYF')     # FlashBack alignment to the graph
+cal = fb_graph.calibrate_scale(seed=0)          # self-calibrate the SCALE anomaly score (once)
+fb_graph.scale_score('CASSLEPSGGTDTQYF', cal)   # SCALE: higher = more anomalous
 fb_graph.pgen_moments()              # exact moments of log-pgen distribution
 ```
 
@@ -292,7 +298,7 @@ Full documentation with tutorials, concept guides, and API reference:
 
 **[https://MuteJester.github.io/LZGraphs/](https://MuteJester.github.io/LZGraphs/)**
 
-- [Quick Start](https://MuteJester.github.io/LZGraphs/getting-started/quickstart/): build your first graph in 5 minutes
+- [Quick Start](https://MuteJester.github.io/LZGraphs/getting-started/quickstart-lzgraph/): build your first graph in 5 minutes
 - [Tutorials](https://MuteJester.github.io/LZGraphs/tutorials/): graph construction, sequence analysis, diversity metrics
 - [API Reference](https://MuteJester.github.io/LZGraphs/api/lzgraph/): complete class and function reference
 - [CLI Reference](https://MuteJester.github.io/LZGraphs/api/cli/): terminal tool documentation
@@ -340,7 +346,7 @@ Then:
 git clone https://github.com/MuteJester/LZGraphs.git
 cd LZGraphs
 pip install -e ".[dev]"   # editable install + dev extras (pytest, pytest-cov, ruff, scipy, build)
-pytest                    # run the test suite (~490 tests)
+pytest                    # run the test suite (~505 tests)
 ```
 
 ### PR checklist

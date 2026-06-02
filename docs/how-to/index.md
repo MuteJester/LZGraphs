@@ -38,7 +38,7 @@ Validate distributions, measure diversity, and predict occupancy
 
 <div class="card" markdown>
 ### [Graph Algebra](graph-algebra.md)
-Union, intersection, difference — combine and decompose repertoires
+Union, intersection, difference, combine and decompose repertoires
 </div>
 
 <div class="card" markdown>

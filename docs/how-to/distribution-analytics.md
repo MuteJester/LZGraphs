@@ -1,9 +1,12 @@
 ---
 tags:
+  - LZGraph
   - Diversity
 ---
 
 # Analyze the Generative Distribution
+
+**Applies to: LZGraph**
 
 Learn how to validate, characterize, and use the probability distribution encoded in an LZGraph.
 
@@ -133,6 +136,6 @@ for k, count in enumerate(spectrum[:5]):
 
 ## Next Steps
 
-- [Concepts: Distribution Analytics](../concepts/distribution-analytics.md) — Mathematical foundations
-- [How-To: Repertoire Comparison](repertoire-comparison.md) — Use these metrics to compare samples
-- [API Reference](../api/index.md) — Detailed method documentation
+- [Concepts: Distribution Analytics](../concepts/distribution-analytics.md): Mathematical foundations
+- [How-To: Repertoire Comparison](repertoire-comparison.md): Use these metrics to compare samples
+- [API Reference](../api/index.md): Detailed method documentation

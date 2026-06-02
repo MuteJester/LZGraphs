@@ -40,9 +40,9 @@ graph = LZGraph(my_custom_sequences, variant='naive')
 A probability of zero means the sequence contains patterns or transitions never observed in the training data. Because LZGraphs 3.0+ strictly enforces LZ76 dictionary constraints, if a transition doesn't exist in the graph, the walk is impossible.
 
 !!! tip
-    `lzpgen` accepts raw strings directly:
+    `pgen` accepts raw strings directly:
     ```python
-    log_p = graph.lzpgen("CASSLEPSGGTDTQYF")
+    log_p = graph.pgen("CASSLEPSGGTDTQYF")
     ```
 
 ### How do I interpret Hill Numbers?
@@ -115,7 +115,7 @@ Remove non-standard characters (like `*`, `X`, or spaces) before building the gr
 
 ### How do I get identical results every time?
 
-**Graph construction** is deterministic — the same input always produces the same graph.
+**Graph construction** is deterministic, the same input always produces the same graph.
 
 **Simulation** supports seeding:
 ```python

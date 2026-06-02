@@ -1,3 +1,8 @@
+---
+tags:
+  - LZGraph
+---
+
 # Distribution Analytics
 
 LZGraphs can answer fundamental questions about the generative distribution encoded in a graph: How many sequences can it produce? Is the probability distribution well-formed? What is its dynamic range? This page explains the mathematical and computational foundations of these analytics.
@@ -108,6 +113,6 @@ This distribution is used internally for sharing spectrum predictions across lar
 
 ## Next Steps
 
-- [How-To: Distribution Analytics](../how-to/distribution-analytics.md) — Practical code examples
-- [Probability Model](probability-model.md) — How individual probabilities are computed
-- [API Reference](../api/index.md) — Detailed method documentation
+- [How-To: Distribution Analytics](../how-to/distribution-analytics.md): Practical code examples
+- [Probability Model](probability-model.md): How individual probabilities are computed
+- [API Reference](../api/index.md): Detailed method documentation

@@ -1,10 +1,13 @@
 ---
 tags:
+  - LZGraph
   - Construction
   - Genes
 ---
 
 # Personalize Graphs with Bayesian Posteriors
+
+**Applies to: LZGraph**
 
 Learn how to adapt a population-level LZGraph to an individual's repertoire using Bayesian posteriors.
 
@@ -56,7 +59,7 @@ individual_sequences = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF", ...]
 posterior = prior.posterior(individual_sequences, kappa=1.0)
 ```
 
-The returned `posterior` is a full `LZGraph` — it supports every method the prior does.
+The returned `posterior` is a full `LZGraph`: it supports every method the prior does.
 
 ## With Abundance Weighting
 
@@ -103,7 +106,7 @@ Once created, the posterior is used exactly like any other `LZGraph`.
 
 ```python
 # How likely is this sequence under the personalized model?
-log_p = posterior.lzpgen("CASSLEPSGGTDTQYF")
+log_p = posterior.pgen("CASSLEPSGGTDTQYF")
 
 # Generate sequences from the personalized model
 simulated = posterior.simulate(1000)
@@ -136,6 +139,6 @@ The posterior updates three probability components using Dirichlet-Multinomial c
 
 ## Next Steps
 
-- [Concepts: Probability Model](../concepts/probability-model.md#bayesian-posterior-updates) — Mathematical details
-- [How-To: Compare Repertoires](repertoire-comparison.md) — Compare multiple personalized graphs
-- [API Reference](../api/index.md) — Detailed method documentation
+- [Concepts: Probability Model](../concepts/probability-model.md#bayesian-posterior-updates): Mathematical details
+- [How-To: Compare Repertoires](repertoire-comparison.md): Compare multiple personalized graphs
+- [API Reference](../api/index.md): Detailed method documentation

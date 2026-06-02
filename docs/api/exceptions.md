@@ -8,9 +8,9 @@ LZGraphs follows a simple exception hierarchy. Custom exceptions are only used w
 
 ```
 LZGraphError (base)
-├── NoGeneDataError      — gene operation on graph without gene data
-├── ConvergenceError     — numerical method did not converge
-└── CorruptFileError     — LZG file is corrupt or invalid
+├── NoGeneDataError     , gene operation on graph without gene data
+├── ConvergenceError    , numerical method did not converge
+└── CorruptFileError    , LZG file is corrupt or invalid
 ```
 
 ## Import

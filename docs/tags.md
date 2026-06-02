@@ -8,4 +8,4 @@ hide:
 
 Browse documentation by topic.
 
-[TAGS]
+<!-- material/tags -->

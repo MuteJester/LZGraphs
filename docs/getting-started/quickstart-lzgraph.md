@@ -1,5 +1,5 @@
 ---
-description: Build your first LZGraph in 5 minutes — install, construct a graph, score sequences, simulate, and measure diversity.
+description: Build your first LZGraph in 5 minutes, install, construct a graph, score sequences, simulate, and measure diversity.
 search:
   boost: 2
 ---
@@ -36,7 +36,7 @@ with open("your_repertoire.csv") as f:
     graph = LZGraph(sequences, variant='aap') # (1)
     ```
 
-    1. `variant='aap'` uses amino acid positional encoding — the best choice for CDR3 amino acid sequences. See [Graph Variants](../concepts/graph-types.md) for alternatives.
+    1. `variant='aap'` uses amino acid positional encoding, the best choice for CDR3 amino acid sequences. See [Graph Variants](../concepts/graph-types.md) for alternatives.
 
 === "With Abundances"
 
@@ -69,17 +69,17 @@ print(f"Total sequences: {graph.n_sequences}")
 print(graph.length_distribution)
 ```
 
-## Step 4: Sequence Generation Probability (LZPGEN)
+## Step 4: Sequence Generation Probability (pgen)
 
 Every sequence has a generation probability under the LZ-constrained model:
 
 ```python
 # Calculate log probability
-log_p = graph.lzpgen("CASSLEPSGGTDTQYF")
+log_p = graph.pgen("CASSLEPSGGTDTQYF")
 print(f"log P(gen) = {log_p:.2f}")
 
 # Multiple sequences at once (returns numpy array)
-log_ps = graph.lzpgen(["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF"])
+log_ps = graph.pgen(["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF"])
 ```
 
 ## Step 5: Simulate New Sequences
@@ -102,7 +102,11 @@ custom_results = graph.simulate(10, v_gene="TRBV16-1*01", j_gene="TRBJ1-2*01")
 
 ```python
 # Hill diversity number D(1) (Effective Diversity)
+# Note: effective_diversity() is a shortcut for hill_number(1)
 print(f"Effective Diversity: {graph.effective_diversity():.1f}")
+
+# Hill order 2 (Inverse Simpson)
+print(f"Hill D(2): {graph.hill_number(2):.1f}")
 
 # Predicted richness at depth 100,000
 print(f"Predicted richness: {graph.predicted_richness(100000):.1f}")
@@ -123,18 +127,34 @@ graph = LZGraph(sequences, v_genes=v_genes, j_genes=j_genes, variant='aap')
 
 # 2. Probability
 seq = "CASSLEPSGGTDTQYF"
-print(f"{seq} log P: {graph.lzpgen(seq):.2f}")
+print(f"{seq} log P: {graph.pgen(seq):.2f}")
 
 # 3. Simulate
 simulated = graph.simulate(5, seed=42)
 print(f"Simulated: {list(simulated)}")
 
 # 4. Diversity
+print(f"D(1): {graph.effective_diversity():.1f}")
 print(f"D(2): {graph.hill_number(2.0):.1f}")
 ```
 
+!!! tip "FlashBackGraph"
+    If you need exact, closed-form diversity metrics without stochastic estimation, or if you are working with very large repertoires in limited memory, consider using `FlashBackGraph`. It follows the same basic API for `pgen()` and `simulate()`.
+
+## Which LZGraph variant?
+
+`LZGraph` has three variants. Pick by your input:
+
+- **Amino acid CDR3s** -> `variant='aap'` (the default, most common)
+- **Nucleotide CDR3s** -> `variant='ndp'`
+- **Motif or position-free analysis** -> `variant='naive'`
+
+For the full comparison, see [Graph Variants](../concepts/graph-types.md).
+
 ## What's Next?
 
-- [First Steps](first-steps.md) - Learn which graph variant to choose
+- [Tutorial: Graph Construction](../tutorials/graph-construction.md) - Go deeper with the LZGraph track
+- [Core Ideas](core-ideas.md) - The concepts behind the graph
+- [Which Graph Should I Use?](choose-your-graph.md) - Pick a family
 - [How-To Guides](../how-to/index.md) - Task-specific recipes
 - [Concepts](../concepts/index.md) - Theory behind LZ76 graphs

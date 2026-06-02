@@ -1,10 +1,13 @@
 ---
 tags:
+  - LZGraph
   - Simulation
   - Genes
 ---
 
 # Generate Sequences
+
+**Applies to: LZGraph**
 
 This guide covers the practical tasks involved in generating synthetic sequences
 from an LZGraph and working with the results.
@@ -172,14 +175,14 @@ print(f"Mean LZ tokens: {results.n_tokens.mean():.1f}")
 
 ---
 
-## Score sequences with lzpgen
+## Score sequences with pgen
 
-Use `graph.lzpgen(seq)` to compute the log-probability of any sequence --
+Use `graph.pgen(seq)` to compute the log-probability of any sequence --
 generated or observed -- under the graph's transition model. This is useful for
 ranking, filtering, or statistical testing.
 
 ```python
-score = graph.lzpgen("CASSLEPSGGTDTQYF")
+score = graph.pgen("CASSLEPSGGTDTQYF")
 print(f"Log-probability: {score:.4f}")
 ```
 
@@ -189,12 +192,12 @@ You can score an entire batch by iterating:
 import numpy as np
 
 observed = ["CASSLEPSGGTDTQYF", "CASSDTSGGTDTQYF"]
-scores = graph.lzpgen(observed)  # pass a list for batch scoring → returns np.ndarray
+scores = graph.pgen(observed)  # pass a list for batch scoring → returns np.ndarray
 ```
 
 !!! info
     `log_probs` on a `SimulationResult` are computed during generation at
-    zero extra cost. Use `lzpgen` only when you need to score sequences that
+    zero extra cost. Use `pgen` only when you need to score sequences that
     were *not* produced by `simulate`.
 
 ---
@@ -280,7 +283,7 @@ null_lps = null.log_probs
 
 # 2. Score the test sequence
 test_seq = "CASSLEPSGGTDTQYF"
-test_lp  = graph.lzpgen(test_seq)
+test_lp  = graph.pgen(test_seq)
 
 # 3. Empirical p-value (fraction of null sequences at least as unlikely)
 p_value = (null_lps <= test_lp).mean()

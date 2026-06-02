@@ -1,10 +1,13 @@
 ---
 tags:
+  - LZGraph
   - Comparison
   - Diversity
 ---
 
 # Compare Repertoires
+
+**Applies to: LZGraph**
 
 Learn how to measure similarity and differences between T-cell and B-cell receptor repertoires using graph-based metrics.
 
@@ -110,7 +113,7 @@ Check how likely sequences from one repertoire are in another. This is useful fo
 sample_seqs = sequences_a[:100]
 
 # Score them against Repertoire B
-log_probs_in_b = graph_b.lzpgen(sample_seqs)
+log_probs_in_b = graph_b.pgen(sample_seqs)
 
 print(f"Avg log-Pgen of A sequences in B: {log_probs_in_b.mean():.2f}")
 ```
@@ -134,6 +137,6 @@ for gene, d in sorted_diff[:5]:
 
 ## Next Steps
 
-- [Personalize Graphs](posterior-personalization.md) — Compare individuals to a population baseline
-- [Diversity Metrics](../tutorials/diversity-metrics.md) — Hill numbers and diversity profiles
-- [API: LZGraph](../api/lzgraph.md) — Complete method reference
+- [Personalize Graphs](posterior-personalization.md): Compare individuals to a population baseline
+- [Diversity Metrics](../tutorials/diversity-metrics.md): Hill numbers and diversity profiles
+- [API: LZGraph](../api/lzgraph.md): Complete method reference

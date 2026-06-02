@@ -1,3 +1,8 @@
+---
+tags:
+  - LZGraph
+---
+
 # Probability Model
 
 LZGraphs defines a **probability distribution over sequences**. For any CDR3 string you give it, the graph can compute the exact probability that the repertoire would generate it. This page explains how that probability is calculated, why the LZ76 constraint matters, and how the model supports Bayesian updates.
@@ -29,7 +34,7 @@ Where:
 - $\mathcal{D}_i$ is the **LZ76 dictionary** accumulated up to step $i$
 - The walk ends when $w_n$ is a terminal (`$`) node
 
-The crucial detail is the conditioning on $\mathcal{D}_i$ — the transition probability at each step depends not just on the current node, but on **what the walk has already emitted**. This makes the model non-Markovian.
+The crucial detail is the conditioning on $\mathcal{D}_i$, the transition probability at each step depends not just on the current node, but on **what the walk has already emitted**. This makes the model non-Markovian.
 
 ---
 
@@ -74,25 +79,25 @@ $$
 The probability mass that would have gone to `SL_6` is redistributed to the remaining valid edges.
 
 !!! info "Why this matters"
-    This renormalization is what makes LZGraphs more than a Markov chain. The model **cannot generate invalid LZ76 decompositions** — every simulated sequence and every probability computation respects the LZ76 dictionary constraint. This is a stronger guarantee than most sequence generative models provide.
+    This renormalization is what makes LZGraphs more than a Markov chain. The model **cannot generate invalid LZ76 decompositions**: every simulated sequence and every probability computation respects the LZ76 dictionary constraint. This is a stronger guarantee than most sequence generative models provide.
 
 ---
 
 ## Computing LZPGEN in practice
 
-You don't need to manually trace through the dictionary — `lzpgen()` handles everything:
+You don't need to manually trace through the dictionary, `pgen()` handles everything:
 
 ```python
 from LZGraphs import LZGraph
 
 graph = LZGraph(sequences, variant='aap')
 
-# Log-probability (default — avoids underflow)
-log_p = graph.lzpgen("CASSLEPSGGTDTQYF")
+# Log-probability (default, avoids underflow)
+log_p = graph.pgen("CASSLEPSGGTDTQYF")
 print(f"log P(gen) = {log_p:.4f}")
 
 # Raw probability (use with caution for long sequences)
-p = graph.lzpgen("CASSLEPSGGTDTQYF", log=False)
+p = graph.pgen("CASSLEPSGGTDTQYF", log=False)
 print(f"P(gen) = {p:.2e}")
 ```
 
@@ -113,7 +118,7 @@ A natural question: does the sum of $P(s)$ over all possible sequences equal 1.0
 1. Every walk starts at `@` (the unique root)
 2. At each step, the transition probabilities to **valid** successors sum to 1.0 (by renormalization)
 3. Every walk eventually reaches a terminal `$` node (the graph is a DAG with finite depth)
-4. The `$` sentinel guarantees that every walk terminates — there are no absorbing states other than terminal nodes
+4. The `$` sentinel guarantees that every walk terminates, there are no absorbing states other than terminal nodes
 
 You can verify this empirically:
 
@@ -139,7 +144,7 @@ $$
 
 Where:
 
-- $\kappa$ is the **prior strength** — how much weight the prior graph carries relative to the new data
+- $\kappa$ is the **prior strength**: how much weight the prior graph carries relative to the new data
 - $P_{\text{prior}}(v \mid u)$ is the prior transition probability
 - $\text{count}_{\text{obs}}(u \to v)$ is the count from the new observations
 
@@ -164,7 +169,7 @@ personal = population.posterior(
 )
 
 # The posterior graph is a full LZGraph
-log_p = personal.lzpgen("CASSLEPSGGTDTQYF")
+log_p = personal.pgen("CASSLEPSGGTDTQYF")
 ```
 
 ### What gets updated
@@ -181,7 +186,7 @@ For many analytical quantities (mean log-PGEN, variance, Hill numbers), LZGraphs
 
 Starting from the root node, propagate probability mass forward through the graph following the edge weights. At each terminal node, the arriving mass is the total probability of all walks ending there.
 
-This forward DP computes in $O(|E|)$ time — linear in the number of edges — regardless of how many sequences the graph can generate (which can be astronomically large).
+This forward DP computes in $O(|E|)$ time, linear in the number of edges, regardless of how many sequences the graph can generate (which can be astronomically large).
 
 ```python
 # Exact moments, no simulation needed
@@ -193,14 +198,14 @@ print(f"Std log-Pgen:  {moments['std']:.4f}")
 !!! note "Forward DP vs simulation for analytics"
     LZGraphs uses two complementary approaches:
 
-    - **Forward DP** (unconstrained) for moments and path counting — fast and exact, but doesn't enforce per-walk LZ constraints
-    - **Monte Carlo with exact probabilities** for Hill numbers and diversity — simulates walks with full LZ constraints, and each walk carries its exact log-probability for unbiased importance-sampling estimation
+    - **Forward DP** (unconstrained) for moments and path counting, fast and exact, but doesn't enforce per-walk LZ constraints
+    - **Monte Carlo with exact probabilities** for Hill numbers and diversity, simulates walks with full LZ constraints, and each walk carries its exact log-probability for unbiased importance-sampling estimation
 
 ---
 
 ## See Also
 
-- [LZ76 Algorithm](lz76-algorithm.md) — how the decomposition works
-- [Distribution Analytics](distribution-analytics.md) — Hill numbers, occupancy, and PGEN distribution
-- [Sequence Analysis tutorial](../tutorials/sequence-analysis.md) — scoring and simulation in practice
-- [Personalize Graphs how-to](../how-to/posterior-personalization.md) — Bayesian posterior workflows
+- [LZ76 Algorithm](lz76-algorithm.md): how the decomposition works
+- [Distribution Analytics](distribution-analytics.md): Hill numbers, occupancy, and PGEN distribution
+- [Sequence Analysis tutorial](../tutorials/sequence-analysis.md): scoring and simulation in practice
+- [Personalize Graphs how-to](../how-to/posterior-personalization.md): Bayesian posterior workflows

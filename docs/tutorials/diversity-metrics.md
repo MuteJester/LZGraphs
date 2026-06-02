@@ -1,12 +1,15 @@
 ---
 tags:
+  - LZGraph
   - Diversity
   - Comparison
 ---
 
 # Diversity Metrics
 
-How diverse is an immune repertoire? This is one of the most fundamental questions in repertoire analysis, but it's deceptively hard to answer. "Diversity" means different things depending on what you care about — do you want to count how many *distinct* sequences exist? Or how *evenly distributed* they are? Or how many you'd *expect to see* if you sequenced deeper?
+**Applies to: LZGraph**
+
+How diverse is an immune repertoire? This is one of the most fundamental questions in repertoire analysis, but it's deceptively hard to answer. "Diversity" means different things depending on what you care about, do you want to count how many *distinct* sequences exist? Or how *evenly distributed* they are? Or how many you'd *expect to see* if you sequenced deeper?
 
 LZGraphs provides a unified framework for all of these questions. In this tutorial, we'll build intuition for each metric, understand what the numbers mean, and learn when to use which tool.
 
@@ -23,7 +26,7 @@ import numpy as np
 from LZGraphs import LZGraph, jensen_shannon_divergence, k_diversity
 
 seqs = []
-with open("examples/ExampleData3.csv") as f:
+with open("examples/data/ExampleData3.csv") as f:
     for row in csv.DictReader(f):
         seqs.append(row['cdr3_amino_acid'])
 
@@ -39,7 +42,7 @@ If you only learn one concept from this tutorial, make it **Hill numbers**. They
 
 ### The intuition
 
-Imagine a repertoire with 1,000 distinct sequences. If they're all equally likely (uniform distribution), the repertoire is very diverse. If 999 of them have tiny probability and one dominates, the repertoire is effectively monoclonal — even though 1,000 distinct sequences exist.
+Imagine a repertoire with 1,000 distinct sequences. If they're all equally likely (uniform distribution), the repertoire is very diverse. If 999 of them have tiny probability and one dominates, the repertoire is effectively monoclonal, even though 1,000 distinct sequences exist.
 
 Hill numbers capture this distinction. The parameter $\alpha$ controls **how much you care about rare sequences**:
 
@@ -60,17 +63,17 @@ D1 = graph.hill_number(1)   # (2)
 D2 = graph.hill_number(2)   # (3)
 
 print(f"D(0) = {D0:,.0f}  (distinct sequences the graph can produce)")
-print(f"D(1) = {D1:,.0f}  (effective diversity — accounting for probability)")
-print(f"D(2) = {D2:,.0f}  (inverse Simpson — emphasizing common sequences)")
+print(f"D(1) = {D1:,.0f}  (effective diversity, accounting for probability)")
+print(f"D(2) = {D2:,.0f}  (inverse Simpson, emphasizing common sequences)")
 ```
 
 1. **D(0) = Richness.** Counts all producible sequences equally, regardless of probability. Estimated via Chao1 lower bound.
-2. **D(1) = Shannon diversity.** The "effective number of sequences" — how many equally-likely sequences would give the same entropy. Computed as $e^H$.
+2. **D(1) = Shannon diversity.** The "effective number of sequences", how many equally-likely sequences would give the same entropy. Computed as $e^H$.
 3. **D(2) = Inverse Simpson.** Down-weights rare sequences. If you pick two random sequences, $1/D(2)$ is the probability they're identical.
 
 **What do these numbers mean in practice?**
 
-- If $D(0) \gg D(1)$, the repertoire has many possible sequences but most are very rare — a long tail distribution.
+- If $D(0) \gg D(1)$, the repertoire has many possible sequences but most are very rare, a long tail distribution.
 - If $D(1) \approx D(2)$, the distribution is relatively even across the common sequences.
 - If $D(2)$ is very small compared to $D(0)$, a few sequences dominate while most contribute negligibly.
 
@@ -114,21 +117,21 @@ plt.show()
 
 <figure markdown="span">
   ![Hill Diversity Curve](../images/hill_curve.png){ width="90%" }
-  <figcaption>Hill diversity curve for a 5,000-sequence repertoire. D(0) counts all producible sequences (richness); D(1) is the "effective" count weighted by probability (Shannon); D(2) emphasizes the dominant clones (Simpson). The steep drop from D(0) to D(2) reveals a long-tailed distribution — many rare sequences, few dominant ones.</figcaption>
+  <figcaption>Hill diversity curve for a 5,000-sequence repertoire. D(0) counts all producible sequences (richness); D(1) is the "effective" count weighted by probability (Shannon); D(2) emphasizes the dominant clones (Simpson). The steep drop from D(0) to D(2) reveals a long-tailed distribution, many rare sequences, few dominant ones.</figcaption>
 </figure>
 
 !!! info "How LZGraphs computes Hill numbers"
-    LZGraphs uses **exact-probability importance sampling**: it simulates 10,000 walks through the graph, and each walk carries its exact log-probability from the transition model. This means even D(1) and D(2) are estimated accurately from a modest number of samples — because we know the *exact* probability of each sample, not just its empirical frequency. See [Distribution Analytics (concepts)](../concepts/distribution-analytics.md) for the mathematical details.
+    LZGraphs uses **exact-probability importance sampling**: it simulates 10,000 walks through the graph, and each walk carries its exact log-probability from the transition model. This means even D(1) and D(2) are estimated accurately from a modest number of samples, because we know the *exact* probability of each sample, not just its empirical frequency. See [Distribution Analytics (concepts)](../concepts/distribution-analytics.md) for the mathematical details.
 
 ---
 
 ## Effective diversity and the diversity profile
 
-The **effective diversity** is the Hill number at $\alpha = 1$ — also equal to $e^H$ where $H$ is the Shannon entropy. It answers a very intuitive question:
+The **effective diversity** is the Hill number at $\alpha = 1$, also equal to $e^H$ where $H$ is the Shannon entropy. It answers a very intuitive question:
 
 > *How many equally-likely sequences would produce the same amount of uncertainty?*
 
-If the effective diversity is 100,000, the repertoire has the same entropy as a uniform distribution over 100,000 sequences — even if the actual number of producible sequences is much larger.
+If the effective diversity is 100,000, the repertoire has the same entropy as a uniform distribution over 100,000 sequences, even if the actual number of producible sequences is much larger.
 
 ```python
 d_eff = graph.effective_diversity()
@@ -170,7 +173,7 @@ for d in depths:
 ```
 
 !!! warning "Performance note"
-    `predicted_richness()` uses Monte Carlo power-sum estimation with Wynn epsilon acceleration. For small graphs or moderate depths it's fast (< 1 second). For large graphs or very large depths (> 100K), computation can be slow. Use `richness_curve()` instead of calling `predicted_richness()` in a loop — it shares precomputed power sums across all depth points.
+    `predicted_richness()` uses Monte Carlo power-sum estimation with Wynn epsilon acceleration. For small graphs or moderate depths it's fast (< 1 second). For large graphs or very large depths (> 100K), computation can be slow. Use `richness_curve()` instead of calling `predicted_richness()` in a loop, it shares precomputed power sums across all depth points.
 
 **Output (typical for a 5,000-sequence graph):**
 ```
@@ -245,7 +248,7 @@ for k, count in enumerate(sharing['spectrum'][:6], 1):
         print(f"  Seen in exactly {k} donor(s): {count:,.0f} sequences")
 ```
 
-The spectrum tells you how many sequences are "private" (in exactly 1 donor), "semi-public" (in 2-3 donors), and "highly public" (in all donors). This is computed analytically — no simulation needed.
+The spectrum tells you how many sequences are "private" (in exactly 1 donor), "semi-public" (in 2-3 donors), and "highly public" (in all donors). This is computed analytically, no simulation needed.
 
 ---
 
@@ -261,7 +264,7 @@ print(f"Mean log-Pgen:  {moments['mean']:.2f}")
 print(f"Std log-Pgen:   {moments['std']:.2f}")
 ```
 
-A larger standard deviation means the distribution is more spread out — some sequences are many orders of magnitude more likely than others.
+A larger standard deviation means the distribution is more spread out, some sequences are many orders of magnitude more likely than others.
 
 ### Dynamic range
 
@@ -276,7 +279,7 @@ print(f"Most probable:  log P = {detail['max_log_prob']:.2f}")
 print(f"Least probable: log P = {detail['min_log_prob']:.2f}")
 ```
 
-A dynamic range of 10 orders means the most common sequence is $10^{10}$ times more likely than the rarest — an enormous spread that's typical of real immune repertoires.
+A dynamic range of 10 orders means the most common sequence is $10^{10}$ times more likely than the rarest, an enormous spread that's typical of real immune repertoires.
 
 ### The analytical distribution
 
@@ -407,16 +410,16 @@ print(f"\nRepertoire perplexity: {ppl:.2f}")
 
 ## What we learned
 
-- **Hill numbers** are the universal diversity framework — $\alpha$ controls the sensitivity to rare vs. common sequences, and $D(0) \geq D(1) \geq D(2)$ always holds
+- **Hill numbers** are the universal diversity framework, $\alpha$ controls the sensitivity to rare vs. common sequences, and $D(0) \geq D(1) \geq D(2)$ always holds
 - **Effective diversity** ($D(1)$) answers "how many equally-likely sequences would have the same entropy?"
-- **Richness curves** predict how many unique sequences you'd find at any sequencing depth — essential for saturation analysis and experiment planning
-- **The PGEN distribution** characterizes the spread of generation probabilities — its dynamic range tells you how unequal the distribution is
+- **Richness curves** predict how many unique sequences you'd find at any sequencing depth, essential for saturation analysis and experiment planning
+- **The PGEN distribution** characterizes the spread of generation probabilities, its dynamic range tells you how unequal the distribution is
 - **JSD** measures divergence between two repertoires (0 = identical, 1 = maximally different)
-- **Perplexity** measures model fit — lower means the sequences are more predictable under the model
+- **Perplexity** measures model fit, lower means the sequences are more predictable under the model
 
 ## Next steps
 
-- [**Distribution Analytics (concepts)**](../concepts/distribution-analytics.md) — the mathematical foundations behind these estimators
-- [**Compare Repertoires (how-to)**](../how-to/repertoire-comparison.md) — recipes for pairwise and cohort comparisons
-- [**Personalize Graphs**](../how-to/posterior-personalization.md) — Bayesian posterior updates for individual-level analysis
-- [**API: LZGraph**](../api/lzgraph.md) — complete reference for all diversity methods
+- [**Distribution Analytics (concepts)**](../concepts/distribution-analytics.md): the mathematical foundations behind these estimators
+- [**Compare Repertoires (how-to)**](../how-to/repertoire-comparison.md): recipes for pairwise and cohort comparisons
+- [**Personalize Graphs**](../how-to/posterior-personalization.md): Bayesian posterior updates for individual-level analysis
+- [**API: LZGraph**](../api/lzgraph.md): complete reference for all diversity methods

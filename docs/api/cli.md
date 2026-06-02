@@ -23,7 +23,7 @@ lzg --version
 ```
 
 ```text
-lzg 3.0.2
+lzg 3.1.0
 ```
 
 ```bash
@@ -34,7 +34,7 @@ lzg --help
 ```text
 usage: lzg [-h] [--version] [-q] {build,info,score,simulate,diversity,compare,decompose,saturation,predict,posterior} ...
 
-LZGraphs — LZ76 compression graphs for immune repertoire analysis
+LZGraphs, LZ76 compression graphs for immune repertoire analysis
 
 options:
   -h, --help            show this help message and exit
@@ -195,7 +195,7 @@ lzg info repertoire.lzg
 ```
 
 ```text
-# lzg info v3.0.2 — repertoire.lzg
+# lzg info v3.1.0, repertoire.lzg
 GR	variant	aap
 GR	nodes	9842
 GR	edges	27531
@@ -375,7 +375,7 @@ lzg diversity repertoire.lzg
 ```
 
 ```text
-# lzg diversity v3.0.2
+# lzg diversity v3.1.0
 HL	0	318204000.0000
 HL	1	4021.3312
 HL	2	1847.5590
@@ -427,7 +427,7 @@ lzg compare healthy.lzg disease.lzg
 ```
 
 ```text
-# lzg compare v3.0.2 — healthy.lzg vs disease.lzg
+# lzg compare v3.1.0, healthy.lzg vs disease.lzg
 CP	jsd	0.142837
 CP	nodes_a	9842
 CP	nodes_b	11204
@@ -691,6 +691,62 @@ lzg posterior day0.lzg day30_repertoire.tsv -o day30_posterior.lzg --kappa 0.5
     data. A value of `1.0` treats prior and data equally. Values below 1
     let the new data dominate; values above 1 make the posterior more
     conservative.
+
+---
+
+### `flashback` -- FlashBackGraph commands
+
+`FlashBackGraph` is a separate graph family from the `LZGraph` variants (see
+[FlashBackGraph](flashback-graph.md)), so its commands live under their own
+`lzg flashback` namespace. A FlashBackGraph and an LZGraph both save to the
+`.lzg` extension, but the file does not record which family produced it, so
+always read FlashBack graphs with `lzg flashback ...` and LZGraph graphs with
+the top-level commands. Pointing one at the other's file produces meaningless
+results rather than an error.
+
+| Subcommand | Purpose |
+|------------|---------|
+| `flashback build` | Build a FlashBackGraph from sequences |
+| `flashback info` | Inspect a saved FlashBackGraph |
+| `flashback score` | Exact generation probability for sequences |
+| `flashback simulate` | Generate sequences |
+| `flashback diversity` | Exact diversity metrics (Hill numbers, effective diversity) |
+| `flashback scale` | SCALE anomaly score: self-calibrated, length-invariant -log Pgen |
+
+```bash
+# Build (plain text, one sequence per line, or sequence<TAB>abundance)
+lzg flashback build repertoire.txt -o rep.fb.lzg
+
+# Inspect
+lzg flashback info rep.fb.lzg
+# # lzg flashback info v3.1.0, rep.fb.lzg
+# GR  variant  flashback
+# GR  nodes    1820
+# GR  edges    9210
+# DV  effective_diversity  742.10
+
+# Exact diversity (no sampling noise)
+lzg flashback diversity rep.fb.lzg --hill 0,1,2
+
+# Exact generation probability (log by default; --prob for linear)
+echo "CASSLEPSGGTDTQYF" | lzg flashback score rep.fb.lzg
+
+# SCALE anomaly score: self-calibrate on the graph, then flag surprising sequences.
+# Build the calibration once and reuse it (calibration simulates from the graph).
+lzg flashback scale rep.fb.lzg query.txt --save-calibration scale_cal.json
+lzg flashback scale rep.fb.lzg query.txt --calibration scale_cal.json
+# sequence          scale
+# CASSLEPSGGTDTQYF  -0.12
+# KKKKWWWWPPPP      8.74      (high score = anomalous)
+
+# Generate sequences
+lzg flashback simulate rep.fb.lzg -n 1000 > synthetic.txt
+```
+
+`flashback scale` calibrates by simulating from the graph (use `--n-sim` and
+`--seed`); pass `--save-calibration` to cache it and `--calibration` to reuse a
+saved cache. Each subcommand accepts `--json`, and `score`, `simulate`, and
+`scale` accept `-o/--output` (default stdout).
 
 ---
 

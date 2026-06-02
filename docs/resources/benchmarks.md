@@ -1,6 +1,6 @@
 # Performance Benchmarks
 
-All benchmarks were run on a single core (Intel/AMD x86_64 Linux, Python 3.12, LZGraphs 3.0.2) using a dataset of 5,000 CDR3 amino acid sequences (mean length 14.7 characters). The resulting graph has 1,721 nodes and 9,644 edges.
+All benchmarks were run on a single core (Intel/AMD x86_64 Linux, Python 3.12, LZGraphs 3.1.0) using a dataset of 5,000 CDR3 amino acid sequences (mean length 14.7 characters). The resulting graph has 1,721 nodes and 9,644 edges.
 
 Times are wall-clock averages across multiple runs. Your results will vary depending on hardware, dataset size, and sequence diversity.
 
@@ -8,7 +8,7 @@ Times are wall-clock averages across multiple runs. Your results will vary depen
 
 ## Graph Construction
 
-Building a graph from raw sequences — includes LZ76 decomposition, CSR packing, edge weight normalization, and topological sort.
+Building a graph from raw sequences, includes LZ76 decomposition, CSR packing, edge weight normalization, and topological sort.
 
 | Sequences | Nodes | Edges | Time |
 |----------:|------:|------:|-----:|
@@ -61,14 +61,14 @@ Diversity and distribution metrics on the 5,000-sequence graph.
 |:----------|-----:|:------|
 | `effective_diversity()` | **2.1 s** | Monte Carlo with 10K walks |
 | `hill_numbers([0,1,2,5])` | **2.1 s** | Single MC run, all orders computed together |
-| `pgen_moments()` | **0.2 ms** | Forward DP — no simulation needed |
+| `pgen_moments()` | **0.2 ms** | Forward DP, no simulation needed |
 | `pgen_distribution()` | **2.1 s** | Simulation-based Gaussian mixture fitting |
 | `predicted_richness(1M)` | **106 s** | Occupancy model with series acceleration |
 | `pgen_diagnostics()` | **~200 ms** | 1K validation walks |
 | `diversity_profile()` | **2.1 s** | Same MC as effective_diversity |
 
 !!! info "Why are Hill numbers fast but richness is slow?"
-    **Hill numbers** use Monte Carlo with 10K walks — each walk provides its exact probability, enabling unbiased importance-sampling estimation in about 2 seconds.
+    **Hill numbers** use Monte Carlo with 10K walks, each walk provides its exact probability, enabling unbiased importance-sampling estimation in about 2 seconds.
 
     **Predicted richness** uses the Poisson occupancy formula $F(d) = \sum_i (1 - (1-p_i)^d)$, which requires evaluating a series over the full PGEN distribution with Gauss-Hermite quadrature and Wynn epsilon acceleration. At very large depths (1M+), the series converges slowly. For moderate depths (up to ~10K), it's much faster.
 
@@ -80,7 +80,7 @@ Diversity and distribution metrics on the 5,000-sequence graph.
 |:----------|-----:|
 | `jensen_shannon_divergence(g1, g2)` | **0.1 ms** |
 
-JSD is computed directly from the edge weight vectors — no simulation needed.
+JSD is computed directly from the edge weight vectors, no simulation needed.
 
 ---
 
@@ -107,7 +107,7 @@ Save/load the 5,000-sequence graph (285 KB on disk).
 | `save()` | **1.2 ms** |
 | `load()` | **0.7 ms** |
 
-The `.lzg` binary format is extremely fast — loading a graph is ~100x faster than rebuilding it from sequences.
+The `.lzg` binary format is extremely fast, loading a graph is ~100x faster than rebuilding it from sequences.
 
 ---
 
@@ -120,7 +120,7 @@ The `.lzg` binary format is extremely fast — loading a graph is ~100x faster t
 | `feature_mass_profile()` | 31 | **2.1 s** |
 
 !!! note "`feature_stats()` is slow because it computes Hill numbers internally"
-    The 15-element statistics vector includes D(0), D(0.5), D(1), D(2), D(5), entropy, and dynamic range — each requiring Monte Carlo simulation. If you only need the `feature_aligned()` vector for ML, that's sub-millisecond.
+    The 15-element statistics vector includes D(0), D(0.5), D(1), D(2), D(5), entropy, and dynamic range, each requiring Monte Carlo simulation. If you only need the `feature_aligned()` vector for ML, that's sub-millisecond.
 
 ---
 
@@ -142,7 +142,7 @@ The `.lzg` binary format is extremely fast — loading a graph is ~100x faster t
 
 1. **Build once, reuse.** Graph construction is the most expensive step per-sequence. Save to `.lzg` and load for repeated analysis.
 
-2. **Batch LZPGEN calls.** `graph.lzpgen(list_of_seqs)` is no faster per-sequence than a loop, but avoids Python overhead.
+2. **Batch LZPGEN calls.** `graph.pgen(list_of_seqs)` is no faster per-sequence than a loop, but avoids Python overhead.
 
 3. **Use `pgen_moments()` for quick summaries.** It runs in microseconds via forward DP, while `pgen_distribution()` takes seconds.
 

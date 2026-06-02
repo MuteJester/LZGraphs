@@ -6,10 +6,28 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.1.0] - 2026
+
+### Added
+- **FlashBack graph family**: a new graph representation alongside the `LZGraph` variants:
+  - `FlashBackGraph`: a strictly Markovian DAG built from the FlashBack decomposition, with **exact** diversity, Shannon entropy, Hill numbers, path counts, and PGEN computed by forward dynamic programming (no Monte Carlo).
+  - `FlashBackStream`: incremental builder for open-ended sources, with instant running node/edge counts and checkpoint snapshots.
+  - `FlashBackGrammar`: FlashBack decomposition/reconstruction utilities.
+- **SCALE anomaly score**: `FlashBackGraph.calibrate_scale()` + `scale_score()` (and the `ScaleCalibration` cache, plus `lzg flashback scale`), a self-calibrated, length-invariant `-log Pgen` score for flagging error/noise sequences.
+- `FlashBackGraph.top_k_sequences()`: exact enumeration of the most/least probable sequences via forward DP.
+- `FlashBackGraph.without()`: remove the contribution of given sequences for leave-donor-out construction in seconds; plus `posterior()` Bayesian updates and graph algebra (`union` / `intersection` / `difference` / `weighted_merge`).
+- Foundation FlashBack graph is now published as a downloadable GitHub release asset (`make publish-foundation`).
+- Documentation: `FlashBackGraph` API reference, and a "two graph families" rewrite of the Graph Variants concept page.
+
+### Changed
+- Reorganized the C library and added the FlashBack subsystem; improved the Python API surface.
+
+---
+
 ## [3.0.2] - 2026
 
 ### Fixed
-- Restored scalable public `simulate()` and `lzpgen()` semantics on large graphs while preserving sequence/log-prob consistency.
+- Restored scalable public `simulate()` and `pgen()` semantics on large graphs while preserving sequence/log-prob consistency.
 - Improved probability diagnostics, classical Hill-number estimation, and zero-probability repertoire perplexity handling.
 - Added a standalone C benchmark harness for graph loading, simulation, scoring, analytics, and I/O throughput measurements.
 
@@ -27,7 +45,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Improved save metadata to record the correct library version in `.lzg` files.
 
 ### Changed
-- Significantly accelerated Foundation-graph query paths for `lzpgen()` and `simulate()` without changing graph or traversal semantics.
+- Significantly accelerated Foundation-graph query paths for `pgen()` and `simulate()` without changing graph or traversal semantics.
 - Improved long-running build logging with clearer progress, phase reporting, and operational safety checks.
 
 ---
@@ -42,7 +60,7 @@ This version is a complete re-implementation of the LZGraphs engine in C, provid
 - **C-Core Engine**: Core graph operations, LZ76 decomposition, and generative modeling now run in a high-performance C backend.
 - **Unified `LZGraph` Class**: Replaced `AAPLZGraph`, `NDPLZGraph`, and `NaiveLZGraph` with a single `LZGraph` class using a `variant` parameter (`'aap'`, `'ndp'`, `'naive'`).
 - **Binary Format (`.lzg`)**: New custom binary format for saving/loading graphs that is faster and more compact than `pickle`.
-- **LZ-Constrained Model**: Simulation (`simulate()`) and probability scoring (`lzpgen()`) now strictly enforce LZ76 dictionary constraints at every step.
+- **LZ-Constrained Model**: Simulation (`simulate()`) and probability scoring (`pgen()`) now strictly enforce LZ76 dictionary constraints at every step.
 - **Analytical Moments**: Exact computation of log-PGEN mean, variance, skewness, and kurtosis via topological forward propagation (O(V+E)).
 - **Occupancy Predictions**: Advanced `predicted_richness` and `predicted_overlap` algorithms using splitting + Taylor series + Wynn epsilon acceleration for machine-precision results at any depth.
 - **Feature Alignment**: New `feature_aligned()` method to project any repertoire into the node space of a reference graph for consistent ML features.
@@ -51,7 +69,7 @@ This version is a complete re-implementation of the LZGraphs engine in C, provid
 ### Changed
 - **Dependencies**: Removed `networkx`, `scipy`, `tqdm`, and `matplotlib` from core dependencies. `numpy` is now the only required dependency.
 - **Python API**: Simplified and modernized API:
-    - `walk_probability()` → `lzpgen()`
+    - `walk_probability()` → `pgen()`
     - `random_walk()` / `genomic_random_walk()` → `simulate()`
     - `get_posterior()` → `posterior()`
     - `k1000_diversity()` → `k_diversity()`
@@ -67,7 +85,7 @@ This version is a complete re-implementation of the LZGraphs engine in C, provid
 ## [2.5.0] - 2026
 
 ### Added
-- **Distribution analytics** — characterization of the generative probability distribution.
+- **Distribution analytics**: characterization of the generative probability distribution.
 - `simulation_potential_size()`: count of unique producible sequences.
 - `pgen_diagnostics()`: mass conservation check.
 - `effective_diversity()`: Shannon entropy and N_eff.
@@ -93,7 +111,7 @@ Version 3.0.0 is a **breaking change** from the 2.x series.
 
 1. **Replace class names**: Change `AAPLZGraph(...)` to `LZGraph(..., variant='aap')`.
 2. **Update method calls**:
-    - `graph.walk_probability(seq)` → `graph.lzpgen(seq)`
+    - `graph.walk_probability(seq)` → `graph.pgen(seq)`
     - `graph.random_walk()` → `graph.simulate(1)`
     - `graph.get_posterior(...)` → `graph.posterior(...)`
 3. **Change file extensions**: Update saved graphs from `.pkl` or `.json` to `.lzg` by rebuilding them with the new version.

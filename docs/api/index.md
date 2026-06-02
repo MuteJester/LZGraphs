@@ -8,16 +8,18 @@ Complete reference documentation for all LZGraphs classes and functions.
 
 <div class="card" markdown>
 ### Core
-- [LZGraph](lzgraph.md) — Main graph class (all variants)
-- [SimulationResult](simulation-result.md) — Output of `simulate()`
-- [PgenDistribution](pgen-distribution.md) — Analytical PGEN distribution
+- [LZGraph](lzgraph.md): Main graph class (all variants)
+- [FlashBackGraph](flashback-graph.md): Markovian DAG, exact analytics
+- [FlashBackGrammar](flashback-grammar.md): PCFG over FlashBack trees
+- [SimulationResult](simulation-result.md): Output of `simulate()`
+- [PgenDistribution](pgen-distribution.md): Analytical PGEN distribution
 </div>
 
 <div class="card" markdown>
 ### Analysis & Utilities
-- [Module Functions](functions.md) — `jensen_shannon_divergence`, `k_diversity`, etc.
-- [CLI Tool](cli.md) — `lzg` command reference
-- [Exceptions](exceptions.md) — Error handling
+- [Module Functions](functions.md): `jensen_shannon_divergence`, `k_diversity`, etc.
+- [CLI Tool](cli.md): `lzg` command reference
+- [Exceptions](exceptions.md): Error handling
 </div>
 
 </div>
@@ -27,7 +29,7 @@ Complete reference documentation for all LZGraphs classes and functions.
 ### Classes
 
 ```python
-from LZGraphs import LZGraph, SimulationResult, PgenDistribution
+from LZGraphs import LZGraph, FlashBackGraph, FlashBackStream, FlashBackGrammar, ScaleCalibration, SimulationResult, PgenDistribution
 ```
 
 ### Functions
@@ -71,7 +73,7 @@ All variants share the same methods. See the [LZGraph reference](lzgraph.md) for
 
 | Category | Method | Description |
 |----------|--------|-------------|
-| **Scoring** | `lzpgen(seq)` | Log-probability of sequence(s) |
+| **Scoring** | `pgen(seq)` | Log-probability of sequence(s) |
 | **Simulation** | `simulate(n)` | Generate n sequences |
 | **Diversity** | `effective_diversity()` | exp(Shannon entropy) = D(1) |
 | | `hill_number(alpha)` | Hill diversity number D(α) |
@@ -108,5 +110,5 @@ All variants share the same methods. See the [LZGraph reference](lzgraph.md) for
 
 ```python
 import LZGraphs
-print(LZGraphs.__version__)  # 3.0.2
+print(LZGraphs.__version__)  # 3.1.0
 ```

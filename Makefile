@@ -2,11 +2,18 @@ CC      = gcc
 CFLAGS  = -O2 -Wall -Wextra -std=c11 -Iinclude
 LDFLAGS = -lm
 
+# ── Release asset config (see `publish-foundation` target at bottom) ──
+VERSION          := $(shell grep -oP '__version__\s*=\s*"\K[^"]+' src/LZGraphs/__init__.py)
+TAG              ?= v$(VERSION)
+FOUNDATION_GRAPH ?= .private/foundation_assets_2026-04-19/flashback_foundation.lzg
+FOUNDATION_ASSET ?= flashback_foundation_$(TAG).lzg
+GH_REPO_SLUG     ?= MuteJester/LZGraphs
+
 # Collect all .c files under lib/
 SRCS = $(shell find lib -name '*.c')
 OBJS = $(patsubst lib/%.c, build/%.o, $(SRCS))
 
-.PHONY: all clean test bench_ops
+.PHONY: all clean test bench_ops publish-foundation
 
 all: build/liblzgraph.a
 
@@ -134,3 +141,26 @@ bench_ops: build/bench_ops
 
 build/bench_ops: tools/bench_ops.c build/liblzgraph.a | build_dirs
 	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
+
+# ═══════════════════════════════════════════════════════════
+# Release asset: manuscript foundation FlashBack graph
+# ═══════════════════════════════════════════════════════════
+# CI (build-wheels.yml) publishes to PyPI and creates the GitHub release on a
+# `v*` tag push. The foundation graph is large (~328 MB) and lives in the
+# gitignored .private/ tree, so CI never sees it; this target attaches it to
+# the already-created release as a downloadable asset, with a SHA-256 sidecar.
+# Run locally AFTER the tag's release exists.
+#
+#   make publish-foundation                            # TAG defaults to v$(VERSION)
+#   make publish-foundation TAG=v3.1.0                 # explicit tag
+#   make publish-foundation FOUNDATION_GRAPH=/path.lzg # different source graph
+publish-foundation:
+	@test -f "$(FOUNDATION_GRAPH)" || { echo "ERROR: foundation graph not found: $(FOUNDATION_GRAPH)"; exit 1; }
+	@gh release view "$(TAG)" --repo "$(GH_REPO_SLUG)" >/dev/null 2>&1 || { echo "ERROR: release $(TAG) does not exist yet. Push the tag and let CI create the release first."; exit 1; }
+	@echo "Computing SHA-256 of $(FOUNDATION_GRAPH) ($$(du -h "$(FOUNDATION_GRAPH)" | cut -f1))..."
+	@sha256sum "$(FOUNDATION_GRAPH)" | awk -v n="$(FOUNDATION_ASSET)" '{print $$1"  "n}' > "/tmp/$(FOUNDATION_ASSET).sha256"
+	@echo "Uploading to release $(TAG) as $(FOUNDATION_ASSET) ..."
+	@gh release upload "$(TAG)" --repo "$(GH_REPO_SLUG)" --clobber \
+		"$(FOUNDATION_GRAPH)#$(FOUNDATION_ASSET)" \
+		"/tmp/$(FOUNDATION_ASSET).sha256#$(FOUNDATION_ASSET).sha256"
+	@echo "Done -> https://github.com/$(GH_REPO_SLUG)/releases/download/$(TAG)/$(FOUNDATION_ASSET)"

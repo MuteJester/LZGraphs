@@ -40,7 +40,9 @@ jobs:
         run: |
           pip install mkdocs-material \
                       mkdocs-glightbox \
-                      "mkdocs-git-revision-date-localized-plugin"
+                      "mkdocs-git-revision-date-localized-plugin" \
+                      mkdocs-redirects \
+                      mkdocs-jupyter
 
       - name: Build docs
         run: mkdocs build
