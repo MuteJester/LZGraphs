@@ -51,3 +51,102 @@ def test_clean_input_reports_zero_losses(tmp_path):
     path.write_text("CASSLGQAYEQYF\nCASSPGTGVYGYTF\n")
     stats = read_sequences(str(path))["stats"]
     assert (stats.total, stats.kept, stats.malformed, stats.nonproductive) == (2, 2, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# Fix round 1: '*' (stop codon) and '-' (gap) are legitimate in real AIRR
+# amino-acid data. A stop codon is the single most common reason a row is
+# non-productive, so a malformed check that rejects '*' silently defeats
+# keep_nonproductive=True for its primary real-world purpose.
+# ---------------------------------------------------------------------------
+
+NONPRODUCTIVE_STOP_CODON = (
+    "junction_aa\tduplicate_count\tproductive\n"
+    "CASSLGQAYEQYF\t7\tT\n"
+    "CASSLG*QAYEQYF\t2\tF\n"
+    "CASSPGTGVYGYTF\t5\tT\n"
+)
+
+
+def test_stop_codon_and_gap_characters_are_kept_not_malformed(tmp_path):
+    """Real AIRR amino-acid sequences can carry '*' (stop codon) and '-'/'.'
+    (alignment gap); those characters must not be flagged as malformed."""
+    path = tmp_path / "a.fa"
+    path.write_text(
+        ">clean\nCASSPGTGVYGYTF\n>stop\nCASSLG*QAYEQYF\n>gap\nCASSLG-QAYEQYF\n"
+    )
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSPGTGVYGYTF", "CASSLG*QAYEQYF", "CASSLG-QAYEQYF"]
+    assert got["stats"].malformed == 0
+
+
+def test_keep_nonproductive_preserves_a_stop_codon_row(tmp_path):
+    """The row keep_nonproductive=True exists to preserve is exactly the
+    kind of row a stop-codon-blind malformed check would silently re-drop."""
+    path = tmp_path / "b.tsv"
+    path.write_text(NONPRODUCTIVE_STOP_CODON)
+    got = read_sequences(str(path), keep_nonproductive=True)
+    assert got["sequences"] == [
+        "CASSLGQAYEQYF", "CASSLG*QAYEQYF", "CASSPGTGVYGYTF",
+    ]
+    assert got["stats"].nonproductive == 0
+    assert got["stats"].malformed == 0
+
+
+def test_same_file_without_the_flag_drops_the_stop_codon_row_once(tmp_path):
+    """Without the flag, the same row is dropped -- but as nonproductive,
+    not malformed: it is counted once, in exactly one category."""
+    path = tmp_path / "b.tsv"
+    path.write_text(NONPRODUCTIVE_STOP_CODON)
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+    stats = got["stats"]
+    assert stats.nonproductive == 1
+    assert stats.malformed == 0
+
+
+def test_a_row_both_nonproductive_and_malformed_is_counted_once(tmp_path):
+    """A row can fail both checks: non-productive AND not a usable sequence.
+    It must land in exactly one bucket. The productive filter runs first, so
+    it is counted as nonproductive, not malformed, and total always equals
+    the sum of the three outcome buckets.
+
+    A literally empty sequence field can't demonstrate this: iter_tabular_rows
+    already discards those upstream, before read_sequences ever sees them
+    (see the RecordStats accounting-gap docstring) -- so a non-empty but
+    invalid sequence (here, one containing a digit) is the only way to
+    actually observe the overlap.
+    """
+    path = tmp_path / "c.tsv"
+    path.write_text(
+        "junction_aa\tduplicate_count\tproductive\n"
+        "CASSLGQAYEQYF\t7\tT\n"
+        "CASS1LG\t2\tF\n"
+        "CASSPGTGVYGYTF\t5\tT\n"
+    )
+    got = read_sequences(str(path))
+    stats = got["stats"]
+    assert got["sequences"] == ["CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+    assert stats.nonproductive == 1
+    assert stats.malformed == 0
+    assert stats.total == stats.kept + stats.malformed + stats.nonproductive
+
+
+def test_structural_corruption_in_a_sequence_column_is_still_malformed(tmp_path):
+    """Widening the malformed check to accept '*', '-', and '.' must not let
+    real corruption through: a FASTA-header-shaped value, a comma-joined
+    row's worth of fields collapsed into one value, and a bare leaked
+    numeric count must all still be rejected as malformed when they turn up
+    in a legitimately tabular file's sequence column."""
+    path = tmp_path / "d.tsv"
+    path.write_text(
+        "junction_aa\tduplicate_count\tproductive\n"
+        ">seq10\t1\tT\n"
+        "seq2370,IGHV1-2*02,IGHJ4*02,CASSLG,27,T\t1\tT\n"
+        "47\t1\tT\n"
+        "CASSPGTGVYGYTF\t1\tT\n"
+    )
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSPGTGVYGYTF"]
+    assert got["stats"].malformed == 3
+    assert got["stats"].kept == 1

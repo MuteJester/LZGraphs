@@ -28,10 +28,23 @@ from ._spec import FormatError, InputSpec, RecordStats
 
 _PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
 
+# Real AIRR amino-acid data carries '*' for a stop codon and '-' or '.' for
+# an alignment gap. Rejecting those silently discards exactly the
+# non-productive rows that keep_nonproductive=True exists to preserve.
+# Everything else stays rejected, which is what keeps FASTA headers ('>'),
+# delimited rows (',' and tab), FASTQ markers ('@', '+') and leaked numeric
+# counts out of graphs.
+_EXTRA_RESIDUE_CHARACTERS = frozenset("*-.")
+
 
 def _is_wellformed(sequence: str) -> bool:
-    """A usable sequence is non-empty and made up only of letters."""
-    return bool(sequence) and sequence.isalpha()
+    """A usable sequence is non-empty, alphabetic apart from residue marks."""
+    if not sequence:
+        return False
+    return all(
+        character.isalpha() or character in _EXTRA_RESIDUE_CHARACTERS
+        for character in sequence
+    )
 
 
 def _iter_plain_strict(stream):
