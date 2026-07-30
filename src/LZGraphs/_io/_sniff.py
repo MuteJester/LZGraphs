@@ -42,3 +42,17 @@ def infer_alphabet(samples: list[str]) -> str:
     if core / len(residues) >= _MIN_CORE_FRACTION:
         return "nucleotide"
     return "amino_acid"
+
+
+def _first_meaningful(lines: list[str]) -> str | None:
+    for line in lines:
+        stripped = line.strip()
+        if stripped:
+            return stripped
+    return None
+
+
+def looks_like_fasta(lines: list[str]) -> bool:
+    """True when the first meaningful line opens a FASTA record."""
+    first = _first_meaningful(lines)
+    return first is not None and first.startswith(">")
