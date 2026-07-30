@@ -120,7 +120,7 @@ def resolve_columns(
 ) -> tuple[str, str | None, str | None, str | None]:
     """Resolve the sequence, abundance, and gene column names."""
     if seq_column is not None:
-        match = _pick(header, [seq_column.lower()])
+        match = _pick(header, [seq_column.strip().lower()])
         if match is None:
             available = "  ".join(header)
             raise FormatError(

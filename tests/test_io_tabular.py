@@ -81,3 +81,33 @@ def test_iter_tabular_defaults_bad_abundance_to_one():
     assert list(iter_tabular_rows(io.StringIO(text), spec)) == [
         ("CASSLG", 1, None, None, None)
     ]
+
+
+@pytest.mark.parametrize(
+    "raw_count, expected",
+    [
+        ("3", 3),
+        ("3.0", 3),
+        (" 7 ", 7),
+        ("1e3", 1000),
+        ("-5", 1),
+        ("NA", 1),
+        ("", 1),
+        ("3.7", 1),
+        ("12345678901234567890123", 12345678901234567890123),
+    ],
+)
+def test_iter_tabular_abundance_coercion_contract(raw_count, expected):
+    text = f"junction_aa\tduplicate_count\nCASSLG\t{raw_count}\n"
+    spec = InputSpec(
+        path="x.tsv", format="tabular", compression="none", delimiter="\t",
+        seq_column="junction_aa", abundance_column="duplicate_count",
+    )
+    got = list(iter_tabular_rows(io.StringIO(text), spec))
+    assert got == [("CASSLG", expected, None, None, None)]
+
+
+def test_resolve_columns_strips_whitespace_from_user_supplied_column():
+    header = ["Junction_AA", "duplicate_count"]
+    seq, _abund, _v, _j = resolve_columns(header, " junction_aa ", "aap")
+    assert seq == "Junction_AA"

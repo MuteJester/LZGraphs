@@ -68,10 +68,22 @@ def iter_tabular_rows(stream, spec) -> Iterator[tuple]:
             continue
         abundance = 1
         if spec.abundance_column:
-            try:
-                abundance = int((row.get(spec.abundance_column) or "1").strip())
-            except ValueError:
-                abundance = 1
+            raw_count = (row.get(spec.abundance_column) or "").strip()
+            if raw_count:
+                try:
+                    # Exact-integer path first: float() loses precision above
+                    # 2**53, and counts can legitimately exceed that.
+                    abundance = int(raw_count)
+                except ValueError:
+                    try:
+                        # Accept "3.0", which is what pandas, R, and Excel
+                        # emit whenever the count column has been promoted
+                        # to float by a single missing value in the file.
+                        parsed = float(raw_count)
+                    except ValueError:
+                        parsed = None
+                    if parsed is not None and parsed.is_integer():
+                        abundance = int(parsed)
             if abundance < 1:
                 abundance = 1
         v_call = (row.get(spec.v_column) or None) if spec.v_column else None
