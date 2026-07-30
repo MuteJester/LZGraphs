@@ -16,6 +16,7 @@ CSV = (
     "seq0,IGHV1-2*02,IGHJ4*02,CASSLGQAYEQYF,47,T\n"
     "seq1,IGHV3-7*01,IGHJ6*02,CASSPGTGVYGYTF,12,T\n"
 )
+SEQCOUNT = "CASSLGQAYEQYF\t47\nCASSPGTGVYGYTF\t12\n"
 FORBIDDEN = set(">@+,\t;")
 
 
@@ -44,7 +45,17 @@ def test_csv_rows_never_become_sequences(tmp_path):
     assert got["abundances"] == [47, 12]
 
 
-@pytest.mark.parametrize("text,name", [(FASTA, "a.fa"), (CSV, "a.csv")])
+def test_seqcount_counts_never_become_sequences(tmp_path):
+    path = tmp_path / "a.seqcount"
+    path.write_text(SEQCOUNT)
+    got = read_sequences(str(path))
+    # Exact equality catches leaked counts regardless of which characters they contain.
+    # A real defect here was iter_seqcount yielding "\t5" as ('5', 1).
+    assert got["sequences"] == ["CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+    assert got["abundances"] == [47, 12]
+
+
+@pytest.mark.parametrize("text,name", [(FASTA, "a.fa"), (CSV, "a.csv"), (SEQCOUNT, "a.seqcount")])
 def test_simulated_sequences_contain_only_residues(tmp_path, text, name):
     path = tmp_path / name
     path.write_text(text)
