@@ -27,6 +27,26 @@ def detect_compression(head: bytes) -> str:
     return "none"
 
 
+class _ClosingTextIOWrapper(io.TextIOWrapper):
+    """Text wrapper that also closes an extra underlying handle on close.
+
+    gzip.GzipFile does not close an externally supplied fileobj, so without
+    this the raw handle survives the caller closing the stream.
+    """
+
+    def __init__(self, buffer, *args, extra_close=None, **kwargs):
+        super().__init__(buffer, *args, **kwargs)
+        self._extra_close = extra_close
+
+    def close(self):
+        try:
+            super().close()
+        finally:
+            extra = self._extra_close
+            if extra is not None and not extra.closed:
+                extra.close()
+
+
 def _open_zstd(raw):
     try:
         import zstandard
@@ -36,7 +56,7 @@ def _open_zstd(raw):
             "  install it with: pip install zstandard"
         ) from None
     reader = zstandard.ZstdDecompressor().stream_reader(raw)
-    return io.TextIOWrapper(reader, encoding="utf-8")
+    return _ClosingTextIOWrapper(reader, encoding="utf-8", extra_close=raw)
 
 
 def open_text(path: str):
@@ -55,14 +75,19 @@ def open_text(path: str):
     try:
         codec = detect_compression(raw.peek(_PEEK)[:_PEEK])
         if codec == "gzip":
-            return gzip.open(raw, "rt", encoding="utf-8"), codec
-        if codec == "bzip2":
-            return bz2.open(raw, "rt", encoding="utf-8"), codec
-        if codec == "xz":
-            return lzma.open(raw, "rt", encoding="utf-8"), codec
-        if codec == "zstd":
+            binary = gzip.GzipFile(fileobj=raw)
+        elif codec == "bzip2":
+            binary = bz2.BZ2File(raw)
+        elif codec == "xz":
+            binary = lzma.LZMAFile(raw)
+        elif codec == "zstd":
             return _open_zstd(raw), codec
-        return io.TextIOWrapper(raw, encoding="utf-8"), codec
+        else:
+            binary = raw
+        return (
+            _ClosingTextIOWrapper(binary, encoding="utf-8", extra_close=raw),
+            codec,
+        )
     except Exception:
         raw.close()
         raise
