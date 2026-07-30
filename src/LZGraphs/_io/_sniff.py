@@ -99,6 +99,25 @@ _ABUNDANCE_COLUMNS = ["duplicate_count", "count", "abundance", "reads", "copies"
 _V_COLUMNS = ["v_call", "v_gene", "vgene"]
 _J_COLUMNS = ["j_call", "j_gene", "jgene"]
 
+# Every known sequence-column name, across every variant, plus the
+# variant-agnostic fallback names. Used only to recognise a lone header line
+# in an otherwise undelimited file: a real residue string is never spelled
+# "junction" or "aminoAcid", so a case-insensitive match here is unambiguous.
+_ALL_SEQ_COLUMN_NAMES = frozenset(
+    name for names in _SEQ_COLUMNS.values() for name in names
+) | frozenset(_SEQ_FALLBACK)
+
+
+def _is_lone_seq_column_header(line: str) -> bool:
+    """True when ``line``, taken alone, names a known sequence column.
+
+    Guards a single-column file whose only header is e.g. ``junction`` or
+    ``aminoAcid``: without this, such a file has no delimiter and no digits
+    for ``_is_wellformed``'s incidental protections to reject, so the header
+    row would otherwise be sniffed as ``plain`` and ingested as a sequence.
+    """
+    return line.strip().lower() in _ALL_SEQ_COLUMN_NAMES
+
 
 def sniff_delimiter(header_line: str) -> str | None:
     """Pick the delimiter of a header row, preferring tab over comma."""
@@ -254,6 +273,7 @@ def detect_format(
         raise FormatError(f"{path} is empty")
 
     fmt = override
+    reclassified_lone_header = False
     if fmt is None:
         if looks_like_fasta(lines):
             fmt = "fasta"
@@ -263,6 +283,13 @@ def detect_format(
             fmt = "tabular"
         elif looks_like_seqcount(lines):
             fmt = "plain_seqcount"
+        elif _is_lone_seq_column_header(lines[0]):
+            # Reaching here already implies lines[0] has no delimiter and
+            # is not seqcount-shaped (see the elif chain above), so this is
+            # a single undelimited line. If it also spells a known
+            # sequence-column name, it is a header, not a sequence.
+            fmt = "tabular"
+            reclassified_lone_header = True
         else:
             fmt = "plain"
 
@@ -275,14 +302,26 @@ def detect_format(
             alphabet=infer_alphabet(samples),
         )
 
-    delimiter = sniff_delimiter(lines[0]) or "\t"
-    header = [h.strip() for h in lines[0].rstrip("\n").split(delimiter)]
-    seq, abundance, v_col, j_col = resolve_columns(header, seq_column, variant)
+    sniffed_delimiter = sniff_delimiter(lines[0])
+    split_delimiter = sniffed_delimiter or "\t"
+    header = [h.strip() for h in lines[0].rstrip("\n").split(split_delimiter)]
+    if reclassified_lone_header:
+        # The file has exactly one column, so it is unambiguously the
+        # sequence column. resolve_columns's variant-specific candidate
+        # list does not apply here -- e.g. a bare "junction" header is only
+        # in the ndp/naive lists, not aap's -- so bypass it rather than
+        # risk a spurious "could not identify a sequence column" error for
+        # a file that has no other column it could possibly be.
+        seq, abundance, v_col, j_col = header[0], None, None, None
+        delimiter = None
+    else:
+        seq, abundance, v_col, j_col = resolve_columns(header, seq_column, variant)
+        delimiter = split_delimiter
     index = header.index(seq)
     samples = [
-        row.rstrip("\n").split(delimiter)[index]
+        row.rstrip("\n").split(split_delimiter)[index]
         for row in lines[1:9]
-        if row.strip() and len(row.rstrip("\n").split(delimiter)) > index
+        if row.strip() and len(row.rstrip("\n").split(split_delimiter)) > index
     ]
     return InputSpec(
         path=path,
