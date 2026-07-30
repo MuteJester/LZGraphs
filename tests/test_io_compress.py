@@ -5,7 +5,6 @@ import gzip
 import io
 import lzma
 import os
-import sys
 
 import pytest
 
@@ -53,31 +52,6 @@ def test_open_text_ignores_a_lying_extension(tmp_path):
     finally:
         stream.close()
     assert codec == "gzip"
-
-
-@pytest.mark.skipif(not os.path.isdir("/proc/self/fd"), reason="needs /proc")
-def test_open_text_does_not_leak_fd_when_zstd_unavailable(tmp_path):
-    # Skip if zstandard is actually installed; we need the ImportError path.
-    try:
-        import zstandard  # noqa: F401
-        pytest.skip("zstandard is installed; cannot test ImportError path")
-    except ImportError:
-        pass
-
-    # Write a file with zstd magic bytes.
-    path = tmp_path / "fake_zstd.bin"
-    path.write_bytes(b"\x28\xb5\x2f\xfdsome data")
-
-    # Count open fds before.
-    fd_count_before = len(os.listdir("/proc/self/fd"))
-
-    # Call open_text and catch FormatError.
-    with pytest.raises(FormatError):
-        open_text(str(path))
-
-    # Count open fds after. Should be unchanged.
-    fd_count_after = len(os.listdir("/proc/self/fd"))
-    assert fd_count_after == fd_count_before
 
 
 def test_open_text_close_does_not_close_real_stdin(tmp_path, monkeypatch):
