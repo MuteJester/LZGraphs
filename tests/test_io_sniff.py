@@ -33,6 +33,10 @@ def test_reject_binary_allows_ordinary_text():
         (["CASSLGQAYEQYF", "CASSPGTGVYGYTF"], "amino_acid"),
         ([], "ambiguous"),
         (["----"], "ambiguous"),
+        (["ACGTRACGT"], "nucleotide"),
+        (["ACGTNNRYKMACGTACGTACGT"], "nucleotide"),
+        (["CASSY"], "amino_acid"),
+        (["CARDYW"], "amino_acid"),
     ],
 )
 def test_infer_alphabet(samples, expected):

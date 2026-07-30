@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from ._spec import FormatError
 
-_NUCLEOTIDE = set("ACGTUN")
+_CORE_NUCLEOTIDE = set("ACGTUN")
+_IUPAC_NUCLEOTIDE = set("ACGTUNRYSWKMBDHV")
 _IGNORED_RESIDUES = set("-.*_ \t")
+_MIN_CORE_FRACTION = 0.65
 
 
 def reject_binary(head: str, path: str) -> None:
@@ -19,10 +21,24 @@ def reject_binary(head: str, path: str) -> None:
 
 
 def infer_alphabet(samples: list[str]) -> str:
-    """Classify residues as nucleotide, amino acid, or ambiguous."""
-    letters = {c for s in samples for c in s.upper()} - _IGNORED_RESIDUES
-    if not letters:
+    """Classify residues as nucleotide, amino acid, or ambiguous.
+
+    Every IUPAC ambiguity code is also a valid amino-acid letter, so
+    membership alone cannot separate the two alphabets. Real nucleotide data
+    is overwhelmingly core bases even when it carries ambiguous calls, so a
+    core-base majority is required as well.
+    """
+    residues = [
+        character
+        for sample in samples
+        for character in sample.upper()
+        if character not in _IGNORED_RESIDUES
+    ]
+    if not residues:
         return "ambiguous"
-    if letters <= _NUCLEOTIDE:
+    if not set(residues) <= _IUPAC_NUCLEOTIDE:
+        return "amino_acid"
+    core = sum(character in _CORE_NUCLEOTIDE for character in residues)
+    if core / len(residues) >= _MIN_CORE_FRACTION:
         return "nucleotide"
     return "amino_acid"
