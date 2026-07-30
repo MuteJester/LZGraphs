@@ -112,6 +112,35 @@ def test_lone_header_with_no_data_rows_yields_nothing(tmp_path):
     assert result["sequences"] == []
 
 
+# An explicit --format/expect_format override is this codebase's established
+# philosophy for beating content sniffing: a user who forces "plain" has
+# asked for exactly that, header line included. This is deliberate, not a
+# leak -- the override short-circuits detect_format's auto-detect branch
+# (and therefore the lone-header reclassification) entirely, so the header
+# is read back as an ordinary data line. Pinned here so a future change to
+# the elif ordering in detect_format cannot alter this silently.
+def test_expect_format_plain_override_beats_lone_header_reclassification(tmp_path):
+    path = tmp_path / "single.txt"
+    path.write_text("junction\nCASSLGQAYEQYF\nCASSPGTGVYGYTF\n")
+
+    result = read_sequences(str(path), expect_format="plain")
+
+    assert result["sequences"] == ["junction", "CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+
+
+def test_no_override_still_reclassifies_the_same_file_as_tabular(tmp_path):
+    """Companion to the override test above: without expect_format, the same
+    file is auto-detected and the header is resolved as the seq column, not
+    read back as data.
+    """
+    path = tmp_path / "single.txt"
+    path.write_text("junction\nCASSLGQAYEQYF\nCASSPGTGVYGYTF\n")
+
+    result = read_sequences(str(path))
+
+    assert result["sequences"] == ["CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+
+
 def test_seqcount_format_unaffected_by_column_like_first_token(tmp_path):
     """Hazard 5: seq<TAB>count lines whose first token looks like a column
     name must still be classified as plain_seqcount, not reclassified.
