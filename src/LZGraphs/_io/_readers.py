@@ -8,27 +8,45 @@ from decimal import Decimal, InvalidOperation
 from ._spec import FormatError
 
 
+def _is_count(raw: str) -> bool:
+    """True when ``raw`` is a genuine count: an integer or an integral float.
+
+    Shared with ``_sniff.looks_like_seqcount`` so the detector and this
+    reader can never drift apart on what a count field looks like again.
+    Calling ``_parse_count`` and checking its result would not work:
+    ``_parse_count`` returns 1 both for a genuine count of 1 and for
+    unparseable input, so the two cases are indistinguishable after the
+    fact.
+    """
+    text = raw.strip()
+    if not text:
+        return False
+    try:
+        int(text)
+        return True
+    except ValueError:
+        pass
+    try:
+        parsed = Decimal(text)
+    except (InvalidOperation, ValueError):
+        return False
+    return parsed.is_finite() and parsed == parsed.to_integral_value()
+
+
 def _parse_count(raw: str) -> int:
     """Parse an abundance, tolerating the float forms pandas and R emit.
 
     ``int()`` first because it is exact and cheap. ``Decimal`` for the
     fallback because ``float()`` silently loses precision above 2**53.
-    Non-finite values are excluded: ``Decimal("inf").to_integral_value()``
-    equals itself. Anything unparseable or non-integral becomes 1.
+    Anything unparseable or non-integral becomes 1.
     """
-    text = raw.strip()
-    if not text:
+    if not _is_count(raw):
         return 1
+    text = raw.strip()
     try:
         value = int(text)
     except ValueError:
-        try:
-            parsed = Decimal(text)
-        except (InvalidOperation, ValueError):
-            return 1
-        if not parsed.is_finite() or parsed != parsed.to_integral_value():
-            return 1
-        value = int(parsed)
+        value = int(Decimal(text))
     return value if value >= 1 else 1
 
 

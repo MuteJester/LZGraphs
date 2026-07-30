@@ -1,7 +1,9 @@
 """Content-based detection of sequence file format and alphabet."""
 from __future__ import annotations
 
-from ._spec import FormatError
+from ._compress import open_text
+from ._readers import _is_count
+from ._spec import FormatError, InputSpec
 
 _CORE_NUCLEOTIDE = set("ACGTUN")
 _IUPAC_NUCLEOTIDE = set("ACGTUNRYSWKMBDHV")
@@ -147,7 +149,15 @@ def resolve_columns(
 
 
 def looks_like_seqcount(lines: list[str]) -> bool:
-    """True when every sampled line is ``token<TAB>integer``."""
+    """True when every sampled line is ``token<TAB>count``.
+
+    ``count`` is judged with the same ``_is_count`` predicate that
+    ``_readers._parse_count`` uses, so this detector and that reader agree
+    on borderline forms such as the ``"3.0"`` pandas and R emit. A plain
+    ``.isdigit()`` check here would reject those, sending them to
+    ``iter_plain`` instead, which yields the whole ``"seq\\t3.0"`` line as a
+    sequence.
+    """
     sampled = [line.strip() for line in lines if line.strip()]
     if not sampled:
         return False
@@ -155,6 +165,134 @@ def looks_like_seqcount(lines: list[str]) -> bool:
         parts = line.split("\t")
         if len(parts) != 2:
             return False
-        if not parts[1].strip().isdigit():
+        if not _is_count(parts[1]):
             return False
     return True
+
+
+_SNIFF_LINES = 32
+_VALID_OVERRIDES = ("fasta", "fastq", "tabular", "plain", "plain_seqcount")
+
+
+def _read_prefix(path: str) -> tuple[list[str], str]:
+    """Read up to ``_SNIFF_LINES`` lines of ``path`` for content sniffing.
+
+    ``open_text`` documents its returned stream as always safe to close,
+    including when ``path`` is ``"-"``: stdin is wrapped with
+    ``closefd=False``, so closing the wrapper never closes the real
+    descriptor. That means this can close unconditionally instead of
+    special-casing stdin.
+    """
+    stream, codec = open_text(path)
+    try:
+        lines = []
+        for _ in range(_SNIFF_LINES):
+            line = stream.readline()
+            if not line:
+                break
+            lines.append(line)
+    except UnicodeDecodeError as exc:
+        raise FormatError(
+            f"{path} is not valid UTF-8 text, so it cannot be sequence data\n"
+            f"  {exc}"
+        ) from None
+    finally:
+        stream.close()
+    return lines, codec
+
+
+def _prefix_samples(lines: list[str], fmt: str) -> list[str]:
+    """Pull up to 8 genuine residue samples out of a detected-format prefix.
+
+    Only the residue-bearing field of each format's record shape is kept.
+    This matters most for FASTQ: filtering out lines that merely *start*
+    with ``@`` or ``+`` still leaves the quality string in the sample set,
+    and Phred-quality characters can include letters (``I``, for one) that
+    are valid amino acids but not valid IUPAC nucleotide codes, which
+    corrupts ``infer_alphabet`` into reporting "amino_acid" for ordinary
+    nucleotide reads.
+    """
+    if fmt == "fastq":
+        samples: list[str] = []
+        i = 0
+        while i < len(lines) and len(samples) < 8:
+            if lines[i].strip().startswith("@"):
+                if i + 1 < len(lines):
+                    sequence = lines[i + 1].strip()
+                    if sequence:
+                        samples.append(sequence)
+                i += 4
+            else:
+                i += 1
+        return samples
+
+    samples = [line.strip() for line in lines[:8] if line.strip()]
+    if fmt == "fasta":
+        return [s for s in samples if not s.startswith((">", ";"))]
+    if fmt == "plain_seqcount":
+        return [s.split("\t", 1)[0] for s in samples]
+    return samples
+
+
+def detect_format(
+    path: str,
+    *,
+    variant: str = "aap",
+    seq_column: str | None = None,
+    override: str | None = None,
+) -> InputSpec:
+    """Classify ``path`` by content and resolve its columns."""
+    if override is not None and override not in _VALID_OVERRIDES:
+        raise FormatError(
+            f"unknown --format {override!r}\n"
+            f"  choose one of: {', '.join(_VALID_OVERRIDES)}"
+        )
+
+    lines, codec = _read_prefix(path)
+    reject_binary("".join(lines), path)
+    if not any(line.strip() for line in lines):
+        raise FormatError(f"{path} is empty")
+
+    fmt = override
+    if fmt is None:
+        if looks_like_fasta(lines):
+            fmt = "fasta"
+        elif looks_like_fastq(lines):
+            fmt = "fastq"
+        elif sniff_delimiter(lines[0]) and not looks_like_seqcount(lines):
+            fmt = "tabular"
+        elif looks_like_seqcount(lines):
+            fmt = "plain_seqcount"
+        else:
+            fmt = "plain"
+
+    if fmt != "tabular":
+        samples = _prefix_samples(lines, fmt)
+        return InputSpec(
+            path=path,
+            format=fmt,
+            compression=codec,
+            alphabet=infer_alphabet(samples),
+        )
+
+    delimiter = sniff_delimiter(lines[0]) or "\t"
+    header = [h.strip() for h in lines[0].rstrip("\n").split(delimiter)]
+    seq, abundance, v_col, j_col = resolve_columns(header, seq_column, variant)
+    index = header.index(seq)
+    samples = [
+        row.rstrip("\n").split(delimiter)[index]
+        for row in lines[1:9]
+        if row.strip() and len(row.rstrip("\n").split(delimiter)) > index
+    ]
+    return InputSpec(
+        path=path,
+        format="tabular",
+        compression=codec,
+        delimiter=delimiter,
+        seq_column=seq,
+        abundance_column=abundance,
+        v_column=v_col,
+        j_column=j_col,
+        alphabet=infer_alphabet(samples),
+        header=tuple(header),
+    )
