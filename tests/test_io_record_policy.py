@@ -150,3 +150,71 @@ def test_structural_corruption_in_a_sequence_column_is_still_malformed(tmp_path)
     assert got["sequences"] == ["CASSPGTGVYGYTF"]
     assert got["stats"].malformed == 3
     assert got["stats"].kept == 1
+
+
+# ---------------------------------------------------------------------------
+# Fix round 2: round 1's fix widened _is_wellformed to accept '*', '-', '.'
+# without requiring an actual letter, so those residue marks ALONE -- the
+# usual missing-value sentinels in delimited exports -- qualified as
+# "sequences". They must be rejected; a real sequence carrying one of them
+# alongside actual letters (round 1's concern) must still be accepted.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad", ["-", ".", "*", "--", "...", "*-."])
+def test_residue_marks_alone_are_malformed_not_kept(tmp_path, bad):
+    """A value made up entirely of residue marks (no letters at all) is a
+    missing-value sentinel, not a sequence, and must be rejected."""
+    path = tmp_path / "sentinel.tsv"
+    path.write_text(
+        "junction_aa\tproductive\n"
+        f"{bad}\tT\n"
+        "CASSLGQAYEQYF\tT\n"
+    )
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSLGQAYEQYF"]
+    assert got["stats"].malformed == 1
+    assert got["stats"].kept == 1
+
+
+def test_missing_value_sentinels_alongside_real_sequences_are_dropped(tmp_path):
+    """'-' and '.' are VCF-style / general missing-value sentinels. When a
+    junction_aa column holds them on their own, those rows must be dropped
+    and counted malformed, while real sequences elsewhere in the same file
+    are unaffected."""
+    path = tmp_path / "sentinels.tsv"
+    path.write_text(
+        "junction_aa\tduplicate_count\tproductive\n"
+        "CASSLGQAYEQYF\t7\tT\n"
+        "-\t2\tT\n"
+        ".\t3\tT\n"
+        "CASSPGTGVYGYTF\t5\tT\n"
+    )
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+    assert got["stats"].malformed == 2
+
+
+def test_round_1_stop_codon_and_gap_sequences_are_still_kept(tmp_path):
+    """Regression guard: round 2's 'at least one letter' requirement must not
+    reintroduce round 1's bug of rejecting real sequences that merely
+    contain a stop codon or gap alongside actual letters."""
+    path = tmp_path / "a.fa"
+    path.write_text(
+        ">clean\nCASSPGTGVYGYTF\n>stop\nCASSLG*QAYEQYF\n>gap\nCASSLG-QAYEQYF\n"
+    )
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSPGTGVYGYTF", "CASSLG*QAYEQYF", "CASSLG-QAYEQYF"]
+    assert got["stats"].malformed == 0
+
+
+def test_round_1_keep_nonproductive_stop_codon_row_still_preserved(tmp_path):
+    """Regression guard for the keep_nonproductive=True case round 1 fixed."""
+    path = tmp_path / "b.tsv"
+    path.write_text(NONPRODUCTIVE_STOP_CODON)
+    got = read_sequences(str(path), keep_nonproductive=True)
+    assert got["sequences"] == [
+        "CASSLGQAYEQYF", "CASSLG*QAYEQYF", "CASSPGTGVYGYTF",
+    ]
+    assert got["stats"].nonproductive == 0
+    assert got["stats"].malformed == 0

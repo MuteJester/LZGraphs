@@ -38,8 +38,18 @@ _EXTRA_RESIDUE_CHARACTERS = frozenset("*-.")
 
 
 def _is_wellformed(sequence: str) -> bool:
-    """A usable sequence is non-empty, alphabetic apart from residue marks."""
+    """A usable sequence has at least one residue, and no foreign characters.
+
+    The residue marks are permitted because real AIRR amino-acid data carries
+    '*' for a stop codon and '-' or '.' for an alignment gap, and rejecting
+    those discards exactly the non-productive rows that keep_nonproductive
+    exists to preserve. Requiring at least one letter is what stops the marks
+    alone from qualifying: '-' and '.' are the usual missing-value sentinels
+    in delimited exports and are not sequences.
+    """
     if not sequence:
+        return False
+    if not any(character.isalpha() for character in sequence):
         return False
     return all(
         character.isalpha() or character in _EXTRA_RESIDUE_CHARACTERS
