@@ -21,7 +21,7 @@ def test_read_sequences_keeps_its_dict_contract(tmp_path):
     path = tmp_path / "a.tsv"
     path.write_text(AIRR)
     got = read_sequences(str(path))
-    assert set(got) == {"sequences", "abundances", "v_genes", "j_genes"}
+    assert set(got) == {"sequences", "abundances", "v_genes", "j_genes", "stats"}
     assert got["sequences"] == ["CASSLGQAYEQYF"]
     assert got["abundances"] == [7]
     assert got["v_genes"] == ["IGHV1-2*02"]

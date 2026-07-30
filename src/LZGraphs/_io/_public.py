@@ -24,7 +24,14 @@ from ._readers import (
     iter_tabular_rows,
 )
 from ._sniff import detect_format
-from ._spec import FormatError, InputSpec
+from ._spec import FormatError, InputSpec, RecordStats
+
+_PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
+
+
+def _is_wellformed(sequence: str) -> bool:
+    """A usable sequence is non-empty and made up only of letters."""
+    return bool(sequence) and sequence.isalpha()
 
 
 def _iter_plain_strict(stream):
@@ -135,12 +142,18 @@ def _resolve_column_override(header: tuple, requested: str | None) -> str | None
 
 def read_sequences(path, seq_column=None, v_column=None, j_column=None,
                    abundance_column=None, variant='aap', no_genes=False,
-                   strict_input=False, expect_format=None):
+                   strict_input=False, expect_format=None, *,
+                   keep_nonproductive=False):
     """Read sequences from a file, auto-detecting format.
 
-    ``strict_input`` is only honoured for the plain/plain_seqcount "mixed
-    record" case (see ``_iter_plain_strict``); full malformed-record
-    validation and statistics are Task 12's job, not this one's.
+    Returns a dict with ``sequences``, ``abundances``, ``v_genes``,
+    ``j_genes``, and ``stats`` (a :class:`~LZGraphs._io._spec.RecordStats`).
+
+    ``strict_input=True`` rejects mixed plain/plain_seqcount records (see
+    ``_iter_plain_strict``) and also raises :class:`FormatError` on the
+    first malformed record instead of skipping it. AIRR rows whose
+    ``productive`` column is not truthy are dropped and counted unless
+    ``keep_nonproductive=True``.
     """
     tmp_path = _materialize_stdin() if path == "-" else None
     real_path = tmp_path if tmp_path is not None else path
@@ -149,6 +162,7 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
             real_path, seq_column=seq_column, v_column=v_column, j_column=j_column,
             abundance_column=abundance_column, variant=variant, no_genes=no_genes,
             strict_input=strict_input, expect_format=expect_format,
+            keep_nonproductive=keep_nonproductive,
         )
     finally:
         if tmp_path is not None:
@@ -157,7 +171,8 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
 
 def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
                               abundance_column, variant, no_genes,
-                              strict_input, expect_format):
+                              strict_input, expect_format,
+                              keep_nonproductive=False):
     """The actual read, always against a real (reopenable) filesystem path."""
     spec = detect_format(
         path, variant=variant, seq_column=seq_column, override=expect_format
@@ -194,12 +209,30 @@ def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
     abundances: list = []
     v_genes: list | None = [] if want_v else None
     j_genes: list | None = [] if want_j else None
+    total = malformed = nonproductive = 0
 
     stream, _codec = open_text(path)
     try:
-        for sequence, abundance, v_call, j_call, _productive in _iter_records(
+        for sequence, abundance, v_call, j_call, productive in _iter_records(
             stream, spec, strict_input=strict_input
         ):
+            total += 1
+            if (
+                productive is not None
+                and not keep_nonproductive
+                and productive.strip().lower() not in _PRODUCTIVE_TRUE
+            ):
+                nonproductive += 1
+                continue
+            if not _is_wellformed(sequence):
+                if strict_input:
+                    raise FormatError(
+                        f"{path}: record {total} is not a usable sequence: "
+                        f"{sequence!r}\n"
+                        "  drop --strict to skip records like this instead"
+                    )
+                malformed += 1
+                continue
             sequences.append(sequence)
             abundances.append(abundance)
             if want_v:
@@ -217,6 +250,10 @@ def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
         'abundances': abundances,
         'v_genes': v_genes,
         'j_genes': j_genes,
+        'stats': RecordStats(
+            total=total, kept=len(sequences),
+            malformed=malformed, nonproductive=nonproductive,
+        ),
     }
 
 

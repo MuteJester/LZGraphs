@@ -4,7 +4,7 @@ from __future__ import annotations
 from ._legacy import validate_input
 from ._public import detect_input_kind, read_sequences, read_sequences_simple
 from ._sniff import detect_format
-from ._spec import FormatError, InputSpec
+from ._spec import FormatError, InputSpec, RecordStats
 
 __all__ = [
     "detect_format",
@@ -14,4 +14,5 @@ __all__ = [
     "validate_input",
     "FormatError",
     "InputSpec",
+    "RecordStats",
 ]
