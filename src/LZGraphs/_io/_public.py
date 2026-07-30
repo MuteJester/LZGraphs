@@ -128,8 +128,8 @@ def _materialize_stdin() -> str:
     ``detect_format`` peeks at up to 32 lines and then closes its stream,
     trusting that ``path`` can be reopened from byte zero afterwards
     (``read_sequences`` does exactly that, via its own later ``open_text``
-    call). That assumption holds for any real file on disk -- reopening it
-    just rereads the same bytes -- but not for stdin, which is a single
+    call). That assumption holds for any real file on disk (reopening it
+    just rereads the same bytes), but not for stdin, which is a single
     non-seekable pipe: whatever the sniff peek consumes is gone for good, so
     a naive "detect_format('-') then open_text('-') again" sequence silently
     drops every line the peek read (verified: piping 2 short lines through
@@ -218,7 +218,7 @@ def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
     # v_column/j_column to read from. Building v_genes/j_genes as lists here
     # only when that column actually exists (and no_genes isn't set) keeps
     # them either None (no gene data, matching _graph.py's "None = no gene
-    # data" contract) or exactly len(sequences) long -- appending '' for a
+    # data" contract) or exactly len(sequences) long, appending '' for a
     # row with no value rather than skipping it, so the list never desyncs
     # from sequences. An empty-but-non-None list would silently break
     # LZGraph construction: the C extension only checks v_genes/j_genes for
@@ -316,7 +316,7 @@ def detect_input_kind(path, variant='aap'):
     ``detect_format`` classifies more thoroughly than the legacy first-line
     sniff (it can, e.g., look far enough ahead to notice a tabular file has
     no resolvable sequence column, or that a file is empty/binary/not valid
-    UTF-8) -- and raises ``FormatError`` when it does. On that error, this
+    UTF-8), and raises ``FormatError`` when it does. On that error, this
     falls back to ``_first_line_kind``, which covers most such cases (e.g.
     empty files, files that are actually tabular) using the legacy first-line
     approach. That fallback reopens and rereads the file itself rather than

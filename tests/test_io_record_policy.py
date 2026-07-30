@@ -94,7 +94,7 @@ def test_keep_nonproductive_preserves_a_stop_codon_row(tmp_path):
 
 
 def test_same_file_without_the_flag_drops_the_stop_codon_row_once(tmp_path):
-    """Without the flag, the same row is dropped -- but as nonproductive,
+    """Without the flag, the same row is dropped, but as nonproductive,
     not malformed: it is counted once, in exactly one category."""
     path = tmp_path / "b.tsv"
     path.write_text(NONPRODUCTIVE_STOP_CODON)
@@ -113,7 +113,7 @@ def test_a_row_both_nonproductive_and_malformed_is_counted_once(tmp_path):
 
     A literally empty sequence field can't demonstrate this: iter_tabular_rows
     already discards those upstream, before read_sequences ever sees them
-    (see the RecordStats accounting-gap docstring) -- so a non-empty but
+    (see the RecordStats accounting-gap docstring), so a non-empty but
     invalid sequence (here, one containing a digit) is the only way to
     actually observe the overlap.
     """
@@ -154,8 +154,8 @@ def test_structural_corruption_in_a_sequence_column_is_still_malformed(tmp_path)
 
 # ---------------------------------------------------------------------------
 # Fix round 2: round 1's fix widened _is_wellformed to accept '*', '-', '.'
-# without requiring an actual letter, so those residue marks ALONE -- the
-# usual missing-value sentinels in delimited exports -- qualified as
+# without requiring an actual letter, so those residue marks ALONE (the
+# usual missing-value sentinels in delimited exports) qualified as
 # "sequences". They must be rejected; a real sequence carrying one of them
 # alongside actual letters (round 1's concern) must still be accepted.
 # ---------------------------------------------------------------------------

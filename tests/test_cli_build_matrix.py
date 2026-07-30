@@ -8,15 +8,15 @@ goes through ``read_sequences``. ``cmd_build`` has a *separate* code path:
 stream straight into the C builder via ``LZGraph.from_file`` instead of
 going through ``read_sequences``. That gate used to be decided from the
 filename (``endswith('.gz')``) instead of the real detected compression, so
-a bzip2 or xz file -- having neither a ``.gz`` suffix nor any other
-disqualifying name -- passed the gate and had its raw compressed bytes
+a bzip2 or xz file, having neither a ``.gz`` suffix nor any other
+disqualifying name, passed the gate and had its raw compressed bytes
 streamed straight into the C builder: exit code 0, no warning, a small
 graph built from binary garbage instead of the real sequences. No test
 drove ``cmd_build`` itself across the format/codec matrix, so twelve
 individual task reviews stayed green; only a whole-branch review caught it.
 
-This module drives ``cli.cmd_build`` -- the exact function ``lzg build``
-dispatches to -- over the same 24-cell matrix as ``test_io_matrix.py``, and
+This module drives ``cli.cmd_build`` (the exact function ``lzg build``
+dispatches to) over the same 24-cell matrix as ``test_io_matrix.py``, and
 asserts the built graph's node count equals the node count built from the
 same sequences as plain, uncompressed, unwrapped text. Node-count equality
 is the assertion that matters: merely checking that no exception was
@@ -25,7 +25,7 @@ build succeeded with exit code 0.
 
 Be precise about what each cell actually exercises, since the matrix shape
 invites the same false confidence that let the original bug through
-twelve reviews -- not every cell reaches the streaming path:
+twelve reviews. Not every cell reaches the streaming path:
 
 - ``plain``/``none`` and ``seqcount``/``none`` (2 cells) actually call
   ``LZGraph.from_file``: these are the only two cells where
@@ -37,8 +37,8 @@ twelve reviews -- not every cell reaches the streaming path:
   cells that fail (wrong, non-crashing node counts) if the gate regresses
   to a filename check, since bzip2/xz files carry no ``.gz`` suffix.
 - ``fasta``, ``fastq``, ``tsv``, ``csv`` under all four codecs (16 cells)
-  never touch ``can_stream_plain`` under any codec -- ``detect_format``
-  never reports their format as ``plain``/``plain_seqcount`` -- so they are
+  never touch ``can_stream_plain`` under any codec, because ``detect_format``
+  never reports their format as ``plain``/``plain_seqcount``, so they are
   end-to-end ``cmd_build`` coverage that duplicates what
   ``test_io_matrix.py`` already covers through ``read_sequences``. They are
   kept because they are cheap and because they would turn into genuine
@@ -120,7 +120,7 @@ def test_count_carrying_format_matches_the_plain_reference(tmp_path, reference_n
     path.write_text(RENDERERS["tsv"]())
     g = _build_and_load(path, tmp_path, "counts_reference")
     assert g.n_nodes == reference_n_nodes, (
-        "abundances changed the node count -- the matrix below can no "
+        "abundances changed the node count, so the matrix below can no "
         "longer compare count-carrying cells against the plain reference"
     )
 
@@ -140,7 +140,7 @@ def test_build_matrix_node_count(tmp_path, reference_n_nodes, fmt, codec):
     plain, uncompressed, unwrapped text.
 
     Not every cell exercises cmd_build's ``can_stream_plain`` gate the same
-    way -- see the module docstring for the exact 2/6/16 breakdown. What
+    way; see the module docstring for the exact 2/6/16 breakdown. What
     all 24 cells share is this: if the gate (or anything upstream of it)
     ever lets compressed or wrongly-parsed bytes reach the C builder
     without raising, the build still "succeeds" (exit code 0, no

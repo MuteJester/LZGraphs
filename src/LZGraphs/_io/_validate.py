@@ -163,7 +163,7 @@ def _validate_tabular(stream, report, spec, *, strict_input, no_genes):
             # header consumed first counts as line 1, matching every other reader
             # here that starts counting from the top of the file). Verified directly
             # against a file with a known bad row rather than assumed: header=1,
-            # first data row=2, and so on -- this also stays correct for a row whose
+            # first data row=2, and so on; this also stays correct for a row whose
             # field embeds a quoted newline, since csv.reader calls next() on the
             # underlying iterable exactly as many times as physical lines that row
             # spans, and each such call increments this same counter.
@@ -190,7 +190,7 @@ def _validate_plain_family(stream, report, *, strict_input, first_mode):
     for raw in stream:
         # `stream` is the `_CountingStream` wrapping this call, so `total_lines`
         # has already been incremented for `raw` by the time this loop body runs
-        # (its `__next__` counts, then returns) -- this is the true 1-based file
+        # (its `__next__` counts, then returns), which is the true 1-based file
         # line, counting blank lines too, not a record ordinal.
         line_no = report["total_lines"]
         line = raw.strip()
@@ -252,7 +252,7 @@ def _validate_reader(stream, report, *, strict_input, reader_fn, kind_label):
     reader's own line consumption from the outside (duplicating logic this
     module deliberately reuses rather than reimplements). So `line` is left
     unset here, and the record's 1-based position in the file is folded into
-    the message text instead -- a real number, just not one labelled `line`.
+    the message text instead: a real number, just not one labelled `line`.
     """
     report["mode"] = kind_label
     record_index = 0
@@ -310,7 +310,7 @@ def _validate_real_path(path, *, seq_column, v_column, j_column, abundance_colum
     # An empty file, binary content, or a tabular file whose sequence column
     # detect_format could not resolve (e.g. a bad --seq-column, or headers it
     # cannot recognise) all end the same way: one clear error, no records.
-    # There is nothing left to read in any of these cases -- for the tabular
+    # There is nothing left to read in any of these cases: for the tabular
     # one specifically, `spec` is None so there is no resolved delimiter/
     # column to read with, and retrying would just raise the same error again.
     if detected_kind in ("empty", "binary") or (spec is None and detected_kind == "tabular"):

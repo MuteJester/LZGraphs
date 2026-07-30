@@ -4,9 +4,9 @@ A file whose only column was named ``junction``, ``sequence``, or
 ``aminoAcid`` used to detect as ``plain``, so its header line became a
 leaked sequence in the built graph. ``cdr3`` and ``junction_aa`` escaped
 only by accident, because they contain a digit/underscore that
-``_is_wellformed`` happens to reject downstream -- an incidental protection,
-not a designed one. See ``_sniff.detect_format``'s lone-header
-reclassification, which makes all of these -- and ``seq`` -- resolve as a
+``_is_wellformed`` happens to reject downstream (an incidental protection,
+not a designed one). See ``_sniff.detect_format``'s lone-header
+reclassification, which makes all of these and ``seq`` resolve as a
 single-column table by design instead.
 """
 from __future__ import annotations
@@ -68,7 +68,7 @@ def test_lone_header_match_is_case_insensitive(tmp_path, header):
 def test_iter_tabular_rows_handles_a_single_column_directly():
     """Verify (not assume) that csv.DictReader, given a delimiter that never
     occurs in single-column data, still yields one field per row keyed by
-    the header -- the mechanism the fix relies on.
+    the header, which is the mechanism the fix relies on.
     """
     text = "junction\nCASSLG\nCASSPG\n"
     spec = InputSpec(
@@ -98,8 +98,8 @@ def test_lone_header_with_no_data_rows_yields_nothing(tmp_path):
     """Hazard 3: a header-only file must not emit the header as a sequence.
 
     Chosen behaviour: yields an empty sequence list rather than raising.
-    This matches existing precedent -- an ordinary multi-column TSV with a
-    header but no data rows already yields nothing, never raises -- so a
+    This matches existing precedent: an ordinary multi-column TSV with a
+    header but no data rows already yields nothing, never raises, so a
     single-column file is not treated as a special case.
     """
     path = tmp_path / "single.txt"
@@ -115,7 +115,7 @@ def test_lone_header_with_no_data_rows_yields_nothing(tmp_path):
 # An explicit --format/expect_format override is this codebase's established
 # philosophy for beating content sniffing: a user who forces "plain" has
 # asked for exactly that, header line included. This is deliberate, not a
-# leak -- the override short-circuits detect_format's auto-detect branch
+# leak: the override short-circuits detect_format's auto-detect branch
 # (and therefore the lone-header reclassification) entirely, so the header
 # is read back as an ordinary data line. Pinned here so a future change to
 # the elif ordering in detect_format cannot alter this silently.

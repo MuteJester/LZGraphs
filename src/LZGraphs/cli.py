@@ -168,7 +168,7 @@ def cmd_build(args):
     # and read_sequences both honour it too), so a user-declared format
     # still reaches the fast path instead of being second-guessed by content
     # sniffing here. A detection failure (empty/binary input) must not
-    # crash this fast-path decision -- it just means "don't stream",
+    # crash this fast-path decision; it just means "don't stream",
     # leaving the real error to surface from the safe branch below via
     # read_sequences.
     can_stream_plain = False

@@ -1,5 +1,5 @@
 """``validate_input`` must agree with ``read_sequences``/``build`` on format
-and record count, for every supported format -- not run its own, older,
+and record count, for every supported format, not run its own, older,
 first-line-only classifier.
 
 Regression target: a 2-record FASTA used to be reported by ``validate_input``
@@ -39,7 +39,7 @@ _REPORT_KEY_TYPES = {
     "summary": str,
 }
 
-# fasta, fastq, tsv, csv, plain, seqcount -- the six RENDERERS formats from
+# fasta, fastq, tsv, csv, plain, seqcount: the six RENDERERS formats from
 # test_io_matrix.py, reused rather than re-specified here so the two test
 # files can never quietly drift apart on what each format's content looks
 # like.

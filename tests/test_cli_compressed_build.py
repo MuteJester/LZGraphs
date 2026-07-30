@@ -6,12 +6,12 @@ decides whether to take that fast path (``can_stream_plain`` in
 ``LZGraphs/cli.py``) trusted the filename: it excluded only names ending in
 ``.gz``. A bzip2 file, an xz file, or a gzip file with a misleading ``.txt``
 name all passed the gate, so the raw compressed bytes were streamed straight
-into the C graph builder -- silently producing a small, wrong graph built
+into the C graph builder, silently producing a small, wrong graph built
 from binary garbage instead of raising an error. Exit code 0, no warning.
 
 This test builds a graph from each of those three inputs through
-``LZGraphs.cli.cmd_build`` -- the exact function ``lzg build`` dispatches to
--- and checks the resulting graph's ``n_nodes`` against the graph built from
+``LZGraphs.cli.cmd_build`` (the exact function ``lzg build`` dispatches to)
+and checks the resulting graph's ``n_nodes`` against the graph built from
 the same content uncompressed. Before the fix this assertion fails (fewer,
 wrong nodes from garbage bytes); after the fix it passes because
 ``cmd_build`` now decides streaming eligibility from the real detected
@@ -98,7 +98,7 @@ def test_compressed_input_builds_the_real_sequences(
 
     # This is the assertion that actually catches the corruption: streaming
     # raw compressed bytes into the C builder produces some small graph (it
-    # doesn't crash -- arbitrary bytes still "decode" into a handful of bogus
+    # doesn't crash: arbitrary bytes still "decode" into a handful of bogus
     # nodes), so only comparing against the true node count from the same
     # content built uncompressed distinguishes "built the real sequences"
     # from "built garbage that happens to load".

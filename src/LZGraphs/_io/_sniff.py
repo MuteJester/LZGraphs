@@ -308,8 +308,8 @@ def detect_format(
     if reclassified_lone_header:
         # The file has exactly one column, so it is unambiguously the
         # sequence column. resolve_columns's variant-specific candidate
-        # list does not apply here -- e.g. a bare "junction" header is only
-        # in the ndp/naive lists, not aap's -- so bypass it rather than
+        # list does not apply here (e.g. a bare "junction" header is only
+        # in the ndp/naive lists, not aap's), so bypass it rather than
         # risk a spurious "could not identify a sequence column" error for
         # a file that has no other column it could possibly be.
         seq, abundance, v_col, j_col = header[0], None, None, None
