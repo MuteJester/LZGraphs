@@ -1,14 +1,14 @@
 """Validate an input file with the same content-sniffing pipeline ``build`` uses.
 
-``validate_input`` used to run its own first-line-only classifier (see
-``_legacy.py``), which routinely disagreed with the sniffing pipeline that
-``read_sequences``/``LZGraph.from_file`` actually build against: a FASTA file,
-for instance, was reported as ``plain`` with the ``>`` header lines counted as
-records. This module reimplements the same report contract on top of
-``detect_format`` and the shared readers (``iter_fasta``, ``iter_fastq``,
-``iter_tabular_rows``, ``_is_wellformed``, ``_first_line_kind``,
-``_resolve_column_override``, ``_materialize_stdin``) so a validated file is
-described exactly the way it would be read.
+``validate_input`` used to run its own first-line-only classifier, which
+routinely disagreed with the sniffing pipeline that ``read_sequences``/
+``LZGraph.from_file`` actually build against: a FASTA file, for instance, was
+reported as ``plain`` with the ``>`` header lines counted as records. This
+module reimplements the same report contract on top of ``detect_format`` and
+the shared readers (``iter_fasta``, ``iter_fastq``, ``iter_tabular_rows``,
+``_is_wellformed``, ``_first_line_kind``, ``_resolve_column_override``,
+``_materialize_stdin``) so a validated file is described exactly the way it
+would be read.
 """
 from __future__ import annotations
 

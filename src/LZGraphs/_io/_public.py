@@ -61,10 +61,10 @@ def _iter_plain_strict(stream):
     """Yield ``(sequence, count)`` from plain/plain_seqcount lines, raising if
     the file mixes both record shapes.
 
-    ``detect_format`` classifies a whole file up front (unlike ``_legacy.py``,
-    which classified per line), so plain 5-tuple reading never sees a "mixed"
-    file to reject. This narrow helper is the one piece of strict-mode
-    behaviour ``read_sequences`` still has to perform itself: without it,
+    ``detect_format`` classifies a whole file up front (unlike the original
+    per-line approach), so plain 5-tuple reading never sees a "mixed" file to
+    reject. This narrow helper is the one piece of strict-mode behaviour
+    ``read_sequences`` still has to perform itself: without it,
     ``tests/test_io.py::test_read_sequences_strict_plain_seqcount_fails_on_mixed``
     regresses, because forcing the format via ``override`` (see
     ``read_sequences`` below) makes ``iter_seqcount`` read straight through a
@@ -151,11 +151,10 @@ def _resolve_column_override(header: tuple, requested: str | None) -> str | None
     """Case-insensitively look up an explicit column name in ``header``.
 
     Returns ``None`` (never raises) when ``requested`` is absent from
-    ``header``: mirrors ``_legacy.py``'s fail-soft handling of v/j/abundance
-    column overrides, where an explicit column that doesn't exist in this
-    particular file just means "no such data here", unlike ``seq_column``
-    (resolved by ``detect_format`` itself), which raises when named
-    explicitly but missing.
+    ``header``: mirrors the previous fail-soft handling of v/j/abundance column
+    overrides, where an explicit column that doesn't exist in this particular
+    file just means "no such data here", unlike ``seq_column`` (resolved by
+    ``detect_format`` itself), which raises when named explicitly but missing.
     """
     if requested is None:
         return None
@@ -291,7 +290,7 @@ def _first_line_kind(path: str) -> str:
     """Legacy-style classification from the first line alone.
 
     Used only as a fallback (see ``detect_input_kind``) when the richer
-    sniffer raises. Mirrors ``_legacy.py.detect_input_kind`` exactly,
+    sniffer raises. Mirrors the legacy first-line detection approach exactly,
     including reusing ``_is_count`` so this can never drift from what
     ``looks_like_seqcount``/``_parse_count`` consider a genuine count.
     """
@@ -318,18 +317,17 @@ def detect_input_kind(path, variant='aap'):
     sniff (it can, e.g., look far enough ahead to notice a tabular file has
     no resolvable sequence column, or that a file is empty/binary/not valid
     UTF-8) -- and raises ``FormatError`` when it does. On that error, this
-    falls back to ``_first_line_kind``, the same legacy first-line heuristic
-    ``_legacy.py.detect_input_kind`` used, which covers most such cases (e.g.
-    empty files, files that are actually tabular). That fallback reopens and
-    rereads the file itself rather than reusing ``detect_format``'s result,
-    so it does not catch every error the same way: content that is not valid
-    UTF-8, for instance, makes ``detect_format`` raise ``FormatError`` (which
-    this function catches), but ``_first_line_kind`` then raises its own
-    uncaught ``UnicodeDecodeError`` trying to read the same bytes. So this
-    function usually returns a label but is not guaranteed to; callers that
-    must never see an exception (e.g. a fast-path decision) need to guard
-    the call themselves rather than rely on this docstring's older claim
-    that it always returns.
+    falls back to ``_first_line_kind``, which covers most such cases (e.g.
+    empty files, files that are actually tabular) using the legacy first-line
+    approach. That fallback reopens and rereads the file itself rather than
+    reusing ``detect_format``'s result, so it does not catch every error the
+    same way: content that is not valid UTF-8, for instance, makes
+    ``detect_format`` raise ``FormatError`` (which this function catches),
+    but ``_first_line_kind`` then raises its own uncaught ``UnicodeDecodeError``
+    trying to read the same bytes. So this function usually returns a label but
+    is not guaranteed to; callers that must never see an exception (e.g. a
+    fast-path decision) need to guard the call themselves rather than rely on
+    this docstring's older claim that it always returns.
     """
     try:
         return detect_format(path, variant=variant).format
