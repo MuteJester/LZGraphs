@@ -37,10 +37,13 @@ def iter_fastq(stream) -> Iterator[str]:
             continue
         sequence = stream.readline().strip()
         separator = stream.readline()
+        # Missing quality line at EOF is accepted because sequence is already complete.
         stream.readline()  # quality line, discarded
         if not separator.startswith("+"):
             raise FormatError(
                 "malformed FASTQ record: expected '+' on the third line, "
                 f"found {separator.strip()!r}"
             )
-        yield sequence
+        # Skip empty sequences, matching iter_fasta behavior.
+        if sequence:
+            yield sequence

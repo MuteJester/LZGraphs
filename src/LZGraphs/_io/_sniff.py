@@ -64,8 +64,24 @@ def looks_like_fasta(lines: list[str]) -> bool:
 
 
 def looks_like_fastq(lines: list[str]) -> bool:
-    """True when the prefix matches the 4-line FASTQ record shape."""
-    meaningful = [line.strip() for line in lines if line.strip()]
-    if len(meaningful) < 3:
+    """True when the prefix matches the 4-line FASTQ record shape.
+
+    Checks unfiltered line positions to detect blank lines inside records,
+    ensuring the detector and reader stay in sync.
+    """
+    # Skip leading blank lines to find the first @ header.
+    first_header_idx = None
+    for i, line in enumerate(lines):
+        if line.strip().startswith("@"):
+            first_header_idx = i
+            break
+
+    if first_header_idx is None:
         return False
-    return meaningful[0].startswith("@") and meaningful[2].startswith("+")
+
+    # The separator should be exactly 2 positions after the header.
+    separator_idx = first_header_idx + 2
+    if separator_idx >= len(lines):
+        return False
+
+    return lines[separator_idx].strip().startswith("+")
