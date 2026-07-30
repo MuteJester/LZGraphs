@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Iterator
+from decimal import Decimal, InvalidOperation
 
 from ._spec import FormatError
 
@@ -75,14 +76,20 @@ def iter_tabular_rows(stream, spec) -> Iterator[tuple]:
                     # 2**53, and counts can legitimately exceed that.
                     abundance = int(raw_count)
                 except ValueError:
+                    # Accept "3.0", which is what pandas, R, and Excel emit
+                    # whenever the count column has been promoted to float by
+                    # a single missing value in the file. Decimal parses
+                    # exactly at any magnitude; float() would silently lose
+                    # precision above 2**53.
                     try:
-                        # Accept "3.0", which is what pandas, R, and Excel
-                        # emit whenever the count column has been promoted
-                        # to float by a single missing value in the file.
-                        parsed = float(raw_count)
-                    except ValueError:
+                        parsed = Decimal(raw_count)
+                    except (InvalidOperation, ValueError):
                         parsed = None
-                    if parsed is not None and parsed.is_integer():
+                    if (
+                        parsed is not None
+                        and parsed.is_finite()
+                        and parsed == parsed.to_integral_value()
+                    ):
                         abundance = int(parsed)
             if abundance < 1:
                 abundance = 1

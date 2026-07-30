@@ -95,6 +95,10 @@ def test_iter_tabular_defaults_bad_abundance_to_one():
         ("", 1),
         ("3.7", 1),
         ("12345678901234567890123", 12345678901234567890123),
+        ("9007199254740993.0", 9007199254740993),
+        ("12345678901234567890123.0", 12345678901234567890123),
+        ("nan", 1),
+        ("inf", 1),
     ],
 )
 def test_iter_tabular_abundance_coercion_contract(raw_count, expected):
