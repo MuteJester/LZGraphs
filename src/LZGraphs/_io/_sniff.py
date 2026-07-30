@@ -61,3 +61,11 @@ def looks_like_fasta(lines: list[str]) -> bool:
     """True when the first meaningful line opens a FASTA record."""
     first = _first_meaningful(lines)
     return first is not None and first.startswith(">")
+
+
+def looks_like_fastq(lines: list[str]) -> bool:
+    """True when the prefix matches the 4-line FASTQ record shape."""
+    meaningful = [line.strip() for line in lines if line.strip()]
+    if len(meaningful) < 3:
+        return False
+    return meaningful[0].startswith("@") and meaningful[2].startswith("+")
