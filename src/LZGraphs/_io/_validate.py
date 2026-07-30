@@ -157,11 +157,22 @@ def _validate_tabular(stream, report, spec, *, strict_input, no_genes):
         for sequence, _abundance, _v_call, _j_call, productive in iter_tabular_rows(
             stream, spec
         ):
+            # `stream` is the `_CountingStream` `_dispatch` wrapped this call in, so
+            # by the time `iter_tabular_rows`'s internal `csv.DictReader` has yielded
+            # a row, `total_lines` already reflects that row's true file line (the
+            # header consumed first counts as line 1, matching every other reader
+            # here that starts counting from the top of the file). Verified directly
+            # against a file with a known bad row rather than assumed: header=1,
+            # first data row=2, and so on -- this also stays correct for a row whose
+            # field embeds a quoted newline, since csv.reader calls next() on the
+            # underlying iterable exactly as many times as physical lines that row
+            # spans, and each such call increments this same counter.
+            line_no = report["total_lines"]
             if productive is not None and productive.strip().lower() not in _PRODUCTIVE_TRUE:
                 continue
             if not _is_wellformed(sequence):
                 level = "error" if strict_input else "warning"
-                _add_issue(report, level, f"not a usable sequence: {sequence!r}")
+                _add_issue(report, level, f"not a usable sequence: {sequence!r}", line=line_no)
                 continue
             report["tabular_rows"] += 1
             report["records"] += 1
@@ -177,6 +188,11 @@ def _validate_plain_family(stream, report, *, strict_input, first_mode):
     warned_mixed = False
 
     for raw in stream:
+        # `stream` is the `_CountingStream` wrapping this call, so `total_lines`
+        # has already been incremented for `raw` by the time this loop body runs
+        # (its `__next__` counts, then returns) -- this is the true 1-based file
+        # line, counting blank lines too, not a record ordinal.
+        line_no = report["total_lines"]
         line = raw.strip()
         if not line:
             continue
@@ -198,16 +214,22 @@ def _validate_plain_family(stream, report, *, strict_input, first_mode):
 
         if malformed is not None:
             level = "error" if strict_input else "warning"
-            _add_issue(report, level, malformed)
+            _add_issue(report, level, malformed, line=line_no)
             continue
 
         if kind != first_mode:
             report["mode"] = "mixed"
             if strict_input:
-                _add_issue(report, "error", f"mixed {first_mode!r} and {kind!r} records")
+                _add_issue(
+                    report, "error", f"mixed {first_mode!r} and {kind!r} records",
+                    line=line_no,
+                )
                 continue
             if not warned_mixed:
-                _add_issue(report, "warning", f"mixed {first_mode!r} and {kind!r} records")
+                _add_issue(
+                    report, "warning", f"mixed {first_mode!r} and {kind!r} records",
+                    line=line_no,
+                )
                 warned_mixed = True
 
         if kind == "plain":
@@ -221,12 +243,28 @@ def _validate_plain_family(stream, report, *, strict_input, first_mode):
 
 
 def _validate_reader(stream, report, *, strict_input, reader_fn, kind_label):
+    """Validate FASTA/FASTQ, whose records span several physical lines.
+
+    Unlike the line-oriented plain-family/tabular handlers, a record here has
+    no single line number worth reporting: `iter_fasta`/`iter_fastq` only
+    yield the assembled sequence once a record is complete, and recovering
+    the physical line its header started on would mean re-tracking each
+    reader's own line consumption from the outside (duplicating logic this
+    module deliberately reuses rather than reimplements). So `line` is left
+    unset here, and the record's 1-based position in the file is folded into
+    the message text instead -- a real number, just not one labelled `line`.
+    """
     report["mode"] = kind_label
+    record_index = 0
     try:
         for sequence in reader_fn(stream):
+            record_index += 1
             if not _is_wellformed(sequence):
                 level = "error" if strict_input else "warning"
-                _add_issue(report, level, f"not a usable sequence: {sequence!r}")
+                _add_issue(
+                    report, level,
+                    f"record {record_index}: not a usable sequence: {sequence!r}",
+                )
                 continue
             report["records"] += 1
     except FormatError as exc:

@@ -211,3 +211,75 @@ class TestEmptyAndBinaryInput:
         assert report["ok"] is False
         assert report["error_count"] >= 1
         assert report["records"] == 0
+
+
+class TestIssueLineLocators:
+    """Every issue must carry a real position, honest about what it means.
+
+    Line-oriented formats (plain, plain_seqcount, tabular) get a true 1-based
+    file line in ``line``. FASTA/FASTQ records span several physical lines,
+    so a record ordinal is not a line number: ``line`` is left unset and the
+    record's 1-based position is folded into the message text instead. See
+    ``_validate_reader``'s docstring in ``_validate.py`` for why.
+    """
+
+    def test_plain_malformed_record_reports_its_true_line(self, tmp_path):
+        path = tmp_path / "plain_known_line.txt"
+        # line 1: good, line 2: good, line 3: malformed (digits only).
+        path.write_text("CASSLGQAYEQYF\nCASSPGTGVYGYTF\n1234\n")
+
+        report = validate_input(str(path))
+        bad = [i for i in report["issues"] if "1234" in i["message"]]
+        assert len(bad) == 1
+        assert bad[0]["line"] == 3
+
+    def test_plain_blank_lines_before_the_bad_record_still_count(self, tmp_path):
+        path = tmp_path / "plain_blanks_then_bad.txt"
+        # line 1: good, lines 2-3: blank, line 4: malformed.
+        path.write_text("CASSLGQAYEQYF\n\n\n1234\n")
+
+        report = validate_input(str(path))
+        bad = [i for i in report["issues"] if "1234" in i["message"]]
+        assert len(bad) == 1
+        assert bad[0]["line"] == 4
+        assert report["blank_lines"] == 2
+
+    def test_tabular_bad_row_reports_true_file_line_including_header(self, tmp_path):
+        path = tmp_path / "tabular_known_bad_row.tsv"
+        # line 1: header, line 2: good, line 3: bad row, line 4: good.
+        path.write_text(
+            "junction_aa\tduplicate_count\n"
+            "CASSLGQAYEQYF\t3\n"
+            "1234\t5\n"
+            "CASSPGTGVYGYTF\t2\n"
+        )
+
+        report = validate_input(str(path))
+        bad = [i for i in report["issues"] if "1234" in i["message"]]
+        assert len(bad) == 1
+        assert bad[0]["line"] == 3
+        assert report["tabular_rows"] == 2
+
+    def test_fasta_malformed_record_names_the_record_ordinal_not_a_line(self, tmp_path):
+        path = tmp_path / "fasta_known_bad_record.fasta"
+        # record 1: good, record 2: malformed, record 3: good.
+        path.write_text(">s0\nCASSLGQAYEQYF\n>s1\n1234\n>s2\nCASSPGTGVYGYTF\n")
+
+        report = validate_input(str(path))
+        bad = [i for i in report["issues"] if "1234" in i["message"]]
+        assert len(bad) == 1
+        assert "line" not in bad[0]
+        assert "record 2" in bad[0]["message"]
+
+    def test_cli_render_shows_line_for_plain_family(self, tmp_path, capsys):
+        from types import SimpleNamespace
+
+        from LZGraphs.cli import _emit_validation_report
+
+        path = tmp_path / "plain_known_line_cli.txt"
+        path.write_text("CASSLGQAYEQYF\n1234\n")
+        report = validate_input(str(path))
+
+        _emit_validation_report(SimpleNamespace(json=False), report)
+        out = capsys.readouterr().out
+        assert "line=2" in out
