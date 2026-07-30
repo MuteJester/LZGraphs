@@ -8,6 +8,30 @@ from decimal import Decimal, InvalidOperation
 from ._spec import FormatError
 
 
+def _parse_count(raw: str) -> int:
+    """Parse an abundance, tolerating the float forms pandas and R emit.
+
+    ``int()`` first because it is exact and cheap. ``Decimal`` for the
+    fallback because ``float()`` silently loses precision above 2**53.
+    Non-finite values are excluded: ``Decimal("inf").to_integral_value()``
+    equals itself. Anything unparseable or non-integral becomes 1.
+    """
+    text = raw.strip()
+    if not text:
+        return 1
+    try:
+        value = int(text)
+    except ValueError:
+        try:
+            parsed = Decimal(text)
+        except (InvalidOperation, ValueError):
+            return 1
+        if not parsed.is_finite() or parsed != parsed.to_integral_value():
+            return 1
+        value = int(parsed)
+    return value if value >= 1 else 1
+
+
 def iter_fasta(stream) -> Iterator[str]:
     """Yield sequences from FASTA, joining wrapped lines.
 
@@ -69,30 +93,8 @@ def iter_tabular_rows(stream, spec) -> Iterator[tuple]:
             continue
         abundance = 1
         if spec.abundance_column:
-            raw_count = (row.get(spec.abundance_column) or "").strip()
-            if raw_count:
-                try:
-                    # Exact-integer path first: float() loses precision above
-                    # 2**53, and counts can legitimately exceed that.
-                    abundance = int(raw_count)
-                except ValueError:
-                    # Accept "3.0", which is what pandas, R, and Excel emit
-                    # whenever the count column has been promoted to float by
-                    # a single missing value in the file. Decimal parses
-                    # exactly at any magnitude; float() would silently lose
-                    # precision above 2**53.
-                    try:
-                        parsed = Decimal(raw_count)
-                    except (InvalidOperation, ValueError):
-                        parsed = None
-                    if (
-                        parsed is not None
-                        and parsed.is_finite()
-                        and parsed == parsed.to_integral_value()
-                    ):
-                        abundance = int(parsed)
-            if abundance < 1:
-                abundance = 1
+            raw_count = row.get(spec.abundance_column) or ""
+            abundance = _parse_count(raw_count)
         v_call = (row.get(spec.v_column) or None) if spec.v_column else None
         j_call = (row.get(spec.j_column) or None) if spec.j_column else None
         productive = row.get(productive_key) if productive_key else None
@@ -108,17 +110,18 @@ def iter_plain(stream) -> Iterator[str]:
 
 
 def iter_seqcount(stream) -> Iterator[tuple[str, int]]:
-    """Yield ``(sequence, abundance)`` from ``seq<TAB>count`` lines."""
+    """Yield ``(sequence, abundance)`` from ``seq<TAB>count`` lines.
+
+    Skips records with an empty sequence field, matching iter_fasta/iter_fastq.
+    """
     for raw in stream:
-        line = raw.strip()
-        if not line:
+        line = raw.rstrip()
+        if not line.strip():
             continue
         parts = line.split("\t")
-        if len(parts) < 2:
-            yield parts[0], 1
+        sequence = parts[0].strip() if parts else ""
+        if not sequence:
+            # Skip records with empty sequence, consistent with other readers.
             continue
-        try:
-            count = int(parts[1].strip())
-        except ValueError:
-            count = 1
-        yield parts[0], max(count, 1)
+        count = _parse_count(parts[1]) if len(parts) > 1 else 1
+        yield sequence, count
