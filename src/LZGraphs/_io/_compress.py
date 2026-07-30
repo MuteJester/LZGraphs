@@ -43,22 +43,26 @@ def open_text(path: str):
     """Open ``path`` as text, decompressing if needed.
 
     Returns ``(stream, codec_name)``. The caller is responsible for closing
-    the stream unless it is stdin.
+    the stream; closing it is always safe, even when path is "-" (stdin).
     """
     if path == "-":
-        raw = sys.stdin.buffer
+        raw = io.BufferedReader(io.FileIO(sys.stdin.fileno(), mode="rb", closefd=False))
     else:
         raw = open(path, "rb")
     if not isinstance(raw, io.BufferedReader):
         raw = io.BufferedReader(raw)
 
-    codec = detect_compression(raw.peek(_PEEK)[:_PEEK])
-    if codec == "gzip":
-        return gzip.open(raw, "rt", encoding="utf-8"), codec
-    if codec == "bzip2":
-        return bz2.open(raw, "rt", encoding="utf-8"), codec
-    if codec == "xz":
-        return lzma.open(raw, "rt", encoding="utf-8"), codec
-    if codec == "zstd":
-        return _open_zstd(raw), codec
-    return io.TextIOWrapper(raw, encoding="utf-8"), codec
+    try:
+        codec = detect_compression(raw.peek(_PEEK)[:_PEEK])
+        if codec == "gzip":
+            return gzip.open(raw, "rt", encoding="utf-8"), codec
+        if codec == "bzip2":
+            return bz2.open(raw, "rt", encoding="utf-8"), codec
+        if codec == "xz":
+            return lzma.open(raw, "rt", encoding="utf-8"), codec
+        if codec == "zstd":
+            return _open_zstd(raw), codec
+        return io.TextIOWrapper(raw, encoding="utf-8"), codec
+    except Exception:
+        raw.close()
+        raise
