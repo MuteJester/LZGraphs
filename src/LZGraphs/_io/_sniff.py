@@ -144,3 +144,17 @@ def resolve_columns(
         _pick(header, _V_COLUMNS),
         _pick(header, _J_COLUMNS),
     )
+
+
+def looks_like_seqcount(lines: list[str]) -> bool:
+    """True when every sampled line is ``token<TAB>integer``."""
+    sampled = [line.strip() for line in lines if line.strip()]
+    if not sampled:
+        return False
+    for line in sampled:
+        parts = line.split("\t")
+        if len(parts) != 2:
+            return False
+        if not parts[1].strip().isdigit():
+            return False
+    return True

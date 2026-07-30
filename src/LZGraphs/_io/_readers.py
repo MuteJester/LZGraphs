@@ -97,3 +97,28 @@ def iter_tabular_rows(stream, spec) -> Iterator[tuple]:
         j_call = (row.get(spec.j_column) or None) if spec.j_column else None
         productive = row.get(productive_key) if productive_key else None
         yield sequence, abundance, v_call, j_call, productive
+
+
+def iter_plain(stream) -> Iterator[str]:
+    """Yield one sequence per non-blank line."""
+    for raw in stream:
+        line = raw.strip()
+        if line:
+            yield line
+
+
+def iter_seqcount(stream) -> Iterator[tuple[str, int]]:
+    """Yield ``(sequence, abundance)`` from ``seq<TAB>count`` lines."""
+    for raw in stream:
+        line = raw.strip()
+        if not line:
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2:
+            yield parts[0], 1
+            continue
+        try:
+            count = int(parts[1].strip())
+        except ValueError:
+            count = 1
+        yield parts[0], max(count, 1)
