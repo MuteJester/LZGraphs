@@ -56,7 +56,7 @@ def _open_zstd(raw):
             "  install it with: pip install zstandard"
         ) from None
     reader = zstandard.ZstdDecompressor().stream_reader(raw)
-    return _ClosingTextIOWrapper(reader, encoding="utf-8", extra_close=raw)
+    return _ClosingTextIOWrapper(reader, encoding="utf-8-sig", extra_close=raw)
 
 
 def open_text(path: str):
@@ -85,7 +85,7 @@ def open_text(path: str):
         else:
             binary = raw
         return (
-            _ClosingTextIOWrapper(binary, encoding="utf-8", extra_close=raw),
+            _ClosingTextIOWrapper(binary, encoding="utf-8-sig", extra_close=raw),
             codec,
         )
     except Exception:

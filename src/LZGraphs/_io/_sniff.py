@@ -45,9 +45,14 @@ def infer_alphabet(samples: list[str]) -> str:
 
 
 def _first_meaningful(lines: list[str]) -> str | None:
+    """First line that is neither blank nor a FASTA-style comment.
+
+    ``iter_fasta`` skips ``;`` comments, so the detector must skip them too
+    or the two will disagree about the same file.
+    """
     for line in lines:
         stripped = line.strip()
-        if stripped:
+        if stripped and not stripped.startswith(";"):
             return stripped
     return None
 

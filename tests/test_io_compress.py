@@ -133,3 +133,18 @@ def test_open_text_closes_raw_when_codec_construction_fails(tmp_path, monkeypatc
     # Assert the opened handle is closed.
     assert opened_handle is not None
     assert opened_handle.closed
+
+
+def test_open_text_strips_utf8_bom(tmp_path):
+    # A file written with UTF-8 BOM must be stripped by open_text.
+    # This is critical: a BOM in the first sequence would corrupt graphs.
+    path = tmp_path / "bom.txt"
+    payload_with_bom = "﻿CASSLG\nCASSPG\n"
+    path.write_bytes(payload_with_bom.encode("utf-8"))
+    stream, codec = open_text(str(path))
+    try:
+        read_text = stream.read()
+        assert read_text == "CASSLG\nCASSPG\n"
+        assert "﻿" not in read_text
+    finally:
+        stream.close()
