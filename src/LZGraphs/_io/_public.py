@@ -317,13 +317,19 @@ def detect_input_kind(path, variant='aap'):
     ``detect_format`` classifies more thoroughly than the legacy first-line
     sniff (it can, e.g., look far enough ahead to notice a tabular file has
     no resolvable sequence column, or that a file is empty/binary/not valid
-    UTF-8) -- and raises ``FormatError`` when it does. ``detect_input_kind``
-    itself never raised in ``_legacy.py``; it is called unguarded in cli.py
-    purely to pick a fast streaming path, with real validation deferred to
-    ``validate_input``/``read_sequences`` afterwards. Falling back to the
-    legacy first-line heuristic on any such error preserves that contract:
-    this always returns a label, the same one legacy would have for any
-    input legacy could already classify.
+    UTF-8) -- and raises ``FormatError`` when it does. On that error, this
+    falls back to ``_first_line_kind``, the same legacy first-line heuristic
+    ``_legacy.py.detect_input_kind`` used, which covers most such cases (e.g.
+    empty files, files that are actually tabular). That fallback reopens and
+    rereads the file itself rather than reusing ``detect_format``'s result,
+    so it does not catch every error the same way: content that is not valid
+    UTF-8, for instance, makes ``detect_format`` raise ``FormatError`` (which
+    this function catches), but ``_first_line_kind`` then raises its own
+    uncaught ``UnicodeDecodeError`` trying to read the same bytes. So this
+    function usually returns a label but is not guaranteed to; callers that
+    must never see an exception (e.g. a fast-path decision) need to guard
+    the call themselves rather than rely on this docstring's older claim
+    that it always returns.
     """
     try:
         return detect_format(path, variant=variant).format

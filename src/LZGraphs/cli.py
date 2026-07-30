@@ -151,17 +151,39 @@ def cmd_validate_input(args):
 
 def cmd_build(args):
     from . import LZGraph, set_log_level
-    from ._io import detect_input_kind, read_sequences, validate_input
+    from ._io import FormatError, detect_format, read_sequences, validate_input
 
     active_log_level = _effective_log_level(args, default='info')
     set_log_level(active_log_level)
 
-    input_kind = detect_input_kind(args.input, variant=args.variant) if args.input != '-' else None
-    can_stream_plain = (
-        args.input != '-'
-        and not args.input.endswith('.gz')
-        and input_kind in ('plain', 'plain_seqcount')
-    )
+    # The raw-streaming fast path (LZGraph.from_file) reads bytes straight
+    # off disk with no decompression, so it is only safe when the file is
+    # actually uncompressed plain/plain_seqcount content. Deciding that from
+    # the filename (e.g. a ".gz" suffix) is not enough: a bzip2, xz, or
+    # misnamed-gzip file has none of those suffixes yet is still compressed,
+    # and streaming its raw bytes into the C builder silently produces a
+    # garbage graph instead of failing loudly. detect_format inspects the
+    # actual magic bytes, so it is the only reliable signal here. The same
+    # --expect-format override is passed through as below (validate_input
+    # and read_sequences both honour it too), so a user-declared format
+    # still reaches the fast path instead of being second-guessed by content
+    # sniffing here. A detection failure (empty/binary input) must not
+    # crash this fast-path decision -- it just means "don't stream",
+    # leaving the real error to surface from the safe branch below via
+    # read_sequences.
+    can_stream_plain = False
+    if args.input != '-':
+        try:
+            spec = detect_format(
+                args.input, variant=args.variant, override=args.expect_format
+            )
+        except FormatError:
+            spec = None
+        if spec is not None:
+            can_stream_plain = (
+                spec.compression == 'none'
+                and spec.format in ('plain', 'plain_seqcount')
+            )
 
     if can_stream_plain and (args.strict_input or args.expect_format is not None):
         if _cli_log_enabled(args, 'info'):

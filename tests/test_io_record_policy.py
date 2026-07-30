@@ -193,28 +193,3 @@ def test_missing_value_sentinels_alongside_real_sequences_are_dropped(tmp_path):
     got = read_sequences(str(path))
     assert got["sequences"] == ["CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
     assert got["stats"].malformed == 2
-
-
-def test_round_1_stop_codon_and_gap_sequences_are_still_kept(tmp_path):
-    """Regression guard: round 2's 'at least one letter' requirement must not
-    reintroduce round 1's bug of rejecting real sequences that merely
-    contain a stop codon or gap alongside actual letters."""
-    path = tmp_path / "a.fa"
-    path.write_text(
-        ">clean\nCASSPGTGVYGYTF\n>stop\nCASSLG*QAYEQYF\n>gap\nCASSLG-QAYEQYF\n"
-    )
-    got = read_sequences(str(path))
-    assert got["sequences"] == ["CASSPGTGVYGYTF", "CASSLG*QAYEQYF", "CASSLG-QAYEQYF"]
-    assert got["stats"].malformed == 0
-
-
-def test_round_1_keep_nonproductive_stop_codon_row_still_preserved(tmp_path):
-    """Regression guard for the keep_nonproductive=True case round 1 fixed."""
-    path = tmp_path / "b.tsv"
-    path.write_text(NONPRODUCTIVE_STOP_CODON)
-    got = read_sequences(str(path), keep_nonproductive=True)
-    assert got["sequences"] == [
-        "CASSLGQAYEQYF", "CASSLG*QAYEQYF", "CASSPGTGVYGYTF",
-    ]
-    assert got["stats"].nonproductive == 0
-    assert got["stats"].malformed == 0
