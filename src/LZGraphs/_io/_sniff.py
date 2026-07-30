@@ -85,3 +85,62 @@ def looks_like_fastq(lines: list[str]) -> bool:
         return False
 
     return lines[separator_idx].strip().startswith("+")
+
+
+_SEQ_COLUMNS = {
+    "aap": ["junction_aa", "cdr3_amino_acid", "cdr3_aa", "aminoacid"],
+    "ndp": ["junction", "cdr3_rearrangement", "cdr3_nt", "nucleotide"],
+    "naive": ["junction_aa", "cdr3_amino_acid", "junction", "cdr3_rearrangement"],
+}
+_SEQ_FALLBACK = ["sequence", "cdr3", "seq"]
+_ABUNDANCE_COLUMNS = ["duplicate_count", "count", "abundance", "reads", "copies"]
+_V_COLUMNS = ["v_call", "v_gene", "vgene"]
+_J_COLUMNS = ["j_call", "j_gene", "jgene"]
+
+
+def sniff_delimiter(header_line: str) -> str | None:
+    """Pick the delimiter of a header row, preferring tab over comma."""
+    if "\t" in header_line:
+        return "\t"
+    if "," in header_line:
+        return ","
+    return None
+
+
+def _pick(header: list[str], candidates: list[str]) -> str | None:
+    lowered = {name.lower().strip(): name for name in header}
+    for candidate in candidates:
+        if candidate in lowered:
+            return lowered[candidate]
+    return None
+
+
+def resolve_columns(
+    header: list[str], seq_column: str | None, variant: str
+) -> tuple[str, str | None, str | None, str | None]:
+    """Resolve the sequence, abundance, and gene column names."""
+    if seq_column is not None:
+        match = _pick(header, [seq_column.lower()])
+        if match is None:
+            available = "  ".join(header)
+            raise FormatError(
+                f"column {seq_column!r} not found\n"
+                f"  available columns:\n    {available}"
+            )
+        resolved = match
+    else:
+        candidates = _SEQ_COLUMNS.get(variant, _SEQ_COLUMNS["aap"]) + _SEQ_FALLBACK
+        resolved = _pick(header, candidates)
+        if resolved is None:
+            available = "  ".join(header)
+            raise FormatError(
+                "could not identify a sequence column\n"
+                f"  available columns:\n    {available}\n"
+                "  name it explicitly with --column"
+            )
+    return (
+        resolved,
+        _pick(header, _ABUNDANCE_COLUMNS),
+        _pick(header, _V_COLUMNS),
+        _pick(header, _J_COLUMNS),
+    )
