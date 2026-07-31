@@ -151,7 +151,13 @@ def cmd_validate_input(args):
 
 def cmd_build(args):
     from . import LZGraph, set_log_level
-    from ._io import FormatError, detect_format, read_sequences, validate_input
+    from ._io import (
+        FormatError,
+        detect_format,
+        raw_prefix_is_streamable,
+        read_sequences,
+        validate_input,
+    )
 
     active_log_level = _effective_log_level(args, default='info')
     set_log_level(active_log_level)
@@ -171,6 +177,18 @@ def cmd_build(args):
     # crash this fast-path decision; it just means "don't stream",
     # leaving the real error to surface from the safe branch below via
     # read_sequences.
+    #
+    # detect_format's format/compression verdict is not the whole story: the
+    # C reader also has none of read_sequences' per-line normalisation (no
+    # utf-8-sig BOM stripping, no universal-newline translation, no
+    # _is_wellformed filtering), so a file that is genuinely uncompressed
+    # plain/plain_seqcount content can still make the fast path disagree with
+    # the rest of the CLI (a BOM glued onto the first sequence, CR-only line
+    # endings collapsing the whole file into one sequence, a lone header line
+    # ingested as data). raw_prefix_is_streamable inspects the file's real
+    # bytes for exactly those cases and declines the fast path when any of
+    # them would matter, falling through to the safe (and here, correct)
+    # non-streaming branch below instead.
     can_stream_plain = False
     if args.input != '-':
         try:
@@ -183,6 +201,7 @@ def cmd_build(args):
             can_stream_plain = (
                 spec.compression == 'none'
                 and spec.format in ('plain', 'plain_seqcount')
+                and raw_prefix_is_streamable(args.input, spec.format)
             )
 
     if can_stream_plain and (args.strict_input or args.expect_format is not None):
@@ -236,6 +255,7 @@ def cmd_build(args):
         expect_format=args.expect_format,
     )
     n = len(data['sequences'])
+    stats = data['stats']
     has_genes = data['v_genes'] is not None and data['j_genes'] is not None
     if _cli_log_enabled(args, 'info'):
         gene_info = ""
@@ -243,7 +263,19 @@ def cmd_build(args):
             nv = len(set(data['v_genes']))
             nj = len(set(data['j_genes']))
             gene_info = f" ({nv} V genes, {nj} J genes)"
-        _stderr(f"[build] phase=read sequences={n}{gene_info} elapsed={time.time()-t0:.2f}s")
+        _stderr(f"[build] phase=read sequences={n}{gene_info} total={stats.total} "
+                f"malformed={stats.malformed} nonproductive={stats.nonproductive} "
+                f"elapsed={time.time()-t0:.2f}s")
+    dropped = stats.malformed + stats.nonproductive
+    if dropped and _cli_log_enabled(args, 'warn'):
+        _stderr(f"[build] phase=read status=warn dropped={dropped} "
+                f"malformed={stats.malformed} nonproductive={stats.nonproductive}")
+    if n == 0:
+        raise ValueError(
+            f"{args.input}: read {stats.total} record(s), 0 kept "
+            f"(malformed={stats.malformed}, nonproductive={stats.nonproductive}); "
+            "nothing left to build a graph from"
+        )
 
     t1 = time.time()
     g = LZGraph(

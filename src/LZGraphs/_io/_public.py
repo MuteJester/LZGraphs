@@ -57,6 +57,74 @@ def _is_wellformed(sequence: str) -> bool:
     )
 
 
+_STREAM_PREFIX_BYTES = 8192
+_UTF8_BOM = b"\xef\xbb\xbf"
+
+
+def raw_prefix_is_streamable(path: str, fmt: str) -> bool:
+    """True when ``path``'s raw bytes are safe for the C streaming fast path.
+
+    ``cli.py``'s ``cmd_build`` has a fast path (``LZGraph.from_file``) that
+    streams a file's bytes straight into the C builder for ``plain``/
+    ``plain_seqcount`` input, bypassing everything ``read_sequences`` does to
+    normalise a file first: ``utf-8-sig`` BOM stripping, universal-newline
+    handling, and ``_is_wellformed`` filtering. That is fine for a genuinely
+    clean file, but silently wrong for one that needs any of that
+    normalisation, since the C reader has none of it. This inspects a prefix
+    of the file's real bytes (not through ``open_text``, which would
+    transparently strip a BOM and translate newlines before this could see
+    either) and declines whenever the fast path would disagree with
+    ``read_sequences``:
+
+    - a leading UTF-8 BOM: ``open_text``'s ``utf-8-sig`` strips it; the C
+      reader does not, so it ends up glued onto the first sequence,
+    - a lone carriage return (a ``\\r`` not part of a ``\\r\\n`` pair):
+      universal-newline handling turns this into a line break; the C reader
+      treats a bare ``\\r`` as an ordinary character, collapsing every
+      "line" it should have separated into one sequence,
+    - a first meaningful line that is not itself a usable sequence (e.g. a
+      recognised or unrecognised column-header name sitting alone on the
+      first line): ``read_sequences`` drops it via ``_is_wellformed``; the C
+      reader has no such check and ingests it as real data.
+
+    For ``plain_seqcount``, only the sequence field (before the tab) of that
+    first line is checked, since a genuine ``sequence<TAB>count`` line always
+    contains a non-alphabetic tab and count that would otherwise always fail
+    the check on its own.
+
+    Cheap by construction: opens ``path`` once and reads at most
+    ``_STREAM_PREFIX_BYTES`` bytes, since this runs on every ``lzg build``.
+    Callers must only pass this a real (uncompressed) filesystem path already
+    known to be ``plain``/``plain_seqcount``; it is not a general-purpose
+    format detector.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(_STREAM_PREFIX_BYTES)
+    except OSError:
+        return False
+
+    if head.startswith(_UTF8_BOM):
+        return False
+
+    # Any '\r' surviving a '\r\n' -> '\n' collapse is a lone carriage return.
+    if head.replace(b"\r\n", b"\n").count(b"\r"):
+        return False
+
+    first_line = None
+    for line in head.decode("utf-8", errors="replace").splitlines():
+        stripped = line.strip()
+        if stripped:
+            first_line = stripped
+            break
+    if first_line is None:
+        return False
+
+    if fmt == "plain_seqcount":
+        first_line = first_line.split("\t", 1)[0].strip()
+    return _is_wellformed(first_line)
+
+
 def _iter_plain_strict(stream):
     """Yield ``(sequence, count)`` from plain/plain_seqcount lines, raising if
     the file mixes both record shapes.
