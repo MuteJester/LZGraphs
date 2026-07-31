@@ -136,6 +136,67 @@ def _pick(header: list[str], candidates: list[str]) -> str | None:
     return None
 
 
+def _duplicate_header_names(header: list[str]) -> list[tuple[str, int]]:
+    """Names that appear more than once in ``header``, matched case-insensitively.
+
+    Column resolution throughout this module (``_pick``) is case-insensitive,
+    so ``junction_aa`` and ``Junction_AA`` address the same column and must be
+    treated as one duplicated name here too.
+
+    Empty cells are excluded on purpose: a trailing delimiter producing a
+    lone ``""`` column (e.g. ``"junction_aa\\t"``) is common in real exports
+    and is not the ambiguity this guards against, since no candidate list in
+    this module and no ``--column`` value ever resolves to an empty name.
+    Flagging it would be a false positive on ordinary files.
+    """
+    counts: dict[str, int] = {}
+    first_seen: dict[str, str] = {}
+    for name in header:
+        stripped = name.strip()
+        if not stripped:
+            continue
+        key = stripped.lower()
+        counts[key] = counts.get(key, 0) + 1
+        first_seen.setdefault(key, stripped)
+    return [(first_seen[key], count) for key, count in counts.items() if count > 1]
+
+
+def _check_no_duplicate_columns(path: str, header: list[str]) -> None:
+    """Refuse a header with any duplicated column name rather than guess.
+
+    ``csv.DictReader`` (``iter_tabular_rows``) keeps only the *last*
+    occurrence of a repeated header key, so a duplicated name makes the
+    resolved column silently address different data than the user believes:
+    total silent substitution, not a dropped record. This is guarded once,
+    here, for the whole header, not only the resolved sequence column: a
+    duplicated ``duplicate_count`` corrupts abundance and a duplicated
+    ``v_call`` corrupts gene data by the exact same mechanism.
+
+    ``--column`` cannot resolve this even when it names the affected column:
+    it is resolved by the same case-insensitive name lookup (``_pick``) that
+    produced the ambiguity, so it would match both duplicated columns
+    equally. The message says so plainly instead of pointing at a flag that
+    cannot help.
+    """
+    duplicates = _duplicate_header_names(header)
+    if not duplicates:
+        return
+    detail = "\n".join(
+        f"    {name!r} appears {count} times" for name, count in duplicates
+    )
+    raise FormatError(
+        f"{path} has duplicate column names in its header:\n"
+        f"{detail}\n"
+        "  csv.DictReader keeps only the last occurrence of a repeated "
+        "name, so the column that gets read may silently be a different "
+        "one than you expect\n"
+        "  --column cannot disambiguate this: it resolves by the same name "
+        "that is duplicated, so it would match every copy equally\n"
+        "  rename or remove the duplicate column(s) in the source file and "
+        "try again"
+    )
+
+
 def resolve_columns(
     header: list[str], seq_column: str | None, variant: str
 ) -> tuple[str, str | None, str | None, str | None]:
@@ -305,6 +366,11 @@ def detect_format(
     sniffed_delimiter = sniff_delimiter(lines[0])
     split_delimiter = sniffed_delimiter or "\t"
     header = [h.strip() for h in lines[0].rstrip("\n").split(split_delimiter)]
+    # Guard the whole header before anything resolves against it: a
+    # single-column file can never trigger this (nothing to duplicate), but
+    # every other tabular header must be checked before either branch below
+    # picks a column out of it.
+    _check_no_duplicate_columns(path, header)
     if reclassified_lone_header:
         # The file has exactly one column, so it is unambiguously the
         # sequence column. resolve_columns's variant-specific candidate
