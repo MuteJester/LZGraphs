@@ -9,9 +9,10 @@ rules below live in exactly one place.
 Precedence, in the order applied here:
 
 1. An explicit ``requested`` mode wins (``resolve_mode``), except that
-   ``"rich"`` on a non-TTY stream downgrades to ``"plain"`` silently: cursor
-   redraw sequences written into a pipe or file produce garbage, and there is
-   no reasonable way to honour "rich" there.
+   ``"rich"`` downgrades to ``"plain"`` silently on a non-TTY stream *or*
+   under ``TERM=dumb``: cursor redraw sequences written into a pipe, a file,
+   or a terminal that has declared it cannot process cursor motion all
+   produce garbage, and there is no reasonable way to honour "rich" there.
 2. ``NO_COLOR`` presence (any value, including ``""``) forces ``colours =
    0``. This is the published convention at https://no-color.org: presence
    is what matters, not truthiness, so ``NO_COLOR=""`` must still disable
@@ -24,17 +25,29 @@ Precedence, in the order applied here:
    but does not by itself force ``"rich"`` mode.
 6. Otherwise: a TTY auto-resolves to ``"rich"``, a non-TTY to ``"plain"``.
 
-Rules 3 and 4 are folded into ``Capabilities.interactive`` at detection time
-(see ``_interactive`` below) rather than re-read from the environment in
-``resolve_mode``, which only ever sees ``caps`` and ``requested``. One
-consequence worth stating explicitly: an *explicit* ``requested="rich"`` on a
-real TTY is honoured even under ``TERM=dumb`` or ``CI=1`` (rule 1's only
-carve-out is the non-TTY case, spelled out in the rule itself). Those
-environments are non-TTY in the overwhelming majority of real runs, where
-rule 1's carve-out already applies; the ``interactive`` flag exists so the
-*automatic* choice (no ``--ui`` given) is not fooled by a TTY that claims to
-be one but says it cannot do cursor motion (``TERM=dumb``) or is known to be
-a CI runner.
+Rules 3 and 4 are folded into two ``Capabilities`` fields at detection time
+(``supports_cursor_control`` and ``interactive``) rather than re-read from
+the environment in ``resolve_mode``, which only ever sees ``caps`` and
+``requested`` (keeping it a pure, easily-tested function).
+
+**The principle governing rules 3 and 4, for whoever extends this table
+next: a capability limit overrides explicit intent; a policy default does
+not.**
+
+- ``TERM=dumb`` is a *capability* statement: the terminal is declaring it
+  cannot process cursor movement, so an explicit ``requested="rich"`` under
+  ``TERM=dumb`` downgrades to ``"plain"`` exactly as it does on a non-TTY
+  stream (rule 1's exception is "non-TTY *or* ``TERM=dumb``", both captured
+  in ``Capabilities.supports_cursor_control``). Emitting cursor-up sequences
+  into a terminal that says it cannot handle them produces garbage no matter
+  what the user asked for.
+- ``CI``/``GITHUB_ACTIONS``/``GITLAB_CI`` is a *policy* default: plenty of CI
+  systems allocate a real, cursor-capable TTY, and a user who explicitly
+  passes ``--ui rich`` there (a demo recording, an interactive debugging
+  session on a CI runner) may genuinely want it. Explicit intent wins, so an
+  explicit ``rich`` request is honoured even under ``CI=1`` as long as the
+  stream is a real, non-dumb TTY. CI only steers the *automatic* choice (no
+  ``--ui`` given), via ``Capabilities.interactive``.
 
 Colour depth (``Capabilities.colours``): ``COLORTERM`` containing
 ``"truecolor"`` or ``"24bit"`` gives 256; else ``TERM`` containing
@@ -97,7 +110,8 @@ class Capabilities:
     real_width: int  # unclamped shutil.get_terminal_size().columns
     height: int
     unicode: bool
-    interactive: bool  # is_tty, not TERM=dumb, not CI, and Windows VT ok
+    interactive: bool  # supports_cursor_control and not CI (auto-mode default)
+    supports_cursor_control: bool  # is_tty, not TERM=dumb, and Windows VT ok
 
 
 def _stream_is_tty(stream: Any) -> bool:
@@ -143,10 +157,25 @@ def _colour_depth(env: Mapping[str, str], is_tty: bool) -> int:
     return 8
 
 
-def _interactive(env: Mapping[str, str], is_tty: bool, vt_ok: bool) -> bool:
+def _supports_cursor_control(env: Mapping[str, str], is_tty: bool, vt_ok: bool) -> bool:
+    """True if the stream can plausibly interpret cursor-movement escapes.
+
+    This is a capability check only: non-TTY streams and ``TERM=dumb`` both
+    make redraw sequences meaningless, and a failed Windows VT enable means
+    the console will not interpret them either. It deliberately does not
+    look at CI/GITHUB_ACTIONS/GITLAB_CI, which are a policy default, not a
+    capability limit (see the module docstring).
+    """
     if not is_tty or not vt_ok:
         return False
     if env.get("TERM", "") == "dumb":
+        return False
+    return True
+
+
+def _interactive(env: Mapping[str, str], supports_cursor_control: bool) -> bool:
+    """The *auto-mode* default: capability-limited, plus the CI policy default."""
+    if not supports_cursor_control:
         return False
     if any(name in env for name in _CI_VARS):
         return False
@@ -205,7 +234,8 @@ def detect(stream: Any = None, env: Mapping[str, str] | None = None) -> Capabili
     width = max(_MIN_WIDTH, min(_MAX_WIDTH, real_width))
 
     unicode_ok = _probe_unicode(stream)
-    interactive = _interactive(env, is_tty, vt_ok)
+    cursor_ok = _supports_cursor_control(env, is_tty, vt_ok)
+    interactive = _interactive(env, cursor_ok)
 
     return Capabilities(
         is_tty=is_tty,
@@ -215,6 +245,7 @@ def detect(stream: Any = None, env: Mapping[str, str] | None = None) -> Capabili
         height=height,
         unicode=unicode_ok,
         interactive=interactive,
+        supports_cursor_control=cursor_ok,
     )
 
 
@@ -234,7 +265,7 @@ def resolve_mode(caps: Capabilities, requested: str | None = None) -> str:
     if requested == "plain":
         return "plain"
     if requested == "rich":
-        return "rich" if caps.is_tty else "plain"
+        return "rich" if caps.supports_cursor_control else "plain"
 
     # requested is None: auto-detect from the environment-derived caps.
     return "rich" if caps.interactive else "plain"

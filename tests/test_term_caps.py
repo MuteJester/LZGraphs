@@ -301,3 +301,62 @@ def test_capabilities_is_frozen():
     caps = detect(stream=TTY, env={})
     with pytest.raises(Exception):
         caps.colours = 256
+
+
+# ── Fix round 1: TERM=dumb is a capability limit, CI is a policy default ──
+# (see module docstring's "capability vs policy" principle)
+
+
+def test_term_dumb_downgrades_explicit_rich_to_plain():
+    """(a) TERM=dumb is a capability statement: the terminal cannot process
+    cursor movement, so --ui rich must downgrade exactly as non-TTY does."""
+    caps = detect(stream=TTY, env={"TERM": "dumb"})
+    assert resolve_mode(caps, "rich") == "plain"
+    assert caps.colours == 0
+
+
+def test_term_dumb_auto_mode_still_plain():
+    """(b) Existing behaviour, pinned: TERM=dumb with no explicit request
+    (auto mode) already resolved to plain before this fix; must still."""
+    caps = detect(stream=TTY, env={"TERM": "dumb"})
+    assert resolve_mode(caps, None) == "plain"
+
+
+def test_ci_with_explicit_rich_on_tty_stays_rich():
+    """(c) Deliberate asymmetry with (a): CI is a *policy* default, not a
+    capability limit. A CI runner can allocate a real, cursor-capable TTY
+    (e.g. for a demo recording or an interactive debugging session), and a
+    user who explicitly asks for --ui rich there means it. Only the
+    *automatic* choice (no --ui given) is steered away from rich by CI;
+    an explicit request overrides that policy, unlike TERM=dumb which is a
+    hard capability limit no request can override."""
+    caps = detect(stream=TTY, env={"CI": "1"})
+    assert resolve_mode(caps, "rich") == "rich"
+    # Sanity: the asymmetry is real, not an oversight. Auto mode under the
+    # same env still goes plain; only the explicit request differs from (a).
+    assert resolve_mode(caps, None) == "plain"
+
+
+def test_quiet_honoured_regardless_of_term_dumb():
+    """(d) --ui quiet asks for less than plain, not more than rich, so a
+    capability limit that only concerns redraw sequences has nothing to
+    downgrade it from."""
+    caps = detect(stream=TTY, env={"TERM": "dumb"})
+    assert resolve_mode(caps, "quiet") == "quiet"
+
+
+def test_supports_cursor_control_false_under_term_dumb():
+    caps = detect(stream=TTY, env={"TERM": "dumb"})
+    assert caps.supports_cursor_control is False
+
+
+def test_supports_cursor_control_true_under_ci_on_tty():
+    """CI does not affect supports_cursor_control, only `interactive` does."""
+    caps = detect(stream=TTY, env={"CI": "1"})
+    assert caps.supports_cursor_control is True
+    assert caps.interactive is False
+
+
+def test_supports_cursor_control_false_on_non_tty():
+    caps = detect(stream=PIPE, env={})
+    assert caps.supports_cursor_control is False
