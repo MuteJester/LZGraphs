@@ -18,7 +18,7 @@ is Task 6's addition, not this one's.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from ._caps import Capabilities, detect, resolve_mode
 
@@ -26,8 +26,27 @@ if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
 
+@runtime_checkable
 class Ui(Protocol):
     """The rendering contract every ``_term`` renderer satisfies.
+
+    Decorated ``@runtime_checkable`` so ``isinstance(renderer, Ui)`` is a
+    real, enforceable check (exercised by both
+    ``tests/test_term_plain.py::test_plain_renderer_satisfies_ui_protocol``
+    and its ``RichRenderer`` counterpart) rather than a docstring's word
+    alone: with a second renderer now landed, "both satisfy this surface" is
+    worth checking mechanically, not just by construction. Two caveats
+    worth stating plainly, since ``runtime_checkable`` is easy to
+    over-trust: (1) it only checks that a same-named attribute/method
+    *exists* on the candidate, not that its signature matches, so a
+    renderer with the right method names but the wrong parameters would
+    still pass ``isinstance``; the signature-shape comparison test
+    alongside it (via :func:`inspect.signature`) is what actually catches
+    that kind of drift. (2) ``Ui`` declares only methods, so it stays valid
+    for ``issubclass()`` too (a runtime-checkable ``Protocol`` with any
+    non-method member cannot be used with ``issubclass``); the tests use
+    ``isinstance`` regardless, since that is what a caller holding an actual
+    renderer instance would check.
 
     Both the plain (CI/pipe, scrolling) renderer and the rich (TTY,
     redrawing) renderer implement exactly this surface, so calling code

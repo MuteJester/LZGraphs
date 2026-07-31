@@ -24,14 +24,21 @@ by measuring captured output rather than by trusting the implementation:
 """
 from __future__ import annotations
 
+import inspect
 import io
 import re
 
 import pytest
 
-from LZGraphs._term import _plain
+from LZGraphs._term import Ui, _plain
 from LZGraphs._term._caps import Capabilities
-from LZGraphs._term._plain import _PROGRESS_PCT_STEP, _PROGRESS_TIME_STEP, PlainRenderer
+from LZGraphs._term._plain import (
+    _MAX_TRACKED_PROGRESS_LABELS,
+    _PROGRESS_PCT_STEP,
+    _PROGRESS_TIME_STEP,
+    PlainRenderer,
+)
+from LZGraphs._term._rich import RichRenderer
 
 # Same set used by test_term_ansi.py / test_term_widgets.py: every
 # box-drawing and block character the rich renderer's widgets might emit.
@@ -471,3 +478,209 @@ def test_field_value_with_spaces_is_kept_whole_when_it_is_the_last_field():
     (line,) = [ln for ln in stream.getvalue().splitlines() if ln]
     _, fields = _parse_line(line)
     assert fields["gene_info"] == "12 V genes, 34 J genes"
+
+
+# ── Documented limitation, verified rather than merely asserted ──
+
+
+def test_documented_limitation_value_containing_word_equals_mis_splits():
+    """Fix round 1, minor item: the module docstring used to claim (with no
+    test behind it) that "nothing this renderer emits" contains a bare
+    ``word=`` substring. That claim was never checked, and a caller-supplied
+    value like a path containing ``=`` violates it. This test verifies, and
+    therefore pins, what the boundary parser actually does in that case
+    (mis-split the value), rather than leaving the docstring's claim
+    unverified. This is a documented, accepted limitation of the convention,
+    not a bug this renderer needs to fix.
+    """
+    stream = io.StringIO()
+    PlainRenderer(CAPS0, stream).update(path="a=b/c=d.tsv")
+    (line,) = [ln for ln in stream.getvalue().splitlines() if ln]
+    _, fields = _parse_line(line)
+    # The true value ("a=b/c=d.tsv") is NOT recovered: the parser reads the
+    # embedded "a=" and "c=" as new field boundaries.
+    assert fields["path"] != "a=b/c=d.tsv"
+    assert fields["path"] == ""
+    assert fields["a"] == "b/"
+    assert fields["c"] == "d.tsv"
+
+
+# ── Finding 1 (fix round 1): the throttle is per-label, with bounded state ──
+
+
+def test_progress_throttle_alternating_labels_bounded(monkeypatch):
+    """Reproduces the coordinator's Finding 1 directly: alternating between
+    two labels, each independently sweeping 0.0 -> 1.0, must bound to
+    roughly 21 lines PER label (the same rule
+    test_progress_throttle_bounded_over_10000_calls pins for a single
+    label), not to one shared window where the second label's calls reset
+    the first label's throttle state (the pre-fix bug: a single global
+    ``(label, pct, time)`` tuple meant switching labels every call defeated
+    the throttle completely, emitting one line per call).
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream)
+    monkeypatch.setattr(_plain.time, "monotonic", lambda: 1000.0)
+
+    steps_per_label = 5000
+    for i in range(2 * steps_per_label):
+        label = "ingest" if i % 2 == 0 else "save"
+        step = i // 2
+        renderer.progress(label, step / (steps_per_label - 1))
+
+    lines = [line for line in stream.getvalue().splitlines() if line]
+    per_label_expected = 100 // _PROGRESS_PCT_STEP + 1
+    assert len(lines) == 2 * per_label_expected
+    assert len(lines) < 100  # bounded, nowhere near the 10,000 calls made
+
+    by_label: dict[str, int] = {"ingest": 0, "save": 0}
+    for line in lines:
+        _, fields = _parse_line(line)
+        by_label[fields["label"]] += 1
+    assert by_label["ingest"] == per_label_expected
+    assert by_label["save"] == per_label_expected
+
+
+def test_progress_throttle_three_rotating_labels_bounded(monkeypatch):
+    """Same property, three labels rotating instead of two alternating,
+    matching the coordinator's second reproduction exactly."""
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream)
+    monkeypatch.setattr(_plain.time, "monotonic", lambda: 1000.0)
+
+    labels = ["ingest", "save", "index"]
+    steps_per_label = 3334
+    for i in range(len(labels) * steps_per_label):
+        label = labels[i % len(labels)]
+        step = i // len(labels)
+        renderer.progress(label, step / (steps_per_label - 1))
+
+    lines = [line for line in stream.getvalue().splitlines() if line]
+    per_label_expected = 100 // _PROGRESS_PCT_STEP + 1
+    assert len(lines) == len(labels) * per_label_expected
+    assert len(lines) < 150
+
+
+def test_progress_label_state_bounded_for_many_distinct_labels():
+    """Finding 1's REQUIRED bound: a caller reporting under an unbounded
+    number of distinct labels (a bug, or a high-cardinality label) must not
+    grow this renderer's tracked state without limit. White-box check on
+    the internal cache directly, since the bound is a memory property with
+    no externally observable line-count consequence of its own."""
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream)
+    for i in range(5000):
+        renderer.progress(f"label-{i}", 0.5)
+    assert len(renderer._last_progress) <= _MAX_TRACKED_PROGRESS_LABELS
+
+
+def test_progress_nan_fraction_clamps_to_zero_not_hundred():
+    """Fix round 1, minor item: max(0.0, min(1.0, nan)) silently returns 1.0
+    because every comparison against NaN is False (min/max never "sees" the
+    NaN as smaller or larger than anything). progress() now intercepts NaN
+    explicitly and treats it as 0%, since falsely reporting 100% complete is
+    a worse failure than under-reporting."""
+    stream = io.StringIO()
+    PlainRenderer(CAPS0, stream).progress("ingest", float("nan"))
+    (line,) = [ln for ln in stream.getvalue().splitlines() if ln]
+    _, fields = _parse_line(line)
+    assert fields["pct"] == "0"
+
+
+# ── Finding 2 (fix round 1): a non-encodable value must not crash the command ──
+
+
+def test_non_ascii_value_does_not_raise_on_ascii_stream():
+    """A real encoding-constrained stream (a TextIOWrapper over BytesIO
+    pinned to strict ASCII), matching a LANG=C stderr or some CI runners.
+    Sequence identifiers from real AIRR files are not guaranteed ASCII,
+    so a value like "café.tsv" must degrade the rendering, not raise
+    UnicodeEncodeError and take down the command reporting it."""
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii", errors="strict")
+    renderer = PlainRenderer(CAPS0, stream)
+
+    renderer.update(source="café.tsv")  # must not raise
+
+    stream.flush()
+    output = raw.getvalue().decode("ascii")
+    assert "source=" in output
+    assert "caf" in output
+    assert "é" not in output  # the non-ASCII byte was not smuggled through
+
+
+def test_non_ascii_value_degrades_with_a_replacement_marker():
+    """More specific than the test above: pins *what* the degradation looks
+    like (Python's "replace" error handler substitutes "?" per character
+    on encode), not just that it avoids raising."""
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii", errors="strict")
+    PlainRenderer(CAPS0, stream).update(source="café.tsv")
+    stream.flush()
+    output = raw.getvalue().decode("ascii")
+    assert "source=caf?.tsv" in output
+
+
+def test_error_detail_with_non_ascii_value_does_not_raise():
+    """The other write path (_emit_detail, used by error()'s detail lines)
+    gets the same guard, not just _emit's."""
+    raw = io.BytesIO()
+    stream = io.TextIOWrapper(raw, encoding="ascii", errors="strict")
+    PlainRenderer(CAPS0, stream).error("lzg build", ["naïve Bayes column missing"])
+    stream.flush()
+    output = raw.getvalue().decode("ascii")
+    assert "na" in output
+    assert "ï" not in output
+
+
+# ── Finding 3 (fix round 1): Ui is an enforceable, checked contract ──
+
+
+def test_plain_renderer_satisfies_ui_protocol():
+    assert isinstance(PlainRenderer(CAPS0, io.StringIO()), Ui)
+
+
+def test_rich_renderer_satisfies_ui_protocol():
+    """Coordinated with _rich.py rather than duplicating its expectations:
+    imports the real RichRenderer and constructs it with a plain
+    Capabilities instance and an injected stream. Construction alone does
+    no I/O (no start() call), so this needs no real terminal."""
+    assert isinstance(RichRenderer(_caps(colours=8), io.StringIO()), Ui)
+
+
+_UI_METHOD_NAMES = sorted(
+    name
+    for name, obj in vars(Ui).items()
+    if not name.startswith("_") and inspect.isfunction(obj)
+)
+
+
+def test_ui_protocol_exposes_the_six_documented_methods():
+    """Sanity check on the introspection below: if this list ever drifted,
+    the "covers every protocol method automatically" guarantee of the
+    signature-comparison test would silently stop covering part of it."""
+    assert set(_UI_METHOD_NAMES) == {"start", "progress", "update", "warn", "error", "done"}
+
+
+def _param_shape(func) -> list[tuple[str, object, bool]]:
+    """(name, kind, is_required) for each parameter, deliberately ignoring
+    annotations: every module here uses ``from __future__ import
+    annotations``, so comparing raw annotation strings across three
+    separately-authored modules would be fragile to cosmetic spelling
+    differences without catching any more real drift than name/kind/
+    required-ness already does. A renamed, reordered, added, removed, or
+    required-vs-optional-flipped parameter changes this shape; that is
+    exactly the drift ``runtime_checkable`` alone (Finding 3) cannot catch,
+    since it only checks that a same-named attribute exists.
+    """
+    return [
+        (p.name, p.kind, p.default is inspect.Parameter.empty)
+        for p in inspect.signature(func).parameters.values()
+    ]
+
+
+@pytest.mark.parametrize("method_name", _UI_METHOD_NAMES)
+def test_renderer_signatures_match_the_ui_protocol(method_name):
+    expected = _param_shape(getattr(Ui, method_name))
+    assert _param_shape(getattr(PlainRenderer, method_name)) == expected
+    assert _param_shape(getattr(RichRenderer, method_name)) == expected

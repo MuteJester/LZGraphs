@@ -48,32 +48,85 @@ parenthetical is part of ``sequences``'s value). This is a deliberate,
 minimal convention rather than full quoting: it stays exactly as simple as
 what the CLI already prints, and it is parseable with one regex
 (``r"(\\w+)="`` to find field boundaries, the value being the text between
-one match and the next). Its one documented limitation: a value must not
-itself contain a bare ``word=`` substring, or a naive boundary parser will
-read that as the start of a new field. Nothing this renderer emits does.
+one match and the next). **Documented limitation, verified rather than
+merely asserted** (see ``test_documented_limitation_value_containing_word_
+equals_mis_splits`` in the test file): a value must not itself contain a
+bare ``word=`` substring, or the boundary parser reads that as the start of
+a new field and silently mis-splits it. This renderer's *own*
+internally-generated tokens (the tag, ``status=``, ``label=``, ``pct=``,
+``detail=``, and the auto-appended ``elapsed=``) never do; a caller-supplied
+field *value* (a filesystem path with an embedded ``=``, for instance) can
+still contain one, and when it does, it is mis-split exactly as described.
+This is a known, accepted limitation of the convention, not a guarantee
+about arbitrary caller data.
 
 ## Progress throttling
 
 A build that calls :meth:`~PlainRenderer.progress` 100,000 times (once per
 record) must not emit 100,000 lines; a CI log that scrolls for a thousand
-lines is as useless as no log. The rule, per ``(label,)`` stream: emit at
-most once every **5 percentage points** (``_PROGRESS_PCT_STEP``) **or every
-1.0 second of wall time** (``_PROGRESS_TIME_STEP``), whichever comes first,
-with three unconditional exceptions that always force a line regardless of
-both thresholds:
+lines is as useless as no log. The throttle is **per label**: each distinct
+``label`` a caller reports under has its own independent percentage/time
+state, so a build that alternates between an ``"ingest"`` bar and a
+``"save"`` bar (or rotates through any number of named steps) throttles each
+one on its own terms instead of one step's updates silently resetting
+another's window. Concretely, per label: emit at most once every **5
+percentage points** (``_PROGRESS_PCT_STEP``) **or every 1.0 second of wall
+time** (``_PROGRESS_TIME_STEP``), whichever comes first, with three
+unconditional exceptions that always force a line regardless of both
+thresholds:
 
-1. The very first call (nothing has been reported yet for this renderer).
-2. ``label`` differs from the previous call's label (a new phase has
-   started; its first data point is never silently swallowed by the old
-   phase's throttle state).
-3. ``fraction`` reaches (or exceeds) ``1.0`` for the first time (the
-   completion of a step is never dropped, even if the last emitted line was
-   a fraction of a second and a fraction of a percent ago).
+1. The first call seen for *this* label (nothing has been reported yet for
+   it, including a label seen before but since evicted from the bounded
+   state below).
+2. ``fraction`` reaches (or exceeds) ``1.0`` for the first time for this
+   label (the completion of a step is never dropped, even if the last
+   emitted line for it was a fraction of a second and a fraction of a
+   percent ago).
 
-This bounds a monotonically-increasing 0.0 -> 1.0 sweep to at most
-``100 // 5 + 1 == 21`` lines regardless of how many times ``progress`` is
-called, plus at most one extra line per second of wall-clock time the sweep
-actually takes.
+This bounds a single label's monotonically-increasing 0.0 -> 1.0 sweep to at
+most ``100 // 5 + 1 == 21`` lines regardless of how many times ``progress``
+is called for it, plus at most one extra line per second of wall-clock time
+the sweep actually takes; N labels interleaved bound to at most ``N`` times
+that, not to one shared window that a second label can silently reset.
+
+**Bounded state.** Per-label tracking is kept in an
+:class:`~collections.OrderedDict` capped at
+``_MAX_TRACKED_PROGRESS_LABELS`` (32) entries with least-recently-updated
+eviction, so a caller that reports under an unbounded number of distinct
+labels (a bug, or a label built from something high-cardinality like a
+per-record id) cannot grow this renderer's memory without limit. The one
+externally visible consequence of eviction: a label that falls out of the
+tracked set and later reports again is treated as if it were being seen for
+the first time (exception 1 above applies), which can produce one extra
+line for that label; this is judged an acceptable trade for a hard memory
+bound, and 32 is comfortably above the small, fixed number of phase labels
+any real command reports (a handful, e.g. ``"ingest"``, ``"save"``).
+
+**NaN.** ``fraction = max(0.0, min(1.0, fraction))`` would silently produce
+``1.0`` for a NaN input, *not* raise and *not* leave it unclamped: every
+comparison against NaN is ``False``, so ``min(1.0, nan)`` returns ``1.0``
+and the outer ``max(0.0, 1.0)`` then also returns ``1.0``. Reporting a NaN
+progress value as "100% complete" is a worse failure than under-reporting
+it, so :meth:`~PlainRenderer.progress` detects NaN explicitly (``fraction
+!= fraction`` is the portable NaN test) and treats it as ``0.0`` *before*
+that clamp runs, rather than relying on comparison semantics to do
+something reasonable by accident.
+
+## Encoding safety
+
+A field value is whatever the caller hands in; nothing here assumes it is
+representable in the destination stream's encoding, since a non-ASCII
+sequence identifier from a real AIRR file, or a ``LANG=C``/some-CI-runners
+stderr pinned to strict ASCII, are both realistic. Writing is funnelled
+through :meth:`PlainRenderer._write`, which attempts the normal
+:func:`print` and, on the *specific* failure that means "this string cannot
+be encoded here" (``UnicodeEncodeError``, caught narrowly so an unrelated
+failure such as a broken pipe is never swallowed), re-encodes the line
+against the stream's own reported encoding with ``errors="replace"`` and
+writes that instead. A rendering call degrading a value's presentation
+(``café.tsv`` becoming ``caf?.tsv``) is acceptable; a rendering call taking
+down the command it was merely reporting on is not, per the :class:`~
+LZGraphs._term.Ui` protocol's own invariant.
 
 ## No boxes, no cursor control, colour is cosmetic only
 
@@ -113,6 +166,7 @@ from __future__ import annotations
 
 import sys
 import time
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, TextIO
 
 from ._ansi import colour
@@ -128,9 +182,15 @@ _PROGRESS_PCT_STEP = 5
 
 #: ...or at most once per this many seconds of wall time, per label,
 #: whichever threshold is reached first. See the module docstring's
-#: "Progress throttling" section for the full rule, including the three
-#: unconditional exceptions.
+#: "Progress throttling" section for the full rule, including the two
+#: unconditional exceptions and the bounded per-label state.
 _PROGRESS_TIME_STEP = 1.0
+
+#: Maximum number of distinct progress() labels tracked at once, with
+#: least-recently-updated eviction beyond this. Bounds this renderer's
+#: memory against an unbounded/high-cardinality label; see the module
+#: docstring's "Bounded state" paragraph for the one visible consequence.
+_MAX_TRACKED_PROGRESS_LABELS = 32
 
 #: Stripped from the front of a title before bracketing it into a tag, so
 #: "lzg build" -> "[build]" matches the tag cli.py already emits for that
@@ -201,9 +261,33 @@ class PlainRenderer:
         self._stream = stream if stream is not None else sys.stderr
         self._tag = _DEFAULT_TAG
         self._t0: float | None = None
-        # (label, pct, monotonic_time) of the last emitted progress line,
-        # or None before the first progress() call.
-        self._last_progress: tuple[str, int, float] | None = None
+        # label -> (pct, monotonic_time) of the last emitted progress line
+        # for that label; an OrderedDict so eviction (see progress()) can
+        # drop the least-recently-updated label once the cap is exceeded.
+        # A label with no entry yet (never seen, or evicted) is treated as
+        # its first-ever progress() call.
+        self._last_progress: OrderedDict[str, tuple[int, float]] = OrderedDict()
+
+    def _write(self, line: str) -> None:
+        """Write one line, degrading gracefully if it cannot be encoded.
+
+        A caller-supplied value is not guaranteed representable in the
+        destination stream's encoding (a non-ASCII sequence id on a
+        ``LANG=C`` stderr, for instance). The normal :func:`print` path is
+        tried first; only ``UnicodeEncodeError`` specifically is caught
+        (never a broader exception, so an unrelated failure such as a
+        broken pipe still propagates), and on that failure the line is
+        re-encoded against the stream's own reported encoding with
+        ``errors="replace"`` and written again. A rendering call must
+        degrade a value's presentation rather than take down the command it
+        is merely reporting on.
+        """
+        try:
+            print(line, file=self._stream, flush=True)
+        except UnicodeEncodeError:
+            encoding = getattr(self._stream, "encoding", None) or "ascii"
+            safe_line = line.encode(encoding, errors="replace").decode(encoding, errors="replace")
+            print(safe_line, file=self._stream, flush=True)
 
     def _status_token(self, status: str) -> str:
         name = _STATUS_COLOUR.get(status)
@@ -214,7 +298,7 @@ class PlainRenderer:
         parts = [self._tag, self._status_token(status)]
         if fields:
             parts.append(_format_fields(fields))
-        print(" ".join(parts), file=self._stream, flush=True)
+        self._write(" ".join(parts))
 
     def _emit_detail(self, status: str, value: Any) -> None:
         """One indented ``detail=`` continuation line under ``error()``.
@@ -228,25 +312,31 @@ class PlainRenderer:
         script can find every line of this error (header and details alike)
         with one ``grep``.
         """
-        line = f"{self._tag} {self._status_token(status)}     detail={_sanitize(value)}"
-        print(line, file=self._stream, flush=True)
+        self._write(f"{self._tag} {self._status_token(status)}     detail={_sanitize(value)}")
 
     def start(self, title: str, fields: Mapping[str, Any] | None = None) -> None:
         self._tag = _tag_for(title)
         self._t0 = time.monotonic()
-        self._last_progress = None
+        self._last_progress = OrderedDict()
         self._emit("start", fields)
 
     def progress(self, label: str, fraction: float, detail: str | None = None) -> None:
+        if fraction != fraction:  # NaN: see the module docstring's "NaN"
+            # paragraph. Every comparison against NaN is False, so the
+            # clamp below would otherwise silently pick 1.0 (100%,
+            # falsely claiming completion) rather than clamping at all;
+            # intercepted here before that can happen.
+            fraction = 0.0
         fraction = max(0.0, min(1.0, fraction))
         pct = round(fraction * 100)
         now = time.monotonic()
 
-        last = self._last_progress
-        if last is not None and label == last[0]:
-            pct_delta = pct - last[1]
-            time_delta = now - last[2]
-            reached_completion = pct >= 100 and last[1] < 100
+        last = self._last_progress.get(label)
+        if last is not None:
+            last_pct, last_time = last
+            pct_delta = pct - last_pct
+            time_delta = now - last_time
+            reached_completion = pct >= 100 and last_pct < 100
             if (
                 pct_delta < _PROGRESS_PCT_STEP
                 and time_delta < _PROGRESS_TIME_STEP
@@ -254,7 +344,11 @@ class PlainRenderer:
             ):
                 return
 
-        self._last_progress = (label, pct, now)
+        self._last_progress[label] = (pct, now)
+        self._last_progress.move_to_end(label)
+        if len(self._last_progress) > _MAX_TRACKED_PROGRESS_LABELS:
+            self._last_progress.popitem(last=False)  # evict least-recently-updated
+
         fields: dict[str, Any] = {"label": label, "pct": pct}
         if detail is not None:
             fields["detail"] = detail
