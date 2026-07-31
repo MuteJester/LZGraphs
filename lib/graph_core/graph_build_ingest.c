@@ -576,6 +576,26 @@ LZGError lzg_parse_plain_sequence_line(char *line,
                             "abundance exceeds uint64 limit in plain text input");
         }
 
+        /* strtoull() accepts an optional leading sign and, for '-', silently
+         * negates the parsed magnitude via unsigned wraparound instead of
+         * failing: "-3" becomes UINT64_MAX-2, not an error (errno stays 0
+         * and *end lands on '\0', so neither check above catches it). Detect
+         * that sign by skipping the same whitespace strtoull() itself skips,
+         * so a leading '-' is caught wherever it lands, and clamp it, along
+         * with a genuine parsed count of 0, to 1, matching Python readers'
+         * _parse_count() contract so the fast C path and the Python path
+         * agree on abundance semantics regardless of compression. A large
+         * but non-negative count (up to UINT64_MAX itself) is a legitimate
+         * abundance and must pass through unclamped. */
+        {
+            const char *sign_scan = count_str;
+            while (*sign_scan == ' ' || *sign_scan == '\t' || *sign_scan == '\n' ||
+                   *sign_scan == '\v' || *sign_scan == '\f' || *sign_scan == '\r')
+                sign_scan++;
+            if (*sign_scan == '-' || raw == 0)
+                raw = 1;
+        }
+
         *out_seq = seq;
         *out_count = (uint64_t)raw;
         if (out_kind) *out_kind = LZG_LINE_SEQCOUNT;

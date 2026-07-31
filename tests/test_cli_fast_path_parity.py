@@ -384,3 +384,108 @@ def test_malformed_record_beyond_prefix_is_documented_residual(tmp_path):
         "test and the residual-gap documentation in cli.py / "
         "raw_prefix_is_streamable accordingly)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Round 3: the C plain/seqcount reader and the Python reader must agree on
+# abundance-count semantics (zero, negative/wraparound, huge-but-legitimate)
+# ---------------------------------------------------------------------------
+#
+# lzg_parse_plain_sequence_line (lib/graph_core/graph_build_ingest.c) is the
+# C fast path's per-line parser. Before the fix in this module's target
+# commit it had two divergences from Python's ``_parse_count``
+# (src/LZGraphs/_io/_readers.py):
+#
+#   1. A parsed count of 0 made every call site (fb_accumulate's caller in
+#      lib/flashback/graph_build.c, lzg_accumulate_sequence_record's caller
+#      in lib/graph_core/csr_graph.c, and flashback_grammar/build.c) hit
+#      ``if (!seq || count == 0) continue;`` and drop the record entirely.
+#      Python's ``_parse_count`` clamps 0 up to 1 and keeps the record.
+#   2. ``strtoull()`` accepts a leading '-' and, for a negative value,
+#      silently negates the parsed magnitude via unsigned wraparound instead
+#      of failing (verified by hand with a standalone C program: "-3" parses
+#      with errno left at 0 and *end landing on '\0', so neither existing
+#      error check catches it, and the resulting value is
+#      18446744073709551613). Python's ``_parse_count`` clamps any negative
+#      count up to 1.
+#
+# Since an uncompressed plain/plain_seqcount file can take the C fast path
+# but its gzipped twin never can (gzip always goes through the Python
+# reader), these divergences meant the exact same data built a different
+# graph depending on whether the file happened to be compressed.
+#
+# A third, related question is deliberately NOT exercised here: what "3.0"
+# or "1e3" (float-formatted counts pandas/R emit) do on each path.
+# Verified by hand via ``LZGraph.from_file`` directly: the C reader rejects
+# both with "invalid abundance" on every build, while Python's
+# ``_parse_count`` (via ``Decimal``) accepts them as 3 and 1000. That is left
+# as a documented, permanent divergence: the C side fails loudly on every
+# build rather than silently substituting a different graph, which is not
+# the same bug class as points 1 and 2 above (see the C-change task report
+# for the full reasoning). ``NA`` is deliberately preserved as a loud C-side
+# error the same way, for the same reason: it is Python's silent fallback to
+# 1 that is the wrong model to copy into a reader that streams a whole file.
+
+
+def _abundance_content(count_str):
+    """The module's SEQUENCES as seqcount records: the first record's count
+    is ``count_str``, the rest are ``1``.
+
+    Using the whole SEQUENCES set rather than a single lone record matters:
+    a one-line file whose only count fails to parse as a genuine number (or
+    whose only record is dropped entirely) can get reclassified by
+    ``detect_format``'s sniffing before either reader is even reached, or
+    fail to load as a degenerate empty graph, both irrelevant to the
+    reader-level bug this pins. Twenty records, one with the count under
+    test, keeps the file safely recognized as ``plain_seqcount`` while
+    still isolating the one count value being tested.
+    """
+    lines = [f"{SEQUENCES[0]}\t{count_str}\n"]
+    lines += [f"{s}\t1\n" for s in SEQUENCES[1:]]
+    return "".join(lines).encode()
+
+
+def _build_plain_and_gz_graphs(tmp_path, content_bytes, tag):
+    plain_path = tmp_path / f"{tag}.txt"
+    plain_path.write_bytes(content_bytes)
+    gz_path = tmp_path / f"{tag}.txt.gz"
+    gz_path.write_bytes(gzip.compress(content_bytes))
+    return (
+        _build_and_load(plain_path, tmp_path, f"{tag}_plain"),
+        _build_and_load(gz_path, tmp_path, f"{tag}_gz"),
+    )
+
+
+@pytest.mark.parametrize("count_str", ["0", "-3", "18446744073709551615"])
+def test_abundance_count_parity_c_reader_matches_python_reader(tmp_path, count_str):
+    """The uncompressed (C fast path) and gzipped (Python path) builds of
+    the same abundance value must produce identical graphs: same node
+    count AND the same recorded edge count for the affected record.
+
+    Node count alone would not catch every divergence this closes: a
+    negative count that wraps to a huge unsigned magnitude in the pre-fix C
+    reader still leaves the record present (the wrapped count is never 0),
+    so "-3"'s node count already matched between the two paths even before
+    the fix (measured: 90/90 both before and after). Only the recorded edge
+    count exposed that bug: 18446744073709551615 on the (pre-fix) C side
+    versus 20 on the Python side, measured against this exact fixture,
+    which is why this test checks both.
+
+    "18446744073709551615" (``UINT64_MAX``) is the third case: a legitimate
+    huge count that must NOT be clamped, so the fix's negative-sign
+    detection cannot be broadened into "clamp anything large" by accident.
+    """
+    content = _abundance_content(count_str)
+    g_plain, g_gz = _build_plain_and_gz_graphs(tmp_path, content, f"count_{count_str}")
+
+    assert g_plain.n_nodes == g_gz.n_nodes, (
+        f"count={count_str!r}: plain build has {g_plain.n_nodes} nodes, "
+        f"gz build has {g_gz.n_nodes} nodes"
+    )
+
+    max_edge_plain = max(e[3] for e in g_plain.all_edges)
+    max_edge_gz = max(e[3] for e in g_gz.all_edges)
+    assert max_edge_plain == max_edge_gz, (
+        f"count={count_str!r}: plain build's max recorded edge count is "
+        f"{max_edge_plain}, gz build's is {max_edge_gz}"
+    )
