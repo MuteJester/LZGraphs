@@ -5,7 +5,7 @@ import csv
 from collections.abc import Iterator
 from decimal import Decimal, InvalidOperation
 
-from ._spec import FormatError
+from ._spec import FormatError, normalize_header_field
 
 
 def _is_count(raw: str) -> bool:
@@ -100,11 +100,22 @@ def iter_tabular_rows(stream, spec) -> Iterator[tuple]:
     what keeps whole delimited rows out of built graphs.
     """
     reader = csv.DictReader(stream, delimiter=spec.delimiter or "\t")
+    # Normalise the DictReader's own fieldnames with the exact same function
+    # detect_format applies to the header it resolves spec.seq_column/
+    # abundance_column/v_column/j_column against (normalize_header_field,
+    # from _spec.py). Without this, a padded real-world header like
+    # "junction_aa, duplicate_count" resolves 'duplicate_count' on the
+    # detect_format side but the row dict here is keyed by the unstripped
+    # ' duplicate_count', so row.get(spec.abundance_column) silently misses
+    # and every abundance defaults to 1. Accessing .fieldnames triggers the
+    # lazy read of the header row exactly once, before any data row is read.
+    if reader.fieldnames:
+        reader.fieldnames = [normalize_header_field(name) for name in reader.fieldnames]
     productive_key = None
     for row in reader:
         if productive_key is None:
             productive_key = next(
-                (k for k in row if k and k.lower() == "productive"), ""
+                (k for k in row if k and k.strip().lower() == "productive"), ""
             )
         sequence = (row.get(spec.seq_column) or "").strip()
         if not sequence:

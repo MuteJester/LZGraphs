@@ -1,9 +1,11 @@
 """Content-based detection of sequence file format and alphabet."""
 from __future__ import annotations
 
+import csv
+
 from ._compress import open_text
 from ._readers import _is_count
-from ._spec import VALID_FORMATS, FormatError, InputSpec
+from ._spec import VALID_FORMATS, FormatError, InputSpec, normalize_header_field
 
 _CORE_NUCLEOTIDE = set("ACGTUN")
 _IUPAC_NUCLEOTIDE = set("ACGTUNRYSWKMBDHV")
@@ -364,7 +366,18 @@ def detect_format(
 
     sniffed_delimiter = sniff_delimiter(lines[0])
     split_delimiter = sniffed_delimiter or "\t"
-    header = [h.strip() for h in lines[0].rstrip("\n").split(split_delimiter)]
+    # Parsed with the ``csv`` module, not ``line.split(delimiter)``: a naive
+    # split treats quote characters as ordinary text, so a quoted field like
+    # ``"junction_aa"`` never matches the unquoted candidate name it should
+    # resolve to, and an embedded delimiter inside quotes (or a quoted
+    # duplicate name) is not recognised as one field. This must parse the
+    # header exactly the way csv.DictReader (iter_tabular_rows) will, or the
+    # two silently disagree on what a column is named. normalize_header_field
+    # (stripping) is applied here and, identically, to csv.DictReader's own
+    # fieldnames in iter_tabular_rows: the same function, so the two sides
+    # cannot independently drift on how whitespace is handled.
+    raw_header = next(csv.reader([lines[0].rstrip("\n")], delimiter=split_delimiter))
+    header = [normalize_header_field(h) for h in raw_header]
     # Guard the whole header before anything resolves against it: a
     # single-column file can never trigger this (nothing to duplicate), but
     # every other tabular header must be checked before either branch below

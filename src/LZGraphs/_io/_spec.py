@@ -8,6 +8,28 @@ class FormatError(ValueError):
     """The input file cannot be interpreted as sequence data."""
 
 
+def normalize_header_field(name: str | None) -> str | None:
+    """The single normalisation applied to every tabular header field name.
+
+    ``detect_format`` (``_sniff.py``, building ``InputSpec.header`` and
+    resolving ``seq_column``/``abundance_column``/``v_column``/``j_column``)
+    and ``iter_tabular_rows`` (``_readers.py``, normalising
+    ``csv.DictReader``'s ``fieldnames`` before it reads any row) both parse
+    the same header line with the ``csv`` module and then call this on every
+    field. That is what keeps them from drifting apart again: a header like
+    ``"junction_aa, duplicate_count"`` (a leading space after the comma, real
+    AIRR exports do this) must resolve ``duplicate_count`` on one side and be
+    looked up as ``duplicate_count`` on the other, not ``" duplicate_count"``
+    on one of them, or the lookup silently returns nothing and the column is
+    treated as absent.
+
+    ``None`` passes through unchanged: ``csv.DictReader.fieldnames`` can
+    legitimately be ``None`` (an empty stream), and this must stay a safe
+    no-op rather than raise on ``None.strip()``.
+    """
+    return name.strip() if name is not None else name
+
+
 # The single vocabulary of formats accepted anywhere a caller names a format
 # explicitly: `detect_format`'s `override` parameter, `read_sequences`'s and
 # `validate_input`'s `expect_format` parameter, and the CLI's
