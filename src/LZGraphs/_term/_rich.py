@@ -213,6 +213,41 @@ Every write goes to whatever ``stream`` this renderer was constructed with
 own default and :class:`~LZGraphs._term._plain.PlainRenderer`'s). Nothing in
 this module ever names ``sys.stdout``.
 
+## Encoding safety
+
+A frame this renderer draws is not guaranteed representable in ``stream``'s
+encoding: a field value threaded straight through from ``cmd_build``'s own
+``fields``/``rows`` (a non-ASCII sequence identifier, a file path with an
+accented character) can contain anything, and an ``ascii``-encoded stderr
+(``LANG=C``, some CI runners) is a realistic destination. Every write in this
+module funnels through :func:`_safe_write`, which mirrors
+:meth:`~LZGraphs._term._plain.PlainRenderer._write`'s own approach exactly:
+try the normal write, and on the *specific* failure that means "this text
+cannot be encoded here" (``UnicodeEncodeError``, caught narrowly so an
+unrelated failure such as a broken pipe still propagates), re-encode against
+the stream's own reported encoding with ``errors="replace"`` and write that
+instead. This is required by the same invariant :mod:`LZGraphs._term`'s
+``Ui`` protocol states explicitly ("a renderer degrades ... rather than
+raising, since a rendering failure must never take down the command it is
+merely reporting on"): before this was added, ``_draw`` wrote straight to
+``stream.write(...)`` with no such guard, so a build reporting a non-ASCII
+path under an ``ascii`` stderr raised ``UnicodeEncodeError`` out of
+``start()``/``progress()``/``update()``/``warn()``/``done()``/``error()``
+and crashed the very build it was only supposed to be narrating.
+
+## Embedded newlines in caller-supplied values
+
+Every field/row value and every ``warn()``/``error()`` message this module
+renders is passed through :func:`_sanitize_line` before it reaches
+:func:`~LZGraphs._term._widgets.kv` or a card row, for exactly the reason
+:class:`~LZGraphs._term._plain.PlainRenderer` already sanitizes the same
+inputs (see its module docstring): a value is not guaranteed free of an
+embedded ``\\n``/``\\r``. Here the failure mode is worse than a misformatted
+log line: an unsanitized row's ``\\n`` makes the terminal advance more rows
+than ``len(lines)`` says it did, which desynchronises ``self._lines_drawn``
+from reality and corrupts every subsequent redraw's ``cursor_up`` arithmetic
+for the rest of the session, not merely the one frame that carried it.
+
 ## ``title`` in ``done()``/``error()``, matching ``_plain.py``
 
 ``_plain.py`` (Task 4) settled on ``title`` meaning *command identity*
@@ -292,6 +327,46 @@ _PROMPT_RESERVE_ROWS = 1
 #: content this module actually supplied, without depending on a sibling
 #: module's private name or reimplementing its box-drawing.
 _NARROW_WIDTH = 50
+
+
+def _safe_write(stream: TextIO, text: str) -> None:
+    """Write ``text`` to ``stream``, degrading rather than raising if it
+    cannot be encoded there.
+
+    See the module docstring's "Encoding safety" section. Only
+    ``UnicodeEncodeError`` is caught (never a broader exception, so an
+    unrelated failure such as a broken pipe still propagates); on that
+    specific failure the text is re-encoded against the stream's own
+    reported encoding with ``errors="replace"`` and written again.
+    """
+    try:
+        stream.write(text)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "ascii"
+        stream.write(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+
+
+def _sanitize_line(value: Any) -> str:
+    """Render ``value`` as a single physical line's worth of text.
+
+    Mirrors :func:`LZGraphs._term._plain._sanitize` exactly (duplicated
+    rather than imported, matching this module's general practice of never
+    reaching into a sibling renderer's private helpers). A caller-supplied
+    field/row value threaded straight through from ``cmd_build`` (a file
+    path, an error message) is not guaranteed free of embedded newlines, and
+    an unsanitized one is worse here than in the plain renderer: it would
+    silently desynchronise ``self._lines_drawn`` from how many terminal rows
+    the row actually occupies (the row string carries its own embedded
+    ``\\n``, so the terminal advances more rows than this renderer's own
+    line count tracks), corrupting every subsequent redraw's ``cursor_up``
+    arithmetic for the rest of the session, not just misrendering one frame.
+    Embedded newlines/carriage returns are replaced with a single space
+    instead.
+    """
+    text = str(value)
+    if "\n" in text or "\r" in text:
+        text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    return text
 
 
 def _bar_width(caps: Capabilities) -> int:
@@ -416,7 +491,7 @@ class RichRenderer:
         atexit.register(self._stop)
         self._install_sigwinch()
         try:
-            self._stream.write(hide_cursor())
+            _safe_write(self._stream, hide_cursor())
             self._stream.flush()
             self._redraw(force=True)
         except BaseException:
@@ -449,10 +524,11 @@ class RichRenderer:
 
     def error(self, title: str, lines: Sequence[str] | None = None) -> None:
         rows: list[str] = []
-        for i, line in enumerate(lines or ()):
-            if not line:
+        for i, raw_line in enumerate(lines or ()):
+            if not raw_line:
                 rows.append("")
                 continue
+            line = _sanitize_line(raw_line)
             if i == 0:
                 mark = colour("error", _cross(self._caps), self._caps)
                 rows.append(f" {mark} {line}")
@@ -461,7 +537,9 @@ class RichRenderer:
         self._finish(card(title, rows, self._caps, status="error"))
 
     def done(self, title: str, rows: Mapping[str, Any] | None = None) -> None:
-        kv_rows = [kv(str(key), str(value), self._caps) for key, value in (rows or {}).items()]
+        kv_rows = [
+            kv(str(key), _sanitize_line(value), self._caps) for key, value in (rows or {}).items()
+        ]
         self._finish(card(title, kv_rows, self._caps, status="ok"))
 
     # ── redraw engine ────────────────────────────────────────────────
@@ -474,7 +552,7 @@ class RichRenderer:
         it was first seen, then up to :data:`_MAX_WARNINGS` recent warnings.
         """
         rows: list[str] = [
-            kv(key, str(value), self._caps) for key, value in self._fields.items()
+            kv(key, _sanitize_line(value), self._caps) for key, value in self._fields.items()
         ]
 
         if self._progress:
@@ -485,11 +563,11 @@ class RichRenderer:
                 pct = f"{int(round(fraction * 100)):3d}%"
                 text = f"{bar(fraction, width, self._caps)}  {pct}"
                 if detail:
-                    text += "  " + colour("muted", detail, self._caps)
+                    text += "  " + colour("muted", _sanitize_line(detail), self._caps)
                 rows.append(kv(label, text, self._caps))
 
         for message in self._warnings:
-            rows.append(kv("", colour("warn", message, self._caps), self._caps))
+            rows.append(kv("", colour("warn", _sanitize_line(message), self._caps), self._caps))
 
         rows = self._clamp_rows(rows)
         return panel(self._title, rows, self._caps)
@@ -588,7 +666,7 @@ class RichRenderer:
                 parts.append("\n")
             parts.append(cursor_up(shrink))
 
-        self._stream.write("".join(parts))
+        _safe_write(self._stream, "".join(parts))
         self._stream.flush()
         self._lines_drawn = len(lines)
         self._redraw_count += 1
@@ -619,7 +697,7 @@ class RichRenderer:
         except Exception:
             pass
         try:
-            self._stream.write(show_cursor())
+            _safe_write(self._stream, show_cursor())
             self._stream.flush()
         except Exception:
             # A broken stream during cleanup must never raise here: doing
