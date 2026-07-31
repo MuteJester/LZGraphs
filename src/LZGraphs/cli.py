@@ -184,11 +184,23 @@ def cmd_build(args):
     # _is_wellformed filtering), so a file that is genuinely uncompressed
     # plain/plain_seqcount content can still make the fast path disagree with
     # the rest of the CLI (a BOM glued onto the first sequence, CR-only line
-    # endings collapsing the whole file into one sequence, a lone header line
-    # ingested as data). raw_prefix_is_streamable inspects the file's real
-    # bytes for exactly those cases and declines the fast path when any of
-    # them would matter, falling through to the safe (and here, correct)
-    # non-streaming branch below instead.
+    # endings collapsing the whole file into one sequence, a header line or
+    # other malformed record ingested as data). raw_prefix_is_streamable
+    # inspects the file's real bytes for exactly those cases and declines the
+    # fast path when any of them would matter, falling through to the safe
+    # (and here, correct) non-streaming branch below instead.
+    #
+    # raw_prefix_is_streamable only checks the same bounded sniff prefix
+    # detect_format already read (32 lines), not the whole file: a malformed
+    # record beyond that prefix (say, line 10000 of a foundation-scale file)
+    # still takes the fast path and is ingested rather than dropped. This is
+    # a deliberate trade, not an oversight: catching it would mean reading
+    # the entire file up front, which defeats the constant-memory streaming
+    # this path exists to provide for exactly those large files. A user who
+    # needs full per-record validation already has two ways to get it:
+    # compressed input never reaches this gate at all (falls to
+    # read_sequences below), and --strict-input runs validate_input over the
+    # whole file before cmd_build streams anything.
     can_stream_plain = False
     if args.input != '-':
         try:

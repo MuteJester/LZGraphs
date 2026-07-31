@@ -23,7 +23,7 @@ from ._readers import (
     iter_seqcount,
     iter_tabular_rows,
 )
-from ._sniff import detect_format
+from ._sniff import _SNIFF_LINES, detect_format
 from ._spec import FormatError, InputSpec, RecordStats
 
 _PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
@@ -82,21 +82,36 @@ def raw_prefix_is_streamable(path: str, fmt: str) -> bool:
       universal-newline handling turns this into a line break; the C reader
       treats a bare ``\\r`` as an ordinary character, collapsing every
       "line" it should have separated into one sequence,
-    - a first meaningful line that is not itself a usable sequence (e.g. a
-      recognised or unrecognised column-header name sitting alone on the
-      first line): ``read_sequences`` drops it via ``_is_wellformed``; the C
-      reader has no such check and ingests it as real data.
+    - any meaningful line within the same bounded prefix ``detect_format``
+      already sniffs (``_SNIFF_LINES``, currently 32) that is not itself a
+      usable sequence (e.g. a column-header name sitting alone on the first
+      line, or a malformed record a few lines further down):
+      ``read_sequences`` drops each such record via ``_is_wellformed``; the
+      C reader has no such check and ingests every one of them as real data.
 
-    For ``plain_seqcount``, only the sequence field (before the tab) of that
-    first line is checked, since a genuine ``sequence<TAB>count`` line always
-    contains a non-alphabetic tab and count that would otherwise always fail
-    the check on its own.
+    For ``plain_seqcount``, only the sequence field (before the tab) of each
+    checked line is tested, since a genuine ``sequence<TAB>count`` line
+    always contains a non-alphabetic tab and count that would otherwise
+    always fail the check on its own.
+
+    This validates only the sniff prefix, not the whole file: a malformed
+    record beyond line ``_SNIFF_LINES`` (e.g. line 10000 of a
+    foundation-scale file) still reaches the fast path and is ingested
+    rather than dropped, because catching it here would mean reading the
+    whole file up front and defeat the constant-memory streaming this path
+    exists to provide in the first place. That residual gap is deliberate,
+    not an oversight: compressed input (which never reaches this gate at
+    all, see ``can_stream_plain`` in ``cli.py``) and ``--strict-input``
+    (which runs ``validate_input`` over the entire file before ``cmd_build``
+    ever streams) both already give a user who needs full per-record
+    validation a way to get it.
 
     Cheap by construction: opens ``path`` once and reads at most
-    ``_STREAM_PREFIX_BYTES`` bytes, since this runs on every ``lzg build``.
-    Callers must only pass this a real (uncompressed) filesystem path already
-    known to be ``plain``/``plain_seqcount``; it is not a general-purpose
-    format detector.
+    ``_STREAM_PREFIX_BYTES`` bytes, checking only the first ``_SNIFF_LINES``
+    of them, since this runs on every ``lzg build``. Callers must only pass
+    this a real (uncompressed) filesystem path already known to be
+    ``plain``/``plain_seqcount``; it is not a general-purpose format
+    detector.
     """
     try:
         with open(path, "rb") as fh:
@@ -111,18 +126,15 @@ def raw_prefix_is_streamable(path: str, fmt: str) -> bool:
     if head.replace(b"\r\n", b"\n").count(b"\r"):
         return False
 
-    first_line = None
-    for line in head.decode("utf-8", errors="replace").splitlines():
-        stripped = line.strip()
-        if stripped:
-            first_line = stripped
-            break
-    if first_line is None:
+    lines = head.decode("utf-8", errors="replace").splitlines()[:_SNIFF_LINES]
+    meaningful = [stripped for line in lines if (stripped := line.strip())]
+    if not meaningful:
         return False
 
     if fmt == "plain_seqcount":
-        first_line = first_line.split("\t", 1)[0].strip()
-    return _is_wellformed(first_line)
+        meaningful = [line.split("\t", 1)[0].strip() for line in meaningful]
+
+    return all(_is_wellformed(line) for line in meaningful)
 
 
 def _iter_plain_strict(stream):

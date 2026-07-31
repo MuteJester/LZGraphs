@@ -32,12 +32,29 @@ then silently discarded by ``cmd_build``, so a file that dropped every record
 uninformative ``LZGraph.__init__`` message ``sequences must be a non-empty
 list``. Part (c) covers the fixed, explanatory error; part (d) covers the
 warning ``cmd_build`` now emits when only *some* records are dropped.
+
+Round 2 (see the bottom section) closes a gap in the round-1 fix: the
+original ``raw_prefix_is_streamable`` only checked the FIRST meaningful line
+against ``_is_wellformed``, so a malformed record anywhere after line 1 still
+slipped onto the fast path and was ingested (a 3-line file with a bad second
+line built 24 nodes uncompressed, via the fast path, versus 19 nodes gzipped,
+via ``read_sequences``; see ``test_malformed_record_on_line_two_matches``).
+The fix checks every meaningful line within the same bounded sniff prefix
+``detect_format`` already reads (``_SNIFF_LINES``, 32 lines), which is
+strictly O(prefix) so it does not undermine why the fast path exists:
+constant-memory streaming of foundation-scale plain files. That bound is
+also why a malformed record beyond the prefix is a documented, accepted
+residual rather than a bug: see
+``test_malformed_record_beyond_prefix_is_documented_residual`` below, which
+pins today's behaviour so a future change to it is a deliberate decision,
+not a silent drift.
 """
 from __future__ import annotations
 
 import argparse
 import gzip
 import os
+from unittest import mock
 
 import pytest
 
@@ -249,4 +266,121 @@ def test_some_malformed_records_emit_a_warning_and_the_build_succeeds(
     stderr = capsys.readouterr().err
     assert "malformed=1" in stderr, (
         f"expected a warning naming 1 malformed record, got: {stderr!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Round 2: the gate must validate the WHOLE sniff prefix, not just line 1
+# ---------------------------------------------------------------------------
+#
+# raw_prefix_is_streamable originally checked only the first meaningful line
+# against _is_wellformed. A malformed record anywhere else in the file (even
+# on line 2, even well within the small sniff prefix detect_format already
+# reads) still passed the gate and reached LZGraph.from_file, which has no
+# _is_wellformed check of its own and ingests it as real data. The fix checks
+# every meaningful line within the bounded _SNIFF_LINES (32) prefix.
+
+
+def _n_clean_lines(n):
+    """``n`` well-formed lines, cycling through SEQUENCES as needed."""
+    return "".join(f"{SEQUENCES[i % len(SEQUENCES)]}\n" for i in range(n))
+
+
+_MALFORMED_ON_LINE_TWO = "CASSLGQAYEQYF\nCASS!!BAD\nCASSPGTGVYGYTF\n"
+_MALFORMED_AT_THE_END = "CASSLGQAYEQYF\nCASSPGTGVYGYTF\nCASS!!BAD\n"
+
+
+def _build_plain_and_gz(tmp_path, content, tag):
+    plain_path = tmp_path / f"{tag}.txt"
+    plain_path.write_bytes(content.encode())
+    gz_path = tmp_path / f"{tag}.txt.gz"
+    gz_path.write_bytes(gzip.compress(content.encode()))
+    return (
+        _build_and_load(plain_path, tmp_path, f"{tag}_plain").n_nodes,
+        _build_and_load(gz_path, tmp_path, f"{tag}_gz").n_nodes,
+    )
+
+
+def test_malformed_record_on_line_two_matches(tmp_path):
+    """(round-2 a) A malformed record on line 2 of a 3-line file must build
+    the SAME node count whether the file is plain or gzipped.
+
+    Before this fix, the plain build took the fast path (line 1 alone was
+    well-formed) and ingested ``CASS!!BAD`` as real data, building 24 nodes
+    (including graph nodes derived straight from the ``!`` characters);
+    the gzipped build never had a fast path, dropped the malformed record
+    via ``_is_wellformed``, and built 19 nodes. Verified by hand: calling
+    ``LZGraph.from_file`` directly on this exact plain file (which is what
+    round 1's gate would have chosen) gives 24 nodes, while ``cmd_build`` on
+    the gzip twin gives 19, reproducing the reported 24-vs-19 split exactly.
+    """
+    n_plain, n_gz = _build_plain_and_gz(tmp_path, _MALFORMED_ON_LINE_TWO, "line2")
+    assert n_plain == n_gz, (
+        f"plain build has {n_plain} nodes, gzip build has {n_gz} nodes; "
+        "the malformed second line is disagreeing between the two paths"
+    )
+
+
+def test_malformed_record_at_the_end_is_also_caught(tmp_path):
+    """(round-2 b) A malformed record at the END of a short file (still well
+    within the 32-line sniff prefix) must also be caught, proving the fix
+    checks every line in the prefix and not merely "line 1 and line 2".
+    """
+    n_plain, n_gz = _build_plain_and_gz(tmp_path, _MALFORMED_AT_THE_END, "end")
+    assert n_plain == n_gz, (
+        f"plain build has {n_plain} nodes, gzip build has {n_gz} nodes; "
+        "a malformed line at the end of the file is disagreeing between "
+        "the two paths"
+    )
+
+
+def test_clean_file_longer_than_the_sniff_prefix_still_streams(tmp_path):
+    """(round-2 c) A clean plain file with MORE than _SNIFF_LINES (32) lines
+    must still take the fast path: the gate was narrowed, not disabled for
+    anything longer than one line's worth of checking.
+    """
+    path = tmp_path / "long_clean.txt"
+    path.write_text(_n_clean_lines(40))
+    out_path = tmp_path / "out.lzg"
+
+    with mock.patch.object(LZGraph, "from_file", wraps=LZGraph.from_file) as spy:
+        cmd_build(_build_namespace(str(path), str(out_path)))
+        assert spy.called, (
+            "a clean 40-line file should still take the streaming fast path"
+        )
+
+
+def test_malformed_record_beyond_prefix_is_documented_residual(tmp_path):
+    """(round-2 d) A malformed record beyond line _SNIFF_LINES (32) is a
+    KNOWN, ACCEPTED limitation, not a bug: catching it would require reading
+    the whole file up front, defeating the constant-memory streaming the
+    fast path exists to provide for large files. This pins TODAY's actual
+    behaviour (the fast path is still taken, and the out-of-prefix malformed
+    record IS ingested, so the plain and gzip builds disagree) precisely so
+    that if this behaviour ever changes, this test fails and tells someone,
+    instead of the change drifting in silently.
+    """
+    content = _n_clean_lines(40) + "CASS!!BAD\n"
+    plain_path = tmp_path / "long_then_bad.txt"
+    plain_path.write_bytes(content.encode())
+    gz_path = tmp_path / "long_then_bad.txt.gz"
+    gz_path.write_bytes(gzip.compress(content.encode()))
+
+    with mock.patch.object(LZGraph, "from_file", wraps=LZGraph.from_file) as spy:
+        n_plain = _build_and_load(plain_path, tmp_path, "long_then_bad_plain").n_nodes
+        assert spy.called, (
+            "expected the fast path to be taken for this file; if it is no "
+            "longer taken, the residual documented here may already be "
+            "fixed and this test should be revisited"
+        )
+
+    n_gz = _build_and_load(gz_path, tmp_path, "long_then_bad_gz").n_nodes
+
+    assert n_plain != n_gz, (
+        "the plain and gzip builds now agree even with a malformed record "
+        "beyond the sniff prefix: either the fast path started validating "
+        "beyond _SNIFF_LINES (reconsider the O(prefix) trade-off this test "
+        "documents) or it stopped being taken for this file (update this "
+        "test and the residual-gap documentation in cli.py / "
+        "raw_prefix_is_streamable accordingly)"
     )
