@@ -91,15 +91,75 @@ and ``error()`` always draw (``force=True``): they are session boundaries
 that happen at most once each, never a hot loop, and the caller must always
 see the opening and closing frame regardless of timing.
 
+## The frame never exceeds the terminal (fix round 1, Finding 1)
+
+Nothing about the redraw arithmetic above bounds *how tall* a frame is
+allowed to be, and ``cursor_up`` has no way to move above the physical top
+row: once a frame's line count exceeds ``caps.height``, the terminal itself
+starts scrolling underneath the redraw loop, every subsequent
+``cursor_up(self._lines_drawn)`` addresses rows that are no longer where
+this module thinks they are, and the display corrupts progressively. This
+is reachable in practice: a ``lzg build`` panel with several fields and a
+progress bar is easily ten-plus lines, and short tmux panes/split terminals
+routinely report a height well under that.
+
+Two cooperating bounds, at two different levels, both keyed off
+``max(1, caps.height - 1)`` (one row is always reserved for the shell
+prompt so the live frame never sits flush against it; the ``max(1, ...)``
+guards the degenerate ``caps.height`` of 0, 1, or 2 some CI environments
+report, so the budget is never zero or negative):
+
+1. **Deliberate content elision** (``_clamp_rows``, used only by
+   ``_render_frame``, the live in-progress frame). Applied *before*
+   :func:`~LZGraphs._term._widgets.panel` builds the box, while row
+   identity is still known: when the assembled rows (fields, then progress
+   bars, then warnings, in that order) would not fit, rows are dropped from
+   the **front** (the static fields), and the **tail** is kept, because
+   the tail is the progress bars and the most recent warnings: the part of
+   the panel that is actually changing and that a user watching a live
+   build cares about moment to moment. A static ``SOURCE``/``FORMAT``
+   field is comparatively safe to hide, and nothing is destroyed: every
+   redraw rebuilds the frame from the same tracked state, so making the
+   terminal taller again brings the elided fields straight back. Elision
+   is never silent: dropped rows are replaced by exactly one row saying
+   how many were hidden and why, so a user cannot mistake a clipped panel
+   for the complete picture.
+2. **A blunt safety net** (``_fit_to_terminal``, called by ``_draw`` for
+   *every* frame, including the final ``done()``/``error()`` card). Row
+   identity is gone by this point (``panel()``/``card()`` have already
+   interleaved borders), so this simply keeps the top ``budget`` lines and
+   drops the rest. This exists for two reasons: the final card is built
+   from caller-supplied rows ``_render_frame`` never had a chance to
+   pre-clamp, and at truly degenerate heights even *zero* content rows can
+   leave ``panel()``'s own title-plus-border overhead (fixed at 1 line in
+   narrow mode, 2 in boxed mode; see ``_panel_overhead``) taller than the
+   budget, since this module does not reimplement ``panel()``'s
+   box-drawing to shrink further. Keeping the top is deliberate here too:
+   for ``error()`` specifically, the top is exactly the headline
+   (``lines[0]``, marked with the cross), the single most important line
+   in the card.
+
+Together these guarantee the hard invariant this fix exists for: no
+``cursor_up`` this renderer ever issues is larger than
+``max(1, caps.height - 1)``, unconditionally, including at heights of 0, 1,
+and 2.
+
 ## Reflow on ``SIGWINCH``
 
 Where the platform has it, ``SIGWINCH`` fires whenever the terminal is
-resized; the handler re-detects the full :class:`~LZGraphs._term._caps.
-Capabilities` for the same stream (via :func:`~LZGraphs._term._caps.detect`,
-the one function in the whole layer allowed to read the environment or call
-``isatty``, so this module still never touches either directly) and forces
-an immediate redraw at the new width. Registration is guarded twice, in the
-order the task cares about most:
+resized; the handler re-detects the terminal's *geometry only* (width and
+height), via :func:`~LZGraphs._term._caps.detect` (the one function in the
+whole layer allowed to read the environment or call ``isatty``, so this
+module still never touches either directly), and forces an immediate
+redraw at the new size. ``_refresh_capabilities`` deliberately does not
+adopt the freshly detected ``colours``/``unicode``/anything else: a resize
+event means the terminal changed *size*, nothing else, so every other field
+of the current ``Capabilities`` is carried forward unchanged via
+``dataclasses.replace`` (fix round 1, Minor finding: re-detecting the whole
+``Capabilities`` let an unrelated environment change silently flip colour
+depth or unicode support mid-render, which a mere resize must never do).
+
+Registration is guarded twice, in the order the task cares about most:
 
 * ``hasattr(signal, "SIGWINCH")`` is checked first, since the signal simply
   does not exist on Windows; a platform without it just never gets reflow,
@@ -115,7 +175,36 @@ order the task cares about most:
 The previous handler (whatever it was, including ``SIG_DFL``) is captured
 at registration time and restored by ``_stop()``, so this module is a good
 citizen even if something else in the process also cares about
-``SIGWINCH``.
+``SIGWINCH``. Two refinements landed in fix round 1, both reviewer-found:
+
+* **Installation is idempotent** (``_install_sigwinch`` returns immediately
+  if ``self._sigwinch_installed`` is already ``True``). Without this, a
+  second ``start()`` call on the same instance without an intervening
+  ``stop()`` (``start()``, ``start()``, ``done()``) would re-register and
+  capture *this renderer's own handler* as "the previous one", permanently
+  losing the real original for the life of the process.
+* **Restoration only clobbers what is still ours** (``_restore_sigwinch``
+  checks ``signal.getsignal(signal.SIGWINCH) == self._on_sigwinch`` before
+  restoring; ``==`` deliberately, not ``is``, since bound methods compare
+  equal but are never identical across separate attribute accesses).
+  Without this, two renderers stopped out of order (``A`` starts, ``B``
+  starts, capturing ``A``'s handler as its "previous", then ``A`` stops
+  first) would have ``A`` blindly restore its own saved original over
+  ``B``'s still-active handler, clobbering it.
+
+**Documented limitation, not fixed further, on purpose (per review: make
+the common cases safe, do not build a full handler stack):** in that same
+out-of-order scenario, ``A``'s stop correctly declines to restore (``B`` is
+active, not ``A``), but this leaves ``A``'s true original handler
+un-restored until ``B`` itself later stops (at which point ``B`` restores
+*its* saved previous, which is ``A``'s handler, not the true original).
+The true original only comes back once every renderer that was ever active
+during the overlap has stopped, in an order that eventually unwinds back to
+it. A single active renderer at a time (the normal case: one ``RichRenderer``
+per ``lzg`` invocation) and repeated ``start()``/``stop()`` cycles on one
+instance are both fully correct; only genuinely overlapping renderers have
+this residual limitation, and it never crashes or clobbers a *still-active*
+handler, it only delays restoring the very first one.
 
 ## Streams
 
@@ -155,6 +244,7 @@ safely, not to hard-code the specific field names in the mockup screenshot.
 from __future__ import annotations
 
 import atexit
+import dataclasses
 import signal
 import sys
 import threading
@@ -191,6 +281,18 @@ _MAX_BAR_WIDTH = 30
 #: text alongside the bar itself.
 _BAR_WIDTH_MARGIN = 30
 
+#: One row of the terminal is always left for the shell prompt: the live
+#: frame must never claim the entire height. See the module docstring's
+#: "The frame never exceeds the terminal" section.
+_PROMPT_RESERVE_ROWS = 1
+
+#: Duplicated from ``_widgets._NARROW_WIDTH`` deliberately, not imported:
+#: this module only needs the threshold to know how many of the lines
+#: panel()/card() return are their own title/border furniture versus
+#: content this module actually supplied, without depending on a sibling
+#: module's private name or reimplementing its box-drawing.
+_NARROW_WIDTH = 50
+
 
 def _bar_width(caps: Capabilities) -> int:
     """Progress-bar width for the current panel width, clamped sensibly."""
@@ -200,6 +302,30 @@ def _bar_width(caps: Capabilities) -> int:
 def _cross(caps: Capabilities) -> str:
     """The error-headline marker: a unicode cross, or ``"x"`` under ASCII."""
     return "✗" if caps.unicode else "x"
+
+
+def _panel_overhead(caps: Capabilities) -> int:
+    """Lines :func:`~LZGraphs._term._widgets.panel` adds around content rows:
+    the title line plus the closing border in boxed mode
+    (``caps.width >= _NARROW_WIDTH``), or just the title line in narrow
+    mode. Neither ``_render_frame`` nor ``done()``/``error()`` ever pass a
+    ``footer`` (that would add one more divider-plus-row pair), so this is
+    the complete overhead for every frame this module draws.
+    """
+    return 1 if caps.width < _NARROW_WIDTH else 2
+
+
+def _visible_row_budget(caps: Capabilities) -> int:
+    """How many *content* rows fit alongside one reserved prompt row and
+    panel()'s own border overhead, for the given ``caps``.
+
+    Never negative, even at a degenerate ``caps.height`` of 0, 1, or 2
+    (some CI environments report these): the outer ``max(1, ...)`` floors
+    the visible height itself, and the ``max(0, ...)`` floors the content
+    budget once the (fixed) border overhead is subtracted from it.
+    """
+    visible = max(1, caps.height - _PROMPT_RESERVE_ROWS)
+    return max(0, visible - _panel_overhead(caps))
 
 
 class RichRenderer:
@@ -365,7 +491,38 @@ class RichRenderer:
         for message in self._warnings:
             rows.append(kv("", colour("warn", message, self._caps), self._caps))
 
+        rows = self._clamp_rows(rows)
         return panel(self._title, rows, self._caps)
+
+    def _clamp_rows(self, rows: list[str]) -> list[str]:
+        """Drop rows from the front when the assembled frame would not fit
+        the terminal, keeping the tail and marking the elision explicitly.
+
+        See the module docstring's "The frame never exceeds the terminal"
+        section for the full reasoning: the tail (progress bars, then the
+        most recent warnings) is the part of the panel actually changing
+        moment to moment, so it is kept; the front (static fields) is
+        dropped first, and replaced by exactly one row stating how many
+        were hidden, so a clipped panel is never mistaken for the complete
+        one.
+        """
+        budget = _visible_row_budget(self._caps)
+        if len(rows) <= budget:
+            return rows
+        if budget <= 0:
+            # Not even room for a lone elision marker; _fit_to_terminal is
+            # the last-resort safety net for this degenerate case.
+            return []
+        keep_n = max(0, budget - 1)
+        hidden = len(rows) - keep_n
+        marker = colour(
+            "muted",
+            f"... {hidden} more row{'s' if hidden != 1 else ''} hidden "
+            f"({self._caps.height}-row terminal)",
+            self._caps,
+        )
+        tail = rows[-keep_n:] if keep_n > 0 else []
+        return [marker, *tail]
 
     def _redraw(self, force: bool = False) -> bool:
         """Paint the current frame if the throttle allows it (or ``force``).
@@ -384,8 +541,30 @@ class RichRenderer:
         self._draw(self._render_frame())
         return True
 
+    def _fit_to_terminal(self, lines: list[str]) -> list[str]:
+        """Absolute safety net: no frame this renderer draws may be taller
+        than the terminal itself, regardless of where its rows came from.
+
+        ``_render_frame`` already performs deliberate, row-aware elision
+        (``_clamp_rows``), so this is a no-op for the live build frame in
+        every ordinary case. It exists for two belt-and-suspenders reasons,
+        detailed in the module docstring's "The frame never exceeds the
+        terminal" section: the final ``done()``/``error()`` card is built
+        from caller-supplied rows this module never pre-clamps, and at
+        truly degenerate heights (0, 1, 2 rows) even zero content rows can
+        leave panel()'s own border overhead taller than the budget. Keeps
+        the *top* ``budget`` lines and drops the rest: for ``error()`` in
+        particular, the top is exactly the headline, the single most
+        important line in the card.
+        """
+        budget = max(1, self._caps.height - _PROMPT_RESERVE_ROWS)
+        if len(lines) <= budget:
+            return lines
+        return lines[:budget]
+
     def _draw(self, lines: list[str]) -> None:
-        """Redraw the live area to exactly ``lines``.
+        """Redraw the live area to exactly ``lines`` (clamped to fit the
+        terminal first; see :meth:`_fit_to_terminal`).
 
         See the module docstring's "Redraw arithmetic" section for the full
         reasoning; in short: move up by the previous frame's tracked height,
@@ -393,6 +572,7 @@ class RichRenderer:
         shorter, blank out and re-ascend past whatever rows are left over
         so no stale content survives a shrinking frame.
         """
+        lines = self._fit_to_terminal(lines)
         parts: list[str] = []
         if self._lines_drawn:
             parts.append(cursor_up(self._lines_drawn))
@@ -451,20 +631,33 @@ class RichRenderer:
 
     def _install_sigwinch(self) -> None:
         """Register a ``SIGWINCH`` handler, or silently do nothing where
-        that is unsafe or unsupported.
+        that is unsafe, unsupported, or already done.
 
-        Two independent guards, checked in this order because the second
-        one prevents a real crash and must never be skipped:
+        Three independent guards, checked in this order because the second
+        prevents a real crash and must never be skipped, and the third
+        (fix round 1, Finding 2) is what makes this idempotent:
 
         1. The platform has no ``SIGWINCH`` at all (Windows): nothing to
            register, reflow just never happens there.
         2. This is not the main thread: ``signal.signal`` raises
            ``ValueError`` off the main thread, so this is checked and
            skipped *before* calling it, not discovered via the exception.
+        3. This instance has already installed its handler
+           (``self._sigwinch_installed``). Re-registering here would call
+           ``signal.signal`` again and get back *this renderer's own
+           handler* as the "previous" one (since it is currently active),
+           permanently losing the real original the moment a second
+           ``start()`` happens without an intervening ``stop()``
+           (``start()``, ``start()``, ``done()``). Skipping the second
+           install leaves ``self._prev_sigwinch_handler`` holding whatever
+           was truly there before the *first* install, which is what
+           ``_restore_sigwinch`` must put back.
         """
         if not hasattr(signal, "SIGWINCH"):
             return
         if threading.current_thread() is not threading.main_thread():
+            return
+        if self._sigwinch_installed:
             return
         try:
             self._prev_sigwinch_handler = signal.signal(signal.SIGWINCH, self._on_sigwinch)
@@ -474,12 +667,29 @@ class RichRenderer:
 
     def _restore_sigwinch(self) -> None:
         """Put back whatever ``SIGWINCH`` handler was registered before this
-        renderer installed its own, rather than clobbering it permanently."""
+        renderer installed its own, rather than clobbering it permanently.
+
+        Only restores if the *currently active* handler is still this
+        renderer's own (fix round 1, Finding 2): if some other code
+        (typically a sibling ``RichRenderer`` that started after this one
+        and has not yet stopped) has since become the active handler,
+        restoring here would clobber *their* handler instead of ours. In
+        that case this renderer's saved ``_prev_sigwinch_handler`` is
+        simply dropped; see the module docstring's "SIGWINCH" section for
+        the documented, deliberately-not-fixed-further limitation this
+        leaves for genuinely overlapping renderers.
+        """
         if not self._sigwinch_installed:
             return
         self._sigwinch_installed = False
         try:
-            signal.signal(signal.SIGWINCH, self._prev_sigwinch_handler)
+            # `==`, not `is`: bound methods are equal-but-not-identical on
+            # every separate attribute access (`self._on_sigwinch is
+            # self._on_sigwinch` is False in plain Python), so `is` here
+            # would never match the handler this same instance installed
+            # and every restore would be silently skipped.
+            if signal.getsignal(signal.SIGWINCH) == self._on_sigwinch:
+                signal.signal(signal.SIGWINCH, self._prev_sigwinch_handler)
         except (ValueError, OSError):
             pass
 
@@ -488,18 +698,31 @@ class RichRenderer:
         self._redraw(force=True)
 
     def _refresh_capabilities(self) -> None:
-        """Re-detect ``Capabilities`` for this renderer's own stream.
+        """Re-detect only the terminal's geometry (width/height) on resize.
 
-        Delegates entirely to :func:`~LZGraphs._term._caps.detect`, the one
-        function allowed to read the environment or call ``isatty``, rather
-        than duplicating its width-clamping rules here. Swallows any error
-        from the redetection itself: a resize event must never crash a
-        build that is otherwise progressing fine.
+        A ``SIGWINCH`` means the terminal changed *size*, nothing else: it
+        must never change colour depth, unicode support, or any other
+        capability decided once at construction time (fix round 1, Minor
+        finding: re-detecting the whole ``Capabilities`` let an unrelated
+        environment change silently flip colour depth or unicode support
+        mid-render). Delegates to :func:`~LZGraphs._term._caps.detect` (the
+        one function allowed to read the environment or call ``isatty``)
+        purely to reuse its fd-based sizing and clamping logic, then keeps
+        every other field of the current ``Capabilities`` exactly as it
+        was, via ``dataclasses.replace``. Swallows any error from the
+        redetection itself: a resize event must never crash a build that
+        is otherwise progressing fine.
         """
         try:
-            self._caps = detect(stream=self._stream)
+            redetected = detect(stream=self._stream)
         except Exception:
-            pass
+            return
+        self._caps = dataclasses.replace(
+            self._caps,
+            width=redetected.width,
+            real_width=redetected.real_width,
+            height=redetected.height,
+        )
 
 
 __all__ = ["RichRenderer"]

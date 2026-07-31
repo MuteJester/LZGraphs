@@ -429,6 +429,95 @@ def test_first_draw_emits_no_cursor_up():
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# Fix round 1, Finding 1: a frame taller than the terminal must never
+# desync the redraw arithmetic. cursor_up can only move up to the physical
+# top row; once a frame's line count exceeds caps.height, subsequent
+# cursor_up(self._lines_drawn) calls no longer address the rows they think
+# they do and the display corrupts progressively. Reproduced first against
+# the pre-fix module (a 20-field frame on a height-6 terminal issued
+# cursor_up amounts of 22/24/25, all far past the terminal's own height)
+# before writing the fix; kept here as the regression test.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("height", [1, 2, 3, 6, 24])
+def test_frame_taller_than_terminal_never_exceeds_height_minus_one(height):
+    caps = _plain_caps(height=height)
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+
+    # 20 fields alone (no progress yet) already renders as a 22-line boxed
+    # panel before any clamping (the exact shape of the reviewer's
+    # reproduction), and every subsequent progress() call grows it further.
+    r.start("lzg build", {f"FIELD{i}": f"value{i}" for i in range(20)})
+    for i in range(3):
+        clock[0] += 1.0
+        r.progress(f"step{i}", i / 3)
+    clock[0] += 1.0
+    r.done("lzg build", {"nodes": "1"})
+
+    out = buf.getvalue()
+    cursor_ups = [int(n) for n in _CURSOR_UP_RE.findall(out)]
+    budget = max(1, height - 1)
+    assert cursor_ups, "expected at least one redraw after the first"
+    assert max(cursor_ups) <= budget, (height, cursor_ups, budget)
+
+
+def test_elision_marker_is_visible_when_rows_are_dropped():
+    caps = _plain_caps(height=6)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {f"FIELD{i}": f"value{i}" for i in range(20)})
+    out = buf.getvalue()
+    assert "hidden" in out, "dropping rows must say so, not truncate silently"
+    assert "18" in out  # exactly how many of the 20 fields were hidden
+
+
+def test_elision_keeps_the_tail_not_the_head():
+    """Deliberate choice: drop the oldest/static rows first (the front),
+    keep the tail (the live progress/most recent warnings), since that is
+    what a user watching a build actually needs to see change."""
+    caps = _plain_caps(height=6)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {f"FIELD{i}": f"value{i}" for i in range(20)})
+    out = buf.getvalue()
+    assert "FIELD19" in out and "FIELD18" in out
+    assert "FIELD0 " not in out and "FIELD1 " not in out
+
+
+@pytest.mark.parametrize("height", [0, 1, 2])
+def test_degenerate_heights_never_crash_and_stay_within_budget(height):
+    """Some CI environments report a terminal height of 0, 1, or 2; this
+    must never raise and must never draw more than one line (the
+    max(1, height - 1) floor)."""
+    caps = _plain_caps(height=height)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {"A": "1", "B": "2"})
+    assert r._lines_drawn == 1
+    r.progress("ingest", 0.5)
+    assert r._lines_drawn == 1
+    r.done("lzg build", {"nodes": "1"})
+    assert r._lines_drawn == 1
+
+
+def test_error_card_keeps_its_headline_when_squeezed_by_height():
+    """_fit_to_terminal's blunt safety net keeps the *top* of a card, which
+    for error() is exactly the cross-marked headline: the single most
+    important line, never the part sacrificed when a terminal is tiny."""
+    caps = _plain_caps(height=2)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {})
+    r.error("lzg build", ["column 'junction_aa' not found", "", "try: --column cdr3_aa"])
+    out = buf.getvalue()
+    assert "lzg build" in out  # the title line survives
+    assert r._lines_drawn <= max(1, 2 - 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Throttling: at most 15 redraws/second, proven with a fake clock only.
 # ─────────────────────────────────────────────────────────────────────────
 
@@ -601,6 +690,92 @@ def test_sigwinch_handler_reflows_at_the_new_width(monkeypatch):
 
     assert r._caps.width == 90
     assert r.redraw_count == before + 1  # forced: a resize is never throttled away
+    r.done("lzg build", {})
+
+
+# ── Fix round 1, Finding 2: idempotent SIGWINCH installation ────────
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGWINCH"), reason="platform has no SIGWINCH")
+def test_double_start_then_done_restores_the_true_original_handler():
+    """Reviewer-confirmed bug: start(), start(), done() left the renderer's
+    OWN handler installed forever, because the second start() re-registered
+    and captured the (already-installed) first handler as "the previous
+    one", losing the true original for the life of the process."""
+
+    def sentinel(signum, frame):
+        return None
+
+    old = signal.signal(signal.SIGWINCH, sentinel)
+    try:
+        caps = _plain_caps()
+        buf = io.StringIO()
+        r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+
+        r.start("lzg build", {})
+        assert signal.getsignal(signal.SIGWINCH) == r._on_sigwinch
+
+        r.start("lzg build again", {})  # double start, no stop() in between
+        assert signal.getsignal(signal.SIGWINCH) == r._on_sigwinch
+
+        r.done("lzg build", {})
+        assert signal.getsignal(signal.SIGWINCH) is sentinel
+    finally:
+        signal.signal(signal.SIGWINCH, old)
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGWINCH"), reason="platform has no SIGWINCH")
+def test_two_renderers_stopped_out_of_order_do_not_clobber_each_other():
+    """Reviewer-confirmed bug: A starts, B starts (capturing A's handler as
+    its own "previous"), then A stops first. A must not blindly restore
+    its saved original over B's still-active handler."""
+    original = signal.getsignal(signal.SIGWINCH)
+    try:
+        caps = _plain_caps()
+        buf_a, buf_b = io.StringIO(), io.StringIO()
+        a = RichRenderer(caps, stream=buf_a, clock=lambda: 0.0)
+        b = RichRenderer(caps, stream=buf_b, clock=lambda: 0.0)
+
+        a.start("lzg build", {})
+        assert signal.getsignal(signal.SIGWINCH) == a._on_sigwinch
+
+        b.start("lzg build", {})
+        assert signal.getsignal(signal.SIGWINCH) == b._on_sigwinch
+
+        a.done("lzg build", {})  # out of order: A stops while B is active
+        assert signal.getsignal(signal.SIGWINCH) == b._on_sigwinch, (
+            "A must not clobber B's still-active handler"
+        )
+
+        b.done("lzg build", {})  # restores to what was active when B started
+        assert signal.getsignal(signal.SIGWINCH) == a._on_sigwinch
+    finally:
+        signal.signal(signal.SIGWINCH, original)
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGWINCH"), reason="platform has no SIGWINCH")
+def test_sigwinch_resize_changes_geometry_only_not_colour_or_unicode(monkeypatch):
+    """Minor finding (fix round 1): a resize must change width/height only.
+    Simulates a redetection that would ALSO report a different colour
+    depth and unicode support (as if the environment had changed too), and
+    proves that divergence never leaks into the live Capabilities."""
+    caps = _plain_caps(width=60, real_width=60, height=24, colours=8, unicode=True)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {"SOURCE": "x"})
+
+    redetected = dataclasses.replace(
+        caps, width=90, real_width=90, height=30, colours=0, unicode=False
+    )
+    monkeypatch.setattr("LZGraphs._term._rich.detect", lambda stream=None, env=None: redetected)
+
+    r._on_sigwinch(signal.SIGWINCH, None)
+
+    assert r._caps.width == 90
+    assert r._caps.real_width == 90
+    assert r._caps.height == 30
+    assert r._caps.colours == 8, "colour depth must be carried forward, not re-detected"
+    assert r._caps.unicode is True, "unicode support must be carried forward, not re-detected"
     r.done("lzg build", {})
 
 
