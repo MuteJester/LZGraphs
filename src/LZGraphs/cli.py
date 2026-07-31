@@ -6,6 +6,7 @@ Usage: lzg <command> [options] [files...]
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
@@ -32,10 +33,25 @@ _LOG_PRIORITIES = {
 
 
 def _effective_log_level(args, default='info'):
+    """The log level actually in effect, before an explicit ``--ui`` choice.
+
+    An explicit ``--log-level`` always wins (preserving the existing
+    ``-q --log-level info`` precedent: see
+    ``tests/test_cli.py::test_build_quiet_overridden_by_explicit_log_level``,
+    which depends on an explicit level overriding ``-q``). Absent that,
+    either ``-q/--quiet`` or ``--ui quiet`` defaults this to ``'none'``:
+    ``--ui quiet`` is a global flag available to every command, and
+    "nothing but errors" (its own documented contract; see
+    ``_resolve_build_ui``'s precedence note and
+    ``tests/test_cli_ui_integration.py``) has to reach the C library's own
+    ``set_log_level``-driven logging too, not just ``cmd_build``'s own
+    facts, or a bare ``--ui quiet`` (no ``-q``) would still leak
+    ``[LZGraph/INFO] ...`` lines straight to stderr.
+    """
     level = getattr(args, 'log_level', None)
     if level:
         return level
-    if getattr(args, 'quiet', False):
+    if getattr(args, 'quiet', False) or getattr(args, 'ui', None) == 'quiet':
         return 'none'
     return default
 
@@ -74,7 +90,7 @@ _VARIANT_ALPHABET = {
 }
 
 
-def _warn_alphabet_mismatch(args, alphabet):
+def _warn_alphabet_mismatch(args, alphabet, term):
     """Warn, never raise, when ``alphabet`` looks wrong for ``args.variant``.
 
     ``InputSpec.alphabet`` (``detect_format``'s content-based classification
@@ -90,18 +106,168 @@ def _warn_alphabet_mismatch(args, alphabet):
     a user who knows better is never stopped. Respects ``--quiet``/
     ``--log-level`` via ``_cli_log_enabled``, the same gate every other
     build-time message in this module already goes through.
+
+    Reports through ``term`` (a ``LZGraphs._term.Ui``, see ``cmd_build``)
+    rather than a bare ``_stderr`` call so this message is rendered by
+    whichever mode ``cmd_build`` resolved (rich panel, plain scrolling line,
+    or nothing at all under ``quiet``). The message text itself keeps the
+    exact ``alphabet=... variant=... expected=...`` tokens the original bare
+    ``_stderr`` line used, since ``tests/test_cli_alphabet_warning.py`` reads
+    them back out of plain-mode stderr verbatim.
     """
     expected = _VARIANT_ALPHABET.get(args.variant)
     if expected is None or alphabet in (expected, "ambiguous"):
         return
     if not _cli_log_enabled(args, 'warn'):
         return
-    _stderr(
-        f"[build] phase=read status=warn alphabet={alphabet} "
-        f"variant={args.variant} expected={expected}: "
+    term.warn(
+        f"alphabet={alphabet} variant={args.variant} expected={expected}: "
         f"input looks like {alphabet} sequence data, but the "
         f"'{args.variant}' engine expects {expected}"
     )
+
+
+# ── The `_term` rendering layer, wired into `cmd_build` only ────
+#
+# Precedence between `--ui`, `-q/--quiet`, `--log-level`, and `NO_COLOR`
+# (also documented in the Task 6 report):
+#
+# 1. `-q/--quiet` forces the resolved mode to "quiet" (a `NullRenderer`),
+#    regardless of whatever `--ui` also asked for. Quiet is the narrower,
+#    stronger request ("suppress everything but errors"), so it wins over a
+#    rendering *style* choice; this is also what keeps `-q` behaving exactly
+#    as it does today for anyone who already uses it.
+# 2. Otherwise, `--ui` is passed straight to `LZGraphs._term.ui`, which
+#    resolves "auto"/None via environment auto-detection (TTY, CI,
+#    TERM=dumb, ...) and honours an explicit "rich"/"plain"/"quiet"
+#    request, except that an explicit "rich" downgrades to "plain" on a
+#    stream that cannot support cursor control (see `_caps.resolve_mode`).
+# 3. `--log-level` (composed with `-q` exactly as before, via
+#    `_effective_log_level`) is completely orthogonal to *which* renderer
+#    was chosen: it decides which of `cmd_build`'s own facts are reported
+#    at all (the info-level phase lines only fire at 'info' or more
+#    verbose; the alphabet/dropped-count warnings only fire at 'warn' or
+#    more verbose), exactly as it gated the old bare `_stderr` calls. A
+#    `--ui rich --log-level error` build legitimately renders nothing, the
+#    same way `--ui plain --log-level error` does today.
+# 4. `NO_COLOR` (env, any value) and `--no-color` (flag) only ever affect
+#    colour depth inside whichever renderer was chosen; neither affects
+#    mode selection. `--no-color` is implemented by merging `NO_COLOR=1`
+#    into the environment mapping handed to `ui()`, since `_caps.detect`
+#    remains the only function in the whole `_term` layer allowed to
+#    interpret the environment.
+
+
+def _resolve_build_ui(args):
+    """Resolve the ``Ui`` renderer ``cmd_build`` reports through.
+
+    Defensive ``getattr`` throughout: many existing tests
+    (``test_cli_alphabet_warning.py``, ``test_cli_build_matrix.py``,
+    ``test_cli_fast_path_parity.py``, ...) construct a bare
+    ``argparse.Namespace`` by hand with only the attributes ``cmd_build``
+    read *before* this layer existed, so ``args.ui``/``args.no_color`` may
+    simply not exist; both then behave exactly as if the flag had not been
+    passed (auto-detected mode, colour left to whatever the stream/env
+    would otherwise decide).
+    """
+    from ._term import ui as _make_ui
+
+    requested = getattr(args, 'ui', None)
+    if getattr(args, 'quiet', False):
+        requested = 'quiet'  # rule 1 above: quiet always wins.
+
+    env = dict(os.environ)
+    if getattr(args, 'no_color', False):
+        env['NO_COLOR'] = '1'  # rule 4 above.
+
+    return _make_ui(requested=requested, env=env)
+
+
+# Fields the C library's own periodic streaming-ingest log lines carry (see
+# lib/graph_core/graph_build_ingest.c's LZG_INFO calls); `pct=` is what makes
+# translating them into a real `term.progress("ingest", ...)` update possible
+# instead of just dropping them outright.
+_C_LOG_PCT_RE = re.compile(r'\bpct=([0-9.]+)')
+_C_LOG_SEQUENCES_RE = re.compile(r'\bsequences=(\d+)')
+_C_LOG_ETA_RE = re.compile(r'\beta=(\S+)')
+
+
+def _bridge_c_log_to_ui(term):
+    """Build a ``set_log_callback`` callback that feeds the C library's
+    streaming-ingest progress into ``term.progress(...)`` instead of letting
+    it print raw ``[LZGraph/INFO] ...`` text straight to stderr.
+
+    Used only for the rich renderer (see ``cmd_build``): a live, cursor-
+    controlled redraw and a second system independently writing raw lines to
+    the same stderr interleave into garbage, so this callback becomes the
+    *only* writer for the C library's messages while a rich session is
+    open, and it never writes raw text itself. Every message either carries
+    a ``pct=`` field (the periodic ``phase=ingest``/``phase=ingest_progress``
+    lines the streaming builder emits; see
+    ``lib/graph_core/graph_build_ingest_internal.h``'s
+    ``LZG_STREAM_PROGRESS_EVERY``/``LZG_STREAM_PROGRESS_MIN_SEC``), which is
+    translated into a real ``term.progress("ingest", fraction, detail)``
+    call so the fast streaming path still shows live progress in rich mode,
+    or it does not (the one-shot "building graph"/"graph ready"/"stream
+    build: start|done phase=finalize" lines), in which case it is silently
+    dropped: those facts are already reported by ``cmd_build`` itself via
+    ``term.update()``, so nothing is lost by not also forwarding the raw C
+    text for them.
+
+    In plain mode ``cmd_build`` uses ``set_log_level`` instead of this
+    bridge, so these same lines print exactly as they do today (see the
+    module-level precedence note above and the Task 6 report's "C LOG
+    LINES" decision).
+    """
+
+    def _callback(level, message):
+        if 'pct=' not in message:
+            return
+        pct_match = _C_LOG_PCT_RE.search(message)
+        if not pct_match:
+            return
+        try:
+            fraction = float(pct_match.group(1)) / 100.0
+        except ValueError:
+            return
+        fraction = max(0.0, min(1.0, fraction))
+        detail = None
+        seq_match = _C_LOG_SEQUENCES_RE.search(message)
+        eta_match = _C_LOG_ETA_RE.search(message)
+        if seq_match and eta_match:
+            detail = f"{seq_match.group(1)} seq, eta {eta_match.group(1)}"
+        elif seq_match:
+            detail = f"{seq_match.group(1)} seq"
+        term.progress('ingest', fraction, detail)
+
+    return _callback
+
+
+def _route_c_log(term, active_log_level):
+    """Point the C library's own logging at either raw stderr (unchanged,
+    plain/quiet) or the rich-mode bridge (see ``_bridge_c_log_to_ui``).
+    """
+    from . import set_log_callback, set_log_level
+    from ._term import RichRenderer
+
+    if isinstance(term, RichRenderer):
+        set_log_callback(_bridge_c_log_to_ui(term), active_log_level)
+    else:
+        set_log_level(active_log_level)
+
+
+def _format_provenance(args, spec):
+    """The ``format`` field shown in ``cmd_build``'s opening ``ui.start()``.
+
+    ``spec`` is the ``InputSpec`` ``plan_streaming_read`` already resolved
+    (``None`` for stdin or genuinely undetectable content), so this never
+    triggers a second detection pass; see ``cmd_build``.
+    """
+    if spec is None:
+        return 'stdin' if args.input == '-' else 'unknown'
+    if spec.compression and spec.compression != 'none':
+        return f"{spec.format} ({spec.compression})"
+    return spec.format
 
 
 def _add_output_arg(p, required=False):
@@ -198,130 +364,183 @@ def cmd_validate_input(args):
 
 
 def cmd_build(args):
-    from . import LZGraph, set_log_level
+    """Build a graph, reporting through the ``_term`` rendering layer.
+
+    Every fact the old bare-``_stderr`` implementation printed still gets
+    reported, just through ``term`` (a ``LZGraphs._term.Ui``: ``NullRenderer``
+    under quiet, ``PlainRenderer`` off a TTY/CI, ``RichRenderer`` on one)
+    instead of a literal ``print(..., file=sys.stderr)``. The gating is
+    unchanged too: ``show_info``/``show_warn`` mirror exactly the
+    ``_cli_log_enabled(args, 'info'/'warn')`` checks the old code ran before
+    every individual ``_stderr`` call, so ``--log-level``/``-q`` still
+    control which facts appear at all, orthogonally to which renderer they
+    appear through (see the precedence note above ``_resolve_build_ui``).
+    The two fatal-error paths (``validate_input`` rejecting the file,
+    reading zero usable records) call ``term.error(...)`` unconditionally,
+    never gated by ``show_info``/``show_warn``: an error is not "chatter", it
+    is exactly what ``-q/--quiet`` (via ``NullRenderer``) is documented to
+    still let through, and it always also reaches the user a second way
+    regardless of ``term``, via the exception itself propagating to
+    ``main()``'s own unconditional ``Error: ...`` printer.
+    """
+    from . import LZGraph
     from ._io import empty_read_error, plan_streaming_read, read_sequences, validate_input
+    from ._term._widgets import bytes_human, counter
 
     active_log_level = _effective_log_level(args, default='info')
-    set_log_level(active_log_level)
+    show_info = _cli_log_enabled(args, 'info')
+    show_warn = _cli_log_enabled(args, 'warn')
 
-    # The raw-streaming fast path (LZGraph.from_file) reads bytes straight
-    # off disk with no decompression and none of read_sequences' per-line
-    # normalisation (no utf-8-sig BOM stripping, no universal-newline
-    # translation, no malformed-record filtering), so it is only safe for
-    # genuinely uncompressed plain/plain_seqcount content whose sniffed
-    # prefix is already clean. plan_streaming_read is the single
-    # implementation of that decision, shared with LZGraph.from_file and
-    # FlashBackGraph.from_file (see its docstring in _io/_public.py for the
-    # full rationale, including why --expect-format is a coercion here
-    # rather than an assertion, and why only the bounded sniff prefix is
-    # checked rather than the whole file). seq_column is passed here too
-    # (not just variant) so that, for tabular input, the alphabet this
-    # resolves (see input_alphabet below) reflects the actual column
-    # read_sequences will use, including an explicit --seq-column override;
-    # it does not change the streaming decision itself, since only
-    # plain/plain_seqcount (no columns at all) can ever stream.
-    can_stream_plain, spec = plan_streaming_read(
-        args.input, variant=args.variant, seq_column=args.seq_column,
-        expect_format=args.expect_format,
-    )
-    input_alphabet = spec.alphabet if spec is not None else None
+    term = _resolve_build_ui(args)
+    _route_c_log(term, active_log_level)
 
-    if can_stream_plain and (args.strict_input or args.expect_format is not None):
-        if _cli_log_enabled(args, 'info'):
-            _stderr(f"[build] phase=validate-input status=start input={args.input}")
-        t_validate = time.time()
-        report = validate_input(
-            args.input,
-            variant=args.variant,
+    try:
+        # The raw-streaming fast path (LZGraph.from_file) reads bytes straight
+        # off disk with no decompression and none of read_sequences' per-line
+        # normalisation (no utf-8-sig BOM stripping, no universal-newline
+        # translation, no malformed-record filtering), so it is only safe for
+        # genuinely uncompressed plain/plain_seqcount content whose sniffed
+        # prefix is already clean. plan_streaming_read is the single
+        # implementation of that decision, shared with LZGraph.from_file and
+        # FlashBackGraph.from_file (see its docstring in _io/_public.py for the
+        # full rationale, including why --expect-format is a coercion here
+        # rather than an assertion, and why only the bounded sniff prefix is
+        # checked rather than the whole file). seq_column is passed here too
+        # (not just variant) so that, for tabular input, the alphabet this
+        # resolves (see input_alphabet below) reflects the actual column
+        # read_sequences will use, including an explicit --seq-column override;
+        # it does not change the streaming decision itself, since only
+        # plain/plain_seqcount (no columns at all) can ever stream.
+        can_stream_plain, spec = plan_streaming_read(
+            args.input, variant=args.variant, seq_column=args.seq_column,
+            expect_format=args.expect_format,
+        )
+        input_alphabet = spec.alphabet if spec is not None else None
+
+        if show_info:
+            term.start('lzg build', fields={
+                'source': args.input,
+                'format': _format_provenance(args, spec),
+                'engine': args.variant,
+            })
+
+        if can_stream_plain and (args.strict_input or args.expect_format is not None):
+            if show_info:
+                term.update(phase='validate-input', status='start', input=args.input)
+            t_validate = time.time()
+            report = validate_input(
+                args.input,
+                variant=args.variant,
+                strict_input=args.strict_input,
+                expect_format=args.expect_format,
+            )
+            if show_info:
+                term.update(
+                    phase='validate-input',
+                    status='ok' if report['ok'] else 'error',
+                    kind=report['detected_kind'], mode=report['mode'],
+                    records=report['records'], errors=report['error_count'],
+                    warnings=report['warning_count'],
+                    elapsed=f"{time.time()-t_validate:.2f}s",
+                )
+            if not report['ok']:
+                term.error('lzg build', [report['summary']])
+                raise ValueError(report['summary'])
+
+        if can_stream_plain:
+            t1 = time.time()
+            g = LZGraph.from_file(
+                args.input,
+                variant=args.variant,
+                smoothing=args.smoothing,
+            )
+            if show_info:
+                term.update(phase='construct', mode='stream', variant=args.variant,
+                            nodes=g.n_nodes, edges=g.n_edges,
+                            elapsed=f"{time.time()-t1:.2f}s")
+            if input_alphabet is not None:
+                _warn_alphabet_mismatch(args, input_alphabet, term)
+            if show_info:
+                term.update(phase='save', status='start', output=args.output)
+            t2 = time.time()
+            g.save(args.output)
+            sz = os.path.getsize(args.output)
+            if show_info:
+                term.update(phase='save', status='done', output=args.output,
+                            size_kb=f"{sz/1024:.1f}", elapsed=f"{time.time()-t2:.2f}s")
+                term.done('lzg build', rows={
+                    'output': args.output,
+                    'nodes': counter(g.n_nodes),
+                    'edges': counter(g.n_edges),
+                    'size': bytes_human(sz),
+                })
+            return
+
+        t0 = time.time()
+        data = read_sequences(
+            args.input, seq_column=args.seq_column,
+            v_column=args.v_column, j_column=args.j_column,
+            abundance_column=args.abundance_column,
+            variant=args.variant, no_genes=args.no_genes,
             strict_input=args.strict_input,
             expect_format=args.expect_format,
         )
-        if _cli_log_enabled(args, 'info'):
-            _stderr(
-                f"[build] phase=validate-input status={'ok' if report['ok'] else 'error'} "
-                f"kind={report['detected_kind']} mode={report['mode']} "
-                f"records={report['records']} errors={report['error_count']} "
-                f"warnings={report['warning_count']} elapsed={time.time()-t_validate:.2f}s"
-            )
-        if not report['ok']:
-            raise ValueError(report['summary'])
+        n = len(data['sequences'])
+        stats = data['stats']
+        has_genes = data['v_genes'] is not None and data['j_genes'] is not None
+        if show_info:
+            fields = {'phase': 'read', 'sequences': n}
+            if has_genes:
+                fields['v_genes'] = len(set(data['v_genes']))
+                fields['j_genes'] = len(set(data['j_genes']))
+            fields['total'] = stats.total
+            fields['malformed'] = stats.malformed
+            fields['nonproductive'] = stats.nonproductive
+            fields['elapsed'] = f"{time.time()-t0:.2f}s"
+            term.update(**fields)
+        dropped = stats.malformed + stats.nonproductive
+        if dropped and show_warn:
+            term.warn(f"phase=read dropped={dropped} malformed={stats.malformed} "
+                      f"nonproductive={stats.nonproductive}")
+        if n == 0:
+            error = empty_read_error(args.input, stats)
+            term.error('lzg build', [str(error)])
+            raise error
+        if input_alphabet is not None:
+            _warn_alphabet_mismatch(args, input_alphabet, term)
 
-    if can_stream_plain:
         t1 = time.time()
-        g = LZGraph.from_file(
-            args.input,
+        g = LZGraph(
+            data['sequences'],
             variant=args.variant,
+            abundances=data['abundances'],
+            v_genes=data['v_genes'],
+            j_genes=data['j_genes'],
             smoothing=args.smoothing,
         )
-        if _cli_log_enabled(args, 'info'):
-            _stderr(f"[build] phase=construct mode=stream variant={args.variant} "
-                    f"nodes={g.n_nodes} edges={g.n_edges} elapsed={time.time()-t1:.2f}s")
-        if input_alphabet is not None:
-            _warn_alphabet_mismatch(args, input_alphabet)
-        if _cli_log_enabled(args, 'info'):
-            _stderr(f"[build] phase=save status=start output={args.output}")
+        if show_info:
+            term.update(phase='construct', mode='in_memory', variant=args.variant,
+                        nodes=g.n_nodes, edges=g.n_edges,
+                        elapsed=f"{time.time()-t1:.2f}s")
+
+        if show_info:
+            term.update(phase='save', status='start', output=args.output)
         t2 = time.time()
         g.save(args.output)
         sz = os.path.getsize(args.output)
-        if _cli_log_enabled(args, 'info'):
-            _stderr(f"[build] phase=save status=done output={args.output} "
-                    f"size_kb={sz/1024:.1f} elapsed={time.time()-t2:.2f}s")
+        if show_info:
+            term.update(phase='save', status='done', output=args.output,
+                        size_kb=f"{sz/1024:.1f}", elapsed=f"{time.time()-t2:.2f}s")
+            term.done('lzg build', rows={
+                'output': args.output,
+                'nodes': counter(g.n_nodes),
+                'edges': counter(g.n_edges),
+                'kept': f"{counter(n)} of {counter(stats.total)}",
+                'size': bytes_human(sz),
+            })
+    finally:
+        from . import set_log_level
         set_log_level('none')
-        return
-
-    t0 = time.time()
-    data = read_sequences(
-        args.input, seq_column=args.seq_column,
-        v_column=args.v_column, j_column=args.j_column,
-        abundance_column=args.abundance_column,
-        variant=args.variant, no_genes=args.no_genes,
-        strict_input=args.strict_input,
-        expect_format=args.expect_format,
-    )
-    n = len(data['sequences'])
-    stats = data['stats']
-    has_genes = data['v_genes'] is not None and data['j_genes'] is not None
-    if _cli_log_enabled(args, 'info'):
-        gene_info = ""
-        if has_genes:
-            nv = len(set(data['v_genes']))
-            nj = len(set(data['j_genes']))
-            gene_info = f" ({nv} V genes, {nj} J genes)"
-        _stderr(f"[build] phase=read sequences={n}{gene_info} total={stats.total} "
-                f"malformed={stats.malformed} nonproductive={stats.nonproductive} "
-                f"elapsed={time.time()-t0:.2f}s")
-    dropped = stats.malformed + stats.nonproductive
-    if dropped and _cli_log_enabled(args, 'warn'):
-        _stderr(f"[build] phase=read status=warn dropped={dropped} "
-                f"malformed={stats.malformed} nonproductive={stats.nonproductive}")
-    if n == 0:
-        raise empty_read_error(args.input, stats)
-    if input_alphabet is not None:
-        _warn_alphabet_mismatch(args, input_alphabet)
-
-    t1 = time.time()
-    g = LZGraph(
-        data['sequences'],
-        variant=args.variant,
-        abundances=data['abundances'],
-        v_genes=data['v_genes'],
-        j_genes=data['j_genes'],
-        smoothing=args.smoothing,
-    )
-    if _cli_log_enabled(args, 'info'):
-        _stderr(f"[build] phase=construct mode=in_memory variant={args.variant} "
-                f"nodes={g.n_nodes} edges={g.n_edges} elapsed={time.time()-t1:.2f}s")
-
-    if _cli_log_enabled(args, 'info'):
-        _stderr(f"[build] phase=save status=start output={args.output}")
-    t2 = time.time()
-    g.save(args.output)
-    sz = os.path.getsize(args.output)
-    if _cli_log_enabled(args, 'info'):
-        _stderr(f"[build] phase=save status=done output={args.output} "
-                f"size_kb={sz/1024:.1f} elapsed={time.time()-t2:.2f}s")
-
-    set_log_level('none')
 
 
 def cmd_info(args):
@@ -916,6 +1135,9 @@ def build_parser():
     p.add_argument('--log-level', choices=['none', 'error', 'warn', 'info', 'debug', 'trace'],
                    default=None,
                    help="logging verbosity [default: info unless --quiet]")
+    p.add_argument('--ui', choices=['auto', 'rich', 'plain', 'quiet'], default=None,
+                   help="rendering mode [default: auto-detect; -q/--quiet always wins]")
+    p.add_argument('--no-color', action='store_true', help='disable coloured output')
 
     sub = p.add_subparsers(dest='command', title='commands')
 
