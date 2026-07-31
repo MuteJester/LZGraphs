@@ -7,31 +7,44 @@ where it goes. ``_caps`` remains the only place that reads ``os.environ`` or
 calls ``isatty``; this module only ever asks a :class:`~LZGraphs._term._caps.
 Capabilities` instance what it is allowed to do.
 
-Two families of function live here, and they are gated differently:
+One uniform rule governs every function here: **a function that accepts
+``caps`` gates on it and can never leak an escape sequence at
+``caps.colours == 0``; a function that does not accept ``caps`` is a raw
+primitive and always emits.** Concretely:
 
-* ``fg``, ``bold``, ``dim`` take a ``caps`` argument and gate on
-  ``caps.colours``. At ``caps.colours == 0`` ``bold``/``dim`` return their
-  text argument unchanged, and ``fg`` returns the empty string, so
-  ``fg(name, caps) + text`` collapses to plain ``text`` on its own. A caller
-  never has to write ``if caps.colours: ...`` before calling any of the
-  three.
-* ``sgr``, ``reset``, ``cursor_up``, ``clear_line``, ``hide_cursor``,
-  ``show_cursor`` take no ``caps`` argument at all, by design, and therefore
-  always emit their raw sequence. They are primitives, not policy: cursor
-  movement is only ever produced by the rich renderer (Task 5), which by
-  construction only runs when ``caps.supports_cursor_control`` is true, so
-  there is nothing to gate. ``reset()`` is meant to close a span opened by a
-  non-empty ``fg()`` (or to sit inside ``bold``/``dim``, which already decide
-  internally whether to call it); it does not know the render depth itself,
-  so composing bare ``fg(name, caps) + text + reset()`` at ``caps.colours ==
-  0`` would still append a real ``\\x1b[0m`` even though the coloured prefix
-  was empty. That asymmetry is deliberate given the signatures this task
-  specifies (``reset()`` takes no ``caps``), but it means the widget layer
-  that composes ``fg()`` with raw text must only call ``reset()`` after a
-  prefix it already knows is non-empty (exactly the discipline ``bold``/
-  ``dim`` already encode internally) rather than pairing it with ``fg()``
-  unconditionally. Flagging this explicitly here so Task 3 does not have to
-  rediscover it.
+* ``colour``, ``fg``, ``bold``, ``dim``, ``reset`` all take ``caps`` and all
+  gate on ``caps.colours``. At ``caps.colours == 0``: ``colour``/``bold``/
+  ``dim`` return their text argument unchanged, and ``fg``/``reset`` return
+  the empty string. A caller never has to write ``if caps.colours: ...``
+  before calling any of the five, and no composition of them can leak an
+  escape code when colour is disabled.
+* ``sgr``, ``cursor_up``, ``clear_line``, ``hide_cursor``, ``show_cursor``
+  take no ``caps`` argument and always emit their raw sequence. This is safe
+  for two different reasons, not one, so read carefully:
+
+  - ``sgr`` is the assembly-level primitive every gated function above is
+    built from; it is only ever called internally, after the caller has
+    already decided (via ``caps``) that emitting is correct. It is not part
+    of the public colour API; prefer ``colour``/``bold``/``dim``/``fg``.
+  - The cursor-movement quartet answers a different question entirely
+    (can this stream interpret cursor motion at all?), governed by
+    ``caps.supports_cursor_control``, not ``caps.colours``. They are only
+    ever invoked by the rich renderer (Task 5), which by construction only
+    runs when ``caps.supports_cursor_control`` is true, so the gate already
+    happened once, upstream, at mode-resolution time; individually gating
+    each call would duplicate a decision that is not theirs to make and
+    would conflate two independent capability axes (colour depth vs. cursor
+    support) if it mistakenly gated on ``caps.colours`` instead.
+
+**Prefer :func:`colour` over hand-composing ``fg`` and ``reset``.** An
+earlier revision of this module gave ``reset()`` no ``caps`` parameter,
+which meant the natural-looking ``fg(name, caps) + text + reset()``
+leaked a real ``\\x1b[0m`` at ``caps.colours == 0`` even though the coloured
+prefix was empty, exactly the kind of escape leak the plan's "stdout carries
+data" constraint forbids. ``reset`` now takes ``caps`` and gates like
+everything else in its family, so that specific composition is safe again,
+but :func:`colour` remains the recommended API: one call, nothing to
+remember, impossible to leak by construction.
 
 ## The named palette
 
@@ -182,10 +195,13 @@ def fg(name: str, caps: Capabilities) -> str:
 
     Returns the empty string at ``caps.colours == 0`` (there is nothing to
     set), a classic ANSI colour code at ``caps.colours == 8``, and a
-    ``38;5;N`` 256-colour code at ``caps.colours == 256``. This is a prefix,
-    not a wrap: pair it with text and, where a depth-appropriate close is
-    needed, :func:`reset`; see the module docstring for the composition
-    contract.
+    ``38;5;N`` 256-colour code at ``caps.colours == 256``. This is a bare
+    prefix, not a wrap: normal callers want :func:`colour`, which wraps text
+    and resets in one call with no way to leak an escape at depth 0. Use
+    ``fg`` directly only when a caller genuinely needs the raw prefix (for
+    example to splice into a larger hand-built SGR sequence); if you pair it
+    with a reset yourself, pass ``caps`` to :func:`reset` too, or the
+    composition can leak exactly as described in the module docstring.
     """
     if name not in _PALETTE_256:
         raise ValueError(f"unknown palette name {name!r}; choose one of {PALETTE_NAMES!r}")
@@ -196,22 +212,45 @@ def fg(name: str, caps: Capabilities) -> str:
     return ""
 
 
+def colour(name: str, text: str, caps: Capabilities) -> str:
+    """Wrap ``text`` in the named palette colour, resetting afterwards.
+
+    This is the API callers should reach for to colour a span of text: one
+    call, no composition invariant to remember, and it cannot leak an
+    escape sequence at ``caps.colours == 0`` because it returns ``text``
+    unchanged there. Equivalent to ``fg(name, caps) + text + reset(caps)``
+    but safe by construction rather than by caller discipline.
+    """
+    prefix = fg(name, caps)
+    if not prefix:
+        return text
+    return f"{prefix}{text}{reset(caps)}"
+
+
 def bold(s: str, caps: Capabilities) -> str:
     """Wrap ``s`` in bold, or return it unchanged at ``caps.colours == 0``."""
     if caps.colours == 0:
         return s
-    return f"{sgr(1)}{s}{sgr(0)}"
+    return f"{sgr(1)}{s}{reset(caps)}"
 
 
 def dim(s: str, caps: Capabilities) -> str:
     """Wrap ``s`` in faint/dim, or return it unchanged at ``caps.colours == 0``."""
     if caps.colours == 0:
         return s
-    return f"{sgr(2)}{s}{sgr(0)}"
+    return f"{sgr(2)}{s}{reset(caps)}"
 
 
-def reset() -> str:
-    """Raw SGR reset sequence. Always emitted; see the module docstring."""
+def reset(caps: Capabilities) -> str:
+    """Raw SGR reset sequence, or the empty string at ``caps.colours == 0``.
+
+    Takes ``caps`` specifically so that hand-composed sequences such as
+    ``fg(name, caps) + text + reset(caps)`` cannot leak an escape code when
+    colour is disabled; see the module docstring. Prefer :func:`colour`,
+    which does this for you.
+    """
+    if caps.colours == 0:
+        return ""
     return sgr(0)
 
 

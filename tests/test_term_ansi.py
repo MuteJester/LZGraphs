@@ -5,14 +5,18 @@ built directly with :func:`_caps` below, one per colour depth (0, 8, 256).
 """
 from __future__ import annotations
 
+import inspect
 import itertools
+import re
 
 import pytest
 
+from LZGraphs._term import _ansi
 from LZGraphs._term._ansi import (
     PALETTE_NAMES,
     bold,
     clear_line,
+    colour,
     cursor_up,
     dim,
     fg,
@@ -23,6 +27,9 @@ from LZGraphs._term._ansi import (
     visible_len,
 )
 from LZGraphs._term._caps import Capabilities
+
+#: Any CSI escape sequence, for the depth-0 purity property.
+_ESCAPE_RE = re.compile(r"\x1b\[")
 
 
 def _caps(colours: int) -> Capabilities:
@@ -141,11 +148,11 @@ def test_bold_empty_string_at_depth_0_is_still_empty():
     assert bold("", CAPS0) == ""
 
 
-# ── reset() / cursor movement: raw primitives, no caps ───────
+# ── reset(caps): gates like fg/bold/dim; cursor movement does not ──
 
 
-def test_reset_is_raw_sgr_zero():
-    assert reset() == "\x1b[0m"
+def test_reset_is_raw_sgr_zero_at_depth_8():
+    assert reset(CAPS8) == "\x1b[0m"
 
 
 def test_cursor_up_positive():
@@ -183,12 +190,12 @@ def test_visible_len_empty_string():
 
 
 def test_visible_len_ignores_sgr_escape():
-    coloured = fg("ok", CAPS256) + "hello" + reset()
+    coloured = fg("ok", CAPS256) + "hello" + reset(CAPS256)
     assert visible_len(coloured) == visible_len("hello") == 5
 
 
 def test_visible_len_ignores_basic_sgr_escape():
-    coloured = fg("warn", CAPS8) + "hi" + reset()
+    coloured = fg("warn", CAPS8) + "hi" + reset(CAPS8)
     assert visible_len(coloured) == 2
 
 
@@ -216,7 +223,7 @@ def test_visible_len_box_and_block_string_counts_each_as_1():
 
 
 def test_visible_len_mixed_box_chars_and_colour():
-    s = fg("accent", CAPS256) + "╭─" + reset() + dim("│", CAPS256) + "╰╯"
+    s = fg("accent", CAPS256) + "╭─" + reset(CAPS256) + dim("│", CAPS256) + "╰╯"
     assert visible_len(s) == 5
 
 
@@ -224,22 +231,22 @@ def test_visible_len_mixed_box_chars_and_colour():
 
 
 def test_visible_len_adjacent_escapes_with_nothing_between():
-    s = fg("ok", CAPS256) + bold("", CAPS256) + "x" + reset() + reset()
+    s = fg("ok", CAPS256) + bold("", CAPS256) + "x" + reset(CAPS256) + reset(CAPS256)
     assert visible_len(s) == 1
 
 
 def test_visible_len_nested_bold_inside_fg():
-    s = fg("warn", CAPS256) + bold("X", CAPS256) + reset()
+    s = fg("warn", CAPS256) + bold("X", CAPS256) + reset(CAPS256)
     assert visible_len(s) == 1
 
 
 def test_visible_len_repeated_reset_calls():
-    s = "abc" + reset() + reset() + reset()
+    s = "abc" + reset(CAPS256) + reset(CAPS256) + reset(CAPS256)
     assert visible_len(s) == 3
 
 
 def test_visible_len_all_five_colours_concatenated():
-    s = "".join(fg(name, CAPS256) + name[0] + reset() for name in PALETTE_NAMES)
+    s = "".join(fg(name, CAPS256) + name[0] + reset(CAPS256) for name in PALETTE_NAMES)
     assert visible_len(s) == len(PALETTE_NAMES)
 
 
@@ -264,9 +271,9 @@ def _build_row(label: str, caps: Capabilities) -> str:
     if not label:
         return ""
     if "fg ok" in label:
-        return fg("ok", caps) + label + reset()
+        return fg("ok", caps) + label + reset(caps)
     if "fg warn" in label:
-        return fg("warn", caps) + label + reset()
+        return fg("warn", caps) + label + reset(caps)
     if "bold" in label:
         return bold(label, caps)
     if "dim" in label:
@@ -299,7 +306,7 @@ def test_padding_property_holds_for_fully_coloured_row():
     row = (
         fg("ok", CAPS256)
         + "SOURCE"
-        + reset()
+        + reset(CAPS256)
         + "  "
         + dim("bcr_repertoire.tsv.gz", CAPS256)
     )
@@ -330,3 +337,118 @@ def test_visible_len_combining_mark_counts_per_code_point():
     decomposed = "é"
     assert len(decomposed) == 2
     assert visible_len(decomposed) == 2
+
+
+# ── Fix round 1: no gated function may leak an escape at depth 0 ────
+#
+# Coordinator finding: fg(name, caps0) + text + reset() leaked "\x1b[0m"
+# because the original reset() took no `caps` and always emitted. Fixed by
+# giving reset() a `caps` parameter that gates it like fg/bold/dim, and by
+# adding colour(name, text, caps) as the safe-by-construction primary API.
+# `sgr`, `cursor_up`, `clear_line`, `hide_cursor`, `show_cursor` are exempt
+# by design: they take no `caps` at all (a different capability axis for
+# the cursor quartet, an internal-only primitive for `sgr`), so they are
+# not part of "the public surface a widget author reaches for to colour
+# text" this section guards.
+
+
+def _iter_gated_functions():
+    """Every public ``_ansi`` function whose signature includes ``caps``.
+
+    Discovered by introspection rather than hardcoded, so a function added
+    later that accepts `caps` is automatically included in
+    ``test_purity_no_gated_function_leaks_escape_at_depth_0`` below without
+    needing its own bespoke test.
+    """
+    for attr_name in dir(_ansi):
+        if attr_name.startswith("_"):
+            continue
+        obj = getattr(_ansi, attr_name)
+        if not inspect.isfunction(obj):
+            continue
+        params = tuple(inspect.signature(obj).parameters)
+        if "caps" in params:
+            yield attr_name, obj, params
+
+
+_GATED_FUNCTIONS = list(_iter_gated_functions())
+
+
+def test_gated_functions_discovered_are_the_expected_five():
+    """Sanity check on the introspection itself. If this ever drifts, the
+    "automatic" guarantee of the guard test below would silently stop
+    covering part of the public surface."""
+    names = {name for name, _, _ in _GATED_FUNCTIONS}
+    assert names == {"fg", "colour", "bold", "dim", "reset"}
+
+
+@pytest.mark.parametrize("name", PALETTE_NAMES)
+@pytest.mark.parametrize(
+    "func_name,func,params", _GATED_FUNCTIONS, ids=[f[0] for f in _GATED_FUNCTIONS]
+)
+def test_purity_no_gated_function_leaks_escape_at_depth_0(func_name, func, params, name):
+    """(a) THE GUARD. Every function accepting `caps` must produce zero
+    escape sequences at caps.colours == 0, whatever text/name it is given.
+    Table-driven over the whole public surface (found by introspection, not
+    a hand-maintained list), so a future gated function that forgets to
+    gate is caught automatically rather than needing a new test written
+    for it specifically."""
+    kwargs = {"caps": CAPS0}
+    if "name" in params:
+        kwargs["name"] = name
+    if "text" in params:
+        kwargs["text"] = "built 1191 nodes"
+    if "s" in params:
+        kwargs["s"] = "built 1191 nodes"
+    result = func(**kwargs)
+    assert _ESCAPE_RE.search(result) is None, f"{func_name}(**{kwargs}) leaked: {result!r}"
+
+
+@pytest.mark.parametrize("name", PALETTE_NAMES)
+def test_colour_is_identity_at_depth_0(name):
+    """(b) colour(name, text, caps0) returns text exactly, unchanged."""
+    assert colour(name, "built 1191 nodes", CAPS0) == "built 1191 nodes"
+
+
+@pytest.mark.parametrize("name", PALETTE_NAMES)
+def test_colour_wraps_and_resets_at_depth_8(name):
+    """(c) colour() at non-zero depth wraps with the palette prefix and a
+    matching reset, and visible_len of the result equals the plain text
+    length (the escape codes contribute nothing to visible width)."""
+    text = "built 1191 nodes"
+    out = colour(name, text, CAPS8)
+    assert out == f"{fg(name, CAPS8)}{text}{reset(CAPS8)}"
+    assert out.endswith("\x1b[0m")
+    assert visible_len(out) == len(text)
+
+
+@pytest.mark.parametrize("name", PALETTE_NAMES)
+def test_colour_wraps_and_resets_at_depth_256(name):
+    """(c) same property at 256-colour depth."""
+    text = "built 1191 nodes"
+    out = colour(name, text, CAPS256)
+    assert out == f"{fg(name, CAPS256)}{text}{reset(CAPS256)}"
+    assert out.endswith("\x1b[0m")
+    assert visible_len(out) == len(text)
+
+
+def test_reset_is_empty_at_depth_0():
+    """(d) reset(caps0) is empty."""
+    assert reset(CAPS0) == ""
+
+
+def test_reset_is_non_empty_at_depth_8():
+    """(d) reset(caps8) is not empty."""
+    assert reset(CAPS8) != ""
+    assert reset(CAPS8) == "\x1b[0m"
+
+
+def test_fg_plus_reset_composition_no_longer_leaks_at_depth_0():
+    """(e) The exact composition the coordinator reproduced:
+    fg(name, caps0) + text + reset(caps0) used to leak "\\x1b[0m" because
+    the old reset() took no `caps`. Now that reset() is caps-aware, the
+    hand-composed form is safe again (though colour() remains preferred)."""
+    text = "built 1191 nodes"
+    composed = fg("ok", CAPS0) + text + reset(CAPS0)
+    assert composed == text
+    assert _ESCAPE_RE.search(composed) is None
