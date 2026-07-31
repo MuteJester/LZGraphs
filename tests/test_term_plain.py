@@ -33,6 +33,7 @@ import pytest
 from LZGraphs._term import Ui, _plain
 from LZGraphs._term._caps import Capabilities
 from LZGraphs._term._plain import (
+    _MAX_PROGRESS_LINES_PER_SECOND,
     _MAX_TRACKED_PROGRESS_LABELS,
     _PROGRESS_PCT_STEP,
     _PROGRESS_TIME_STEP,
@@ -572,6 +573,97 @@ def test_progress_label_state_bounded_for_many_distinct_labels():
     for i in range(5000):
         renderer.progress(f"label-{i}", 0.5)
     assert len(renderer._last_progress) <= _MAX_TRACKED_PROGRESS_LABELS
+
+
+# ── Fix round 2: the per-label LRU cap can itself be defeated by enough ──
+# distinct labels (every call evicts the entry it needs, so every call
+# looks like a fresh label and the per-label rule never engages at all).
+# An unconditional global rate backstop closes that hole.
+
+
+def test_progress_throttle_200_rotating_labels_bounded_by_global_rate(monkeypatch):
+    """Reproduces the coordinator's residual finding directly: with more
+    distinct labels (200) than _MAX_TRACKED_PROGRESS_LABELS (32), the
+    per-label cap evicts the entry every call needs, so the per-label rule
+    alone no longer bounds anything (confirmed separately, against the
+    pre-backstop module, to emit all 10,000 lines). The global backstop
+    catches this regardless: with the clock frozen (the pathological case
+    - no real time ever passes), at most _MAX_PROGRESS_LINES_PER_SECOND
+    lines can ever be written, since the sliding window can never see any
+    of them "age out".
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream)
+    monkeypatch.setattr(_plain.time, "monotonic", lambda: 1000.0)
+
+    n_labels = 200
+    n_calls = 10000
+    for i in range(n_calls):
+        renderer.progress(f"label-{i % n_labels}", 0.5)
+
+    lines = [line for line in stream.getvalue().splitlines() if line]
+    assert len(lines) == _MAX_PROGRESS_LINES_PER_SECOND
+    assert len(lines) < 1000  # bounded by the rate, nowhere near the 10,000 calls made
+
+
+def test_progress_throttle_single_label_cadence_unaffected_by_backstop_with_advancing_clock(
+    monkeypatch,
+):
+    """Test (c): the global backstop must not throttle legitimate output
+    when the clock genuinely advances, as opposed to the pathological
+    "no time ever passes" case the previous test targets. Re-runs the
+    single-label 0->1 sweep (normally 21 lines, pinned with a frozen clock
+    by test_progress_throttle_bounded_over_10000_calls) with a clock that
+    advances a little on every call instead of staying literally frozen;
+    the increment is kept small enough that the whole sweep still
+    completes well inside one second of (simulated) wall time, so the
+    per-label rule's *own* time-based branch (already covered by
+    test_progress_throttle_time_based_branch) is not what is under test
+    here - only whether the *new* global backstop introduces any
+    additional suppression once the clock is merely "not frozen". It must
+    not: 21 emissions inside well under a second is nowhere near the
+    100/sec cap.
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream)
+    clock = [1000.0]
+    monkeypatch.setattr(_plain.time, "monotonic", lambda: clock[0])
+
+    for i in range(10001):
+        clock[0] += 0.00005  # genuinely advancing, but the whole sweep
+        # still finishes in ~0.5 simulated seconds: nowhere near this
+        # label's own 1.0s per-label time step, so only the pct-based half
+        # of the per-label rule is exercised, exactly as in the frozen-
+        # clock version this test's expected count is compared against.
+        renderer.progress("ingest", i / 10000)
+
+    lines = [line for line in stream.getvalue().splitlines() if line]
+    expected = 100 // _PROGRESS_PCT_STEP + 1
+    assert len(lines) == expected
+
+
+def test_progress_throttle_many_labels_paced_over_real_time_all_get_through(monkeypatch):
+    """Test (c), the more targeted version: many distinct labels (more than
+    both the per-label LRU cap and the global rate cap) reporting exactly
+    once each, but paced so that no more than a small fraction of the
+    global rate is used in any real 1-second window. None of these should
+    be denied: the backstop targets *rate*, not label cardinality by
+    itself, so a genuinely-paced burst of variety must pass through
+    untouched even though a comparable *instantaneous* burst (the test
+    above) is exactly what gets capped.
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream)
+    clock = [1000.0]
+    monkeypatch.setattr(_plain.time, "monotonic", lambda: clock[0])
+
+    n_labels = 150  # > _MAX_TRACKED_PROGRESS_LABELS and > the global rate
+    for i in range(n_labels):
+        clock[0] += 0.02  # ~50 calls/sec: comfortably under the 100/sec cap
+        renderer.progress(f"label-{i}", 1.0)
+
+    lines = [line for line in stream.getvalue().splitlines() if line]
+    assert len(lines) == n_labels
 
 
 def test_progress_nan_fraction_clamps_to_zero_not_hundred():

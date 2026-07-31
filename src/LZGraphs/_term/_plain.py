@@ -102,6 +102,47 @@ line for that label; this is judged an acceptable trade for a hard memory
 bound, and 32 is comfortably above the small, fixed number of phase labels
 any real command reports (a handful, e.g. ``"ingest"``, ``"save"``).
 
+**Global backstop (fix round 2).** The per-label rule above is *conditional
+on label cardinality*: with more distinct labels in flight than
+``_MAX_TRACKED_PROGRESS_LABELS``, every call can evict the very entry it
+needed, so every call looks like exception 1 ("first call for this label")
+and the per-label rule never engages at all (measured: 200 labels rotating
+through 10,000 calls with no real time elapsing emitted all 10,000 lines,
+the exact CI-log flood this whole mechanism exists to prevent). Raising the
+per-label cap only moves this threshold, it does not remove it, so a second,
+*unconditional* limit sits on top of the per-label one: regardless of
+label, and regardless of *why* a line would otherwise be emitted (a fresh
+label, a label change, a 100% completion), at most
+``_MAX_PROGRESS_LINES_PER_SECOND`` (100) progress lines are ever written in
+any trailing ``_GLOBAL_RATE_WINDOW_SECONDS`` (1.0 second) window. This is
+checked as the last step before a line that the per-label rule already
+approved is actually written, so none of the per-label exceptions (first
+call, label change, 100% completion) are exempt from it; exempting them is
+exactly how the per-label cap above gets defeated one level up, since an
+unbounded number of distinct labels is also an unbounded number of "first
+call for this label" events. 100 was chosen to sit far above every
+realistic pattern this module is tested against (a single label's own
+throttle already limits it to at most ~21 lines total and roughly 1/sec
+sustained; even three concurrently rotating phases top out at 63 lines
+total) while still being a real, finite, enforced ceiling: a pathological
+caller rotating through hundreds of distinct labels with no real elapsed
+time between calls is now bounded to at most 100 lines *per second of
+actual wall-clock time*, not unbounded. Tracked as a fixed-size
+:class:`~collections.deque` of the timestamps of the last
+``_MAX_PROGRESS_LINES_PER_SECOND`` emitted progress lines (a standard
+sliding-window-log rate limiter): a new line is allowed once fewer than
+that many are on record, or once the oldest recorded timestamp has aged out
+of the window. Only a line that is *about to be written* advances this
+window; a line already denied by the per-label rule was never a candidate
+and does not consume any of the global budget. One accepted consequence,
+symmetric with the per-label eviction trade-off above: under sustained,
+truly pathological load, a label's own 100%-completion line can itself be
+the one denied by the global backstop, since "forced" here only ever meant
+"forced past the per-label rule", never "exempt from every rule". In any
+realistic session (a handful of labels, throttled well under 100/sec on
+their own) this never triggers at all; it exists purely as the net under
+the pathological case.
+
 **NaN.** ``fraction = max(0.0, min(1.0, fraction))`` would silently produce
 ``1.0`` for a NaN input, *not* raise and *not* leave it unclamped: every
 comparison against NaN is ``False``, so ``min(1.0, nan)`` returns ``1.0``
@@ -166,7 +207,7 @@ from __future__ import annotations
 
 import sys
 import time
-from collections import OrderedDict
+from collections import OrderedDict, deque
 from typing import TYPE_CHECKING, Any, TextIO
 
 from ._ansi import colour
@@ -191,6 +232,20 @@ _PROGRESS_TIME_STEP = 1.0
 #: memory against an unbounded/high-cardinality label; see the module
 #: docstring's "Bounded state" paragraph for the one visible consequence.
 _MAX_TRACKED_PROGRESS_LABELS = 32
+
+#: Unconditional global cap: at most this many progress() lines are ever
+#: written in any trailing _GLOBAL_RATE_WINDOW_SECONDS window, regardless
+#: of label and regardless of which per-label exception would otherwise
+#: force a line through. See the module docstring's "Global backstop"
+#: paragraph for why the per-label cap alone is not enough on its own.
+_MAX_PROGRESS_LINES_PER_SECOND = 100
+
+#: The window _MAX_PROGRESS_LINES_PER_SECOND is measured over. A separate
+#: constant from _PROGRESS_TIME_STEP on purpose, even though both happen to
+#: be 1.0 today: one paces a single label, the other is a hard safety net
+#: over all labels combined, and they should be free to diverge later
+#: without silently changing each other.
+_GLOBAL_RATE_WINDOW_SECONDS = 1.0
 
 #: Stripped from the front of a title before bracketing it into a tag, so
 #: "lzg build" -> "[build]" matches the tag cli.py already emits for that
@@ -267,6 +322,24 @@ class PlainRenderer:
         # A label with no entry yet (never seen, or evicted) is treated as
         # its first-ever progress() call.
         self._last_progress: OrderedDict[str, tuple[int, float]] = OrderedDict()
+        # Timestamps of the last _MAX_PROGRESS_LINES_PER_SECOND *emitted*
+        # progress lines, oldest first, regardless of label: the global
+        # backstop's sliding window. A fixed maxlen deque so it never grows
+        # past the cap on its own.
+        self._global_progress_times: deque[float] = deque(maxlen=_MAX_PROGRESS_LINES_PER_SECOND)
+
+    def _global_rate_allows(self, now: float) -> bool:
+        """True if one more progress line may be written right now.
+
+        See the module docstring's "Global backstop" paragraph. A standard
+        sliding-window-log check: allowed while fewer than the cap have
+        been recorded, or once the oldest of the last-cap timestamps has
+        aged out of the window.
+        """
+        times = self._global_progress_times
+        if len(times) < _MAX_PROGRESS_LINES_PER_SECOND:
+            return True
+        return (now - times[0]) >= _GLOBAL_RATE_WINDOW_SECONDS
 
     def _write(self, line: str) -> None:
         """Write one line, degrading gracefully if it cannot be encoded.
@@ -318,6 +391,7 @@ class PlainRenderer:
         self._tag = _tag_for(title)
         self._t0 = time.monotonic()
         self._last_progress = OrderedDict()
+        self._global_progress_times = deque(maxlen=_MAX_PROGRESS_LINES_PER_SECOND)
         self._emit("start", fields)
 
     def progress(self, label: str, fraction: float, detail: str | None = None) -> None:
@@ -342,8 +416,19 @@ class PlainRenderer:
                 and time_delta < _PROGRESS_TIME_STEP
                 and not reached_completion
             ):
-                return
+                return  # per-label throttle: nothing new to report yet
 
+        if not self._global_rate_allows(now):
+            # The global backstop denies this line even though the
+            # per-label rule (including any of its "forced" exceptions)
+            # just approved it. Deliberately does NOT update
+            # _last_progress for this label: a denied line was never
+            # actually reported, so the next real attempt for this label
+            # should still be judged against the last line that truly went
+            # out, not against this suppressed one.
+            return
+
+        self._global_progress_times.append(now)
         self._last_progress[label] = (pct, now)
         self._last_progress.move_to_end(label)
         if len(self._last_progress) > _MAX_TRACKED_PROGRESS_LABELS:
