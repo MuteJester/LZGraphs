@@ -58,6 +58,52 @@ def _add_variant_arg(p):
                    help='Graph variant [default: aap]')
 
 
+# The alphabet each `LZGraph` variant expects (see docs/concepts/graph-types.md's
+# "Input" row: AAP = amino acids, NDP = nucleotides, Naive = "any strings").
+# `_io._sniff.py`'s `_SEQ_COLUMNS["naive"]` candidate list independently
+# confirms this: it lists both amino-acid and nucleotide column names, since
+# naive is meant to accept either. 'naive' is therefore intentionally absent
+# here and never checked. `FlashBackGraph` (`lzg flashback build`) is amino
+# acid only, but it never calls `detect_format`/`read_sequences` at all
+# (it reads plain "seq" / "seq<TAB>count" lines directly, see `_fb_build`),
+# so `InputSpec.alphabet` is never available there and it is out of scope for
+# this check.
+_VARIANT_ALPHABET = {
+    "aap": "amino_acid",
+    "ndp": "nucleotide",
+}
+
+
+def _warn_alphabet_mismatch(args, alphabet):
+    """Warn, never raise, when ``alphabet`` looks wrong for ``args.variant``.
+
+    ``InputSpec.alphabet`` (``detect_format``'s content-based classification
+    into ``'amino_acid'``, ``'nucleotide'``, or ``'ambiguous'``) used to be
+    computed on every call and read nowhere; this is its one consumer. A
+    real, confident mismatch (an ``ndp``/nucleotide build fed amino acids, or
+    an ``aap``/amino-acid build fed nucleotides) is worth flagging, since it
+    is exactly the mistake a user is unlikely to notice from the CLI alone.
+    ``alphabet == 'ambiguous'`` (too few or too-short samples to tell, or
+    content genuinely consistent with either alphabet) is deliberately never
+    enough evidence to warn: a false positive here would be noise on
+    legitimate data, and this must never block a build, only inform one, so
+    a user who knows better is never stopped. Respects ``--quiet``/
+    ``--log-level`` via ``_cli_log_enabled``, the same gate every other
+    build-time message in this module already goes through.
+    """
+    expected = _VARIANT_ALPHABET.get(args.variant)
+    if expected is None or alphabet in (expected, "ambiguous"):
+        return
+    if not _cli_log_enabled(args, 'warn'):
+        return
+    _stderr(
+        f"[build] phase=read status=warn alphabet={alphabet} "
+        f"variant={args.variant} expected={expected}: "
+        f"input looks like {alphabet} sequence data, but the "
+        f"'{args.variant}' engine expects {expected}"
+    )
+
+
 def _add_output_arg(p, required=False):
     p.add_argument('-o', '--output', default=None, required=required,
                    help='Output file [default: stdout]')
@@ -212,14 +258,25 @@ def cmd_build(args):
     # read_sequences below), and --strict-input runs validate_input over the
     # whole file before cmd_build streams anything.
     can_stream_plain = False
+    input_alphabet = None
     if args.input != '-':
         try:
+            # seq_column is passed here too (not just variant) so that, for
+            # tabular input, the alphabet this resolves (see input_alphabet
+            # below) reflects the actual column read_sequences will use,
+            # including an explicit --seq-column override, rather than
+            # whatever the variant's default candidate list would have
+            # picked. It does not change this gate's own streaming decision:
+            # only plain/plain_seqcount (no columns at all) can ever stream,
+            # so seq_column is inert for that decision either way.
             spec = detect_format(
-                args.input, variant=args.variant, override=args.expect_format
+                args.input, variant=args.variant, seq_column=args.seq_column,
+                override=args.expect_format,
             )
         except FormatError:
             spec = None
         if spec is not None:
+            input_alphabet = spec.alphabet
             can_stream_plain = (
                 spec.compression == 'none'
                 and spec.format in ('plain', 'plain_seqcount')
@@ -256,6 +313,8 @@ def cmd_build(args):
         if _cli_log_enabled(args, 'info'):
             _stderr(f"[build] phase=construct mode=stream variant={args.variant} "
                     f"nodes={g.n_nodes} edges={g.n_edges} elapsed={time.time()-t1:.2f}s")
+        if input_alphabet is not None:
+            _warn_alphabet_mismatch(args, input_alphabet)
         if _cli_log_enabled(args, 'info'):
             _stderr(f"[build] phase=save status=start output={args.output}")
         t2 = time.time()
@@ -298,6 +357,8 @@ def cmd_build(args):
             f"(malformed={stats.malformed}, nonproductive={stats.nonproductive}); "
             "nothing left to build a graph from"
         )
+    if input_alphabet is not None:
+        _warn_alphabet_mismatch(args, input_alphabet)
 
     t1 = time.time()
     g = LZGraph(

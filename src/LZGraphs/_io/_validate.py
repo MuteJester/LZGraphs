@@ -6,27 +6,29 @@ routinely disagreed with the sniffing pipeline that ``read_sequences``/
 reported as ``plain`` with the ``>`` header lines counted as records. This
 module reimplements the same report contract on top of ``detect_format`` and
 the shared readers (``iter_fasta``, ``iter_fastq``, ``iter_tabular_rows``,
-``_is_wellformed``, ``_first_line_kind``, ``_resolve_column_override``,
-``_materialize_stdin``) so a validated file is described exactly the way it
-would be read.
+``_is_wellformed``, ``_materialize_stdin``) so a validated file is described
+exactly the way it would be read.
+
+``_PRODUCTIVE_TRUE``, ``_apply_column_overrides``, and the sniff-with-fallback
+step of ``_validate_real_path`` are shared with ``_public.py`` (imported from
+there, not redefined here) so build and validate cannot drift apart on what
+counts as a productive row, how a column override resolves, or how a file
+that ``detect_format`` cannot classify falls back to a best-effort guess.
 """
 from __future__ import annotations
 
 import os
-from dataclasses import replace
 
 from ._compress import open_text
 from ._public import (
-    _first_line_kind,
+    _PRODUCTIVE_TRUE,
+    _apply_column_overrides,
     _is_wellformed,
     _materialize_stdin,
-    _resolve_column_override,
+    _sniff_with_fallback,
 )
 from ._readers import _is_count, iter_fasta, iter_fastq, iter_tabular_rows
-from ._sniff import detect_format
 from ._spec import PLAIN_FAMILY, VALID_FORMATS, FormatError, format_family
-
-_PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
 
 
 def _new_report(path, detected_kind, *, variant, strict_input, expect_format):
@@ -260,33 +262,12 @@ def _validate_reader(stream, report, *, strict_input, reader_fn, kind_label):
         _add_issue(report, "error", f"{kind_label} input contains no sequence records")
 
 
-def _apply_column_overrides(spec, v_column, j_column, abundance_column):
-    if not spec.header:
-        return spec
-    return replace(
-        spec,
-        v_column=_resolve_column_override(spec.header, v_column) or spec.v_column,
-        j_column=_resolve_column_override(spec.header, j_column) or spec.j_column,
-        abundance_column=(
-            _resolve_column_override(spec.header, abundance_column) or spec.abundance_column
-        ),
-    )
-
-
 def _validate_real_path(path, *, seq_column, v_column, j_column, abundance_column,
                         variant, no_genes, strict_input, expect_format):
     """The actual validation, always against a real (reopenable) filesystem path."""
-    spec = None
-    sniff_error = None
-    try:
-        spec = detect_format(path, variant=variant, seq_column=seq_column)
-        detected_kind = spec.format
-    except FormatError as exc:
-        sniff_error = exc
-        try:
-            detected_kind = _first_line_kind(path)
-        except UnicodeDecodeError:
-            detected_kind = "binary"
+    spec, detected_kind, sniff_error, terminal = _sniff_with_fallback(
+        path, variant=variant, seq_column=seq_column
+    )
 
     report = _new_report(
         path, detected_kind, variant=variant,
@@ -299,7 +280,9 @@ def _validate_real_path(path, *, seq_column, v_column, j_column, abundance_colum
     # There is nothing left to read in any of these cases: for the tabular
     # one specifically, `spec` is None so there is no resolved delimiter/
     # column to read with, and retrying would just raise the same error again.
-    if detected_kind in ("empty", "binary") or (spec is None and detected_kind == "tabular"):
+    # (`terminal` is computed once, identically, by `_sniff_with_fallback`,
+    # shared with `_public.py`'s `_detect_format_for_read`.)
+    if terminal:
         _add_issue(report, "error", str(sniff_error) if sniff_error else "empty input")
         report["summary"] = _summarize(report)
         return report

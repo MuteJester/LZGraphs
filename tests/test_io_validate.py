@@ -75,6 +75,60 @@ def test_records_matches_read_sequences_count(tmp_path, fmt):
     assert report["error_count"] == 0
 
 
+# Plan 1c, Task 6: `_PRODUCTIVE_TRUE` and the column-override block used to
+# be implemented once in `_public.py` (for `read_sequences`) and again,
+# separately, in `_validate.py` (for `validate_input`). Both are now imported
+# from one place (`_public.py`) instead. These two tests pin the actual
+# agreement that duplication risked losing silently: a productive-column
+# edge case (mixed-case/whitespace truthy values, several falsy spellings)
+# and an explicit column override, both read identically by build and
+# validate against the same fixture.
+def test_build_and_validate_agree_on_productive_column_edge_cases(tmp_path):
+    path = tmp_path / "productive_edge_cases.tsv"
+    path.write_text(
+        "junction_aa\tduplicate_count\tproductive\n"
+        "CASSLGQAYEQYF\t3\tTrue\n"      # truthy, mixed case
+        "CASSPGTGVYGYTF\t2\t 1 \n"      # truthy, whitespace + numeric
+        "CASSQGATNTGQLYF\t1\tYES\n"     # truthy, all caps
+        "CASSIRSSYEQYF\t4\tfalse\n"     # falsy
+        "CASSDRVGNTIYF\t5\t0\n"         # falsy
+        "CASSEGQGSDTQYF\t6\t\n"         # blank: not in _PRODUCTIVE_TRUE, dropped
+    )
+
+    report = validate_input(str(path))
+    result = read_sequences(str(path))
+
+    # 3 productive rows kept, 3 nonproductive dropped, by both paths.
+    assert report["records"] == 3
+    assert report["records"] == len(result["sequences"])
+    assert result["stats"].nonproductive == 3
+    assert result["sequences"] == [
+        "CASSLGQAYEQYF", "CASSPGTGVYGYTF", "CASSQGATNTGQLYF",
+    ]
+
+
+def test_build_and_validate_agree_on_column_overrides(tmp_path):
+    path = tmp_path / "override_target.tsv"
+    path.write_text(
+        "junction_aa\tv_call\tj_call\treads\talt_v\talt_j\talt_count\n"
+        "CASSLGQAYEQYF\tIGHV1-2*02\tIGHJ1*01\t9\tIGHV3-1*01\tIGHJ2*01\t42\n"
+    )
+
+    report = validate_input(
+        str(path), v_column="alt_v", j_column="alt_j", abundance_column="alt_count",
+    )
+    result = read_sequences(
+        str(path), v_column="alt_v", j_column="alt_j", abundance_column="alt_count",
+    )
+
+    assert report["v_column"] == "alt_v"
+    assert report["j_column"] == "alt_j"
+    assert report["abundance_column"] == "alt_count"
+    assert result["v_genes"] == ["IGHV3-1*01"]
+    assert result["j_genes"] == ["IGHJ2*01"]
+    assert result["abundances"] == [42]
+
+
 def test_fasta_case_reports_fasta_not_plain(tmp_path):
     """The exact regression: a 2-record FASTA must not be seen as 4 plain lines."""
     path = tmp_path / "two_records.fasta"

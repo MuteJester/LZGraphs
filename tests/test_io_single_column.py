@@ -175,6 +175,45 @@ def test_seqcount_format_unaffected_by_column_like_first_token(tmp_path):
     assert result["abundances"] == [3, 5]
 
 
+# Plan 1c, Task 5: an explicit --seq-column must be validated on the
+# lone-header reclassification branch too, not silently ignored just
+# because there is only one column to fall back to.
+def test_lone_header_explicit_seq_column_match_still_works(tmp_path):
+    path = tmp_path / "single.txt"
+    path.write_text("junction\n" + "\n".join(_DATA_ROWS) + "\n")
+
+    spec = detect_format(str(path), seq_column="junction")
+    result = read_sequences(str(path), seq_column="junction")
+
+    assert spec.format == "tabular"
+    assert spec.seq_column == "junction"
+    assert result["sequences"] == _DATA_ROWS
+
+
+def test_lone_header_typo_seq_column_raises_naming_available_column(tmp_path):
+    path = tmp_path / "single.txt"
+    path.write_text("junction\n" + "\n".join(_DATA_ROWS) + "\n")
+
+    with pytest.raises(FormatError) as excinfo:
+        read_sequences(str(path), seq_column="NO_SUCH_COL")
+
+    message = str(excinfo.value)
+    assert "NO_SUCH_COL" in message
+    assert "junction" in message
+
+
+def test_lone_header_omitted_seq_column_still_auto_detects(tmp_path):
+    path = tmp_path / "single.txt"
+    path.write_text("junction\n" + "\n".join(_DATA_ROWS) + "\n")
+
+    spec = detect_format(str(path))
+    result = read_sequences(str(path))
+
+    assert spec.format == "tabular"
+    assert spec.seq_column == "junction"
+    assert result["sequences"] == _DATA_ROWS
+
+
 def test_multi_column_tabular_files_are_unaffected(tmp_path):
     """Hazard 2: normal multi-column files must resolve exactly as before."""
     path = tmp_path / "airr.tsv"

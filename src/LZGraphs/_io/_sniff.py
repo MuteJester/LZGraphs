@@ -372,12 +372,23 @@ def detect_format(
     _check_no_duplicate_columns(path, header)
     if reclassified_lone_header:
         # The file has exactly one column, so it is unambiguously the
-        # sequence column. resolve_columns's variant-specific candidate
-        # list does not apply here (e.g. a bare "junction" header is only
-        # in the ndp/naive lists, not aap's), so bypass it rather than
-        # risk a spurious "could not identify a sequence column" error for
-        # a file that has no other column it could possibly be.
-        seq, abundance, v_col, j_col = header[0], None, None, None
+        # sequence column when seq_column is not given. resolve_columns's
+        # variant-specific candidate list does not apply to that auto-detect
+        # case (e.g. a bare "junction" header is only in the ndp/naive
+        # lists, not aap's), so bypass it rather than risk a spurious "could
+        # not identify a sequence column" error for a file that has no other
+        # column it could possibly be. An explicit seq_column, however, is
+        # still resolved through resolve_columns: its seq_column-not-None
+        # branch never consults the variant candidate list either (it only
+        # looks up the one requested name), so it is safe to reuse here, and
+        # doing so is what makes a typo'd --seq-column raise on this branch
+        # instead of being silently ignored (a lone real column always
+        # satisfies the request trivially, so this never rejects a correct
+        # explicit name).
+        if seq_column is not None:
+            seq, abundance, v_col, j_col = resolve_columns(header, seq_column, variant)
+        else:
+            seq, abundance, v_col, j_col = header[0], None, None, None
         delimiter = None
     else:
         seq, abundance, v_col, j_col = resolve_columns(header, seq_column, variant)

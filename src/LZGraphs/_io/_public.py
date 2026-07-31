@@ -242,6 +242,30 @@ def _resolve_column_override(header: tuple, requested: str | None) -> str | None
     return lowered.get(requested.strip().lower())
 
 
+def _apply_column_overrides(spec: InputSpec, v_column, j_column, abundance_column) -> InputSpec:
+    """Apply explicit v/j/abundance column overrides onto a resolved ``spec``.
+
+    Explicit v/j/abundance column overrides only apply to tabular input, and
+    only take effect when the named column actually exists in this file's
+    header; otherwise the auto-detected column (if any) stands. Shared by
+    ``read_sequences`` (via ``_read_sequences_from_path``) and
+    ``validate_input`` (via ``_validate.py``'s ``_validate_real_path``) so
+    build and validate can never resolve a different override for the same
+    file: this used to be implemented twice, once per module.
+    """
+    if spec.format != "tabular" or not spec.header:
+        return spec
+    return replace(
+        spec,
+        v_column=_resolve_column_override(spec.header, v_column) or spec.v_column,
+        j_column=_resolve_column_override(spec.header, j_column) or spec.j_column,
+        abundance_column=(
+            _resolve_column_override(spec.header, abundance_column)
+            or spec.abundance_column
+        ),
+    )
+
+
 def read_sequences(path, seq_column=None, v_column=None, j_column=None,
                    abundance_column=None, variant='aap', no_genes=False,
                    strict_input=False, expect_format=None, *,
@@ -277,6 +301,55 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
     finally:
         if tmp_path is not None:
             os.remove(tmp_path)
+
+
+def _sniff_with_fallback(path, *, variant, seq_column):
+    """Classify ``path``, falling back to the legacy first-line classifier.
+
+    Shared by ``read_sequences``'s ``_detect_format_for_read`` and
+    ``validate_input``'s ``_validate_real_path`` (see ``_validate.py``): both
+    need to attempt ``detect_format`` and, if it raises, fall back to the
+    same best-effort ``_first_line_kind`` classification before deciding
+    what to do next. That fallback dance used to be duplicated between the
+    two, byte for byte.
+
+    Returns ``(spec, detected_kind, sniff_error, terminal)``:
+
+    - ``spec`` is the resolved :class:`InputSpec`, or ``None`` when
+      ``detect_format`` raised.
+    - ``detected_kind`` is always populated: ``spec.format`` on success, or
+      the ``_first_line_kind`` classification (or ``'binary'`` if even that
+      cannot decode the file) on failure.
+    - ``sniff_error`` is the :class:`FormatError` ``detect_format`` raised,
+      or ``None`` when it succeeded.
+    - ``terminal`` is ``True`` for input neither caller can do anything more
+      with: empty, binary, or a tabular file whose sequence column could not
+      be resolved at all (``spec is None`` for a ``tabular`` classification).
+      Both callers stop identically on ``terminal``; they diverge only in
+      how they surface that (raise vs. report an issue), which is left to
+      each, along with the mismatch check and everything after, since a
+      declared-vs-detected mismatch is handled differently by each
+      (an assertion failure vs. a report entry) and only ``read_sequences``
+      ever needs a *usable* spec back (retrying with ``override=`` when the
+      sniff itself failed but the fallback classification still agreed with
+      what was declared).
+    """
+    try:
+        spec = detect_format(path, variant=variant, seq_column=seq_column)
+        detected_kind = spec.format
+        sniff_error = None
+    except FormatError as exc:
+        spec = None
+        sniff_error = exc
+        try:
+            detected_kind = _first_line_kind(path)
+        except UnicodeDecodeError:
+            detected_kind = "binary"
+
+    terminal = detected_kind in ("empty", "binary") or (
+        spec is None and detected_kind == "tabular"
+    )
+    return spec, detected_kind, sniff_error, terminal
 
 
 def _detect_format_for_read(path, *, variant, seq_column, expect_format):
@@ -319,19 +392,11 @@ def _detect_format_for_read(path, *, variant, seq_column, expect_format):
             f"got '{expect_format}'"
         )
 
-    spec = None
-    sniff_error = None
-    try:
-        spec = detect_format(path, variant=variant, seq_column=seq_column)
-        detected_kind = spec.format
-    except FormatError as exc:
-        sniff_error = exc
-        try:
-            detected_kind = _first_line_kind(path)
-        except UnicodeDecodeError:
-            detected_kind = "binary"
+    spec, detected_kind, sniff_error, terminal = _sniff_with_fallback(
+        path, variant=variant, seq_column=seq_column
+    )
 
-    if detected_kind in ("empty", "binary") or (spec is None and detected_kind == "tabular"):
+    if terminal:
         raise sniff_error if sniff_error is not None else FormatError(f"{path} is empty")
 
     if format_family(detected_kind) != format_family(expect_format):
@@ -356,19 +421,7 @@ def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
         path, variant=variant, seq_column=seq_column, expect_format=expect_format,
     )
 
-    # Explicit v/j/abundance column overrides only apply to tabular input,
-    # and only take effect when the named column actually exists in this
-    # file's header; otherwise the auto-detected column (if any) stands.
-    if spec.format == "tabular" and spec.header:
-        spec = replace(
-            spec,
-            v_column=_resolve_column_override(spec.header, v_column) or spec.v_column,
-            j_column=_resolve_column_override(spec.header, j_column) or spec.j_column,
-            abundance_column=(
-                _resolve_column_override(spec.header, abundance_column)
-                or spec.abundance_column
-            ),
-        )
+    spec = _apply_column_overrides(spec, v_column, j_column, abundance_column)
 
     # Gene data is structural, not per-row: only tabular input ever has a
     # v_column/j_column to read from. Building v_genes/j_genes as lists here
