@@ -184,6 +184,26 @@ def test_warn_error_done_do_carry_colour_above_depth_0(colours):
     assert _ESCAPE_RE.search(stream.getvalue()) is not None
 
 
+@pytest.mark.parametrize("colours", [8, 256])
+def test_start_progress_info_stay_uncoloured_above_depth_0(colours):
+    """The module docstring's own contract for :data:`_STATUS_COLOUR`:
+    ``start``/``progress``/``info`` are the high-frequency lines and must
+    stay uncoloured even when ``caps.colours`` allows it, unlike
+    ``warn``/``error``/``done`` (pinned separately above). This is the
+    other half of that same contract: the sibling test above only proves
+    colouring is not globally absent; without this test, adding an entry
+    for ``start`` or ``progress`` to ``_STATUS_COLOUR`` (both currently
+    absent from it, by design) would go uncaught, since nothing previously
+    asserted these three specific status words stay plain.
+    """
+    stream = io.StringIO()
+    r = PlainRenderer(_caps(colours), stream)
+    r.start("lzg build", {"source": "x.tsv"})
+    r.progress("ingest", 0.5)
+    r.update(nodes=1)  # status=info
+    assert _ESCAPE_RE.search(stream.getvalue()) is None
+
+
 # ── Nothing is ever written to stdout ──
 
 
@@ -249,13 +269,20 @@ def test_progress_throttle_time_based_branch(monkeypatch):
     assert len(lines) == 2
 
 
-def test_progress_throttle_label_change_forces_emit(monkeypatch):
+def test_progress_throttle_is_independent_per_label(monkeypatch):
+    """Each label gets its own first-call exception; there is no separate
+    "label changed" concept to force an emit. ``"save"``'s call here emits
+    for the same reason ``"ingest"``'s first call did -- it is the first
+    call ever seen for the *label* ``"save"`` (exception 1 in the module
+    docstring's "Progress throttling" section) -- not because a shared
+    throttle state noticed the label was different from the previous call.
+    """
     stream = io.StringIO()
     renderer = PlainRenderer(CAPS0, stream)
     monkeypatch.setattr(_plain.time, "monotonic", lambda: 0.0)
 
     renderer.progress("ingest", 0.5)
-    renderer.progress("save", 0.5)  # different label, same pct/time: emit
+    renderer.progress("save", 0.5)  # first call for this label: emits
 
     lines = [line for line in stream.getvalue().splitlines() if line]
     assert len(lines) == 2
@@ -450,6 +477,23 @@ def test_tag_without_lzg_prefix_used_as_is():
     PlainRenderer(CAPS0, stream).start("posterior", {})
     (line,) = [ln for ln in stream.getvalue().splitlines() if ln]
     assert line.startswith("[posterior]")
+
+
+def test_done_does_not_change_the_tag_established_by_start():
+    """``done()`` must not re-derive the tag from its own ``title``
+    argument: the tag is fixed once, by ``start()``, and stays stable for
+    the rest of the session (see ``done()``'s own docstring). Before this
+    fix, ``done("Done", ...)`` after ``start("lzg build", ...)`` retagged
+    that one line ``[Done]`` instead of ``[build]``, breaking "every line
+    carries the renderer's tag" and a script's ``grep '^\\[build\\]'``.
+    """
+    stream = io.StringIO()
+    r = PlainRenderer(CAPS0, stream)
+    r.start("lzg build", {})
+    r.done("Done", {"nodes": 123})  # deliberately NOT "lzg build"
+    lines = [ln for ln in stream.getvalue().splitlines() if ln]
+    for line in lines:
+        assert line.startswith("[build]"), line
 
 
 def test_progress_before_start_uses_default_tag_without_raising():

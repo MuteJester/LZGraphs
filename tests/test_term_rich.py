@@ -521,6 +521,47 @@ def test_elision_keeps_the_tail_not_the_head():
     assert "FIELD0 " not in out and "FIELD1 " not in out
 
 
+@pytest.mark.parametrize("width,height", [(60, 6), (60, 3), (40, 6)])
+def test_clamped_live_frame_never_needs_the_fit_to_terminal_safety_net(width, height):
+    """``_clamp_rows`` (keyed off ``_panel_overhead``) and
+    ``_fit_to_terminal`` (a fixed, independently-derived budget) must agree
+    on how tall a live frame is allowed to be. ``_clamp_rows`` deliberately
+    elides rows so the assembled panel already fits; ``_fit_to_terminal``
+    is only meant to be the *belt-and-suspenders* net for frames it never
+    pre-clamped (the final ``done()``/``error()`` card). If
+    ``_panel_overhead`` ever under-counts panel()'s own border overhead
+    (boxed mode is title-plus-closing-border, two lines, not one),
+    ``_clamp_rows`` keeps one row too many, ``panel()`` then emits a frame
+    exactly one line taller than the budget, and ``_fit_to_terminal``
+    silently chops the last surviving line -- ordinarily the panel's own
+    closing border -- with no elision marker of its own, corrupting the
+    frame instead of eliding it on purpose. Reproduced directly against a
+    mutated ``_panel_overhead`` that always returns 1 (even in boxed mode)
+    while writing this test: the live frame came out one line taller than
+    ``max(1, height - 1)``, and this assertion caught it.
+    """
+    caps = _plain_caps(width=width, height=height)
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    for i in range(19):  # enough rows that _clamp_rows must actually elide
+        clock[0] += 1.0
+        r.progress(f"FIELD{i}", i / 20)
+
+    frame = r._render_frame()
+    budget = max(1, height - 1)
+    assert len(frame) <= budget, (
+        f"the live frame ({len(frame)} lines) already exceeds the row "
+        f"budget ({budget}) before _fit_to_terminal's safety net even "
+        "runs; _clamp_rows and _panel_overhead have disagreed about how "
+        "much border overhead panel() adds"
+    )
+    # The safety net, applied on top, must therefore be a true no-op for
+    # this frame: nothing left for it to cut.
+    assert r._fit_to_terminal(frame) == frame
+
+
 @pytest.mark.parametrize("height", [0, 1, 2])
 def test_degenerate_heights_never_crash_and_stay_within_budget(height):
     """Some CI environments report a terminal height of 0, 1, or 2; this
@@ -614,6 +655,43 @@ def test_done_and_error_always_force_a_draw_regardless_of_throttle():
     assert r.redraw_count == 1
     r.done("lzg build", {"nodes": "1"})
     assert r.redraw_count == 2  # done() forces its own frame regardless
+
+
+def test_warn_forces_a_draw_regardless_of_throttle():
+    """Pins the exact frame count :meth:`RichRenderer.warn`'s own docstring
+    measures directly ("a start()-warn()-update()-done() sequence with no
+    artificial delay between calls painted only 2 frames (start, done)
+    before this fix ... forcing here makes it 3, with the warning visible
+    in the frame between them"): with the clock frozen (every call landing
+    at the same instant, so nothing but a forced draw ever repaints),
+    start() draws once, warn() must force a second draw, the immediately
+    following update() lands in the same throttle window and is
+    (correctly) skipped, and done() forces the third and final draw.
+
+    Before this test, the only thing that caught ``warn()``'s
+    ``self._redraw(force=True)`` regressing to an unforced
+    ``self._redraw()`` was a real-pty subprocess test in
+    ``test_cli_ui_integration.py``
+    (``test_rich_mode_warning_survives_at_log_level_warn``), which is
+    skipped outright on a platform without a pty and takes on the order of
+    ten seconds to run. This is the fast, pty-free equivalent: no real
+    sleep, no subprocess, same fake-clock pattern as every other test in
+    this "Throttling" section.
+    """
+    caps = _plain_caps()
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)  # clock frozen
+    r.start("lzg build", {})
+    assert r.redraw_count == 1
+
+    r.warn("alphabet mismatch: nucleotide data fed to an amino-acid engine")
+    assert r.redraw_count == 2  # warn() must force its own redraw
+
+    r.update(nodes=1)  # same instant as warn(): throttled away
+    assert r.redraw_count == 2
+
+    r.done("lzg build", {"nodes": "1"})
+    assert r.redraw_count == 3  # done() forces its own frame regardless
 
 
 # ─────────────────────────────────────────────────────────────────────────

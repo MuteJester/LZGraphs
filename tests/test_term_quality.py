@@ -602,11 +602,24 @@ class TestWidthMatrix:
         assert rc == 0
         text = data.decode("utf-8", "replace")
         lines = _visible_lines(text)
+        visible_lens = [_visible_len(ln) for ln in lines]
         violations = [
-            (i, vis, ln) for i, ln in enumerate(lines)
-            if (vis := _visible_len(ln)) > width
+            (i, vis, ln) for i, (vis, ln) in enumerate(zip(visible_lens, lines))
+            if vis > width
         ]
         assert violations == [], f"lines exceeding width={width}: {violations[:5]}"
+        # "no line exceeds width" is satisfied vacuously if the renderer
+        # drew nothing at all (empty lines trivially never exceed
+        # anything): confirmed by mutating _rich._draw to write "" instead
+        # of the assembled frame, which left every parametrisation above
+        # green. A real rich session must draw a visible panel (the boxed
+        # title border alone is dozens of columns), so pin that something
+        # was actually rendered, not merely that nothing rendered too wide.
+        assert max(visible_lens, default=0) > 0, (
+            "expected at least one visibly non-empty rendered line; a "
+            "renderer that draws nothing would satisfy the width check "
+            "above vacuously"
+        )
 
     def test_200_columns_still_clamps_panel_width_to_100(self, seq_file, tmp_path):
         out = str(tmp_path / "w_200_clamp.lzg")

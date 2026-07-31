@@ -1,9 +1,10 @@
 """The scrolling, greppable renderer for CI logs and piped output.
 
 **This is deliberately not "the rich renderer with colour turned off."** The
-approved mockup (``.private/cli_redesign/demo_ui.py``) falls into exactly
-that trap in its own ``--plain`` mode: it draws the same bordered box, just
-in ``+-|`` instead of ``╭─│``. In a CI log or a file that box is noise, not
+approved UI mockup this redesign was built against (an internal design
+prototype, not part of any tracked checkout) falls into exactly that trap
+in its own ``--plain`` mode: it draws the same bordered box, just in
+``+-|`` instead of ``╭─│``. In a CI log or a file that box is noise, not
 signal. Nobody greps a box, and nobody can diff two runs of one against each
 other. ``PlainRenderer`` renders a *different layout*: one stable, tagged,
 ``key=value`` fact per line, appended to a scrolling log, never redrawn,
@@ -18,16 +19,22 @@ Every line this renderer writes has the same shape, no exceptions::
 
     [tag] status=<word> key=value key=value ...
 
-``tag`` is derived once, from whatever ``title`` is passed to
-:meth:`~PlainRenderer.start`, :meth:`~PlainRenderer.done`, or
-:meth:`~PlainRenderer.error` (see :func:`_tag_for`): a leading ``"lzg "`` is
-stripped so ``"lzg build"`` becomes ``[build]``, matching the tag the CLI
-already emits for that command today; a title with no such prefix is used
-as-is (``"posterior"`` -> ``[posterior]``, matching ``[posterior]``).
-:meth:`~PlainRenderer.progress`, :meth:`~PlainRenderer.update`, and
-:meth:`~PlainRenderer.warn` reuse whatever tag the most recent ``start``/
-``done``/``error`` call established (``[lzg]`` if none has run yet, so an
-out-of-order call cannot raise).
+``tag`` is derived from whatever ``title`` it is given by
+:meth:`~PlainRenderer.start`, always, and by :meth:`~PlainRenderer.error`,
+whenever ``title`` is truthy, so that ``error()`` can still establish the
+tag on its own when it is genuinely the first call of a session (a fatal
+error raised before ``start()`` ever ran). A leading ``"lzg "`` is stripped
+so ``"lzg build"`` becomes ``[build]``, matching the tag the CLI already
+emits for that command today; a title with no such prefix is used as-is
+(``"posterior"`` -> ``[posterior]``, matching ``[posterior]``).
+:meth:`~PlainRenderer.progress`, :meth:`~PlainRenderer.update`,
+:meth:`~PlainRenderer.warn`, and :meth:`~PlainRenderer.done` all reuse
+whatever tag the most recent ``start``/``error`` call established
+(``[lzg]`` if neither has run yet, so an out-of-order call cannot raise):
+``done()`` in particular takes its own ``title`` argument only for
+:class:`~LZGraphs._term.Ui` protocol parity, deliberately never using it to
+change the tag a session's own ``start()`` already fixed (see
+:meth:`~PlainRenderer.done`'s own docstring for why).
 
 ``status`` is always present and is one of ``start``, ``progress``,
 ``info`` (from :meth:`update`), ``warn``, ``error``, or ``done``: a script
@@ -71,7 +78,7 @@ state, so a build that alternates between an ``"ingest"`` bar and a
 one on its own terms instead of one step's updates silently resetting
 another's window. Concretely, per label: emit at most once every **5
 percentage points** (``_PROGRESS_PCT_STEP``) **or every 1.0 second of wall
-time** (``_PROGRESS_TIME_STEP``), whichever comes first, with three
+time** (``_PROGRESS_TIME_STEP``), whichever comes first, with two
 unconditional exceptions that always force a line regardless of both
 thresholds:
 
@@ -112,12 +119,12 @@ the exact CI-log flood this whole mechanism exists to prevent). Raising the
 per-label cap only moves this threshold, it does not remove it, so a second,
 *unconditional* limit sits on top of the per-label one: regardless of
 label, and regardless of *why* a line would otherwise be emitted (a fresh
-label, a label change, a 100% completion), at most
+label's first call, a 100% completion), at most
 ``_MAX_PROGRESS_LINES_PER_SECOND`` (100) progress lines are ever written in
 any trailing ``_GLOBAL_RATE_WINDOW_SECONDS`` (1.0 second) window. This is
 checked as the last step before a line that the per-label rule already
-approved is actually written, so none of the per-label exceptions (first
-call, label change, 100% completion) are exempt from it; exempting them is
+approved is actually written, so neither of the per-label exceptions (first
+call, 100% completion) is exempt from it; exempting them is
 exactly how the per-label cap above gets defeated one level up, since an
 unbounded number of distinct labels is also an unbounded number of "first
 call for this label" events. 100 was chosen to sit far above every
@@ -543,11 +550,16 @@ class PlainRenderer:
     def error(self, title: str, lines: Sequence[str] | None = None) -> None:
         """Report a fatal error under whatever tag ``title`` establishes.
 
-        ``title`` plays exactly the role it plays in :meth:`start` and
-        :meth:`done`: it identifies *which command* this report belongs to
-        (``"lzg build"``), and is (re)used to derive the ``[tag]`` prefix,
-        not emitted as a field itself (that would just repeat the tag).
-        The error's actual content, headline included, is ``lines``: the
+        ``title`` identifies *which command* this report belongs to
+        (``"lzg build"``) and is (re)used to derive the ``[tag]`` prefix
+        (see :func:`_tag_for`), not emitted as a field itself (that would
+        just repeat the tag). Unlike :meth:`done` (see its own docstring
+        for why it deliberately does not do this), ``error()`` legitimately
+        can be the very first call of a session, e.g. a fatal error raised
+        before ``start()`` ever ran, so it must still be able to establish
+        the tag itself from a truthy ``title`` rather than only reusing
+        whatever ``self._tag`` already happens to hold. The error's actual
+        content, headline included, is ``lines``: the
         header line this emits announces that an error occurred for this
         tag; each entry in ``lines`` becomes its own indented ``detail=``
         continuation line, in order, so the headline a caller puts first
@@ -562,7 +574,30 @@ class PlainRenderer:
             self._emit_detail("error", line)
 
     def done(self, title: str, rows: Mapping[str, Any] | None = None) -> None:
-        self._tag = _tag_for(title) if title else self._tag
+        """Report a successful close of whatever session :meth:`start` opened.
+
+        ``title`` is accepted for :class:`~LZGraphs._term.Ui` protocol
+        parity with :meth:`start`/:meth:`error` (and because a caller
+        naturally has the same title on hand at both ends of a session),
+        but it is deliberately **not** used to re-derive ``self._tag``
+        here, unlike :meth:`start`/:meth:`error`: doing so would let a
+        ``done()`` call with a different title than the ``start()`` that
+        opened the session flip this renderer's own tag out from under it,
+        e.g. ``done("Done", ...)`` after ``start("lzg build", ...)`` would
+        tag that one line ``[Done]`` instead of ``[build]``, breaking both
+        "every line carries the renderer's tag" (see the module docstring's
+        "Line shape" section) and a script's ``grep '^\\[build\\]'``. The
+        tag is established once per session, by :meth:`start`, or by
+        :meth:`error` for the legitimate out-of-order case of a fatal error
+        reported before any session ever opened, and stays stable for the
+        rest of that session; ``done()`` only ever closes a session
+        ``start()`` already opened, so it has no legitimate reason to
+        change the tag itself. Not reachable through today's one caller
+        (``cli.py`` always passes the same title to both), but real: a
+        future command wiring up a ``done()`` title that drifts from its
+        own ``start()`` would otherwise silently corrupt the tag on the
+        very last line of the session.
+        """
         merged: dict[str, Any] = dict(rows) if rows else {}
         if "elapsed" not in merged and self._t0 is not None:
             merged["elapsed"] = duration(time.monotonic() - self._t0)
