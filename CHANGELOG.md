@@ -5,6 +5,48 @@ All notable changes to LZGraphs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026
+
+### Fixed
+
+Two silent-corruption defects in file input, both of which produced a wrong graph with exit code 0 and no warning:
+
+- A FASTA build ingested `>seq10` header lines as sequences. Simulating from the resulting graph emitted `>seq10` as a "sequence".
+- A CSV build ingested whole comma-joined rows. Simulating emitted values spliced across fields that never existed in the input.
+
+Further input defects found while closing those:
+
+- A single-column file whose header spells a known sequence column (`junction`, `sequence`, `aminoAcid`, ...) ingested that header as a sequence. `cdr3` and `junction_aa` escaped only incidentally, because a digit and an underscore made the well-formedness check reject them.
+- A duplicate column name silently built the entire graph from the wrong column, since `csv.DictReader` keeps only the last occurrence. Now refused with a message naming the column.
+- A tabular header was parsed two different ways, so `junction_aa, duplicate_count` with a single space silently lost every abundance, and a quoted duplicate read from the wrong column.
+- A UTF-8 BOM merged a FASTA header into the first sequence and corrupted the first TSV column name.
+- Lone carriage-return line endings collapsed a whole file into one sequence.
+- Abundance `"3.0"`, the shape pandas and R emit whenever a count column is promoted to float, was read as 1. Counts above 2^53 lost precision.
+- In the C reader, a count of `0` silently dropped the record and a negative count wrapped to ~1.8e19, reaching the graph as an edge weight.
+- `lzg build` on a bzip2 or xz file streamed raw compressed bytes into the builder.
+- `LZGraph.from_file` and `FlashBackGraph.from_file`, both documented public API, bypassed the input pipeline entirely, so a user writing Python rather than using the CLI still hit the FASTA and CSV corruption.
+- `lzg validate-input` contradicted `lzg build`, reporting a FASTA as `plain` and counting its header lines as records.
+- Records dropped as malformed or non-productive were invisible; an all-dropped file failed with the unhelpful `sequences must be a non-empty list`.
+
+### Added
+
+- **Input layer** (`LZGraphs._io`): content-based format detection for FASTA, FASTQ, AIRR TSV/CSV, plain, and `sequence<TAB>count`, under transparent gzip, bzip2 and xz. Formats are detected by content, not by file extension, so a misnamed file still works. zstd is recognised and reports an install hint.
+- `read_sequences` returns a `RecordStats` under a new `stats` key, counting total, kept, malformed and non-productive records.
+- AIRR `productive` filtering, with `keep_nonproductive=True` to retain them.
+- **Terminal layer** (`LZGraphs._term`): a zero-dependency renderer with a live panelled display on a TTY and a scrolling, greppable `key=value` log in CI and pipes. New global flags `--ui {auto,rich,plain,quiet}` and `--no-color`. `NO_COLOR`, `TERM=dumb` and `CI` are honoured.
+- `lzg build` now reports dropped-record counts and warns when the input alphabet does not match the chosen engine.
+
+### Changed
+
+- **`--expect-format` now accepts `fasta` and `fastq`**, which it previously rejected outright, and is an assertion in every path rather than a coercion in some.
+- Input that cannot be interpreted now fails loudly rather than being ingested: duplicate column names, an empty or binary file, and a declared format that disagrees with the content.
+- `from_file` no longer streams in constant memory for compressed or non-plain input; it buffers, which is the cost of routing those formats through the correct reader.
+- stdout carries data only. All presentation goes to stderr, so pipes and redirects are unaffected by rendering.
+
+### Removed
+
+- `LZGraphs._io` is now a package; the former single-module implementation and its 197 unreachable lines are gone.
+
 ## [3.1.0] - 2026
 
 ### Added
@@ -152,6 +194,7 @@ This version is a complete re-implementation of the LZGraphs engine in C, provid
 ### Changed
 - Code and documentation updates
 
+[3.4.0]: https://github.com/MuteJester/LZGraphs/compare/v3.1.0...v3.4.0
 [3.1.0]: https://github.com/MuteJester/LZGraphs/compare/v3.0.2...v3.1.0
 [3.0.2]: https://github.com/MuteJester/LZGraphs/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/MuteJester/LZGraphs/compare/v3.0.0...v3.0.1
