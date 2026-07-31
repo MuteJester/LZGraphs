@@ -24,23 +24,9 @@ from ._public import (
 )
 from ._readers import _is_count, iter_fasta, iter_fastq, iter_tabular_rows
 from ._sniff import detect_format
-from ._spec import FormatError
+from ._spec import PLAIN_FAMILY, VALID_FORMATS, FormatError, format_family
 
-_VALID_EXPECT_FORMATS = {"plain", "plain_seqcount", "tabular"}
-_PLAIN_FAMILY = {"plain", "plain_seqcount"}
 _PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
-
-
-def _family(kind: str) -> str:
-    """Group a detected/declared kind into the shape ``expect_format`` asserts.
-
-    ``plain`` and ``plain_seqcount`` are one family (their difference is a
-    per-record detail handled as ``mode='mixed'``, not a format assertion
-    failure); ``tabular``, ``fasta``, and ``fastq`` are each their own family.
-    """
-    if kind in _PLAIN_FAMILY:
-        return "plain"
-    return kind
 
 
 def _new_report(path, detected_kind, *, variant, strict_input, expect_format):
@@ -318,7 +304,7 @@ def _validate_real_path(path, *, seq_column, v_column, j_column, abundance_colum
         report["summary"] = _summarize(report)
         return report
 
-    if expect_format is not None and _family(detected_kind) != _family(expect_format):
+    if expect_format is not None and format_family(detected_kind) != format_family(expect_format):
         _add_issue(
             report, "error",
             f"expected format '{expect_format}', saw '{detected_kind}'",
@@ -332,8 +318,8 @@ def _validate_real_path(path, *, seq_column, v_column, j_column, abundance_colum
             path, report, _validate_tabular, spec,
             strict_input=strict_input, no_genes=no_genes,
         )
-    elif detected_kind in _PLAIN_FAMILY:
-        first_mode = expect_format if expect_format in _PLAIN_FAMILY else detected_kind
+    elif detected_kind in PLAIN_FAMILY:
+        first_mode = expect_format if expect_format in PLAIN_FAMILY else detected_kind
         _dispatch(
             path, report, _validate_plain_family,
             strict_input=strict_input, first_mode=first_mode,
@@ -367,9 +353,9 @@ def validate_input(path, *, seq_column=None, v_column=None, j_column=None,
     ``plain_seqcount`` family vs. ``fasta``/``fastq``), that mismatch is
     reported as an error rather than silently coerced.
     """
-    if expect_format is not None and expect_format not in _VALID_EXPECT_FORMATS:
+    if expect_format is not None and expect_format not in VALID_FORMATS:
         raise ValueError(
-            f"expect_format must be one of {sorted(_VALID_EXPECT_FORMATS)}, "
+            f"expect_format must be one of {sorted(VALID_FORMATS)}, "
             f"got '{expect_format}'"
         )
 

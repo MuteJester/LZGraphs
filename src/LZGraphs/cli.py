@@ -68,9 +68,11 @@ def _add_json_arg(p):
 
 
 def _add_input_contract_args(p):
+    from ._io import VALID_FORMATS
+
     p.add_argument('--strict-input', action='store_true',
                    help='fail on mixed or malformed input records')
-    p.add_argument('--expect-format', choices=['plain', 'plain_seqcount', 'tabular'],
+    p.add_argument('--expect-format', choices=sorted(VALID_FORMATS),
                    default=None,
                    help='require a specific input format')
 
@@ -169,14 +171,22 @@ def cmd_build(args):
     # misnamed-gzip file has none of those suffixes yet is still compressed,
     # and streaming its raw bytes into the C builder silently produces a
     # garbage graph instead of failing loudly. detect_format inspects the
-    # actual magic bytes, so it is the only reliable signal here. The same
-    # --expect-format override is passed through as below (validate_input
-    # and read_sequences both honour it too), so a user-declared format
-    # still reaches the fast path instead of being second-guessed by content
-    # sniffing here. A detection failure (empty/binary input) must not
-    # crash this fast-path decision; it just means "don't stream",
-    # leaving the real error to surface from the safe branch below via
-    # read_sequences.
+    # actual magic bytes, so it is the only reliable signal here. --expect-format
+    # is passed through as override= here on purpose (this is the one place in
+    # this function that still coerces rather than asserts): a user-declared
+    # format decides whether the fast path is even attempted, so genuinely
+    # ambiguous-but-declared content (see raw_prefix_is_streamable's docstring)
+    # still gets a chance at it instead of being second-guessed by content
+    # sniffing. This is safe because raw_prefix_is_streamable independently
+    # verifies the coerced interpretation actually produces well-formed lines,
+    # and because the validate_input call below re-checks expect_format as a
+    # true assertion (comparing the real auto-detected format, uncoerced)
+    # before anything is actually built, so a genuine mismatch is still caught
+    # loudly rather than silently streamed. read_sequences, in the safe branch
+    # further below, treats expect_format as an assertion too, not a coercion:
+    # see _detect_format_for_read. A detection failure here (empty/binary
+    # input) must not crash this fast-path decision; it just means "don't
+    # stream", leaving the real error to surface from the safe branch below.
     #
     # detect_format's format/compression verdict is not the whole story: the
     # C reader also has none of read_sequences' per-line normalisation (no

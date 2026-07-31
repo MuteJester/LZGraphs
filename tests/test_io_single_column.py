@@ -18,7 +18,7 @@ import pytest
 from LZGraphs._io._public import read_sequences
 from LZGraphs._io._readers import iter_tabular_rows
 from LZGraphs._io._sniff import detect_format
-from LZGraphs._io._spec import InputSpec
+from LZGraphs._io._spec import FormatError, InputSpec
 
 _DATA_ROWS = ["CASSLGQAYEQYF", "CASSPGTGVYGYTF", "CASSQGATNTGQLYF"]
 
@@ -112,20 +112,39 @@ def test_lone_header_with_no_data_rows_yields_nothing(tmp_path):
     assert result["sequences"] == []
 
 
-# An explicit --format/expect_format override is this codebase's established
-# philosophy for beating content sniffing: a user who forces "plain" has
-# asked for exactly that, header line included. This is deliberate, not a
-# leak: the override short-circuits detect_format's auto-detect branch
-# (and therefore the lone-header reclassification) entirely, so the header
-# is read back as an ordinary data line. Pinned here so a future change to
-# the elif ordering in detect_format cannot alter this silently.
-def test_expect_format_plain_override_beats_lone_header_reclassification(tmp_path):
+# Plan 1c, Task 4: expect_format is an assertion, not a coercion. A user who
+# declares "plain" on a file that auto-detects as tabular (via the
+# lone-header reclassification exercised above) must get a loud FormatError
+# naming both formats, not a silent reinterpretation of the header as data.
+# This used to be pinned as the opposite behaviour (the override "beating"
+# the reclassification); that was exactly the coercion defect this test now
+# guards against. Pinned here so a future change cannot quietly restore it.
+def test_expect_format_plain_mismatch_raises_on_lone_header_reclassification(tmp_path):
     path = tmp_path / "single.txt"
     path.write_text("junction\nCASSLGQAYEQYF\nCASSPGTGVYGYTF\n")
 
-    result = read_sequences(str(path), expect_format="plain")
+    with pytest.raises(FormatError) as excinfo:
+        read_sequences(str(path), expect_format="plain")
 
-    assert result["sequences"] == ["junction", "CASSLGQAYEQYF", "CASSPGTGVYGYTF"]
+    message = str(excinfo.value)
+    assert "plain" in message
+    assert "tabular" in message
+
+
+def test_detect_format_override_still_reaches_old_coercion_behaviour(tmp_path):
+    """The coercion the test above used to pin is still reachable through
+    detect_format's lower-level override=, which unconditionally forces a
+    classification instead of asserting one. This is the documented escape
+    hatch for a caller that genuinely needs coercion (see
+    _detect_format_for_read's docstring in _public.py): read_sequences no
+    longer offers it directly, but the capability itself was not removed.
+    """
+    path = tmp_path / "single.txt"
+    path.write_text("junction\nCASSLGQAYEQYF\nCASSPGTGVYGYTF\n")
+
+    spec = detect_format(str(path), override="plain")
+
+    assert spec.format == "plain"
 
 
 def test_no_override_still_reclassifies_the_same_file_as_tabular(tmp_path):

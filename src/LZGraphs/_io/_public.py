@@ -24,7 +24,7 @@ from ._readers import (
     iter_tabular_rows,
 )
 from ._sniff import _SNIFF_LINES, detect_format
-from ._spec import FormatError, InputSpec, RecordStats
+from ._spec import VALID_FORMATS, FormatError, InputSpec, RecordStats, format_family
 
 _PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
 
@@ -256,6 +256,14 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
     first malformed record instead of skipping it. AIRR rows whose
     ``productive`` column is not truthy are dropped and counted unless
     ``keep_nonproductive=True``.
+
+    ``expect_format``, like ``validate_input``'s parameter of the same name,
+    is an assertion: the file's real content is auto-detected first, and a
+    mismatch between what was declared and what was actually found raises
+    :class:`FormatError` naming both, instead of forcing the declared reader
+    onto content it does not describe (see ``_detect_format_for_read``). To
+    force a classification onto content regardless of whether it matches
+    (coercion), call ``detect_format(path, override=...)`` directly instead.
     """
     tmp_path = _materialize_stdin() if path == "-" else None
     real_path = tmp_path if tmp_path is not None else path
@@ -271,13 +279,81 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
             os.remove(tmp_path)
 
 
+def _detect_format_for_read(path, *, variant, seq_column, expect_format):
+    """Resolve an ``InputSpec`` for ``path``, asserting ``expect_format`` if given.
+
+    ``expect_format`` used to be threaded straight into ``detect_format``'s
+    ``override``, which *coerces* the classification unconditionally, even
+    onto content that plainly is not that format: a tabular file declared
+    ``expect_format="plain"`` was read line-for-line as plain text, so its
+    header and every row failed ``_is_wellformed`` (delimiters and gene
+    calls are not bare sequences) and ``read_sequences`` silently returned an
+    empty list, no error, no warning. This instead auto-detects the file's
+    real content first and raises :class:`FormatError` naming both the
+    declared and detected format on a genuine mismatch, matching
+    ``validate_input``'s existing contract for the same argument (see its
+    ``_validate_real_path``, which this mirrors).
+
+    When the auto-detector cannot resolve a spec on its own (``detect_format``
+    raises, e.g. for a plain/plain_seqcount file whose first line happens to
+    look like an unresolvable single-column tabular header),
+    ``_first_line_kind`` supplies the same best-effort classification
+    ``validate_input`` uses for its own assertion check. Only once that
+    check has passed is ``detect_format`` retried with
+    ``override=expect_format`` to obtain a spec actually usable for reading:
+    the one place this still uses coercion, and only after the content has
+    already been shown to belong to the declared family.
+
+    Fundamentally broken input (empty, binary, or a tabular file whose
+    sequence column could not be resolved at all) reports its own specific
+    error rather than a generic mismatch message, again mirroring
+    ``_validate_real_path``: the two must agree here, or the same file could
+    pass one assertion path and fail the other with a misleading message.
+    """
+    if expect_format is None:
+        return detect_format(path, variant=variant, seq_column=seq_column)
+
+    if expect_format not in VALID_FORMATS:
+        raise ValueError(
+            f"expect_format must be one of {sorted(VALID_FORMATS)}, "
+            f"got '{expect_format}'"
+        )
+
+    spec = None
+    sniff_error = None
+    try:
+        spec = detect_format(path, variant=variant, seq_column=seq_column)
+        detected_kind = spec.format
+    except FormatError as exc:
+        sniff_error = exc
+        try:
+            detected_kind = _first_line_kind(path)
+        except UnicodeDecodeError:
+            detected_kind = "binary"
+
+    if detected_kind in ("empty", "binary") or (spec is None and detected_kind == "tabular"):
+        raise sniff_error if sniff_error is not None else FormatError(f"{path} is empty")
+
+    if format_family(detected_kind) != format_family(expect_format):
+        raise FormatError(
+            f"{path}: declared format {expect_format!r} does not match "
+            f"detected format {detected_kind!r}"
+        )
+
+    if spec is not None:
+        return spec
+    return detect_format(
+        path, variant=variant, seq_column=seq_column, override=expect_format
+    )
+
+
 def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
                               abundance_column, variant, no_genes,
                               strict_input, expect_format,
                               keep_nonproductive=False):
     """The actual read, always against a real (reopenable) filesystem path."""
-    spec = detect_format(
-        path, variant=variant, seq_column=seq_column, override=expect_format
+    spec = _detect_format_for_read(
+        path, variant=variant, seq_column=seq_column, expect_format=expect_format,
     )
 
     # Explicit v/j/abundance column overrides only apply to tabular input,

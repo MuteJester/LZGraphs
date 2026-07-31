@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from ._compress import open_text
 from ._readers import _is_count
-from ._spec import FormatError, InputSpec
+from ._spec import VALID_FORMATS, FormatError, InputSpec
 
 _CORE_NUCLEOTIDE = set("ACGTUN")
 _IUPAC_NUCLEOTIDE = set("ACGTUNRYSWKMBDHV")
@@ -251,7 +251,6 @@ def looks_like_seqcount(lines: list[str]) -> bool:
 
 
 _SNIFF_LINES = 32
-_VALID_OVERRIDES = ("fasta", "fastq", "tabular", "plain", "plain_seqcount")
 
 
 def _read_prefix(path: str) -> tuple[list[str], str]:
@@ -322,10 +321,10 @@ def detect_format(
     override: str | None = None,
 ) -> InputSpec:
     """Classify ``path`` by content and resolve its columns."""
-    if override is not None and override not in _VALID_OVERRIDES:
+    if override is not None and override not in VALID_FORMATS:
         raise FormatError(
             f"unknown --format {override!r}\n"
-            f"  choose one of: {', '.join(_VALID_OVERRIDES)}"
+            f"  choose one of: {', '.join(VALID_FORMATS)}"
         )
 
     lines, codec = _read_prefix(path)

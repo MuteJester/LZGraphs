@@ -8,6 +8,34 @@ class FormatError(ValueError):
     """The input file cannot be interpreted as sequence data."""
 
 
+# The single vocabulary of formats accepted anywhere a caller names a format
+# explicitly: `detect_format`'s `override` parameter, `read_sequences`'s and
+# `validate_input`'s `expect_format` parameter, and the CLI's
+# `--expect-format` flag. Previously each of those four sites kept its own
+# tuple, and they had drifted (the CLI and `validate_input` were missing
+# `fasta`/`fastq`, which `_sniff.py` already supported), so a request that
+# `read_sequences` handled fine was refused at the argparse layer or reported
+# as a validation error. Defined once, here, so the four sites cannot drift
+# apart again: `_sniff.py` and `_validate.py` import it directly, and
+# `cli.py` gets it via `LZGraphs._io`'s re-export.
+VALID_FORMATS: tuple[str, ...] = ("fasta", "fastq", "plain", "plain_seqcount", "tabular")
+
+# `plain` and `plain_seqcount` are grouped as one family for `expect_format`
+# assertion purposes: their difference is a per-record detail (see
+# `_validate.py`'s `mode='mixed'` handling and `_public.py`'s
+# `_iter_plain_strict`), not something a file-level format assertion should
+# fail on. `tabular`, `fasta`, and `fastq` are each their own family. Shared
+# by `_validate.py` (which has always compared families this way) and
+# `_public.py`'s `read_sequences`, so the two "expect_format is an assertion"
+# call sites can never disagree about what counts as a genuine mismatch.
+PLAIN_FAMILY = frozenset({"plain", "plain_seqcount"})
+
+
+def format_family(kind: str) -> str:
+    """Group a detected/declared format into the shape ``expect_format`` asserts."""
+    return "plain" if kind in PLAIN_FAMILY else kind
+
+
 @dataclass(frozen=True)
 class InputSpec:
     """What the sniffer concluded about one input file."""

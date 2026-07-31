@@ -8,7 +8,7 @@ from ._public import (
     read_sequences_simple,
 )
 from ._sniff import detect_format
-from ._spec import FormatError, InputSpec, RecordStats
+from ._spec import VALID_FORMATS, FormatError, InputSpec, RecordStats
 from ._validate import validate_input
 
 __all__ = [
@@ -21,4 +21,5 @@ __all__ = [
     "FormatError",
     "InputSpec",
     "RecordStats",
+    "VALID_FORMATS",
 ]
