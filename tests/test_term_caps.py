@@ -1,18 +1,46 @@
 """Tests for LZGraphs._term._caps: capability detection and mode resolution.
 
 Every test injects its own fake stream and env dict; none of these tests
-touch ``sys.stderr`` or ``os.environ`` directly (``shutil.get_terminal_size``
-is monkeypatched where width matters, since it is the sanctioned source of
-terminal size per the module and does not accept an injected env).
+touch ``sys.stderr`` or ``os.environ`` directly. Width is tested two ways:
+against a real pty-backed stream sized to a known width, which exercises the
+actual ``stream.fileno()`` path ``_terminal_size`` uses; and, for the
+fallback branch itself (no usable fd), by monkeypatching
+``shutil.get_terminal_size``, since that is genuinely what ``_terminal_size``
+falls back to when the stream cannot answer for itself.
 """
 from __future__ import annotations
 
+import io
 import os
 import shutil
+import struct
 
 import pytest
 
 from LZGraphs._term._caps import Capabilities, detect, resolve_mode
+
+try:
+    import fcntl
+    import pty
+    import termios
+
+    _HAVE_PTY = True
+except ImportError:  # pragma: no cover - exercised only on Windows
+    _HAVE_PTY = False
+
+_NO_PTY_REASON = "pty/fcntl/termios are POSIX-only and unavailable on this platform"
+
+
+def _open_sized_pty(columns, lines=24):
+    """Open a pty pair, size it, and wrap the slave side as a real stream.
+
+    Returns ``(master_fd, stream)``. The caller must close both: ``stream``
+    (a text file wrapping the slave fd) and ``master_fd`` directly.
+    """
+    master_fd, slave_fd = pty.openpty()
+    winsize = struct.pack("HHHH", lines, columns, 0, 0)
+    fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
+    return master_fd, os.fdopen(slave_fd, "w")
 
 
 class FakeStream:
@@ -196,34 +224,125 @@ def test_colour_depth_0_non_tty_no_env():
     assert caps.colours == 0
 
 
-# ── Width: real_width vs clamped width ─────────────────────
+# ── Width: derived from the stream's own fd (real pty) ──────
+#
+# Converted from monkeypatching shutil.get_terminal_size against a
+# fileno-less FakeStream (which never exercised the injected `stream` at
+# all) to a real pty sized to the width under test, since _terminal_size now
+# reads the stream's own fd first. Same assertions as before; the mechanism
+# is what changed, per fix round 2.
 
 
-def test_width_clamped_at_minimum(monkeypatch):
-    _patch_terminal_size(monkeypatch, columns=20)
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_width_derived_from_stream_fd_not_stdout(monkeypatch):
+    """The headline bug (Important, round 2): stderr is a 137-column pty
+    while stdout, which shutil.get_terminal_size() would consult, reports
+    something else (simulated here as its 80-column fallback). real_width
+    must reflect the stream that was actually passed to detect(), not
+    stdout, or every panel renders at the wrong width whenever `lzg build`
+    output is redirected while stderr stays attached to a real terminal.
+    """
+    monkeypatch.setattr(
+        shutil, "get_terminal_size", lambda fallback=(80, 24): os.terminal_size((80, 24))
+    )
+    master_fd, stream = _open_sized_pty(137)
+    try:
+        caps = detect(stream=stream, env={})
+        assert caps.is_tty is True
+        assert caps.real_width == 137
+    finally:
+        stream.close()
+        os.close(master_fd)
+
+
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_width_clamped_at_minimum_via_stream_fd():
+    master_fd, stream = _open_sized_pty(20)
+    try:
+        caps = detect(stream=stream, env={})
+        assert caps.real_width == 20
+        assert caps.width == 40
+    finally:
+        stream.close()
+        os.close(master_fd)
+
+
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_width_clamped_at_maximum_via_stream_fd():
+    master_fd, stream = _open_sized_pty(400)
+    try:
+        caps = detect(stream=stream, env={})
+        assert caps.real_width == 400
+        assert caps.width == 100
+    finally:
+        stream.close()
+        os.close(master_fd)
+
+
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_width_passthrough_via_stream_fd():
+    master_fd, stream = _open_sized_pty(72)
+    try:
+        caps = detect(stream=stream, env={})
+        assert caps.real_width == 72
+        assert caps.width == 72
+    finally:
+        stream.close()
+        os.close(master_fd)
+
+
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_height_via_stream_fd():
+    master_fd, stream = _open_sized_pty(80, lines=40)
+    try:
+        caps = detect(stream=stream, env={})
+        assert caps.height == 40
+    finally:
+        stream.close()
+        os.close(master_fd)
+
+
+# ── Width: fallback when the stream cannot be queried directly ─────
+#
+# These three exercise _terminal_size's fallback branch on purpose: the
+# stream genuinely has no queryable fd, so falling through to
+# shutil.get_terminal_size() (monkeypatched here for determinism) is the
+# documented, correct behaviour, not a bypass of the injection point.
+
+
+def test_width_no_fileno_attribute_falls_back(monkeypatch):
+    """(b) A stream with no fileno() at all (FakeStream defines none)."""
+    _patch_terminal_size(monkeypatch, columns=91, lines=30)
     caps = detect(stream=TTY, env={})
-    assert caps.real_width == 20
-    assert caps.width == 40
+    assert not hasattr(TTY, "fileno")
+    assert caps.real_width == 91
+    assert caps.height == 30
 
 
-def test_width_clamped_at_maximum(monkeypatch):
-    _patch_terminal_size(monkeypatch, columns=400)
-    caps = detect(stream=TTY, env={})
-    assert caps.real_width == 400
-    assert caps.width == 100
+def test_width_fileno_raises_unsupported_operation_falls_back(monkeypatch):
+    """(c) io.StringIO().fileno() raises io.UnsupportedOperation, exactly
+    like pytest's own captured stdout/stderr streams do."""
+    _patch_terminal_size(monkeypatch, columns=91, lines=30)
+    stream = io.StringIO()
+    with pytest.raises(io.UnsupportedOperation):
+        stream.fileno()
+    caps = detect(stream=stream, env={})
+    assert caps.real_width == 91
 
 
-def test_width_passthrough_in_range(monkeypatch):
-    _patch_terminal_size(monkeypatch, columns=72)
-    caps = detect(stream=TTY, env={})
-    assert caps.real_width == 72
-    assert caps.width == 72
-
-
-def test_height_reported(monkeypatch):
-    _patch_terminal_size(monkeypatch, columns=80, lines=40)
-    caps = detect(stream=TTY, env={})
-    assert caps.height == 40
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_width_zero_columns_falls_back(monkeypatch):
+    """(d) Some CI environments allocate a pty but never configure its
+    window size, so TIOCGWINSZ reports 0 columns without raising. That must
+    be treated as unusable, not clamped into a nonsense 40-column width."""
+    _patch_terminal_size(monkeypatch, columns=91, lines=30)
+    master_fd, stream = _open_sized_pty(0, lines=0)
+    try:
+        caps = detect(stream=stream, env={})
+        assert caps.real_width == 91
+    finally:
+        stream.close()
+        os.close(master_fd)
 
 
 # ── Unicode probe ───────────────────────────────────────────

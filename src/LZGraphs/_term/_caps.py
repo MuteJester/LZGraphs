@@ -54,11 +54,21 @@ Colour depth (``Capabilities.colours``): ``COLORTERM`` containing
 ``"256color"`` gives 256; else a TTY (or ``FORCE_COLOR``) gives 8; else 0.
 ``NO_COLOR`` and ``TERM=dumb`` both override this to 0 unconditionally.
 
-Width: ``Capabilities.real_width`` is whatever ``shutil.get_terminal_size()``
-reports, unclamped, so a caller that genuinely needs the true size can still
-see it. ``Capabilities.width`` is that value clamped to ``[40, 100]`` so
-panels neither collapse on a narrow terminal nor stretch absurdly on an
-ultra-wide monitor.
+Width: ``Capabilities.real_width`` comes from ``os.get_terminal_size()`` on
+``stream``'s *own* file descriptor, not from ``shutil.get_terminal_size()``
+queried against ``sys.__stdout__``. Those two disagree exactly in the case
+this layer exists for: ``lzg build > out.json`` redirects stdout to a file
+while stderr, where the panels are drawn, stays attached to the user's
+terminal. Querying stdout there reports a non-terminal fd (``shutil``'s
+80-column fallback), while the stream actually in use may be 137 columns
+wide. ``_terminal_size`` tries ``stream.fileno()`` first and only falls back
+to ``shutil.get_terminal_size()`` (and, through it, the documented 80x24
+default) when the stream cannot answer for itself; see ``_terminal_size``'s
+docstring for the exact list of failure modes that trigger the fallback.
+``Capabilities.width`` is ``real_width`` clamped to ``[40, 100]`` so panels
+neither collapse on a narrow terminal nor stretch absurdly on an ultra-wide
+monitor; ``real_width`` stays unclamped so a caller that genuinely needs the
+true size can still see it.
 
 Unicode: ``Capabilities.unicode`` is True only if the stream's encoding can
 represent the box-drawing and block characters the rich renderer draws with
@@ -107,7 +117,7 @@ class Capabilities:
     is_tty: bool
     colours: int  # 0, 8, or 256
     width: int  # real_width clamped to [40, 100]
-    real_width: int  # unclamped shutil.get_terminal_size().columns
+    real_width: int  # unclamped size of `stream` itself, see _terminal_size
     height: int
     unicode: bool
     interactive: bool  # supports_cursor_control and not CI (auto-mode default)
@@ -135,7 +145,35 @@ def _probe_unicode(stream: Any) -> bool:
     return True
 
 
-def _terminal_size() -> tuple[int, int]:
+def _terminal_size(stream: Any) -> tuple[int, int]:
+    """Terminal size for ``stream`` itself, falling back cleanly when it
+    cannot be queried directly.
+
+    Tries ``os.get_terminal_size(stream.fileno())`` first, so the reported
+    size describes the stream ``detect()`` was actually given (normally
+    stderr) rather than whatever ``shutil.get_terminal_size()`` would guess
+    from ``sys.__stdout__``. Those two can disagree: ``lzg build > out.json``
+    redirects stdout to a file while stderr, where panels are drawn, stays
+    attached to the user's terminal, and a stdout-based query would report
+    the file's fallback size instead of the terminal's real width.
+
+    Falls back to ``shutil.get_terminal_size()`` (and, through it, the
+    documented 80x24 default) on any of: ``stream`` has no ``fileno``
+    attribute; ``fileno()`` raises (``io.UnsupportedOperation`` for
+    pytest-captured streams and ``io.StringIO``, ``OSError``/``ValueError``
+    elsewhere); the fd does not refer to a terminal at all (``OSError`` from
+    ``os.get_terminal_size``); or the terminal reports 0 columns, which some
+    CI environments do for an allocated-but-unconfigured pty. None of these
+    raise out of this function.
+    """
+    fileno = getattr(stream, "fileno", None)
+    if fileno is not None:
+        try:
+            size = os.get_terminal_size(fileno())
+            if size.columns > 0:
+                return size.columns, size.lines
+        except Exception:
+            pass
     size = shutil.get_terminal_size()
     return size.columns, size.lines
 
@@ -230,7 +268,7 @@ def detect(stream: Any = None, env: Mapping[str, str] | None = None) -> Capabili
 
     colours = 0 if not vt_ok else _colour_depth(env, is_tty)
 
-    real_width, height = _terminal_size()
+    real_width, height = _terminal_size(stream)
     width = max(_MIN_WIDTH, min(_MAX_WIDTH, real_width))
 
     unicode_ok = _probe_unicode(stream)
