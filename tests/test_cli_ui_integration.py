@@ -18,6 +18,15 @@ without any of it showing up as an exception:
 3. **Result parity.** The graph ``build`` produces (node/edge count) is
    identical across all four modes: rendering must never perturb the
    result, only how it is reported.
+4. **C-library severity routing (Task 6 fix round 1).** The C library's own
+   ``LZG_WARN``/``LZG_ERROR`` messages (a mixed plain/seqcount file the
+   streaming reader had to recover from mid-file, for instance) must reach
+   a real warning in rich mode too, not just plain: ``_bridge_c_log_to_ui``
+   used to drop every C message lacking a ``pct=`` progress field,
+   regardless of its actual severity, silently swallowing real warnings.
+   ``TestCLogBridge`` covers the routing logic directly (unit-level, driven
+   by synthetic ``(level, message)`` pairs); ``TestRichModeOnRealTty``'s
+   mixed-format test covers it end to end through a real pty.
 
 The rich-mode checks that need a genuine ``isatty()`` (cursor hide/show,
 the boxed panel, no raw ``[LZGraph/INFO]`` leaking into a live redraw) drive
@@ -29,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import random
 import select
 import subprocess
 import sys
@@ -169,6 +179,39 @@ def all_dropped_file(tmp_path):
     return str(p)
 
 
+@pytest.fixture
+def mixed_format_file(tmp_path):
+    """A file that genuinely reaches the C library's own
+    ``mixed_input_format`` warning (fix round 1, Finding 2), rather than
+    being caught by the Python-side gate first.
+
+    ``detect_format``/``raw_prefix_is_streamable`` (``_io/_sniff.py``'s
+    ``_SNIFF_LINES``/``cmd_build``'s streaming gate) only ever sample the
+    first 32 lines, so 40 plain (no-tab) lines establish this as
+    unambiguously ``plain`` and streamable; the switch to ``seq<TAB>count``
+    lines only happens afterwards, at line 41, past every prefix check, so
+    ``can_stream_plain`` is still ``True`` and the actual C ingest loop
+    (``lib/graph_core/graph_build_ingest.c``'s ``lzg_update_stream_mode``)
+    is the one that notices the format changed mid-file and logs its own
+    ``LZG_WARN`` (``issue=mixed_input_format ... continuing=true``) rather
+    than raising: this is a *recoverable* warning, not a fatal error, so the
+    build still succeeds (``rc == 0``) with a graph built from both parts.
+    """
+    p = tmp_path / 'mixed_format.txt'
+    aas = "ACDEFGHIKLMNPQRSTVWY"
+    rng = random.Random(0)
+    lines = [
+        "".join(rng.choice(aas) for _ in range(rng.randint(10, 15)))
+        for _ in range(40)
+    ]
+    lines += [
+        f"{''.join(rng.choice(aas) for _ in range(rng.randint(10, 15)))}\t3"
+        for _ in range(5)
+    ]
+    p.write_text("\n".join(lines) + "\n")
+    return str(p)
+
+
 # ── 1. stdout purity / byte-identity ─────────────────────────────
 
 
@@ -267,6 +310,20 @@ class TestFactsSurviveInPlainMode:
         assert 'variant=aap' in stderr
         assert 'expected=amino_acid' in stderr
 
+    def test_c_library_mixed_format_warning_shown_in_plain_mode(
+        self, mixed_format_file, tmp_path
+    ):
+        """The plain-mode half of fix round 1, Finding 2's reproduction:
+        confirms the fixture genuinely reaches the C library's own warning
+        (unchanged in plain mode, via ``set_log_level``) before relying on
+        it in the rich-mode test.
+        """
+        out_path = str(tmp_path / 'out.lzg')
+        _, stderr, rc = run_lzg('--ui', 'plain', 'build', mixed_format_file, '-o', out_path,
+                                 '-V', 'aap')
+        assert rc == 0, stderr
+        assert 'issue=mixed_input_format' in stderr
+
     def test_phase_construct_reports_node_and_edge_counts(self, facts_file, tmp_path):
         out_path = str(tmp_path / 'out.lzg')
         _, stderr, rc = run_lzg('--ui', 'plain', 'build', facts_file, '-o', out_path,
@@ -283,8 +340,11 @@ class TestFactsSurviveInPlainMode:
                                  '--seq-column', 'junction_aa')
         assert rc == 0, stderr
         assert 'phase=save' in stderr
-        assert 'status=start' in stderr
-        assert 'status=done' in stderr
+        # `stage`, not `status`: `status` is the plain renderer's own
+        # reserved token (fix round 1, Finding 1), so cmd_build's own
+        # sub-step field is named `stage` to avoid colliding with it.
+        assert 'stage=start' in stderr
+        assert 'stage=done' in stderr
         assert out_path in stderr
         assert 'size_kb=' in stderr
 
@@ -506,6 +566,48 @@ class TestRichModeOnRealTty:
         assert b'nothing left to build a graph from' in data
         assert not os.path.exists(out_path)
 
+    @pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+    def test_rich_mode_surfaces_a_real_c_library_warning(self, mixed_format_file, tmp_path):
+        """Fix round 1, Finding 2: a genuine C-library warning (the
+        streaming reader's own ``mixed_input_format`` recovery) must reach
+        the live panel in rich mode, not just plain.
+
+        The message is long (it embeds the full file path) and the panel is
+        capped at 100 columns, so the *tail* of the C message
+        (``issue=mixed_input_format ...``) is not guaranteed to survive
+        the row's own truncation; ``"stream build: warning"`` and
+        ``"phase=ingest"`` are the prefix that is, and together they
+        unambiguously identify this specific warning (nothing else in this
+        renderer emits that phrase). The build still succeeds (``rc == 0``):
+        this is a recoverable warning, not a fatal error.
+        """
+        out_path = str(tmp_path / 'out.lzg')
+        data, rc = _run_lzg_on_pty(
+            ['--ui', 'rich', 'build', mixed_format_file, '-o', out_path, '-V', 'aap']
+        )
+        assert rc == 0
+        assert b'stream build: warning' in data
+        assert b'phase=ingest' in data
+        assert b'LZGraph/WARN' not in data  # via term.warn(), never raw stderr text
+        assert data.rindex(b'\x1b[?25h') > data.rindex(b'\x1b[?25l')
+        assert b'done' in data
+        assert os.path.exists(out_path)
+
+    @pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+    def test_rich_mode_never_leaks_raw_c_log_lines_even_with_a_warning(
+        self, mixed_format_file, tmp_path
+    ):
+        """The routing fix must not regress hazard 2: the C library must
+        still never be a second, uncoordinated writer to the live-redraw
+        stream, warning included.
+        """
+        out_path = str(tmp_path / 'out.lzg')
+        data, rc = _run_lzg_on_pty(
+            ['--ui', 'rich', 'build', mixed_format_file, '-o', out_path, '-V', 'aap']
+        )
+        assert rc == 0
+        assert b'[LZGraph/' not in data
+
 
 # ── 7. unit-level checks on the cli.py wiring itself ─────────────
 
@@ -567,11 +669,17 @@ class TestUiResolutionHelpers:
 
 
 class TestCLogBridge:
-    """Unit-level coverage of the pct= parser feeding the rich renderer's
-    progress bar from the C library's streaming-ingest log lines, without
-    needing a multi-gigabyte fixture to actually trigger one for real (the
-    C ingest loop only logs a periodic tick every 1,000,000 lines or 5
-    seconds; see lib/graph_core/graph_build_ingest_internal.h).
+    """Unit-level coverage of the severity-based C-log router feeding the
+    rich renderer (fix round 1, Finding 2): progress for INFO-level
+    streaming-ingest ticks, ``term.warn()`` for everything at WARN/ERROR
+    (or an unrecognised level), silence for the rest, all decided from the
+    real ``LZGLogLevel`` integer the C library passes rather than from
+    message text. No multi-gigabyte fixture is needed to exercise the
+    progress path for real (the C ingest loop only logs a periodic tick
+    every 1,000,000 lines or 5 seconds; see
+    ``lib/graph_core/graph_build_ingest_internal.h``); driving the callback
+    directly with synthetic ``(level, message)`` pairs is both faster and a
+    more precise probe of the routing logic than waiting for a real one.
     """
 
     class _FakeTerm:
@@ -579,9 +687,12 @@ class TestCLogBridge:
             self.calls = []
 
         def progress(self, label, fraction, detail=None):
-            self.calls.append((label, fraction, detail))
+            self.calls.append(('progress', label, fraction, detail))
 
-    def test_pct_field_drives_a_progress_call(self):
+        def warn(self, message):
+            self.calls.append(('warn', message))
+
+    def test_pct_field_at_info_level_drives_a_progress_call(self):
         term = self._FakeTerm()
         callback = _bridge_c_log_to_ui(term)
         message = (
@@ -589,15 +700,16 @@ class TestCLogBridge:
             "sequences=90 blank=0 pct=42.50 bytes=1.0/2.0MB nodes=5 edges=5 "
             "rate=100 inst_rate=100 avg_mbps=1 inst_mbps=1 eta=00:00:01"
         )
-        callback(3, message)
+        callback(3, message)  # LZG_LOG_INFO
         assert len(term.calls) == 1
-        label, fraction, detail = term.calls[0]
+        kind, label, fraction, detail = term.calls[0]
+        assert kind == 'progress'
         assert label == 'ingest'
         assert fraction == pytest.approx(0.425)
         assert '90' in detail
         assert '00:00:01' in detail
 
-    def test_messages_without_pct_are_dropped(self):
+    def test_info_messages_without_pct_are_dropped(self):
         term = self._FakeTerm()
         callback = _bridge_c_log_to_ui(term)
         callback(3, "graph ready: 5 nodes, 5 edges, root=0")
@@ -608,7 +720,57 @@ class TestCLogBridge:
         term = self._FakeTerm()
         callback = _bridge_c_log_to_ui(term)
         callback(3, "phase=ingest_progress pct=150.00 sequences=1")
-        assert term.calls[0][1] <= 1.0 + 1e-9
+        assert term.calls[0][2] <= 1.0 + 1e-9
+
+    def test_warn_level_message_is_surfaced_via_term_warn(self):
+        """Fix round 1, Finding 2: a real C-library warning (e.g. the
+        streaming reader's own ``mixed_input_format`` recovery, or
+        ``graph_finalize.c``'s "no @ root node found") must never be
+        dropped just because it lacks a ``pct=`` field.
+        """
+        term = self._FakeTerm()
+        callback = _bridge_c_log_to_ui(term)
+        message = (
+            "stream build: warning phase=ingest file=x line=7 "
+            "issue=mixed_input_format previous_mode=plain "
+            "current_record=seqcount continuing=true"
+        )
+        callback(2, message)  # LZG_LOG_WARN
+        assert term.calls == [('warn', message)]
+
+    def test_error_level_message_is_surfaced_via_term_warn(self):
+        term = self._FakeTerm()
+        callback = _bridge_c_log_to_ui(term)
+        callback(1, "something went wrong")  # LZG_LOG_ERROR
+        assert term.calls == [('warn', 'something went wrong')]
+
+    def test_warn_level_wins_over_message_text_that_looks_like_progress(self):
+        """Severity, not message content, decides routing: a WARN-level
+        message that happens to contain a `pct=`-shaped substring must
+        still be surfaced as a warning, never misrouted to progress().
+        """
+        term = self._FakeTerm()
+        callback = _bridge_c_log_to_ui(term)
+        message = "issue=mixed_input_format pct=42.00 looks like progress but is not"
+        callback(2, message)
+        assert term.calls == [('warn', message)]
+
+    def test_debug_and_trace_level_chatter_is_dropped(self):
+        term = self._FakeTerm()
+        callback = _bridge_c_log_to_ui(term)
+        callback(4, "some debug-level internal detail")  # LZG_LOG_DEBUG
+        callback(5, "some trace-level per-item detail")  # LZG_LOG_TRACE
+        assert term.calls == []
+
+    def test_unrecognised_level_is_surfaced_rather_than_dropped(self):
+        """"If a C message arrives that you cannot classify, surface it
+        rather than dropping it" (fix round 1): a level outside the C
+        library's own known enum (0-5) is not assumed safe to drop.
+        """
+        term = self._FakeTerm()
+        callback = _bridge_c_log_to_ui(term)
+        callback(99, "an unrecognised severity")
+        assert term.calls == [('warn', 'an unrecognised severity')]
 
 
 # ── 8. cmd_build called directly (no subprocess), matching the

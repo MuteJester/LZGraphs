@@ -89,7 +89,11 @@ class TestBuild:
         assert rc == 0
         assert 'phase=ingest' in stderr
         assert 'phase=finalize' in stderr
-        assert 'phase=save status=done' in stderr
+        # `stage`, not `status`: `status` is the plain renderer's own
+        # reserved token (see _plain.py's "Reserved keys and field-name
+        # collisions"), so cmd_build's own sub-step field is named `stage`
+        # to avoid colliding with it.
+        assert 'phase=save stage=done' in stderr
 
     def test_build_quiet_overridden_by_explicit_log_level(self, seq_count_file, tmp_path):
         out_path = str(tmp_path / 'out_logged_quiet.lzg')
@@ -107,7 +111,7 @@ class TestBuild:
             '--strict-input', '--expect-format', 'plain_seqcount',
         )
         assert rc != 0
-        assert 'phase=validate-input status=error' in stderr
+        assert 'phase=validate-input stage=error' in stderr
 
 
 class TestValidateInput:

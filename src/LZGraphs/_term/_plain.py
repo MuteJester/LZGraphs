@@ -153,6 +153,55 @@ it, so :meth:`~PlainRenderer.progress` detects NaN explicitly (``fraction
 that clamp runs, rather than relying on comparison semantics to do
 something reasonable by accident.
 
+## Reserved keys and field-name collisions (fix round 1)
+
+Every line this renderer writes always carries the renderer's *own*
+``status=<word>`` token (see "Line shape" above), composed before any
+caller-supplied ``fields``/``rows`` are appended. If a caller's own mapping
+also happens to contain a key literally named ``"status"`` (a natural,
+unremarkable English word; ``cli.py``'s original ``cmd_build`` wiring did
+exactly this, passing a domain field named ``status`` alongside a
+``phase`` field to describe a sub-step's own start/done/error state), the
+formatted line ends up with **two** ``status=`` tokens at different values,
+e.g. ``[build] status=info phase=save status=start output=...``. A
+``key=value`` parser (this format's entire reason to exist; see "Line
+shape" above) cannot recover both values from that: whichever token it
+reads first or last, the other is silently discarded. This is a real defect,
+not a cosmetic one, and it must be fixed *here*, in the renderer, rather
+than by trusting every future caller across every future command to avoid
+the word "status" (or whatever other word this renderer's own line shape
+happens to reserve next): a contract this fragile is not a contract.
+
+:func:`_disambiguate_fields` is the fix: every ``fields``/``rows`` mapping
+passed to :meth:`~PlainRenderer.start`, :meth:`~PlainRenderer.update`, or
+:meth:`~PlainRenderer.done` is run through it (inside :meth:`_emit`) before
+being formatted, so a caller-supplied key colliding with a reserved renderer
+key is renamed, deterministically, by appending a trailing underscore
+(``"status"`` -> ``"status_"``), repeated (``"status__"``, ...) until the
+result collides with neither a reserved key nor another key already placed
+in the same call's output, so two colliding fields in one call (unlikely,
+but not ruled out) are both preserved rather than one clobbering the other.
+This guarantees **no emitted line ever contains two tokens with the same
+key**, the property ``tests/test_term_plain.py`` checks by actually parsing
+every emitted line with a real ``key=value`` splitter, not by grepping for
+the literal word ``status``.
+
+:data:`_RESERVED_FIELD_KEYS` currently contains exactly one entry,
+``"status"``, since that is the only field-shaped token every single call to
+:meth:`_emit` unconditionally emits. ``"elapsed"`` (auto-appended by
+:meth:`~PlainRenderer.done` when the caller's own ``rows`` did not supply
+one) is deliberately **not** in this set: unlike ``status``, it is not an
+unconditional part of every line's shape, and it already has its own,
+narrower, pre-existing guard (``if "elapsed" not in merged: ...``) that
+prevents a duplicate the same way, without needing to rename a caller's
+*own* honest ``elapsed`` field on calls where the renderer was never going
+to add one anyway (e.g. a plain ``update()`` reporting its own step's
+``elapsed=...``, which ``cli.py`` does routinely and which must keep
+reading exactly ``elapsed=...``, not ``elapsed_=...``, since nothing here
+ever collides with it). Set-based rather than a single hard-coded ``if``,
+specifically so a future renderer change that adds a second unconditional
+token has one obvious place to register it.
+
 ## Encoding safety
 
 A field value is whatever the caller hands in; nothing here assumes it is
@@ -265,6 +314,37 @@ _STATUS_COLOUR = {
     "done": "ok",
 }
 
+#: Field-shaped tokens this renderer's own line shape emits unconditionally
+#: on every call to :meth:`PlainRenderer._emit`, alongside whatever
+#: ``fields``/``rows`` a caller supplies. See the module docstring's
+#: "Reserved keys and field-name collisions" section for why this is a set
+#: (extensible) rather than a single hard-coded check, and for why
+#: ``"elapsed"`` is deliberately not a member.
+_RESERVED_FIELD_KEYS = frozenset({"status"})
+
+
+def _disambiguate_fields(fields: Mapping[str, Any]) -> dict[str, Any]:
+    """Rename any caller-supplied key colliding with a reserved renderer key
+    (:data:`_RESERVED_FIELD_KEYS`), deterministically and losslessly.
+
+    A colliding key ``k`` becomes ``k_``, then ``k__``, and so on, until the
+    result collides with neither a reserved key nor a key already placed in
+    the *output* of this same call, so two independently-colliding fields
+    passed in one call are both kept (under two different disambiguated
+    names) rather than the second silently overwriting the first. Insertion
+    order is preserved; a key with no collision passes through unchanged.
+    This is what makes "no emitted line contains a duplicate key" an
+    invariant of the renderer itself rather than a rule every future caller
+    has to remember.
+    """
+    out: dict[str, Any] = {}
+    for key, value in fields.items():
+        new_key = key
+        while new_key in _RESERVED_FIELD_KEYS or new_key in out:
+            new_key += "_"
+        out[new_key] = value
+    return out
+
 
 def _tag_for(title: str) -> str:
     """Derive a stable ``[tag]`` prefix from a session ``title``.
@@ -370,7 +450,7 @@ class PlainRenderer:
     def _emit(self, status: str, fields: Mapping[str, Any] | None = None) -> None:
         parts = [self._tag, self._status_token(status)]
         if fields:
-            parts.append(_format_fields(fields))
+            parts.append(_format_fields(_disambiguate_fields(fields)))
         self._write(" ".join(parts))
 
     def _emit_detail(self, status: str, value: Any) -> None:

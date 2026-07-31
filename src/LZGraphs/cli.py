@@ -191,28 +191,72 @@ _C_LOG_PCT_RE = re.compile(r'\bpct=([0-9.]+)')
 _C_LOG_SEQUENCES_RE = re.compile(r'\bsequences=(\d+)')
 _C_LOG_ETA_RE = re.compile(r'\beta=(\S+)')
 
+# The C library's own severity ladder (include/lzgraph/common.h's
+# `LZGLogLevel` enum, exactly as `set_log_callback`'s Python callback
+# receives it: `python_log_cb` in _clzgraph.c calls back with `(int)level`
+# unchanged, so this integer *is* the real severity marker, not something to
+# infer from message text). Reproduced here rather than pattern-matching
+# message content for severity, per fix round 1: message text tells you
+# *what* happened, only `level` reliably tells you *how bad*.
+#     LZG_LOG_NONE  = 0   logging disabled
+#     LZG_LOG_ERROR = 1   non-fatal errors worth reporting
+#     LZG_LOG_WARN  = 2   recoverable issues (skipped seqs, slow, ...)
+#     LZG_LOG_INFO  = 3   progress and timing
+#     LZG_LOG_DEBUG = 4   algorithm decisions, internal metrics
+#     LZG_LOG_TRACE = 5   per-item detail (very verbose)
+# The only call sites in the graph-build path that ever emit ERROR or WARN
+# are `lib/graph_core/graph_finalize.c`'s "no @ root node found ..." (WARN)
+# and `lib/graph_core/graph_build_ingest.c`'s "... issue=mixed_input_format
+# ... continuing=true" (WARN); nothing in that path calls `LZG_ERROR`, but
+# the mapping below still handles it, since a future call site might.
+_LZG_LOG_ERROR = 1
+_LZG_LOG_WARN = 2
+_LZG_LOG_INFO = 3
+_LZG_LOG_DEBUG = 4
+_LZG_LOG_TRACE = 5
+
 
 def _bridge_c_log_to_ui(term):
-    """Build a ``set_log_callback`` callback that feeds the C library's
-    streaming-ingest progress into ``term.progress(...)`` instead of letting
-    it print raw ``[LZGraph/INFO] ...`` text straight to stderr.
+    """Build a ``set_log_callback`` callback that routes the C library's own
+    logging into ``term`` by severity, instead of letting it print raw
+    ``[LZGraph/...] ...`` text straight to stderr.
 
     Used only for the rich renderer (see ``cmd_build``): a live, cursor-
     controlled redraw and a second system independently writing raw lines to
     the same stderr interleave into garbage, so this callback becomes the
-    *only* writer for the C library's messages while a rich session is
-    open, and it never writes raw text itself. Every message either carries
-    a ``pct=`` field (the periodic ``phase=ingest``/``phase=ingest_progress``
-    lines the streaming builder emits; see
-    ``lib/graph_core/graph_build_ingest_internal.h``'s
-    ``LZG_STREAM_PROGRESS_EVERY``/``LZG_STREAM_PROGRESS_MIN_SEC``), which is
-    translated into a real ``term.progress("ingest", fraction, detail)``
-    call so the fast streaming path still shows live progress in rich mode,
-    or it does not (the one-shot "building graph"/"graph ready"/"stream
-    build: start|done phase=finalize" lines), in which case it is silently
-    dropped: those facts are already reported by ``cmd_build`` itself via
-    ``term.update()``, so nothing is lost by not also forwarding the raw C
-    text for them.
+    *only* writer for the C library's messages while a rich session is open,
+    and it never writes raw text itself. Severity (``level``, the actual
+    ``LZGLogLevel`` integer the C library passes, not anything inferred from
+    the message string; see ``_LZG_LOG_ERROR`` and friends above) decides
+    where a message goes:
+
+    * ``ERROR``/``WARN`` -> ``term.warn(message)``, always, unconditionally.
+      A real warning (a mixed-format file the streaming reader had to
+      recover from mid-file, "no @ root node found", ...) must never be
+      silently dropped just because it does not happen to carry a ``pct=``
+      field; the previous version of this bridge did exactly that (fix
+      round 1, Finding 2), and losing a warning a user needed is worse than
+      showing one they did not.
+    * ``INFO`` carrying a ``pct=`` field (the periodic
+      ``phase=ingest``/``phase=ingest_progress`` lines the streaming builder
+      emits; see ``lib/graph_core/graph_build_ingest_internal.h``'s
+      ``LZG_STREAM_PROGRESS_EVERY``/``LZG_STREAM_PROGRESS_MIN_SEC``) ->
+      translated into a real ``term.progress("ingest", fraction, detail)``
+      call, so the fast streaming path still shows live progress in rich
+      mode.
+    * ``INFO`` without a ``pct=`` field (the one-shot "building graph"/
+      "graph ready"/"stream build: start|done phase=ingest|finalize" lines),
+      and the more verbose ``DEBUG``/``TRACE`` levels -> silently dropped.
+      This is deliberate, not a gap: these are genuinely informational
+      chatter, already reported by ``cmd_build`` itself via ``term.update()``
+      for the INFO case, and dropping them (rather than racing the live
+      redraw with a second writer) is explicitly acceptable per the fix
+      round 1 review that requested this rewrite.
+    * Anything else (a level outside the C library's own known enum, which
+      should not be reachable given ``LZGLogLevel``'s fixed range but is not
+      this module's place to assume) -> ``term.warn(message)`` too: an
+      unclassifiable message is surfaced rather than dropped, on the same
+      "never silently lose a message" principle as the first bullet.
 
     In plain mode ``cmd_build`` uses ``set_log_level`` instead of this
     bridge, so these same lines print exactly as they do today (see the
@@ -221,24 +265,30 @@ def _bridge_c_log_to_ui(term):
     """
 
     def _callback(level, message):
-        if 'pct=' not in message:
+        if level in (_LZG_LOG_ERROR, _LZG_LOG_WARN):
+            term.warn(message)
             return
-        pct_match = _C_LOG_PCT_RE.search(message)
-        if not pct_match:
+        if level == _LZG_LOG_INFO:
+            pct_match = _C_LOG_PCT_RE.search(message)
+            if not pct_match:
+                return  # one-shot INFO chatter; already reported elsewhere
+            try:
+                fraction = float(pct_match.group(1)) / 100.0
+            except ValueError:
+                return
+            fraction = max(0.0, min(1.0, fraction))
+            detail = None
+            seq_match = _C_LOG_SEQUENCES_RE.search(message)
+            eta_match = _C_LOG_ETA_RE.search(message)
+            if seq_match and eta_match:
+                detail = f"{seq_match.group(1)} seq, eta {eta_match.group(1)}"
+            elif seq_match:
+                detail = f"{seq_match.group(1)} seq"
+            term.progress('ingest', fraction, detail)
             return
-        try:
-            fraction = float(pct_match.group(1)) / 100.0
-        except ValueError:
-            return
-        fraction = max(0.0, min(1.0, fraction))
-        detail = None
-        seq_match = _C_LOG_SEQUENCES_RE.search(message)
-        eta_match = _C_LOG_ETA_RE.search(message)
-        if seq_match and eta_match:
-            detail = f"{seq_match.group(1)} seq, eta {eta_match.group(1)}"
-        elif seq_match:
-            detail = f"{seq_match.group(1)} seq"
-        term.progress('ingest', fraction, detail)
+        if level in (_LZG_LOG_DEBUG, _LZG_LOG_TRACE):
+            return  # more verbose informational chatter; same reasoning
+        term.warn(message)  # unrecognised level: surface rather than drop
 
     return _callback
 
@@ -426,7 +476,7 @@ def cmd_build(args):
 
         if can_stream_plain and (args.strict_input or args.expect_format is not None):
             if show_info:
-                term.update(phase='validate-input', status='start', input=args.input)
+                term.update(phase='validate-input', stage='start', input=args.input)
             t_validate = time.time()
             report = validate_input(
                 args.input,
@@ -437,7 +487,7 @@ def cmd_build(args):
             if show_info:
                 term.update(
                     phase='validate-input',
-                    status='ok' if report['ok'] else 'error',
+                    stage='ok' if report['ok'] else 'error',
                     kind=report['detected_kind'], mode=report['mode'],
                     records=report['records'], errors=report['error_count'],
                     warnings=report['warning_count'],
@@ -461,12 +511,12 @@ def cmd_build(args):
             if input_alphabet is not None:
                 _warn_alphabet_mismatch(args, input_alphabet, term)
             if show_info:
-                term.update(phase='save', status='start', output=args.output)
+                term.update(phase='save', stage='start', output=args.output)
             t2 = time.time()
             g.save(args.output)
             sz = os.path.getsize(args.output)
             if show_info:
-                term.update(phase='save', status='done', output=args.output,
+                term.update(phase='save', stage='done', output=args.output,
                             size_kb=f"{sz/1024:.1f}", elapsed=f"{time.time()-t2:.2f}s")
                 term.done('lzg build', rows={
                     'output': args.output,
@@ -524,12 +574,12 @@ def cmd_build(args):
                         elapsed=f"{time.time()-t1:.2f}s")
 
         if show_info:
-            term.update(phase='save', status='start', output=args.output)
+            term.update(phase='save', stage='start', output=args.output)
         t2 = time.time()
         g.save(args.output)
         sz = os.path.getsize(args.output)
         if show_info:
-            term.update(phase='save', status='done', output=args.output,
+            term.update(phase='save', stage='done', output=args.output,
                         size_kb=f"{sz/1024:.1f}", elapsed=f"{time.time()-t2:.2f}s")
             term.done('lzg build', rows={
                 'output': args.output,

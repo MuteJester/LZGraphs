@@ -776,3 +776,115 @@ def test_renderer_signatures_match_the_ui_protocol(method_name):
     expected = _param_shape(getattr(Ui, method_name))
     assert _param_shape(getattr(PlainRenderer, method_name)) == expected
     assert _param_shape(getattr(RichRenderer, method_name)) == expected
+
+
+# ── Reserved keys and field-name collisions (Task 6 fix round 1) ──
+#
+# Finding 1: cli.py's original cmd_build wiring passed a caller field
+# literally named "status" alongside `phase`, colliding with this
+# renderer's own unconditional `status=<word>` token. The formatted line
+# then carried two `status=` tokens at different values (e.g. "[build]
+# status=info phase=save status=start output=..."), which a key=value
+# parser cannot recover both values from: whichever it reads, the other is
+# silently discarded. Greppability is this whole layout's reason to exist,
+# so this is a real defect, fixed in the renderer itself
+# (`_disambiguate_fields`) rather than by trusting every future caller to
+# avoid the word "status".
+
+
+def _field_keys(line: str) -> list[str]:
+    """Every ``key`` at a ``key=`` boundary in ``line``'s content (after its
+    ``[tag]`` prefix), in order, *keeping duplicates* rather than collapsing
+    them into a dict.
+
+    Deliberately not ``_parse_line``: building a ``{key: value}`` dict from
+    the raw matches (as ``_parse_line`` does, for every other test in this
+    file) silently keeps only the *last* value for a repeated key, which is
+    exactly the failure mode this section exists to catch, not paper over.
+    This is "a real parser" in the same sense ``_parse_line`` already is
+    (the same ``_FIELD_BOUNDARY_RE`` boundary regex the module docstring
+    documents as the convention a script would use), just stopping one step
+    earlier, before the lossy dict conversion.
+    """
+    plain = _strip_escapes(line)
+    m = _TAG_RE.match(plain)
+    assert m is not None, f"line has no [tag] prefix: {line!r}"
+    return [fm.group(1) for fm in _FIELD_BOUNDARY_RE.finditer(m.group("rest"))]
+
+
+def test_no_emitted_line_ever_contains_a_duplicate_key():
+    """Property over the whole line set a realistic session produces,
+    checked with the real field-boundary parser, not a check for the
+    literal string ``"status"``: any future reserved-key collision this
+    renderer's own line shape introduces would be caught the same way.
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream=stream)
+    _drive_all_methods(renderer)
+    # The exact shape that used to collide: a caller field literally named
+    # "status", passed alongside "phase", on both an update() and a done().
+    renderer.update(phase="save", status="start", output="a.lzg")
+    renderer.update(phase="save", status="done", output="a.lzg", size_kb=1.5)
+    renderer.done("lzg build", {"status": "surprise", "output": "a.lzg"})
+
+    lines = stream.getvalue().splitlines()
+    assert lines  # sanity: _drive_all_methods really wrote something
+    for line in lines:
+        keys = _field_keys(line)
+        assert len(keys) == len(set(keys)), f"duplicate key in line: {line!r}"
+
+
+def test_caller_field_named_status_is_disambiguated_not_dropped():
+    """The caller's colliding value is not merely deduplicated away: it
+    survives, under a deterministically renamed key, alongside the
+    renderer's own ``status=`` token.
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream=stream)
+    renderer.update(phase="save", status="start", output="a.lzg")
+
+    tag, fields = _parse_line(stream.getvalue().splitlines()[0])
+    assert fields["status"] == "info"  # update()'s own generic status word
+    assert fields["status_"] == "start"  # the caller's field, disambiguated
+    assert fields["phase"] == "save"
+    assert fields["output"] == "a.lzg"
+
+
+def test_two_independently_colliding_fields_in_one_call_are_both_kept():
+    """A caller passing *both* ``status`` and (already) ``status_`` in the
+    same call must not have the second clobber the first: each gets its own
+    disambiguated name.
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream=stream)
+    renderer.update(status="first", status_="second")
+
+    tag, fields = _parse_line(stream.getvalue().splitlines()[0])
+    assert fields["status"] == "info"
+    assert fields["status_"] == "first"
+    assert fields["status__"] == "second"
+
+
+def test_non_colliding_field_names_pass_through_unchanged():
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream=stream)
+    renderer.update(phase="read", nodes=5)
+
+    tag, fields = _parse_line(stream.getvalue().splitlines()[0])
+    assert fields["phase"] == "read"
+    assert fields["nodes"] == "5"
+
+
+def test_elapsed_is_not_forced_through_disambiguation_on_a_plain_update():
+    """``"elapsed"`` is deliberately not a reserved key (see ``_plain.py``'s
+    module docstring): a plain ``update()`` never emits its own ``elapsed``
+    token, so a caller's own honest ``elapsed=...`` field (``cli.py``
+    reports one on nearly every phase) must keep reading exactly
+    ``elapsed=...``, not get needlessly renamed to ``elapsed_=...``.
+    """
+    stream = io.StringIO()
+    renderer = PlainRenderer(CAPS0, stream=stream)
+    renderer.update(phase="read", elapsed="0.12s")
+
+    tag, fields = _parse_line(stream.getvalue().splitlines()[0])
+    assert fields["elapsed"] == "0.12s"

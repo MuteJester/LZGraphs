@@ -77,9 +77,9 @@ was merely requested.
 ## Throttling
 
 At most :data:`_MAX_REDRAWS_PER_SECOND` (15) actual redraws happen per
-second, regardless of how often ``progress()``/``update()``/``warn()`` are
-called; a build reporting progress once per record must update internal
-state instantly but only *paint* on a fixed cadence. The clock is
+second, regardless of how often ``progress()``/``update()`` are called; a
+build reporting progress once per record must update internal state
+instantly but only *paint* on a fixed cadence. The clock is
 ``time.monotonic`` by default but is an injectable constructor parameter
 (``clock``), specifically so a test can drive 10,000 calls against a fake,
 manually-advanced clock and get an exact, non-flaky bound on the number of
@@ -89,7 +89,12 @@ module-level constant for the same reason: a test can import and reason
 about it directly instead of hard-coding ``0.0667``. ``start()``, ``done()``,
 and ``error()`` always draw (``force=True``): they are session boundaries
 that happen at most once each, never a hot loop, and the caller must always
-see the opening and closing frame regardless of timing.
+see the opening and closing frame regardless of timing. ``warn()`` also
+forces its redraw (Task 6 fix round 1, see its own docstring): a warning is
+a rare, important event a session boundary can otherwise silently swallow
+if it lands inside the same throttle window as the ``done()``/``error()``
+that follows it, which is the common case for any build fast enough to
+finish inside one 1/15s window.
 
 ## The frame never exceeds the terminal (fix round 1, Finding 1)
 
@@ -515,12 +520,28 @@ class RichRenderer:
         self._redraw()
 
     def warn(self, message: str) -> None:
+        """Record ``message`` and force an immediate redraw (Task 6 fix round 1).
+
+        Unlike :meth:`progress`/:meth:`update`, this does not go through the
+        throttled :meth:`_redraw`: a warning is a rare, important event, not
+        a hot per-record loop, and a fast session (a small build finishing
+        in well under one throttle window, i.e. most builds) could
+        otherwise call :meth:`warn` and then :meth:`done`/:meth:`error`
+        before the *next* throttled redraw was ever due, silently dropping
+        it from the screen entirely (the final card is drawn from ``done``/
+        ``error``'s own explicit ``rows``, never from ``self._warnings``).
+        Measured directly against the fix that motivated this: a
+        ``start()``-``warn()``-``update()``-``done()`` sequence with no
+        artificial delay between calls painted only 2 frames (``start``,
+        ``done``) before this fix, silently losing the warning; forcing
+        here makes it 3, with the warning visible in the frame between them.
+        """
         if self._stopped:
             return
         self._warnings.append(message)
         if len(self._warnings) > _MAX_WARNINGS:
             del self._warnings[: len(self._warnings) - _MAX_WARNINGS]
-        self._redraw()
+        self._redraw(force=True)
 
     def error(self, title: str, lines: Sequence[str] | None = None) -> None:
         rows: list[str] = []
