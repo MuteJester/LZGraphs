@@ -199,89 +199,32 @@ def cmd_validate_input(args):
 
 def cmd_build(args):
     from . import LZGraph, set_log_level
-    from ._io import (
-        FormatError,
-        detect_format,
-        raw_prefix_is_streamable,
-        read_sequences,
-        validate_input,
-    )
+    from ._io import empty_read_error, plan_streaming_read, read_sequences, validate_input
 
     active_log_level = _effective_log_level(args, default='info')
     set_log_level(active_log_level)
 
     # The raw-streaming fast path (LZGraph.from_file) reads bytes straight
-    # off disk with no decompression, so it is only safe when the file is
-    # actually uncompressed plain/plain_seqcount content. Deciding that from
-    # the filename (e.g. a ".gz" suffix) is not enough: a bzip2, xz, or
-    # misnamed-gzip file has none of those suffixes yet is still compressed,
-    # and streaming its raw bytes into the C builder silently produces a
-    # garbage graph instead of failing loudly. detect_format inspects the
-    # actual magic bytes, so it is the only reliable signal here. --expect-format
-    # is passed through as override= here on purpose (this is the one place in
-    # this function that still coerces rather than asserts): a user-declared
-    # format decides whether the fast path is even attempted, so genuinely
-    # ambiguous-but-declared content (see raw_prefix_is_streamable's docstring)
-    # still gets a chance at it instead of being second-guessed by content
-    # sniffing. This is safe because raw_prefix_is_streamable independently
-    # verifies the coerced interpretation actually produces well-formed lines,
-    # and because the validate_input call below re-checks expect_format as a
-    # true assertion (comparing the real auto-detected format, uncoerced)
-    # before anything is actually built, so a genuine mismatch is still caught
-    # loudly rather than silently streamed. read_sequences, in the safe branch
-    # further below, treats expect_format as an assertion too, not a coercion:
-    # see _detect_format_for_read. A detection failure here (empty/binary
-    # input) must not crash this fast-path decision; it just means "don't
-    # stream", leaving the real error to surface from the safe branch below.
-    #
-    # detect_format's format/compression verdict is not the whole story: the
-    # C reader also has none of read_sequences' per-line normalisation (no
-    # utf-8-sig BOM stripping, no universal-newline translation, no
-    # _is_wellformed filtering), so a file that is genuinely uncompressed
-    # plain/plain_seqcount content can still make the fast path disagree with
-    # the rest of the CLI (a BOM glued onto the first sequence, CR-only line
-    # endings collapsing the whole file into one sequence, a header line or
-    # other malformed record ingested as data). raw_prefix_is_streamable
-    # inspects the file's real bytes for exactly those cases and declines the
-    # fast path when any of them would matter, falling through to the safe
-    # (and here, correct) non-streaming branch below instead.
-    #
-    # raw_prefix_is_streamable only checks the same bounded sniff prefix
-    # detect_format already read (32 lines), not the whole file: a malformed
-    # record beyond that prefix (say, line 10000 of a foundation-scale file)
-    # still takes the fast path and is ingested rather than dropped. This is
-    # a deliberate trade, not an oversight: catching it would mean reading
-    # the entire file up front, which defeats the constant-memory streaming
-    # this path exists to provide for exactly those large files. A user who
-    # needs full per-record validation already has two ways to get it:
-    # compressed input never reaches this gate at all (falls to
-    # read_sequences below), and --strict-input runs validate_input over the
-    # whole file before cmd_build streams anything.
-    can_stream_plain = False
-    input_alphabet = None
-    if args.input != '-':
-        try:
-            # seq_column is passed here too (not just variant) so that, for
-            # tabular input, the alphabet this resolves (see input_alphabet
-            # below) reflects the actual column read_sequences will use,
-            # including an explicit --seq-column override, rather than
-            # whatever the variant's default candidate list would have
-            # picked. It does not change this gate's own streaming decision:
-            # only plain/plain_seqcount (no columns at all) can ever stream,
-            # so seq_column is inert for that decision either way.
-            spec = detect_format(
-                args.input, variant=args.variant, seq_column=args.seq_column,
-                override=args.expect_format,
-            )
-        except FormatError:
-            spec = None
-        if spec is not None:
-            input_alphabet = spec.alphabet
-            can_stream_plain = (
-                spec.compression == 'none'
-                and spec.format in ('plain', 'plain_seqcount')
-                and raw_prefix_is_streamable(args.input, spec.format)
-            )
+    # off disk with no decompression and none of read_sequences' per-line
+    # normalisation (no utf-8-sig BOM stripping, no universal-newline
+    # translation, no malformed-record filtering), so it is only safe for
+    # genuinely uncompressed plain/plain_seqcount content whose sniffed
+    # prefix is already clean. plan_streaming_read is the single
+    # implementation of that decision, shared with LZGraph.from_file and
+    # FlashBackGraph.from_file (see its docstring in _io/_public.py for the
+    # full rationale, including why --expect-format is a coercion here
+    # rather than an assertion, and why only the bounded sniff prefix is
+    # checked rather than the whole file). seq_column is passed here too
+    # (not just variant) so that, for tabular input, the alphabet this
+    # resolves (see input_alphabet below) reflects the actual column
+    # read_sequences will use, including an explicit --seq-column override;
+    # it does not change the streaming decision itself, since only
+    # plain/plain_seqcount (no columns at all) can ever stream.
+    can_stream_plain, spec = plan_streaming_read(
+        args.input, variant=args.variant, seq_column=args.seq_column,
+        expect_format=args.expect_format,
+    )
+    input_alphabet = spec.alphabet if spec is not None else None
 
     if can_stream_plain and (args.strict_input or args.expect_format is not None):
         if _cli_log_enabled(args, 'info'):
@@ -352,11 +295,7 @@ def cmd_build(args):
         _stderr(f"[build] phase=read status=warn dropped={dropped} "
                 f"malformed={stats.malformed} nonproductive={stats.nonproductive}")
     if n == 0:
-        raise ValueError(
-            f"{args.input}: read {stats.total} record(s), 0 kept "
-            f"(malformed={stats.malformed}, nonproductive={stats.nonproductive}); "
-            "nothing left to build a graph from"
-        )
+        raise empty_read_error(args.input, stats)
     if input_alphabet is not None:
         _warn_alphabet_mismatch(args, input_alphabet)
 

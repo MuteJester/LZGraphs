@@ -137,6 +137,82 @@ def raw_prefix_is_streamable(path: str, fmt: str) -> bool:
     return all(_is_wellformed(line) for line in meaningful)
 
 
+def plan_streaming_read(path, *, variant="aap", seq_column=None, expect_format=None):
+    """Decide whether ``path`` may take the constant-memory C streaming path.
+
+    This is the single implementation of the fast-path routing decision
+    shared by ``cli.py``'s ``cmd_build``, ``LZGraph.from_file``, and
+    ``FlashBackGraph.from_file``. All three used to make this decision
+    independently (``cmd_build`` correctly; the two ``from_file`` methods
+    not at all, streaming raw bytes through the C reader unconditionally),
+    which is how a user calling ``LZGraph.from_file`` directly instead of
+    going through ``lzg build`` could silently get a different, wrong graph
+    for the same file. The rule itself is unchanged from ``cmd_build``'s
+    original gate: stream only when the file is uncompressed, detected as
+    ``plain``/``plain_seqcount``, and ``raw_prefix_is_streamable`` confirms
+    its sniffed prefix has no leading BOM, no lone carriage return, and no
+    line that is not itself a well-formed sequence. Everything else must be
+    read through ``detect_format`` plus the readers (``read_sequences``),
+    which is what a ``False`` return tells the caller to do.
+
+    ``expect_format``, when given, is passed straight through as
+    ``detect_format``'s ``override``: a coercion, not an assertion, exactly
+    as ``cmd_build`` originally did it. A user-declared format still gets a
+    chance at the fast path even when content sniffing alone would be
+    ambiguous, because ``raw_prefix_is_streamable`` independently confirms
+    the coerced interpretation actually produces well-formed lines before
+    this can return ``True``. This function never *asserts* that
+    ``expect_format`` matches the real content; a caller that also wants
+    that (``LZGraph.from_file``'s ``strict_input``/``expect_format``
+    contract) gets it from ``validate_input``/``read_sequences`` instead,
+    exactly as ``cmd_build`` already runs ``validate_input`` alongside this
+    for that purpose.
+
+    Returns ``(can_stream, spec)``. ``spec`` is the resolved
+    :class:`InputSpec` whenever detection succeeds, even when ``can_stream``
+    is ``False`` (e.g. the format is ``tabular``), so a caller that also
+    wants ``spec.alphabet`` for a warning never needs a second
+    ``detect_format`` call. ``spec`` is ``None``, and ``can_stream`` is
+    always ``False``, when ``path`` is ``"-"`` (stdin is a single
+    non-seekable pipe, never safe for the raw-byte fast path, which reopens
+    its input from byte zero) or when detection itself fails (empty,
+    binary, or otherwise unclassifiable content); in either case the real
+    error, if any, is left to surface from the safe ``read_sequences``
+    branch instead of raised here.
+    """
+    if path == "-":
+        return False, None
+    try:
+        spec = detect_format(
+            path, variant=variant, seq_column=seq_column, override=expect_format,
+        )
+    except FormatError:
+        return False, None
+    can_stream = (
+        spec.compression == "none"
+        and spec.format in ("plain", "plain_seqcount")
+        and raw_prefix_is_streamable(path, spec.format)
+    )
+    return can_stream, spec
+
+
+def empty_read_error(path, stats: RecordStats) -> ValueError:
+    """The explanatory error raised when a read kept zero records.
+
+    Shared by ``cmd_build``, ``LZGraph.from_file``, and
+    ``FlashBackGraph.from_file`` so a file that drops every record (e.g. an
+    AIRR file with a blank ``productive`` column) fails the same, specific
+    way through every entry point, instead of falling through to
+    ``LZGraph.__init__``'s bare ``sequences must be a non-empty list``,
+    which names neither how many records were read nor why none survived.
+    """
+    return ValueError(
+        f"{path}: read {stats.total} record(s), 0 kept "
+        f"(malformed={stats.malformed}, nonproductive={stats.nonproductive}); "
+        "nothing left to build a graph from"
+    )
+
+
 def _iter_plain_strict(stream):
     """Yield ``(sequence, count)`` from plain/plain_seqcount lines, raising if
     the file mixes both record shapes.

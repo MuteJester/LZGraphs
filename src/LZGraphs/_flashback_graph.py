@@ -137,14 +137,43 @@ class FlashBackGraph(_GraphCommonMixin):
 
     @classmethod
     def from_file(cls, path: str | os.PathLike, *, smoothing: float = 0.0) -> "FlashBackGraph":
-        """Build from a plain text file (streaming, constant memory).
+        """Build from a sequence file, auto-detecting format like ``lzg build`` does.
 
-        Supported: one sequence per line, or sequence<TAB>abundance.
+        Accepts everything ``lzg flashback build``/``read_sequences`` does:
+        FASTA, FASTQ, headered tabular input (AIRR-style TSV/CSV), plain
+        one-sequence-per-line files, and ``sequence<TAB>abundance`` files,
+        transparently decompressed (gzip/bzip2/xz/zstd) and normalised (BOM
+        stripping, universal newlines, malformed-record filtering) exactly
+        the way ``read_sequences`` does. Tabular sequence-column detection
+        uses amino-acid candidates (``junction_aa``, etc.), since
+        FlashBackGraph is an amino-acid-only engine; gene columns, if
+        present, are ignored, since this class carries no V/J annotation. A
+        clean, uncompressed plain or ``sequence<TAB>abundance`` file is
+        still streamed straight into the C builder with constant memory,
+        which is what this method exists to provide for large repertoire
+        files; anything else (compressed, headered, FASTA/FASTQ, or
+        containing a BOM, a lone carriage return, or a malformed line within
+        the sniffed prefix) is instead read through ``read_sequences`` and
+        built the same way ``FlashBackGraph(sequences=...)`` would be.
         """
         path = os.fspath(path)
         if not path:
             raise ValueError("path must be non-empty")
-        return cls._from_capsule(_c.fb_graph_build_file(path, smoothing))
+
+        from ._io import empty_read_error, plan_streaming_read, read_sequences
+
+        can_stream, _spec = plan_streaming_read(path, variant="aap")
+        if can_stream:
+            return cls._from_capsule(_c.fb_graph_build_file(path, smoothing))
+
+        data = read_sequences(path, variant="aap", no_genes=True)
+        if not data['sequences']:
+            raise empty_read_error(path, data['stats'])
+        return cls(
+            data['sequences'],
+            abundances=data['abundances'],
+            smoothing=smoothing,
+        )
 
     # ── Dunder ──────────────────────────────────────────────
 

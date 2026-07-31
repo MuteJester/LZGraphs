@@ -4,6 +4,7 @@ import math
 import numpy as np
 import pytest
 from LZGraphs import LZGraph, LZGraphError, NoGeneDataError, set_log_callback
+from LZGraphs._io import FormatError
 
 
 class TestConstruction:
@@ -65,21 +66,26 @@ class TestConstruction:
         assert any('phase=finalize' in msg for _, msg in seen)
         assert any('mode=plain_seqcount' in msg for _, msg in seen)
 
-    def test_from_file_warns_on_mixed_plain_and_seqcount(self, tmp_path):
+    def test_from_file_on_undetectable_mixed_input_matches_cmd_build(self, tmp_path):
+        """Before the from_file safety-gate fix, this exact 2-line file
+        bypassed detect_format entirely (from_file streamed unconditionally
+        through the C reader), which emitted its own internal
+        'mixed_input_format' warning and built a graph anyway. detect_format
+        cannot actually resolve this file's shape at all: with the second
+        line missing a count field, it fails the plain_seqcount pattern, so
+        the whole file looks like an ordinary tabular file whose header is
+        "CASSLGIRRT", "5" (neither a recognised sequence-column name), which
+        read_sequences (and therefore cmd_build) already refuse with
+        FormatError today, independent of this fix. LZGraph.from_file must
+        now raise the same error instead of silently disagreeing with the
+        CLI on a file the CLI itself already refuses: this is from_file
+        losing an unsafe shortcut, not a new defect.
+        """
         p = tmp_path / 'mixed_input.txt'
         p.write_text('CASSLGIRRT\t5\nCASSLGYEQYF\n')
-        seen = []
 
-        def cb(level, message):
-            seen.append((level, message))
-
-        set_log_callback(cb, 'warn')
-        try:
+        with pytest.raises(FormatError, match='could not identify a sequence column'):
             LZGraph.from_file(str(p), variant='aap')
-        finally:
-            set_log_callback(None)
-
-        assert any('issue=mixed_input_format' in msg for _, msg in seen)
 
     def test_from_file_strict_input_fails_on_mixed_plain_and_seqcount(self, tmp_path):
         p = tmp_path / 'mixed_input_strict.txt'

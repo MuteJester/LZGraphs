@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from ._public import (
     detect_input_kind,
+    empty_read_error,
+    plan_streaming_read,
     raw_prefix_is_streamable,
     read_sequences,
     read_sequences_simple,
@@ -14,6 +16,8 @@ from ._validate import validate_input
 __all__ = [
     "detect_format",
     "detect_input_kind",
+    "empty_read_error",
+    "plan_streaming_read",
     "raw_prefix_is_streamable",
     "read_sequences",
     "read_sequences_simple",
