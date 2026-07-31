@@ -432,6 +432,20 @@ def cmd_build(args):
     still let through, and it always also reaches the user a second way
     regardless of ``term``, via the exception itself propagating to
     ``main()``'s own unconditional ``Error: ...`` printer.
+
+    Fix round 2, C1: ``term.start(...)`` itself is now called
+    unconditionally (only the *fields* it opens with are gated by
+    ``show_info``), rather than living inside ``if show_info: ...`` as
+    before. That used to mean the rich renderer's session never opened at
+    all under ``--log-level warn``/``error`` (``show_info`` is ``False``
+    there): ``RichRenderer`` gates ``progress()``/``update()``/``warn()``
+    on its own internal "has a session been started" flag, so with no
+    ``start()`` call, ``term.warn(...)`` for the alphabet mismatch, the
+    ``dropped=``/``malformed=`` counts, and every C-library warning bridged
+    through ``_bridge_c_log_to_ui`` all silently no-op'd, at exactly the
+    default rendering mode a user would hit with those flags. The renderer
+    now always exists; ``show_info``/``show_warn`` still decide which
+    *facts* it reports, exactly as before.
     """
     from . import LZGraph
     from ._io import empty_read_error, plan_streaming_read, read_sequences, validate_input
@@ -467,12 +481,16 @@ def cmd_build(args):
         )
         input_alphabet = spec.alphabet if spec is not None else None
 
-        if show_info:
-            term.start('lzg build', fields={
-                'source': args.input,
-                'format': _format_provenance(args, spec),
-                'engine': args.variant,
-            })
+        # Always opened (fix round 2, C1): the renderer's own lifecycle
+        # must not depend on the info-level gate, or warn()/error() calls
+        # later in this function silently no-op for the entire session
+        # (see the docstring above). show_info still gates the *fields*
+        # this opens with, not whether it opens at all.
+        term.start('lzg build', fields={
+            'source': args.input,
+            'format': _format_provenance(args, spec),
+            'engine': args.variant,
+        } if show_info else {})
 
         if can_stream_plain and (args.strict_input or args.expect_format is not None):
             if show_info:
@@ -527,6 +545,15 @@ def cmd_build(args):
             return
 
         t0 = time.time()
+        # D5: this in-memory path (any tabular file, or a plain file that
+        # didn't qualify for the C streaming fast path above) used to have
+        # no progress reporting at all, so the mockup's centrepiece, the
+        # live bar, never appeared for an ordinary build; only the C
+        # library's own streaming ingest ever called term.progress(). Wiring
+        # read_sequences' own progress_cb (see _io/_public.py) through to
+        # the same 'ingest' label makes an ordinary tabular build show a
+        # real bar too. Gated by show_info, matching every other progress/
+        # fact this function reports.
         data = read_sequences(
             args.input, seq_column=args.seq_column,
             v_column=args.v_column, j_column=args.j_column,
@@ -534,6 +561,7 @@ def cmd_build(args):
             variant=args.variant, no_genes=args.no_genes,
             strict_input=args.strict_input,
             expect_format=args.expect_format,
+            progress_cb=(lambda frac: term.progress('ingest', frac)) if show_info else None,
         )
         n = len(data['sequences'])
         stats = data['stats']

@@ -725,6 +725,58 @@ def test_error_detail_with_non_ascii_value_does_not_raise():
     assert "ï" not in output
 
 
+# ── Fix round 2, I2: a broken stream (full disk, closed pipe) must degrade
+#    too, not just a bad encoding ──
+
+
+class _RaisingStream:
+    """A stream whose every write (and flush) raises ``OSError``, standing
+    in for a full disk or a downstream reader that closed its end of a pipe
+    (``lzg build | head``, for instance). Before fix round 2, ``_write``
+    caught only ``UnicodeEncodeError``, so this reached ``print()``'s own
+    ``OSError`` straight out of every ``Ui`` method and killed the build it
+    was merely narrating.
+    """
+
+    encoding = "utf-8"
+
+    def write(self, text):
+        raise OSError("broken pipe")
+
+    def flush(self):
+        raise OSError("broken pipe")
+
+
+def test_oserror_on_write_does_not_raise_and_build_can_continue():
+    stream = _RaisingStream()
+    renderer = PlainRenderer(CAPS0, stream)
+    renderer.start("lzg build", {"source": "in.tsv"})  # must not raise
+    renderer.update(phase="construct", nodes=5)
+    renderer.warn("something recoverable happened")
+    renderer.error("lzg build", ["headline"])
+    renderer.done("lzg build", {"nodes": "5"})  # reaching here is the proof
+
+
+def test_oserror_during_the_unicode_fallback_rewrite_also_degrades():
+    """The fallback rewrite after a ``UnicodeEncodeError`` is itself a
+    second write, and must be guarded too: a stream that is both
+    ASCII-only *and* broken (an ``ascii``-pinned pipe that is also closed)
+    must not raise on the retry either."""
+
+    class _AsciiThenBrokenStream(_RaisingStream):
+        encoding = "ascii"
+
+        def write(self, text):
+            try:
+                text.encode("ascii", errors="strict")
+            except UnicodeEncodeError:
+                raise
+            raise OSError("broken pipe")
+
+    renderer = PlainRenderer(CAPS0, _AsciiThenBrokenStream())
+    renderer.update(source="café.tsv")  # non-ASCII triggers the fallback path
+
+
 # ── Finding 3 (fix round 1): Ui is an enforceable, checked contract ──
 
 

@@ -185,6 +185,44 @@ def _truncate(text: str, width: int, caps: Capabilities) -> str:
     return result
 
 
+def truncate_path(path: str, width: int, caps: Capabilities) -> str:
+    """Truncate a filesystem path to at most ``width`` visible columns,
+    keeping the *start* of the path and its filename (the basename) rather
+    than :func:`_truncate`'s generic head-keeping.
+
+    A long path's basename is normally the single most useful part of it
+    to keep on screen (it is what actually distinguishes one input/output
+    file from another with the same directory prefix); plain head-keeping
+    truncation drops exactly that, at exactly the point it becomes too
+    long to fit. This cuts out of the *middle* instead: as much of the
+    head as still fits, an ellipsis, then the whole basename.
+
+    Falls back to :func:`_truncate` unchanged when ``path`` has no
+    recognisable separator (nothing to call a "basename") or is already
+    short enough that no truncation is needed at all; also falls back to
+    truncating the bare basename when even *it* plus an ellipsis would not
+    fit in ``width`` (an extremely narrow terminal), since the basename is
+    still the more useful half to keep visible in that squeeze.
+    """
+    if visible_len(path) <= width:
+        return path
+    if width <= 0:
+        return ""
+    if "/" in path:
+        sep = "/"
+    elif "\\" in path:
+        sep = "\\"
+    else:
+        return _truncate(path, width, caps)
+    base = path.rsplit(sep, 1)[-1]
+    ellipsis = _ELLIPSIS if width >= len(_ELLIPSIS) else "." * width
+    reserve = len(base) + len(ellipsis)
+    if reserve >= width:
+        return _truncate(base, width, caps)
+    head = path[: width - reserve]
+    return head + ellipsis + base
+
+
 def _pad(text: str, width: int) -> str:
     vlen = visible_len(text)
     if vlen >= width:

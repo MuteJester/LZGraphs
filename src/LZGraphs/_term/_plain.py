@@ -422,25 +422,40 @@ class PlainRenderer:
         return (now - times[0]) >= _GLOBAL_RATE_WINDOW_SECONDS
 
     def _write(self, line: str) -> None:
-        """Write one line, degrading gracefully if it cannot be encoded.
+        """Write one line, degrading gracefully if it cannot be encoded, or
+        if the stream itself is broken.
 
         A caller-supplied value is not guaranteed representable in the
         destination stream's encoding (a non-ASCII sequence id on a
         ``LANG=C`` stderr, for instance). The normal :func:`print` path is
-        tried first; only ``UnicodeEncodeError`` specifically is caught
-        (never a broader exception, so an unrelated failure such as a
-        broken pipe still propagates), and on that failure the line is
-        re-encoded against the stream's own reported encoding with
-        ``errors="replace"`` and written again. A rendering call must
-        degrade a value's presentation rather than take down the command it
-        is merely reporting on.
+        tried first; ``UnicodeEncodeError`` is caught and, on that failure,
+        the line is re-encoded against the stream's own reported encoding
+        with ``errors="replace"`` and written again.
+
+        Fix round 2, I2: ``OSError`` is now also caught, at both the
+        original attempt and the encoding-fallback rewrite, and simply
+        swallowed: a full disk or a closed pipe (a downstream ``| head``,
+        for instance) must degrade the same way a bad encoding does, per
+        this class's own documented invariant ("a rendering call must
+        degrade a value's presentation rather than take down the command
+        it is merely reporting on"). Before this, only ``UnicodeEncodeError``
+        was caught, so a broken stream raised ``OSError`` straight out of
+        ``start()``/``progress()``/``update()``/``warn()``/``done()``/
+        ``error()`` and killed the build it was merely narrating. No
+        exception other than these two specific ones is ever swallowed
+        here.
         """
         try:
             print(line, file=self._stream, flush=True)
         except UnicodeEncodeError:
             encoding = getattr(self._stream, "encoding", None) or "ascii"
             safe_line = line.encode(encoding, errors="replace").decode(encoding, errors="replace")
-            print(safe_line, file=self._stream, flush=True)
+            try:
+                print(safe_line, file=self._stream, flush=True)
+            except OSError:
+                pass
+        except OSError:
+            pass
 
     def _status_token(self, status: str) -> str:
         name = _STATUS_COLOUR.get(status)

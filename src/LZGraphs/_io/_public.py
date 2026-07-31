@@ -28,6 +28,16 @@ from ._spec import VALID_FORMATS, FormatError, InputSpec, RecordStats, format_fa
 
 _PRODUCTIVE_TRUE = {"t", "true", "1", "yes"}
 
+#: How often (in records read) ``_read_sequences_from_path`` calls a given
+#: ``progress_cb`` (see ``read_sequences``). Cheap enough per call (one
+#: modulo check) that this could be 1, but there is no reporting value in
+#: calling back more often than a UI could ever throttle down to anyway;
+#: every real ``Ui.progress()`` implementation already paces its own
+#: output (see ``LZGraphs._term``), so this just avoids the pure overhead
+#: of an unconditional per-record callback on a multi-hundred-thousand-
+#: record file.
+_PROGRESS_RECORD_STEP = 2000
+
 # Real AIRR amino-acid data carries '*' for a stop codon and '-' or '.' for
 # an alignment gap. Rejecting those silently discards exactly the
 # non-productive rows that keep_nonproductive=True exists to preserve.
@@ -345,7 +355,7 @@ def _apply_column_overrides(spec: InputSpec, v_column, j_column, abundance_colum
 def read_sequences(path, seq_column=None, v_column=None, j_column=None,
                    abundance_column=None, variant='aap', no_genes=False,
                    strict_input=False, expect_format=None, *,
-                   keep_nonproductive=False):
+                   keep_nonproductive=False, progress_cb=None):
     """Read sequences from a file, auto-detecting format.
 
     Returns a dict with ``sequences``, ``abundances``, ``v_genes``,
@@ -364,6 +374,18 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
     onto content it does not describe (see ``_detect_format_for_read``). To
     force a classification onto content regardless of whether it matches
     (coercion), call ``detect_format(path, override=...)`` directly instead.
+
+    ``progress_cb``, when given, is called periodically (every
+    :data:`_PROGRESS_RECORD_STEP` records, plus once more at ``1.0`` when
+    the read finishes) with a fraction in ``[0.0, 1.0]`` estimating how
+    much of ``path`` has been consumed so far, so a caller (``cli.py``'s
+    ``cmd_build``) can drive a real progress bar for this in-memory read
+    path, not just the C library's own streaming ingest. See
+    ``_read_sequences_from_path``'s docstring for exactly what this
+    estimate is based on and the one case (compressed input) it does not
+    cover. Never raises on the caller's behalf: any exception the callback
+    itself raises is swallowed, since a reporting failure must not take
+    down the read it is merely narrating.
     """
     tmp_path = _materialize_stdin() if path == "-" else None
     real_path = tmp_path if tmp_path is not None else path
@@ -372,7 +394,7 @@ def read_sequences(path, seq_column=None, v_column=None, j_column=None,
             real_path, seq_column=seq_column, v_column=v_column, j_column=j_column,
             abundance_column=abundance_column, variant=variant, no_genes=no_genes,
             strict_input=strict_input, expect_format=expect_format,
-            keep_nonproductive=keep_nonproductive,
+            keep_nonproductive=keep_nonproductive, progress_cb=progress_cb,
         )
     finally:
         if tmp_path is not None:
@@ -491,8 +513,26 @@ def _detect_format_for_read(path, *, variant, seq_column, expect_format):
 def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
                               abundance_column, variant, no_genes,
                               strict_input, expect_format,
-                              keep_nonproductive=False):
-    """The actual read, always against a real (reopenable) filesystem path."""
+                              keep_nonproductive=False, progress_cb=None):
+    """The actual read, always against a real (reopenable) filesystem path.
+
+    ``progress_cb`` (D5, fix round 2): called every
+    :data:`_PROGRESS_RECORD_STEP` records with an estimated completion
+    fraction, plus once more at exactly ``1.0`` when the read finishes (in
+    the ``finally`` below, so it fires even on an early raise). The
+    estimate is ``stream.tell() / os.path.getsize(path)``: accurate for
+    genuinely uncompressed content, where the text stream is a thin wrapper
+    directly over the file's own bytes, but *not* attempted at all for
+    compressed input (``codec != "none"``), where the decompressed text
+    stream's position bears no reliable relationship to the compressed
+    file's size on disk (it can already exceed it well before the read is
+    anywhere near done), so reporting a bytes-based fraction there would be
+    actively misleading rather than merely absent; this simply never
+    calls back in that case. A caller wanting a bar for the compressed case
+    would need ``open_text``'s raw (pre-decompression) handle threaded
+    through here too, a larger change than this pass makes; see the Task 6
+    fix-round-2 report for the reviewer note on exactly this limitation.
+    """
     spec = _detect_format_for_read(
         path, variant=variant, seq_column=seq_column, expect_format=expect_format,
     )
@@ -518,12 +558,23 @@ def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
     j_genes: list | None = [] if want_j else None
     total = malformed = nonproductive = 0
 
-    stream, _codec = open_text(path)
+    stream, codec = open_text(path)
+    total_bytes = 0
+    if progress_cb is not None and codec == "none":
+        try:
+            total_bytes = os.path.getsize(path)
+        except OSError:
+            total_bytes = 0
     try:
         for sequence, abundance, v_call, j_call, productive in _iter_records(
             stream, spec, strict_input=strict_input
         ):
             total += 1
+            if total_bytes and total % _PROGRESS_RECORD_STEP == 0:
+                try:
+                    progress_cb(min(1.0, stream.tell() / total_bytes))
+                except Exception:
+                    pass
             if (
                 productive is not None
                 and not keep_nonproductive
@@ -547,6 +598,11 @@ def _read_sequences_from_path(path, *, seq_column, v_column, j_column,
             if want_j:
                 j_genes.append(j_call or '')
     finally:
+        if total_bytes:
+            try:
+                progress_cb(1.0)
+            except Exception:
+                pass
         # open_text documents its stream as always safe to close, including
         # for stdin (wrapped with closefd=False), so this never special-cases
         # path == "-".

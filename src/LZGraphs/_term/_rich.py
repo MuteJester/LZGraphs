@@ -291,9 +291,9 @@ import threading
 import time
 from typing import TYPE_CHECKING, Any, TextIO
 
-from ._ansi import clear_line, colour, cursor_up, hide_cursor, show_cursor
+from ._ansi import clear_line, colour, cursor_up, hide_cursor, show_cursor, visible_len
 from ._caps import detect
-from ._widgets import bar, card, kv, panel
+from ._widgets import bar, card, counter, duration, kv, panel, truncate_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -333,22 +333,94 @@ _PROMPT_RESERVE_ROWS = 1
 #: module's private name or reimplementing its box-drawing.
 _NARROW_WIDTH = 50
 
+#: Curated field set (and stable display order) for the *live* build panel
+#: (fix round 2, D1). ``cmd_build`` calls ``update()`` with a lot of
+#: internal bookkeeping fields (``phase``, ``stage``, ``mode``, ``size_kb``,
+#: ...) meant for the plain renderer's full machine-readable log, not for a
+#: human staring at a live box: echoing every one of them here is what grew
+#: the panel from 3 rows to 18 over the course of one build. Anything
+#: passed to ``start()``/``update()`` that is not in this tuple is still
+#: recorded in ``self._fields`` (so nothing is lost, and a future curated
+#: field just needs an entry here) but is simply never painted into the
+#: live frame; the plain renderer remains the channel that shows every
+#: field, since it is the machine-readable one.
+_LIVE_FIELD_ORDER = ("source", "format", "engine", "nodes", "edges")
+
+#: Curated fields (see ``_LIVE_FIELD_ORDER``) that also get designed numeric
+#: formatting when painted live (fix round 2, D2): the live panel used to
+#: show these raw (``nodes 15089``) while ``done()``'s own card already ran
+#: the exact same values through :func:`~LZGraphs._term._widgets.counter`
+#: (``nodes 15,089``). This closes that gap for the one rendering path that
+#: still bypassed it, keyed by field name so a future numeric field is one
+#: dict entry, not a special case in ``_render_frame`` itself.
+_LIVE_FIELD_FORMATTERS = {
+    "nodes": counter,
+    "edges": counter,
+}
+
+#: Field keys whose value is a filesystem path (fix round 2, D3): rendered
+#: with :func:`~LZGraphs._term._widgets.truncate_path` instead of the
+#: generic head-truncation ``panel()``/``_fit`` would otherwise apply, so a
+#: long path keeps its filename (the useful half for telling two files
+#: apart) rather than losing it to whatever got cut off the tail. These are
+#: the only two field values ``cmd_build`` ever populates with a real
+#: filesystem path.
+_PATH_FIELD_KEYS = ("source", "output")
+
+#: Duplicated from ``_widgets._KV_KEY_WIDTH`` deliberately, not imported
+#: (matching this module's existing practice, e.g. ``_NARROW_WIDTH``
+#: above): this module only needs it to estimate how many columns a
+#: ``kv()`` row's *value* has left after the row's own `` LABEL `` prefix
+#: (one leading space, the ljust'd label column, one separating space), so
+#: a path value can be presized with :func:`truncate_path` before ``kv()``
+#: assembles the row; see ``_value_width_budget``.
+_KV_KEY_WIDTH = 9
+_KV_VALUE_PREFIX_WIDTH = 1 + _KV_KEY_WIDTH + 1
+
 
 def _safe_write(stream: TextIO, text: str) -> None:
     """Write ``text`` to ``stream``, degrading rather than raising if it
-    cannot be encoded there.
+    cannot be encoded there, or if the stream itself is broken.
 
-    See the module docstring's "Encoding safety" section. Only
-    ``UnicodeEncodeError`` is caught (never a broader exception, so an
-    unrelated failure such as a broken pipe still propagates); on that
-    specific failure the text is re-encoded against the stream's own
-    reported encoding with ``errors="replace"`` and written again.
+    See the module docstring's "Encoding safety" section for the
+    ``UnicodeEncodeError`` half of this (re-encode against the stream's own
+    reported encoding with ``errors="replace"`` and write that instead).
+    Fix round 2, I2: ``OSError`` is now also caught, at both the original
+    write attempt and the encoding-fallback rewrite, and simply swallowed:
+    a full disk or a closed pipe (a downstream ``| head``, for instance)
+    must degrade the same way a bad encoding does, per the :class:`~
+    LZGraphs._term.Ui` protocol's own invariant that "a renderer degrades
+    ... rather than raising, since a rendering failure must never take
+    down the command it is merely reporting on". Before this, only
+    ``UnicodeEncodeError`` was caught, so a broken stream raised ``OSError``
+    straight out of ``start()``/``progress()``/``update()``/``warn()``/
+    ``done()``/``error()`` and killed the build it was merely narrating.
+    No exception other than these two specific ones is ever swallowed here.
     """
     try:
         stream.write(text)
     except UnicodeEncodeError:
         encoding = getattr(stream, "encoding", None) or "ascii"
-        stream.write(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+        try:
+            stream.write(text.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+        except OSError:
+            pass
+    except OSError:
+        pass
+
+
+def _safe_flush(stream: TextIO) -> None:
+    """Flush ``stream``, swallowing ``OSError`` (fix round 2, I2): the same
+    broken-stream degradation ``_safe_write`` applies to writing also has
+    to apply to flushing, since a write that happened to succeed (buffered)
+    can still fail to flush against a full disk or closed pipe, and an
+    unguarded ``stream.flush()`` call right after ``_safe_write`` would
+    undo that function's whole guarantee.
+    """
+    try:
+        stream.flush()
+    except OSError:
+        pass
 
 
 def _sanitize_line(value: Any) -> str:
@@ -372,6 +444,35 @@ def _sanitize_line(value: Any) -> str:
     if "\n" in text or "\r" in text:
         text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
     return text
+
+
+def _format_live_value(key: str, value: Any) -> Any:
+    """Apply D2's designed numeric formatting to a curated live field,
+    degrading to the raw value unchanged if it does not actually look like
+    the integer the formatter expects (never raising over a rendering
+    nicety)."""
+    formatter = _LIVE_FIELD_FORMATTERS.get(key)
+    if formatter is None:
+        return value
+    try:
+        return formatter(int(value))
+    except (TypeError, ValueError):
+        return value
+
+
+def _value_width_budget(caps: Capabilities) -> int:
+    """How many columns a ``kv()`` row's *value* has to work with, for a
+    panel of this width.
+
+    A row is fit to ``caps.width`` (minus the box border, in boxed mode),
+    and ``kv()``'s own `` LABEL `` prefix eats ``_KV_VALUE_PREFIX_WIDTH`` of
+    that before the value even starts. Used only to presize a path value
+    via :func:`~LZGraphs._term._widgets.truncate_path` (D3);
+    ``panel()``'s own ``_fit`` remains the final, authoritative safety net
+    if this estimate is ever slightly generous.
+    """
+    border = 0 if caps.width < _NARROW_WIDTH else 2
+    return max(0, caps.width - border - _KV_VALUE_PREFIX_WIDTH)
 
 
 def _bar_width(caps: Capabilities) -> int:
@@ -453,6 +554,11 @@ class RichRenderer:
         self._fields: dict[str, Any] = {}
         self._progress: dict[str, tuple[float, str | None]] = {}
         self._warnings: list[str] = []
+        # Total warn() calls this session, independent of self._warnings'
+        # own _MAX_WARNINGS cap (fix round 2, C2): needed so the final
+        # done()/error() card can say exactly how many warnings were
+        # elided, not just show whichever ones survived the live cap.
+        self._warning_count = 0
         self._t0: float | None = None
 
         # True until start() runs, and again as soon as the session is torn
@@ -487,6 +593,7 @@ class RichRenderer:
         self._fields = dict(fields) if fields else {}
         self._progress = {}
         self._warnings = []
+        self._warning_count = 0
         self._lines_drawn = 0
         self._redraw_count = 0
         self._last_draw_time = None
@@ -497,7 +604,7 @@ class RichRenderer:
         self._install_sigwinch()
         try:
             _safe_write(self._stream, hide_cursor())
-            self._stream.flush()
+            _safe_flush(self._stream)
             self._redraw(force=True)
         except BaseException:
             # Startup itself failed (a broken stream, an unexpected error
@@ -535,9 +642,19 @@ class RichRenderer:
         artificial delay between calls painted only 2 frames (``start``,
         ``done``) before this fix, silently losing the warning; forcing
         here makes it 3, with the warning visible in the frame between them.
+
+        Fix round 2, C2: the parenthetical above ("never from
+        ``self._warnings``") described the *remaining* half of that same
+        bug: a warning shown live like this was still wiped the moment
+        ``done()``/``error()`` drew their own card a moment later, since
+        that card was built purely from the caller's own ``rows``/``lines``.
+        ``done()``/``error()`` now both append whatever survived here (via
+        ``_append_warning_rows``), so a warning shown during the run is
+        never invisible by the time the session ends.
         """
         if self._stopped:
             return
+        self._warning_count += 1
         self._warnings.append(message)
         if len(self._warnings) > _MAX_WARNINGS:
             del self._warnings[: len(self._warnings) - _MAX_WARNINGS]
@@ -555,26 +672,81 @@ class RichRenderer:
                 rows.append(f" {mark} {line}")
             else:
                 rows.append(f" {line}")
+        rows = self._append_warning_rows(rows)
         self._finish(card(title, rows, self._caps, status="error"))
 
     def done(self, title: str, rows: Mapping[str, Any] | None = None) -> None:
-        kv_rows = [
-            kv(str(key), _sanitize_line(value), self._caps) for key, value in (rows or {}).items()
-        ]
+        kv_rows: list[str] = []
+        has_elapsed = False
+        for key, value in (rows or {}).items():
+            text = _sanitize_line(value)
+            if key in _PATH_FIELD_KEYS:
+                text = truncate_path(text, _value_width_budget(self._caps), self._caps)
+            kv_rows.append(kv(str(key), text, self._caps))
+            if key == "elapsed":
+                has_elapsed = True
+        if not has_elapsed and self._t0 is not None:
+            # D4: the plain renderer has always auto-appended elapsed time
+            # to its own done() line; the rich card never did, simply
+            # because nothing here ever read self._t0 after start() set it.
+            kv_rows.append(kv("elapsed", duration(self._clock() - self._t0), self._caps))
+        kv_rows = self._append_warning_rows(kv_rows)
         self._finish(card(title, kv_rows, self._caps, status="ok"))
+
+    def _append_warning_rows(self, rows: list[str]) -> list[str]:
+        """Append any warnings retained from this session to a final
+        ``done()``/``error()`` card (fix round 2, C2), so a warning shown
+        live is never silently wiped by the card that follows it.
+
+        Capped at the same ``_MAX_WARNINGS`` the live frame already
+        enforces (``self._warnings`` is never longer than that), with an
+        explicit "N more ... not shown" row whenever more warnings actually
+        occurred than survived that cap (tracked separately in
+        ``self._warning_count``), mirroring ``_clamp_rows``'s own "elide,
+        but never silently" rule rather than just quietly capping.
+        """
+        if not self._warnings:
+            return rows
+        warning_rows = [
+            kv("", colour("warn", _sanitize_line(message), self._caps), self._caps)
+            for message in self._warnings
+        ]
+        elided = self._warning_count - len(self._warnings)
+        if elided > 0:
+            warning_rows.append(
+                colour(
+                    "muted",
+                    f"... {elided} more warning{'s' if elided != 1 else ''} not shown",
+                    self._caps,
+                )
+            )
+        if rows:
+            return [*rows, "", *warning_rows]
+        return warning_rows
 
     # ── redraw engine ────────────────────────────────────────────────
 
     def _render_frame(self) -> list[str]:
         """Build the current frame's lines from tracked session state.
 
-        Field rows first, then (separated by a blank row, if both are
-        present) one bar row per distinct ``progress()`` label in the order
-        it was first seen, then up to :data:`_MAX_WARNINGS` recent warnings.
+        Field rows first (fix round 2, D1: only the curated
+        ``_LIVE_FIELD_ORDER`` subset of ``self._fields``, in that fixed
+        order, with D2's numeric formatting and D3's path-aware truncation
+        applied to whichever of them need it, rather than echoing every
+        key ``update()`` has ever been called with), then (separated by a
+        blank row, if both are present) one bar row per distinct
+        ``progress()`` label in the order it was first seen, then up to
+        :data:`_MAX_WARNINGS` recent warnings.
         """
-        rows: list[str] = [
-            kv(key, _sanitize_line(value), self._caps) for key, value in self._fields.items()
-        ]
+        rows: list[str] = []
+        for key in _LIVE_FIELD_ORDER:
+            if key not in self._fields:
+                continue
+            value = _format_live_value(key, self._fields[key])
+            text = _sanitize_line(value)
+            if key in _PATH_FIELD_KEYS:
+                text = truncate_path(text, _value_width_budget(self._caps), self._caps)
+            rows.append(kv(key, text, self._caps))
 
         if self._progress:
             if rows:
@@ -652,14 +824,38 @@ class RichRenderer:
         from caller-supplied rows this module never pre-clamps, and at
         truly degenerate heights (0, 1, 2 rows) even zero content rows can
         leave panel()'s own border overhead taller than the budget. Keeps
-        the *top* ``budget`` lines and drops the rest: for ``error()`` in
-        particular, the top is exactly the headline, the single most
-        important line in the card.
+        the *top* ``budget`` lines: for ``error()`` in particular, the top
+        is exactly the headline, the single most important line in the
+        card.
+
+        Fix round 2, I1: unlike ``_clamp_rows``, this used to drop the
+        excess lines with no marker at all, a silent truncation at exactly
+        the moment (a real ``done()``/``error()`` card, on a small
+        terminal) a user most needs to know content is missing, e.g.
+        ``edges``/``kept``/``size`` vanishing off the bottom of a 30x4
+        card with no sign anything was cut. Now mirrors ``_clamp_rows``:
+        when a marker can fit at all (``budget > 1``), the last surviving
+        line is replaced with one stating how many lines were hidden,
+        rather than just disappearing them.
         """
         budget = max(1, self._caps.height - _PROMPT_RESERVE_ROWS)
         if len(lines) <= budget:
             return lines
-        return lines[:budget]
+        if budget <= 1:
+            # No room for content plus a marker line; keep just the top.
+            return lines[:budget]
+        hidden = len(lines) - (budget - 1)
+        marker_text = (
+            f"... {hidden} more line{'s' if hidden != 1 else ''} hidden "
+            f"({self._caps.height}-row terminal)"
+        )
+        if len(marker_text) > self._caps.width:
+            marker_text = marker_text[: max(0, self._caps.width)]
+        marker = colour("muted", marker_text, self._caps)
+        pad = self._caps.width - visible_len(marker)
+        if pad > 0:
+            marker += " " * pad
+        return [*lines[: budget - 1], marker]
 
     def _draw(self, lines: list[str]) -> None:
         """Redraw the live area to exactly ``lines`` (clamped to fit the
@@ -688,7 +884,7 @@ class RichRenderer:
             parts.append(cursor_up(shrink))
 
         _safe_write(self._stream, "".join(parts))
-        self._stream.flush()
+        _safe_flush(self._stream)
         self._lines_drawn = len(lines)
         self._redraw_count += 1
 

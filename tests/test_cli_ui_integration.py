@@ -608,6 +608,50 @@ class TestRichModeOnRealTty:
         assert rc == 0
         assert b'[LZGraph/' not in data
 
+    @pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+    def test_rich_mode_warning_survives_at_log_level_warn(self, nucleotide_file, tmp_path):
+        """Fix round 2, C1: at ``--log-level warn`` (below 'info'),
+        ``show_info`` is ``False``, and ``term.start()`` used to live
+        entirely inside ``if show_info: ...`` in ``cmd_build``. That meant
+        the ``RichRenderer`` session never opened at this log level, and
+        since it gates ``progress()``/``update()``/``warn()`` on its own
+        internal "has a session started" flag, ``term.warn(...)`` for the
+        alphabet-mismatch warning below silently no-op'd: rich mode emitted
+        zero bytes at this log level even though a real warning condition
+        existed. Reproduced directly against the pre-fix code before
+        writing the fix (0 bytes emitted); this proves it now emits the
+        warning even with ``show_info`` gating the normal start/done facts
+        off entirely.
+        """
+        out_path = str(tmp_path / 'out.lzg')
+        data, rc = _run_lzg_on_pty(
+            ['--ui', 'rich', '--log-level', 'warn', 'build', nucleotide_file,
+             '-o', out_path, '-V', 'aap']
+        )
+        assert rc == 0
+        assert data != b'', "rich mode must not emit zero bytes when a real warning fires"
+        assert b'alphabet=nucleotide' in data
+        assert b'variant=aap' in data
+
+    @pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+    def test_rich_mode_emits_nothing_at_log_level_error_with_no_warning(
+        self, seq_file, tmp_path
+    ):
+        """Sibling case to the test above: at ``--log-level error`` with a
+        genuinely clean build (no warning ever fires), the renderer session
+        still opens (fix round 2, C1 hoists ``term.start()`` unconditionally)
+        but paints no info-level facts and is torn down via the ``atexit``
+        fallback, so the *content* a user sees stays consistent with "only
+        errors" even though the session itself is no longer silently inert.
+        """
+        out_path = str(tmp_path / 'out.lzg')
+        data, rc = _run_lzg_on_pty(
+            ['--ui', 'rich', '--log-level', 'error', 'build', seq_file, '-o', out_path]
+        )
+        assert rc == 0
+        assert b'source' not in data
+        assert b'done' not in data
+
 
 # ── 7. unit-level checks on the cli.py wiring itself ─────────────
 

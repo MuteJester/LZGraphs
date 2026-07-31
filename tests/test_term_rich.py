@@ -465,23 +465,57 @@ def test_frame_taller_than_terminal_never_exceeds_height_minus_one(height):
 
 
 def test_elision_marker_is_visible_when_rows_are_dropped():
+    """Drives the oversized-frame scenario via 20 distinct ``progress()``
+    labels rather than ``start()``'s own ``fields`` (fix round 2, D1
+    curates *which* fields the live panel ever paints, from a fixed,
+    small set, so an arbitrary field name is no longer guaranteed to
+    render at all); ``progress()`` bars are not curated the same way (any
+    label renders its own row), so they are what still reliably forces an
+    oversized frame here, exercising the exact same ``_clamp_rows``
+    elision mechanism this test is actually about.
+    """
     caps = _plain_caps(height=6)
     buf = io.StringIO()
-    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
-    r.start("lzg build", {f"FIELD{i}": f"value{i}" for i in range(20)})
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    for i in range(19):
+        clock[0] += 1.0
+        r.progress(f"FIELD{i}", i / 20)
+    # Only the *final*, fully-populated frame is under test below (the one
+    # that actually needs eliding); clearing what accumulated on the way
+    # there keeps the assertions about that one frame, not every partial
+    # frame drawn while labels were still trickling in one at a time.
+    buf.seek(0)
+    buf.truncate(0)
+    clock[0] += 1.0
+    r.progress("FIELD19", 19 / 20)
     out = buf.getvalue()
     assert "hidden" in out, "dropping rows must say so, not truncate silently"
-    assert "18" in out  # exactly how many of the 20 fields were hidden
+    assert "18" in out  # exactly how many of the 20 rows were hidden
 
 
 def test_elision_keeps_the_tail_not_the_head():
     """Deliberate choice: drop the oldest/static rows first (the front),
     keep the tail (the live progress/most recent warnings), since that is
-    what a user watching a build actually needs to see change."""
+    what a user watching a build actually needs to see change. See
+    ``test_elision_marker_is_visible_when_rows_are_dropped`` above for why
+    this uses 20 ``progress()`` labels rather than ``start()`` fields."""
     caps = _plain_caps(height=6)
     buf = io.StringIO()
-    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
-    r.start("lzg build", {f"FIELD{i}": f"value{i}" for i in range(20)})
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    for i in range(19):
+        clock[0] += 1.0
+        r.progress(f"FIELD{i}", i / 20)
+    # See the sibling test above: only the final, fully-populated frame
+    # (the one that actually needs eliding) is under test, not every
+    # partial frame drawn while labels were still trickling in.
+    buf.seek(0)
+    buf.truncate(0)
+    clock[0] += 1.0
+    r.progress("FIELD19", 19 / 20)
     out = buf.getvalue()
     assert "FIELD19" in out and "FIELD18" in out
     assert "FIELD0 " not in out and "FIELD1 " not in out
@@ -882,3 +916,249 @@ def test_update_merges_fields_without_reordering_existing_keys():
     r.update(SOURCE="a", FORMAT="AIRR-TSV")
     assert list(r._fields.keys()) == ["SOURCE", "FORMAT"]
     r.done("lzg build", {})
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Fix round 2, C2: a warning shown live must still be visible in the final
+# done()/error() card, not wiped by it.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def test_warning_remains_visible_in_the_final_done_card():
+    """Before this fix, done() built its card purely from the caller's own
+    ``rows``, so a warning shown for a fraction of a second during the
+    build vanished the instant done() drew over it: a user who looked away
+    saw a clean success. Isolates exactly the bytes done() itself writes
+    (everything after the warning was already on screen) and checks the
+    warning survived into that final frame, not just some earlier one."""
+    caps = _plain_caps()
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    clock[0] += 1.0
+    r.warn("412 non-productive skipped")
+    before_done = len(buf.getvalue())
+    clock[0] += 1.0
+    r.done("lzg build", {"nodes": "1"})
+    final_frame = buf.getvalue()[before_done:]
+    assert "412 non-productive skipped" in final_frame
+    assert "done" in final_frame
+
+
+def test_warning_remains_visible_in_the_final_error_card():
+    """Same guarantee, on the error() path."""
+    caps = _plain_caps()
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    clock[0] += 1.0
+    r.warn("mixed input format recovered mid-file")
+    before_error = len(buf.getvalue())
+    clock[0] += 1.0
+    r.error("lzg build", ["nothing left to build a graph from"])
+    final_frame = buf.getvalue()[before_error:]
+    assert "mixed input format recovered mid-file" in final_frame
+    assert "nothing left to build a graph from" in final_frame
+
+
+def test_many_warnings_are_capped_in_the_final_card_with_an_elided_count():
+    """More warnings than the live cap (:data:`_MAX_WARNINGS`, 4) still
+    only shows the most recent few in the final card, but must say how
+    many were elided rather than just silently capping."""
+    caps = _plain_caps()
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    for i in range(6):
+        clock[0] += 1.0
+        r.warn(f"warning number {i}")
+    before_done = len(buf.getvalue())
+    clock[0] += 1.0
+    r.done("lzg build", {"nodes": "1"})
+    final_frame = buf.getvalue()[before_done:]
+    assert "warning number 5" in final_frame  # most recent survives
+    assert "warning number 0" not in final_frame  # oldest was capped
+    assert "2 more warning" in final_frame  # 6 total, 4 shown, 2 elided
+
+
+def test_no_warnings_leaves_the_done_card_exactly_as_before():
+    """A clean build (no warnings at all) must not gain a stray blank
+    section: _append_warning_rows is a true no-op when there is nothing to
+    append."""
+    caps = _plain_caps()
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {})
+    r.done("lzg build", {"nodes": "1"})
+    assert "warning" not in buf.getvalue()
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Fix round 2, I1: a done()/error() card squeezed by a small terminal must
+# say rows were hidden, not silently drop them (mirrors _clamp_rows, which
+# already did this for the *live* frame; _fit_to_terminal, the safety net
+# for the final card, used to just slice the excess off with no marker).
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def test_done_card_shows_an_elision_marker_at_a_small_terminal():
+    caps = _plain_caps(width=30, height=4)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {})
+    r.done("lzg build", {
+        "output": "foundation.lzg",
+        "nodes": "71,181",
+        "edges": "11,714,847",
+        "kept": "2,341,102 of 2,341,517",
+        "size": "1.2 GB",
+    })
+    out = buf.getvalue()
+    assert "hidden" in out, "a squeezed card must say rows were hidden, not silently drop them"
+    assert r._lines_drawn <= max(1, 4 - 1)
+
+
+def test_done_card_at_a_small_terminal_never_exceeds_the_budget():
+    caps = _plain_caps(width=30, height=4)
+    buf = io.StringIO()
+    r = RichRenderer(caps, stream=buf, clock=lambda: 0.0)
+    r.start("lzg build", {})
+    r.done("lzg build", {
+        "output": "foundation.lzg",
+        "nodes": "71,181",
+        "edges": "11,714,847",
+        "kept": "2,341,102 of 2,341,517",
+        "size": "1.2 GB",
+    })
+    assert r._lines_drawn == max(1, 4 - 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Fix round 2, I2: a broken stream (full disk, closed pipe) degrades
+# rather than raising, and does not kill the build it is narrating.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class _RaisingStream:
+    """Every write/flush raises ``OSError``, standing in for a full disk or
+    a downstream reader that closed its end of a pipe. Before fix round 2,
+    ``_safe_write`` caught only ``UnicodeEncodeError``, so this reached
+    ``stream.write(...)``'s own ``OSError`` straight out of ``start()``/
+    ``progress()``/``update()``/``warn()``/``done()``/``error()`` and
+    killed the build being narrated.
+    """
+
+    encoding = "utf-8"
+
+    def write(self, text):
+        raise OSError("broken pipe")
+
+    def flush(self):
+        raise OSError("broken pipe")
+
+
+def test_oserror_on_write_does_not_raise_and_build_can_continue():
+    caps = _plain_caps()
+    stream = _RaisingStream()
+    r = RichRenderer(caps, stream=stream, clock=lambda: 0.0)
+    r.start("lzg build", {"source": "in.tsv"})  # must not raise
+    r.progress("ingest", 0.5)
+    r.update(nodes=5)
+    r.warn("something recoverable happened")
+    r.done("lzg build", {"nodes": "5"})  # reaching here is the proof
+
+
+def test_oserror_on_write_does_not_raise_on_the_error_path():
+    caps = _plain_caps()
+    stream = _RaisingStream()
+    r = RichRenderer(caps, stream=stream, clock=lambda: 0.0)
+    r.start("lzg build", {})
+    r.error("lzg build", ["nothing left to build a graph from"])  # must not raise
+
+
+def test_oserror_during_the_unicode_fallback_rewrite_also_degrades():
+    """The fallback rewrite after a ``UnicodeEncodeError`` is itself a
+    second write and must be guarded too: a stream that is both
+    ASCII-only *and* broken (an ``ascii``-pinned pipe that is also closed)
+    must not raise on the retry either. Exercises the *other* half of
+    ``_safe_write``'s guard than ``_RaisingStream`` above, which never
+    reaches the fallback branch at all (it raises ``OSError`` on the very
+    first write, before any encoding is even attempted)."""
+
+    class _AsciiThenBrokenStream:
+        encoding = "ascii"
+
+        def write(self, text):
+            text.encode("ascii", errors="strict")  # raises UnicodeEncodeError first
+            raise OSError("broken pipe")  # only reached once text is ASCII-safe
+
+        def flush(self):
+            raise OSError("broken pipe")
+
+    caps = _plain_caps()
+    r = RichRenderer(caps, stream=_AsciiThenBrokenStream(), clock=lambda: 0.0)
+    r.start("lzg build", {"source": "café.tsv"})  # non-ASCII triggers the fallback path
+    r.done("lzg build", {"nodes": "1"})  # reaching here is the proof
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Fix round 2, D1/D2: the live panel shows only a curated field set, with
+# designed numeric formatting, rather than echoing every internal key
+# update() has ever been called with.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def test_live_panel_shows_only_the_curated_fields_in_a_stable_order():
+    caps = _plain_caps()
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {
+        "source": "bcr_repertoire.tsv.gz",
+        "format": "AIRR-TSV (gzip)",
+        "engine": "aap",
+    })
+    clock[0] += 1.0
+    r.update(
+        phase="construct", stage="start", mode="in_memory",
+        nodes=15089, edges=46073, size_kb="46073.7", nonproductive=3,
+    )
+    out = buf.getvalue()
+    # Curated fields render...
+    assert "source" in out
+    assert "format" in out
+    assert "engine" in out
+    assert "nodes" in out
+    assert "edges" in out
+    # ...but internal bookkeeping fields cmd_build also passes to update()
+    # never leak into the live panel (they still reach the plain renderer's
+    # full machine-readable log; this is display curation only).
+    assert "phase" not in out
+    assert "stage" not in out
+    assert "size_kb" not in out
+    assert "nonproductive" not in out
+    # Curated fields keep cmd_build's own key names in a fixed order
+    # (source, format, engine, nodes, edges), not update()'s call order.
+    assert out.index("source") < out.index("format") < out.index("engine")
+    assert out.index("engine") < out.index("nodes") < out.index("edges")
+
+
+def test_live_panel_formats_node_and_edge_counts_like_the_done_card():
+    """D2: the live panel used to show raw values (``nodes 15089``) while
+    done()'s own card already ran the same values through counter()
+    (``nodes 15,089``). The live row must look designed too."""
+    caps = _plain_caps()
+    buf = io.StringIO()
+    clock = [0.0]
+    r = RichRenderer(caps, stream=buf, clock=lambda: clock[0])
+    r.start("lzg build", {})
+    clock[0] += 1.0
+    r.update(nodes=15089, edges=46073)
+    out = buf.getvalue()
+    assert "15,089" in out
+    assert "46,073" in out
+    assert "15089" not in out
+    assert "46073" not in out

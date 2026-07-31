@@ -217,3 +217,72 @@ def test_read_sequences_strict_input_still_rejects_mixed_plain_records(tmp_path)
             str(path), variant="aap", strict_input=True,
             expect_format="plain_seqcount",
         )
+
+
+# ── Fix round 2, D5: progress_cb for the in-memory (non-streaming) read
+#    path, so an ordinary tabular build can show a real progress bar too,
+#    not just the C library's own streaming ingest ──
+
+
+def test_read_sequences_reports_progress_for_uncompressed_input(tmp_path):
+    """A few thousand records against a real, uncompressed file: progress_cb
+    (throttled every _PROGRESS_RECORD_STEP records, plus once more at
+    completion) must actually fire, with a monotonically non-decreasing,
+    properly bounded fraction ending at exactly 1.0."""
+    lines = ["sequence_id\tjunction_aa\n"]
+    lines += [f"s{i}\tCASSLGQAYEQYF\n" for i in range(5000)]
+    path = tmp_path / "many.tsv"
+    path.write_text("".join(lines))
+
+    fractions = []
+    got = read_sequences(str(path), progress_cb=fractions.append)
+
+    assert len(got["sequences"]) == 5000
+    assert fractions, "progress_cb must be called at least once for a large plain file"
+    assert fractions[-1] == 1.0
+    assert all(0.0 <= f <= 1.0 for f in fractions)
+    assert fractions == sorted(fractions)  # monotonically non-decreasing
+
+
+def test_read_sequences_progress_cb_omitted_by_default(tmp_path):
+    # The overwhelming majority of call sites never pass progress_cb at
+    # all; omitting it must not raise or change the result.
+    path = tmp_path / "a.tsv"
+    path.write_text(AIRR)
+    got = read_sequences(str(path))
+    assert got["sequences"] == ["CASSLGQAYEQYF"]
+
+
+def test_read_sequences_progress_cb_not_called_for_compressed_input(tmp_path):
+    """Documented limitation (see _read_sequences_from_path's docstring):
+    the decompressed text stream's position bears no reliable relationship
+    to the compressed file's size on disk (it can already exceed it well
+    before the read is anywhere near done), so reporting a bytes-based
+    fraction there would be actively misleading rather than merely absent.
+    progress_cb is simply never invoked for compressed input; the read
+    itself is otherwise unaffected."""
+    lines = ["sequence_id\tjunction_aa\n"]
+    lines += [f"s{i}\tCASSLGQAYEQYF\n" for i in range(3000)]
+    path = tmp_path / "many.tsv.gz"
+    path.write_bytes(gzip.compress("".join(lines).encode()))
+
+    fractions = []
+    got = read_sequences(str(path), progress_cb=fractions.append)
+    assert len(got["sequences"]) == 3000
+    assert fractions == []
+
+
+def test_read_sequences_progress_cb_exception_does_not_break_the_read(tmp_path):
+    """A misbehaving callback must not take down the read it is merely
+    narrating (same "reporting must degrade, not raise" principle as the
+    _term layer's own Ui protocol)."""
+    lines = ["sequence_id\tjunction_aa\n"]
+    lines += [f"s{i}\tCASSLGQAYEQYF\n" for i in range(3000)]
+    path = tmp_path / "many.tsv"
+    path.write_text("".join(lines))
+
+    def _boom(fraction):
+        raise RuntimeError("a broken progress bar")
+
+    got = read_sequences(str(path), progress_cb=_boom)
+    assert len(got["sequences"]) == 3000
