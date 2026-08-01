@@ -220,16 +220,32 @@ def _interactive(env: Mapping[str, str], supports_cursor_control: bool) -> bool:
     return True
 
 
-def _enable_windows_vt() -> bool:
+def _enable_windows_vt(stream: Any = None) -> bool:
     """Best-effort enable of ANSI/VT100 processing on the Windows console.
 
     Returns True unconditionally on any non-Windows platform: the
     ``sys.platform`` check happens before anything Windows-only is touched,
     so importing or calling this on Linux/macOS never imports ``ctypes``'s
     ``windll`` attribute (which only exists on Windows) and never raises.
+
+    On Windows the console configured is the one behind ``stream``'s own
+    file descriptor, not the process's stderr handle. Answering about a
+    different stream than the caller asked about is what made every
+    injected-stream test fail on Windows CI, where the process's stderr is
+    a pipe: ``GetConsoleMode`` failed on it, and the resulting False zeroed
+    the colour depth of a caller-supplied fake terminal. A stream with no
+    OS-level descriptor (an in-memory buffer, a test double) has no console
+    to configure, so this reports True and leaves that stream's own
+    ``isatty()`` as the sole authority, exactly as on POSIX.
     """
     if sys.platform != "win32":
         return True
+    fd = None
+    if stream is not None:
+        try:
+            fd = stream.fileno()
+        except Exception:
+            return True
     try:
         import ctypes
 
@@ -237,7 +253,12 @@ def _enable_windows_vt() -> bool:
         ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
 
         kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
-        handle = kernel32.GetStdHandle(STD_ERROR_HANDLE)
+        if fd is None:
+            handle = kernel32.GetStdHandle(STD_ERROR_HANDLE)
+        else:
+            import msvcrt
+
+            handle = msvcrt.get_osfhandle(fd)  # type: ignore[attr-defined]
         if not handle or handle == -1:
             return False
         mode = ctypes.c_uint32()
@@ -264,7 +285,12 @@ def detect(stream: Any = None, env: Mapping[str, str] | None = None) -> Capabili
         env = os.environ
 
     is_tty = _stream_is_tty(stream)
-    vt_ok = _enable_windows_vt()
+    # VT processing is a property of a real console, so it is only worth
+    # probing when the stream claims to be a terminal. Probing a pipe and
+    # letting the inevitable failure zero the colour depth would silently
+    # defeat FORCE_COLOR, whose entire purpose is to emit ANSI into a
+    # non-terminal that the caller knows will interpret it.
+    vt_ok = _enable_windows_vt(stream) if is_tty else True
 
     colours = 0 if not vt_ok else _colour_depth(env, is_tty)
 

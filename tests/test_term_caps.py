@@ -14,6 +14,7 @@ import io
 import os
 import shutil
 import struct
+import sys
 
 import pytest
 
@@ -393,12 +394,32 @@ def test_detect_defaults_do_not_raise():
 # ── Windows VT guard is inert off-Windows ───────────────────
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "asserts the non-Windows short-circuit; on Windows the no-argument "
+        "form genuinely probes the process stderr handle, which is a pipe "
+        "under CI and correctly reports False"
+    ),
+)
 def test_enable_windows_vt_is_noop_off_windows():
     from LZGraphs._term._caps import _enable_windows_vt
 
     # On this platform (Linux/macOS CI), sys.platform != "win32", so the
     # function must short-circuit to True without importing ctypes.windll.
     assert _enable_windows_vt() is True
+
+
+def test_enable_windows_vt_true_for_a_stream_with_no_descriptor():
+    """A stream with no OS descriptor has no console to configure, so the
+    probe must not veto it. This is what keeps ``detect(stream=FakeStream)``
+    identical on every platform; without it, Windows CI zeroed the colour
+    depth of every injected fake terminal.
+    """
+    from LZGraphs._term._caps import _enable_windows_vt
+
+    assert _enable_windows_vt(TTY) is True
+    assert _enable_windows_vt(PIPE) is True
 
 
 def test_interactive_false_when_not_tty():
