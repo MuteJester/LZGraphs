@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    # The suite runs in about a minute; anything approaching this is a hang,
+    # and without a bound a hung job occupies a runner for six hours.
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -27,7 +30,10 @@ jobs:
         run: pip install -e ".[dev]"
 
       - name: Run Python tests
-        run: pytest tests/ -v --tb=short
+        # faulthandler_timeout is stdlib-backed and adds no dependency: if any
+        # single test runs longer than three minutes it dumps that test's stack
+        # to the log, so a hang names itself instead of stalling silently.
+        run: pytest tests/ -v --tb=short -o faulthandler_timeout=180
 
       - name: Run C unit tests (Linux/macOS only)
         if: runner.os != 'Windows'
