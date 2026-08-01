@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/MuteJester/LZGraphs/actions/workflows/test.yml"><img src="https://github.com/MuteJester/LZGraphs/actions/workflows/test.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/v/LZGraphs.svg" alt="PyPI"></a>
   <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/pyversions/LZGraphs.svg" alt="Python"></a>
   <a href="https://github.com/MuteJester/LZGraphs/blob/master/LICENSE"><img src="https://img.shields.io/github/license/MuteJester/LZGraphs.svg" alt="License"></a>
@@ -45,6 +46,12 @@ pip install LZGraphs
 ```
 
 Requires Python 3.9 or later. Wheels are published for Linux, macOS, and Windows (CPython 3.9–3.12). Release history: [CHANGELOG.md](CHANGELOG.md).
+
+A container image with the `lzg` CLI preinstalled is also published to GHCR:
+
+```bash
+docker run --rm -v "$PWD:/data" ghcr.io/mutejester/lzgraphs build /data/repertoire.tsv -o /data/repertoire.lzg
+```
 
 ## Input format
 
