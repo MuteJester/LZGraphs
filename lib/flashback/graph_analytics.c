@@ -44,6 +44,122 @@ LZGError lzg_flashback_path_count(const LZGGraph *g, double *out) {
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
+/* Path count (exact, arbitrary precision)                        */
+/*                                                                 */
+/* The double-accumulator version above saturates at 2^53 and      */
+/* overflows to +inf past ~1.8e308. Real repertoire graphs exceed  */
+/* 2^53 easily, so this variant carries the count in base-2^32     */
+/* limbs and returns every digit. Only addition is required: the   */
+/* DP is counts[v] += counts[u] over a topological order.          */
+/* ═══════════════════════════════════════════════════════════════ */
+
+typedef struct {
+    uint32_t *limbs;  /* little-endian base 2^32; limbs[>= n] are zero */
+    uint32_t  n;      /* significant limbs; 0 means the value is zero  */
+    uint32_t  cap;
+} LZGBigU;
+
+/* Grow so that at least `need` limbs are addressable, zero-filling. */
+static bool bigu_reserve(LZGBigU *a, uint32_t need) {
+    if (a->cap >= need) return true;
+    uint32_t ncap = a->cap ? a->cap : 2;
+    while (ncap < need) {
+        if (ncap > UINT32_MAX / 2) return false;
+        ncap *= 2;
+    }
+    uint32_t *p = (uint32_t *)realloc(a->limbs, (size_t)ncap * sizeof(uint32_t));
+    if (!p) return false;
+    memset(p + a->cap, 0, (size_t)(ncap - a->cap) * sizeof(uint32_t));
+    a->limbs = p;
+    a->cap = ncap;
+    return true;
+}
+
+/* dst += src */
+static bool bigu_add(LZGBigU *dst, const LZGBigU *src) {
+    if (src->n == 0) return true;
+    uint32_t maxn = dst->n > src->n ? dst->n : src->n;
+    if (!bigu_reserve(dst, maxn + 1)) return false;
+    uint64_t carry = 0;
+    for (uint32_t i = 0; i < maxn; i++) {
+        uint64_t s = (uint64_t)dst->limbs[i] + carry;
+        if (i < src->n) s += (uint64_t)src->limbs[i];
+        dst->limbs[i] = (uint32_t)s;
+        carry = s >> 32;
+    }
+    dst->n = maxn;
+    if (carry) {
+        dst->limbs[maxn] = (uint32_t)carry;
+        dst->n = maxn + 1;
+    }
+    return true;
+}
+
+static void bigu_free(LZGBigU *a) {
+    free(a->limbs);
+    a->limbs = NULL;
+    a->n = 0;
+    a->cap = 0;
+}
+
+LZGError lzg_flashback_path_count_exact(const LZGGraph *g,
+                                        uint32_t **limbs_out,
+                                        uint32_t *n_limbs_out) {
+    if (!g || !limbs_out || !n_limbs_out) return LZG_ERR_INVALID_ARG;
+    if (!g->topo_valid) return LZG_ERR_NOT_BUILT;
+    *limbs_out = NULL;
+    *n_limbs_out = 0;
+
+    const uint32_t n_nodes = g->n_nodes;
+    if (n_nodes == 0 || g->root_node >= n_nodes) return LZG_ERR_NOT_BUILT;
+
+    LZGBigU *acc = (LZGBigU *)calloc(n_nodes, sizeof(LZGBigU));
+    if (!acc) return LZG_ERR_ALLOC;
+
+    LZGBigU total = {NULL, 0, 0};
+    LZGError err = LZG_OK;
+
+    /* Seed the root with exactly one path. */
+    if (!bigu_reserve(&acc[g->root_node], 1)) {
+        err = LZG_ERR_ALLOC;
+        goto done;
+    }
+    acc[g->root_node].limbs[0] = 1;
+    acc[g->root_node].n = 1;
+
+    for (uint32_t t = 0; t < n_nodes; t++) {
+        uint32_t u = g->topo_order[t];
+        LZGBigU *src = &acc[u];
+        if (src->n == 0) continue; /* unreachable from the root */
+
+        if (g->node_is_sink && g->node_is_sink[u]) {
+            if (!bigu_add(&total, src)) { err = LZG_ERR_ALLOC; goto done; }
+        } else {
+            uint32_t e_end = g->row_offsets[u + 1];
+            for (uint32_t e = g->row_offsets[u]; e < e_end; e++) {
+                if (!bigu_add(&acc[g->col_indices[e]], src)) {
+                    err = LZG_ERR_ALLOC;
+                    goto done;
+                }
+            }
+        }
+        /* u is never revisited in topological order: release it now so
+           peak memory tracks the DAG frontier rather than the whole graph. */
+        bigu_free(src);
+    }
+
+    *limbs_out = total.limbs;
+    *n_limbs_out = total.n;
+    total.limbs = NULL; /* ownership transferred to the caller */
+
+done:
+    for (uint32_t i = 0; i < n_nodes; i++) bigu_free(&acc[i]);
+    free(acc);
+    if (err != LZG_OK) bigu_free(&total);
+    return err;
+}
+
+/* ═══════════════════════════════════════════════════════════════ */
 /* Shannon entropy (exact)                                        */
 /* acc[0] = probability mass, acc[1] = entropy accumulator        */
 /* ═══════════════════════════════════════════════════════════════ */

@@ -1,0 +1,15 @@
+.git
+.github
+.pytest_cache
+.research
+docs
+examples
+tests
+*.egg-info
+build
+dist
+wheelhouse
+__pycache__
+*.pyc
+.venv
+venv

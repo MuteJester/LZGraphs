@@ -88,20 +88,30 @@ class LZGraph(_GraphCommonMixin):
         strict_input: bool = False,
         expect_format: str | None = None,
     ) -> "LZGraph":
-        """Build directly from a plain text file without Python list materialization.
+        """Build from a sequence file, auto-detecting format like ``lzg build`` does.
 
-        Supported file formats:
-        - one sequence per line
-        - ``sequence<TAB>abundance``
-
-        This path is intended for large plain repertoire files and does not
-        support headered tabular inputs or gene columns.
+        Accepts everything ``lzg build``/``read_sequences`` does: FASTA,
+        FASTQ, headered tabular input (AIRR-style TSV/CSV, including gene
+        columns), plain one-sequence-per-line files, and
+        ``sequence<TAB>abundance`` files, transparently decompressed
+        (gzip/bzip2/xz/zstd) and normalised (BOM stripping, universal
+        newlines, malformed-record filtering) exactly the way
+        ``read_sequences`` does. A clean, uncompressed plain or
+        ``sequence<TAB>abundance`` file is streamed straight into the C
+        builder with constant memory, which is what this method exists to
+        provide for large repertoire files; anything else (compressed,
+        headered, FASTA/FASTQ, or containing a BOM, a lone carriage return,
+        or a malformed line within the sniffed prefix) is instead read
+        through ``read_sequences`` and built the same way
+        ``LZGraph(sequences=...)`` would be.
         """
         path = os.fspath(path)
         if not path:
             raise ValueError("path must be non-empty")
+
+        from ._io import empty_read_error, plan_streaming_read, read_sequences, validate_input
+
         if strict_input or expect_format is not None:
-            from ._io import validate_input
             report = validate_input(
                 path,
                 variant=variant,
@@ -110,8 +120,28 @@ class LZGraph(_GraphCommonMixin):
             )
             if not report['ok']:
                 raise ValueError(report['summary'])
-        return cls._from_capsule(
-            _c.graph_build_file(path, variant, smoothing)
+
+        can_stream, _spec = plan_streaming_read(
+            path, variant=variant, expect_format=expect_format,
+        )
+        if can_stream:
+            return cls._from_capsule(
+                _c.graph_build_file(path, variant, smoothing)
+            )
+
+        data = read_sequences(
+            path, variant=variant, strict_input=strict_input,
+            expect_format=expect_format,
+        )
+        if not data['sequences']:
+            raise empty_read_error(path, data['stats'])
+        return cls(
+            data['sequences'],
+            variant=variant,
+            abundances=data['abundances'],
+            v_genes=data['v_genes'],
+            j_genes=data['j_genes'],
+            smoothing=smoothing,
         )
 
     # ── Dunder methods ──────────────────────────────────────

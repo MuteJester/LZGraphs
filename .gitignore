@@ -141,8 +141,13 @@ cython_debug/
 
 main.py
 
-# Claude session/config
+# Agent session/config, scratch notes, and generated working files
 .claude/
+.agents/
+.codex/
+.cache/
+AGENTS.md
+CLAUDE.local.md
 
 # LaTeX build artifacts
 *.aux

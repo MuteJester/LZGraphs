@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/MuteJester/LZGraphs/actions/workflows/test.yml"><img src="https://github.com/MuteJester/LZGraphs/actions/workflows/test.yml/badge.svg" alt="CI"></a>
   <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/v/LZGraphs.svg" alt="PyPI"></a>
   <a href="https://pypi.org/project/LZGraphs/"><img src="https://img.shields.io/pypi/pyversions/LZGraphs.svg" alt="Python"></a>
   <a href="https://github.com/MuteJester/LZGraphs/blob/master/LICENSE"><img src="https://img.shields.io/github/license/MuteJester/LZGraphs.svg" alt="License"></a>
@@ -46,6 +47,12 @@ pip install LZGraphs
 
 Requires Python 3.9 or later. Wheels are published for Linux, macOS, and Windows (CPython 3.9–3.12). Release history: [CHANGELOG.md](CHANGELOG.md).
 
+A container image with the `lzg` CLI preinstalled is also published to GHCR:
+
+```bash
+docker run --rm -v "$PWD:/data" ghcr.io/mutejester/lzgraphs build /data/repertoire.tsv -o /data/repertoire.lzg
+```
+
 ## Input format
 
 For programmatic use, all classes accept a plain list of CDR3 strings:
@@ -54,15 +61,21 @@ For programmatic use, all classes accept a plain list of CDR3 strings:
 LZGraph(['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', ...], variant='aap')
 ```
 
-For files (the CLI and `FlashBackGraph.from_file`), three formats are supported:
+For files, `LZGraph.from_file`, `FlashBackGraph.from_file`, and the `lzg` CLI (`lzg build` / `lzg flashback build`) all read through the same format-detection pipeline and accept the same formats, so any of the three build the identical graph from the identical file:
 
 | Format | Layout | Example |
 |---|---|---|
 | Plain | one sequence per line | `CASSLEPSGGTDTQYF` |
 | Seq + count | `sequence\tcount` (tab-separated) | `CASSLEPSGGTDTQYF\t42` |
-| AIRR-compatible TSV | tab-separated, with header row | `junction_aa`, `v_call`, `j_call`, ... |
+| AIRR-compatible tabular | tab- or comma-separated, with header row | `junction_aa`, `v_call`, `j_call`, ... |
+| FASTA | `>` header line, then sequence line(s) | `>seq1` / `CASSLEPSGGTDTQYF` |
+| FASTQ | 4-line records: header, sequence, `+`, quality | `@seq1` / `CASSLEPSGGTDTQYF` / `+` / `IIIIIIIIIIIIIII` |
 
-For AIRR TSV: the sequence column is auto-detected from `junction_aa` / `cdr3_amino_acid` / `cdr3_aa` (variant `aap`), `junction` / `cdr3_rearrangement` (variant `ndp`), or any column named `sequence`/`cdr3`/`seq`. Gene calls come from `v_call` / `j_call` and must use IMGT-style notation (e.g. `TRBV5-1*01`). Gzipped inputs (`.tsv.gz`) are supported transparently.
+For AIRR-style tabular input: the sequence column is auto-detected from `junction_aa` / `cdr3_amino_acid` / `cdr3_aa` (variant `aap`), `junction` / `cdr3_rearrangement` (variant `ndp`), or any column named `sequence`/`cdr3`/`seq`. Gene calls come from `v_call` / `j_call` and must use IMGT-style notation (e.g. `TRBV5-1*01`); `FlashBackGraph` has no gene-annotation model, so a gene column present in the file is simply not read. Malformed sequence fields, and AIRR rows whose `productive` column is present and not truthy, are dropped and counted rather than built into the graph.
+
+Compression is detected from file content, not the filename: gzip, bzip2, and xz are supported out of the box, and zstd is supported if the optional `zstandard` package is installed.
+
+A clean, uncompressed, plain (or `sequence<TAB>count`) file streams straight into the C builder in constant memory, which is what makes `from_file` suitable for very large repertoires; everything else (compressed input, a headered/FASTA/FASTQ file, or a plain file with a byte-order mark, stray carriage returns, or a malformed line near its start) is instead read and validated in Python first, exactly as `lzg build` does for the same file. One residual case is intentionally not covered by that fast-path check: a malformed line far past the start of an otherwise clean, very large plain file can still reach the C builder and be ingested as-is rather than dropped, since fully validating a multi-gigabyte file up front would defeat the constant-memory streaming `from_file` exists to provide. For `LZGraph.from_file` and `lzg build`, passing `strict_input=True` / `--strict-input` validates the whole file up front if you need that stronger guarantee; `FlashBackGraph.from_file` and `lzg flashback build` do not currently expose an equivalent flag.
 
 ## Quick Start: LZGraph
 
@@ -154,7 +167,9 @@ cal = graph.calibrate_scale(seed=42)               # calibrate once against the 
 print(f"SCALE = {graph.scale_score('CASSLEPSGGTDTQYF', cal):.2f}")  # higher = more anomalous
 ```
 
-### Build from a file (streaming, constant memory)
+### Build from a file
+
+`FlashBackGraph.from_file(path)` accepts any of the formats in [Input format](#input-format) above (plain, `seq<TAB>count`, AIRR-style tabular, FASTA, FASTQ, gzip/bzip2/xz-compressed) and is equivalent to running `lzg flashback build path -o out.lzg` and then loading the result: same detection, same validation, same graph. `LZGraph.from_file(path, variant='aap')` is the same guarantee for `LZGraph`, equivalent to `lzg build path -o out.lzg`.
 
 ```python
 from LZGraphs import FlashBackGraph
@@ -168,7 +183,7 @@ graph = FlashBackGraph.from_file('repertoire.tsv')
 print(graph.n_nodes, 'nodes')
 ```
 
-For incremental / checkpointed builds over very large repertoires, use `FlashBackStream`: same accumulator with `add_sequences()`, `snapshot()`, and `finalize()`. See the class docstring (`help(FlashBackStream)`) for the streaming protocol.
+For a clean, uncompressed file like this one, `from_file` streams straight into the C builder in constant memory, so it is the right choice for very large repertoires. For incremental / checkpointed builds over repertoires too large to write to a single file up front, use `FlashBackStream`: same accumulator with `add_sequences()`, `snapshot()`, and `finalize()`. See the class docstring (`help(FlashBackStream)`) for the streaming protocol.
 
 ## When to use which
 
@@ -195,7 +210,7 @@ Benchmark figures below are from a single CPU core on a 5,000-sequence amino-aci
 | Hill numbers via MC (10k walks) | ~2 sec |
 | Load / save `.lzg` | ~100× faster than rebuilding |
 
-For repertoires of ~100k sequences and above, graph construction stays linear and saved `.lzg` files round-trip in seconds. FlashBackGraph's `from_file` and `FlashBackStream` paths operate in bounded memory; we have built and validated graphs with >70,000 nodes and >11M edges this way.
+For repertoires of ~100k sequences and above, graph construction stays linear and saved `.lzg` files round-trip in seconds. For a clean, uncompressed input file, FlashBackGraph's `from_file` and `FlashBackStream` paths operate in bounded memory; we have built and validated graphs with >70,000 nodes and >11M edges this way. (Compressed or headered input is decompressed and validated in memory first, same as `lzg build`; see [Input format](#input-format).)
 
 ## Key Capabilities
 

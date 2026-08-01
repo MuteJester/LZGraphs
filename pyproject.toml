@@ -76,7 +76,17 @@ lzg = "LZGraphs.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["LZGraphs"]
+
+# Auto-discover LZGraphs and every subpackage under it (e.g. LZGraphs._io,
+# LZGraphs._term). A hand-written `packages = ["LZGraphs"]` list previously
+# omitted these subpackages entirely, so a built wheel or sdist installed
+# an LZGraphs that raised ModuleNotFoundError on `LZGraphs._io` the moment
+# the CLI parser was constructed (build_parser() imports from ._io while
+# adding the `build` subcommand's arguments), breaking every `lzg`
+# invocation including `lzg --version`. Discovery keeps this correct as
+# new subpackages are added.
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.dynamic]
 version = {attr = "LZGraphs.__version__"}
