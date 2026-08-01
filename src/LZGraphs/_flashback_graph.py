@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Iterable, overload
+from collections.abc import Iterable
+from typing import Any, overload
 
 import numpy as np
 
@@ -62,7 +63,7 @@ class ScaleCalibration:
             json.dump(payload, f, indent=2)
 
     @classmethod
-    def load(cls, path: str | os.PathLike) -> "ScaleCalibration":
+    def load(cls, path: str | os.PathLike) -> ScaleCalibration:
         """Load a calibration previously written by :meth:`save`."""
         with open(os.fspath(path)) as f:
             d = json.load(f)
@@ -129,14 +130,14 @@ class FlashBackGraph(_GraphCommonMixin):
         self._info = _c.graph_info(self._cap)
 
     @classmethod
-    def _from_capsule(cls, capsule: Any) -> "FlashBackGraph":
+    def _from_capsule(cls, capsule: Any) -> FlashBackGraph:
         obj = object.__new__(cls)
         obj._cap = capsule
         obj._info = _c.graph_info(capsule)
         return obj
 
     @classmethod
-    def from_file(cls, path: str | os.PathLike, *, smoothing: float = 0.0) -> "FlashBackGraph":
+    def from_file(cls, path: str | os.PathLike, *, smoothing: float = 0.0) -> FlashBackGraph:
         """Build from a plain text file (streaming, constant memory).
 
         Supported: one sequence per line, or sequence<TAB>abundance.
@@ -174,10 +175,17 @@ class FlashBackGraph(_GraphCommonMixin):
         return self._info['is_dag']
 
     @property
-    def path_count(self) -> float:
-        """Exact number of distinct walks (via DP)."""
+    def path_count(self) -> int:
+        """Exact number of distinct walks, in arbitrary precision.
+
+        Computed by a native base-2^32 DAG dynamic program, so every digit
+        is significant. Real repertoire graphs exceed 2^53, where the
+        double-precision analytics (``hill_number(0)``, ``power_sum(0)``,
+        and ``diversity_profile()['uniformity']``) start to lose low-order
+        digits of this same quantity.
+        """
         if self._path_count_cache is None:
-            self._path_count_cache = float(_c.fb_path_count(self._cap))
+            self._path_count_cache = _c.fb_path_count_exact(self._cap)
         return self._path_count_cache
 
     # ── Structural ──────────────────────────────────────────
@@ -339,7 +347,7 @@ class FlashBackGraph(_GraphCommonMixin):
     def calibrate_scale(
         self, *, n_sim: int = 200_000, seed: int | None = None,
         min_count: int = 50,
-    ) -> "ScaleCalibration":
+    ) -> ScaleCalibration:
         """Self-calibrate the SCALE anomaly score against this graph.
 
         Simulates ``n_sim`` sequences from the graph and measures the
@@ -384,7 +392,7 @@ class FlashBackGraph(_GraphCommonMixin):
             seed=seed,
         )
 
-    def scale_score(self, sequence, calibration: "ScaleCalibration"):
+    def scale_score(self, sequence, calibration: ScaleCalibration):
         """SCALE anomaly score(s); higher means more anomalous.
 
         ``score(s) = (-log Pgen(s) - median[len(s)]) / IQR[len(s)]`` using
@@ -460,34 +468,51 @@ class FlashBackGraph(_GraphCommonMixin):
         return _c.pgen_moments(self._cap)
 
     def pgen_distribution(self):
-        """Analytical Gaussian mixture approximation of log-PGEN."""
+        """Legacy Gaussian-mixture approximation of log-PGEN.
+
+        The component fit currently uses sampled walks. Use
+        :meth:`pseq_analysis` for the sampling-free exact transform,
+        deterministic reconstruction, and saddlepoint APIs.
+        """
         from ._pgen_dist import PgenDistribution
         raw = _c.pgen_analytical(self._cap)
         return PgenDistribution(raw)
 
+    def pseq_analysis(self):
+        """Create a sampling-free analytical p-sequence spectrum.
+
+        The returned analysis computes the exact Mellin transform
+        ``M(q) = sum(P(sequence)**q)``, its derivatives, exact
+        length-conditioned moments, and exhaustive atoms for small graphs.
+        Large-support distributions can be reconstructed on a deterministic
+        surprisal grid without Monte Carlo sampling.
+        """
+        from ._flashback_pseq import FlashBackPseqAnalysis
+        return FlashBackPseqAnalysis(self)
+
     # ── Graph operations ───────────────────────────────────
 
-    def union(self, other: "FlashBackGraph") -> "FlashBackGraph":
+    def union(self, other: FlashBackGraph) -> FlashBackGraph:
         """Union: sum edge counts from both graphs."""
         cap = _c.graph_union(self._cap, other._cap)
         _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
-    def intersection(self, other: "FlashBackGraph") -> "FlashBackGraph":
+    def intersection(self, other: FlashBackGraph) -> FlashBackGraph:
         """Intersection: keep shared edges, min counts."""
         cap = _c.graph_intersection(self._cap, other._cap)
         _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
-    def difference(self, other: "FlashBackGraph") -> "FlashBackGraph":
+    def difference(self, other: FlashBackGraph) -> FlashBackGraph:
         """Difference: subtract ``other``'s edge counts."""
         cap = _c.graph_difference(self._cap, other._cap)
         _c.fb_fix_special_nodes(cap)
         return FlashBackGraph._from_capsule(cap)
 
     def weighted_merge(
-        self, other: "FlashBackGraph", alpha: float = 1.0, beta: float = 1.0
-    ) -> "FlashBackGraph":
+        self, other: FlashBackGraph, alpha: float = 1.0, beta: float = 1.0
+    ) -> FlashBackGraph:
         """Weighted merge: ``alpha * self + beta * other``."""
         cap = _c.weighted_merge(self._cap, other._cap, alpha, beta)
         _c.fb_fix_special_nodes(cap)
@@ -499,7 +524,7 @@ class FlashBackGraph(_GraphCommonMixin):
         *,
         abundances: Iterable[int] | None = None,
         kappa: float = 1.0,
-    ) -> "FlashBackGraph":
+    ) -> FlashBackGraph:
         """Bayesian posterior graph given new observed sequences.
 
         Keeps the prior's topology and updates each edge weight via the
@@ -531,7 +556,7 @@ class FlashBackGraph(_GraphCommonMixin):
         sequences: Iterable[str],
         *,
         abundances: Iterable[int] | None = None,
-    ) -> "FlashBackGraph":
+    ) -> FlashBackGraph:
         """Return a new graph with the contribution of ``sequences`` removed.
 
         For each sequence (with abundance ``a``, defaulting to 1) the walk
@@ -578,7 +603,7 @@ class FlashBackGraph(_GraphCommonMixin):
         _c.save(self._cap, os.fspath(path))
 
     @classmethod
-    def load(cls, path: str | os.PathLike) -> "FlashBackGraph":
+    def load(cls, path: str | os.PathLike) -> FlashBackGraph:
         """Load from LZG binary format. Accepts ``str`` or ``os.PathLike``."""
         cap = _c.load(os.fspath(path))
         _c.fb_fix_special_nodes(cap)
@@ -683,7 +708,7 @@ class FlashBackStream:
             return {"n_nodes": 0, "n_edges": 0}
         return _c.fb_stream_peek(self._cap)
 
-    def finalize(self) -> "FlashBackGraph":
+    def finalize(self) -> FlashBackGraph:
         """Convert the running accumulator into a :class:`FlashBackGraph`.
 
         The stream is consumed by this call: subsequent operations
@@ -708,7 +733,7 @@ class FlashBackStream:
         _c.fb_stream_abort(self._cap)
         self._consumed = True
 
-    def snapshot(self) -> "FlashBackGraph":
+    def snapshot(self) -> FlashBackGraph:
         """Build a finalized graph from the current accumulator state
         WITHOUT consuming the stream.
 
