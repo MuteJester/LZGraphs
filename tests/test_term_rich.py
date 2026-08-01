@@ -70,6 +70,69 @@ _SHOW = b"\x1b[?25h"
 _CURSOR_UP_RE = re.compile(r"\x1b\[(\d+)A")
 
 
+class _PtyDrainer:
+    """Continuously drains a pty master on a background thread.
+
+    A pty's kernel buffer is small and finite, and a writer whose buffer
+    fills blocks until someone reads. Every test in this module writes
+    redraw frames from the same thread that later reads them, so draining
+    has to run *concurrently with* the writes rather than after them.
+
+    Draining afterwards worked on Linux, whose buffer is roomy enough for
+    these frames, and deadlocked every macOS run: the renderer blocked
+    forever inside ``_safe_write`` during ``done()``, taking the whole job
+    to its timeout with no indication of which test was stuck. Buffer size
+    is a platform detail no test should be pinned to, so this drains from
+    the moment the pty is created.
+    """
+
+    def __init__(self, master_fd):
+        self._fd = master_fd
+        self._chunks = []
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        while not self._stop.is_set():
+            try:
+                ready, _, _ = select.select([self._fd], [], [], 0.05)
+            except (OSError, ValueError):
+                return  # fd closed underneath us by the test's finally block
+            if not ready:
+                continue
+            try:
+                data = os.read(self._fd, 65536)
+            except OSError:
+                return
+            if not data:
+                return
+            self._chunks.append(data)
+
+    def collect(self, idle=0.2, timeout=5.0):
+        """Stop once nothing new has arrived for ``idle`` seconds.
+
+        Same quiet-period contract the old synchronous ``_drain`` had, so
+        callers are unchanged; only the moment reading starts has moved.
+        """
+        deadline = time.monotonic() + timeout
+        seen = len(self._chunks)
+        quiet_since = time.monotonic()
+        while time.monotonic() < deadline:
+            time.sleep(0.02)
+            if len(self._chunks) != seen:
+                seen = len(self._chunks)
+                quiet_since = time.monotonic()
+            elif time.monotonic() - quiet_since >= idle:
+                break
+        self._stop.set()
+        self._thread.join(timeout=1.0)
+        return b"".join(self._chunks)
+
+
+_DRAINERS = {}
+
+
 def _open_sized_pty(columns, lines=24):
     """Open a pty pair, size it, and wrap the slave side as a real stream.
 
@@ -77,10 +140,15 @@ def _open_sized_pty(columns, lines=24):
     ``test_term_caps.py``'s helper of the same name/shape exactly, since
     both need the identical real, sized pty for the same reason: a stream
     whose ``isatty()`` is genuinely ``True``.
+
+    Reading of the master side starts immediately, on a background thread,
+    so a caller writing more than the pty buffer holds never blocks. See
+    :class:`_PtyDrainer`.
     """
     master_fd, slave_fd = pty.openpty()
     winsize = struct.pack("HHHH", lines, columns, 0, 0)
     fcntl.ioctl(slave_fd, termios.TIOCSWINSZ, winsize)
+    _DRAINERS[master_fd] = _PtyDrainer(master_fd)
     return master_fd, os.fdopen(slave_fd, "w")
 
 
@@ -97,18 +165,21 @@ def _caps_for(stream, **overrides):
 
 
 def _drain(master_fd, idle=0.2, timeout=5.0):
-    """Read whatever is available on ``master_fd``, stopping once nothing
-    new has arrived for ``idle`` seconds (bounded overall by ``timeout``).
+    """Return everything written to ``master_fd``, stopping once nothing new
+    has arrived for ``idle`` seconds (bounded overall by ``timeout``).
 
-    Safe to use here because every test that calls this has already
-    finished all of its *synchronous* writes by the time it drains: nothing
-    more is coming, so waiting for a short quiet period (rather than reading
-    a byte count decided in advance) is enough. Writing tens of kilobytes
-    into a pty without ever reading it can block the writer (observed
-    experimentally around ~19KB on this platform), which is why the
-    growing/shrinking-frame tests below keep their frame counts modest
-    rather than needing a concurrent background reader.
+    The reading itself already happened, on the background thread
+    :func:`_open_sized_pty` started when it created the pty; this only waits
+    for the quiet period and hands back what was collected, in order. The
+    concurrency is what makes the writer safe at any frame size, on any
+    platform's pty buffer.
     """
+    drainer = _DRAINERS.pop(master_fd, None)
+    if drainer is not None:
+        return drainer.collect(idle=idle, timeout=timeout)
+
+    # A pty this module did not open (so nothing is draining it): read it
+    # here. Only safe when the writer has already finished.
     chunks = []
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -145,6 +216,45 @@ def _plain_caps(**overrides) -> Capabilities:
 # ─────────────────────────────────────────────────────────────────────────
 # The tests that matter most: terminal state is always restored.
 # ─────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
+def test_writing_far_more_than_a_pty_buffer_never_blocks():
+    """Pins the concurrent drain: a renderer must be able to write more
+    than the pty's kernel buffer holds without deadlocking.
+
+    Every other pty test here writes only a few frames, so on Linux they
+    stayed under the buffer and passed even when nothing read until the
+    end. macOS's buffer is a fraction of the size and they hung there
+    instead, blocked forever inside ``_safe_write``. This writes hundreds
+    of kilobytes, far past any platform's buffer, so the guarantee is
+    pinned by volume rather than by the host's happening to be roomy. It
+    deadlocks against a drain that only starts after the writes.
+
+    Volume comes from warnings rather than progress calls: progress is
+    redraw-throttled to 15fps by design, so thousands of calls collapse
+    into a single frame, whereas a warning must never be dropped and so is
+    always written.
+    """
+    master_fd, stream = _open_sized_pty(72)
+    try:
+        caps = _caps_for(stream)
+        r = RichRenderer(caps, stream=stream)
+        r.start("lzg build", {"SOURCE": "big.tsv"})
+        for i in range(400):
+            r.warn(f"record {i} dropped: malformed junction_aa field")
+        r.done("lzg build", {"nodes": "71,181"})
+        stream.flush()
+        out = _drain(master_fd)
+    finally:
+        stream.close()
+        os.close(master_fd)
+
+    assert len(out) > 100_000, (
+        f"expected to push well past any pty buffer, only wrote {len(out)} bytes"
+    )
+    assert out.count(_SHOW) == 1
+    assert out.rfind(_SHOW) > out.rfind(_HIDE)
 
 
 @pytest.mark.skipif(not _HAVE_PTY, reason=_NO_PTY_REASON)
