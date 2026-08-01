@@ -158,7 +158,43 @@ Moments (`mean`, `variance`, `std`, `skewness`, `kurtosis`) of the forward-DP lo
 ```python
 pgen_distribution()
 ```
-Analytical Gaussian-mixture approximation of the log-PGEN distribution. Returns a [PgenDistribution](pgen-distribution.md).
+Legacy Gaussian-mixture approximation of the log-PGEN distribution. The
+global moments are propagated analytically, but the current per-component fit
+uses sampled walks. For a sampling-free analysis, use `pseq_analysis()`.
+
+### pseq_analysis
+
+```python
+analysis = graph.pseq_analysis()
+```
+
+Create a sampling-free analytical p-sequence spectrum for the FlashBack DAG.
+The exact core is the Mellin transform
+
+\[
+M(q)=\sum_sP(s)^q,
+\]
+
+which connects directly to Hill diversity. The returned
+`FlashBackPseqAnalysis` supports:
+
+```python
+analysis.mellin(q)                 # exact M(q)
+analysis.log_mellin(q)             # stable exact log M(q)
+analysis.derivatives(q, order=4)   # exact transform derivatives
+analysis.moments()                 # exact surprisal moments
+analysis.cumulants()               # exact surprisal cumulants
+analysis.length_profile()          # exact moments by sequence length
+analysis.exact_atoms()             # exact enumeration for small supports
+analysis.histogram()               # deterministic large-support grid
+analysis.saddlepoint()             # smooth transform-based PDF/CDF
+analysis.position(sequence)         # individual repertoire position
+analysis.expected_richness(n)       # finite-depth occupancy prediction
+```
+
+`exact_atoms()` is necessarily support-limited because an explicit PMF can
+contain exponentially many atoms. `histogram()` is deterministic and reports
+its grid spacing and rounding-error bound; it has no Monte Carlo variance.
 
 ## Anomaly Scoring (SCALE)
 
@@ -261,7 +297,7 @@ Load from a `.lzg` binary file.
 | `n_sequences` | `int` | Number of input sequences (abundance-weighted) |
 | `variant` | `str` | Always `'flashback'` |
 | `is_dag` | `bool` | Always `True` |
-| `path_count` | `float` | Exact number of distinct walks (via DP) |
+| `path_count` | `int` | Exact number of distinct walks, in arbitrary precision |
 
 ### Structure
 | Attribute | Type | Description |

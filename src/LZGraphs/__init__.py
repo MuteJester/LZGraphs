@@ -5,15 +5,22 @@ High-performance C backend with full LZ76 dictionary constraint enforcement.
 
 __version__ = "3.2.0"
 
-from ._graph import LZGraph
-from ._flashback_graph import FlashBackGraph, FlashBackStream, ScaleCalibration
+from . import _clzgraph as _c
+from ._errors import ConvergenceError, CorruptFileError, LZGraphError, NoGeneDataError
 from ._flashback_grammar import FlashBackGrammar
+from ._flashback_graph import FlashBackGraph, FlashBackStream, ScaleCalibration
+from ._flashback_pseq import (
+    FlashBackPseqAnalysis,
+    PseqAtoms,
+    PseqHistogram,
+    PseqSaddlepoint,
+)
+from ._graph import LZGraph
+
 # FoundationScaffold* helpers live in the private ._foundation_scaffold module.
 # They are internal for 3.2.0 and intentionally not part of the public API.
 from ._pgen_dist import PgenDistribution
 from ._simulation_result import SimulationResult
-from ._errors import LZGraphError, NoGeneDataError, ConvergenceError, CorruptFileError
-from . import _clzgraph as _c
 
 
 def jensen_shannon_divergence(a, b):
@@ -106,6 +113,10 @@ __all__ = [
     'FlashBackGraph',
     'FlashBackStream',
     'ScaleCalibration',
+    'FlashBackPseqAnalysis',
+    'PseqAtoms',
+    'PseqHistogram',
+    'PseqSaddlepoint',
     'FlashBackGrammar',
     'PgenDistribution',
     'SimulationResult',

@@ -171,6 +171,20 @@ LZGError lzg_flashback_pgen_batch(const LZGGraph *g,
 
 LZGError lzg_flashback_path_count(const LZGGraph *g, double *out);
 
+/**
+ * Exact root-to-sink path count in arbitrary precision.
+ *
+ * The double-returning variant above loses precision above 2^53 and
+ * overflows to +inf past ~1.8e308; real repertoire graphs exceed 2^53.
+ * This variant returns the exact integer as little-endian base-2^32
+ * limbs. On success `*limbs_out` is a malloc'd array the caller must
+ * free(); `*n_limbs_out` is 0 (with `*limbs_out` NULL) when the count
+ * is zero.
+ */
+LZGError lzg_flashback_path_count_exact(const LZGGraph *g,
+                                        uint32_t **limbs_out,
+                                        uint32_t *n_limbs_out);
+
 LZGError lzg_flashback_effective_diversity(const LZGGraph *g,
                                            LZGEffectiveDiversity *out);
 
