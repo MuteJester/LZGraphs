@@ -29,7 +29,7 @@
 **LZGraphs** is a Python library that turns T-cell and B-cell receptor CDR3 sequences into probabilistic directed graphs. It ships two graph families on a shared C core:
 
 - [`LZGraph`](#quick-start-lzgraph): built from **Lempel-Ziv 76** compression. Supports V/J gene annotation, three encoding variants, and a `lzg` CLI.
-- [`FlashBackGraph`](#quick-start-flashbackgraph): a **Markovian DAG** built from FlashBack tokenization (recursive run-peeling from both ends of the sentinel-wrapped sequence). Diversity, entropy, and path counting have closed-form forward-DP solutions; sequence simulation is still sampled.
+- [`FlashBackGraph`](#quick-start-flashbackgraph): a **Markovian DAG** built from FlashBack tokenization (recursive run-peeling from both ends of the sentinel-wrapped sequence). Diversity, entropy, path counting, and the p-sequence spectrum have closed-form forward-DP solutions; sequence simulation is still sampled. Driven from Python or from `lzg flashback`.
 
 Both classes share a common surface for scoring, simulation, diversity, graph algebra, posterior personalization, and binary serialization. See [When to use which](#when-to-use-which) for a comparison.
 
@@ -45,7 +45,7 @@ Both classes share a common surface for scoring, simulation, diversity, graph al
 pip install LZGraphs
 ```
 
-Requires Python 3.9 or later. Wheels are published for Linux, macOS, and Windows (CPython 3.9–3.12). Release history: [CHANGELOG.md](CHANGELOG.md).
+Requires Python 3.9 or later. Wheels are published for Linux (x86_64 and aarch64, glibc 2.28+ or musl 1.2+), macOS (Apple Silicon), and Windows (x86_64), for CPython 3.9–3.13. Release history: [CHANGELOG.md](CHANGELOG.md).
 
 A container image with the `lzg` CLI preinstalled is also published to GHCR:
 
@@ -160,7 +160,7 @@ result = graph.simulate(1000, seed=42)
 # Diversity, entropy, path count: closed-form via forward DP
 print(f"D(1) = {graph.effective_diversity():.1f}")
 print(f"D(2) = {graph.hill_number(2):.1f}")
-print(f"# distinct paths = {graph.path_count:.3e}")
+print(f"# distinct paths = {graph.path_count:,}")   # exact int, arbitrary precision
 
 # SCALE: self-calibrated anomaly score for flagging atypical / error sequences
 cal = graph.calibrate_scale(seed=42)               # calibrate once against the graph
@@ -185,6 +185,60 @@ print(graph.n_nodes, 'nodes')
 
 For a clean, uncompressed file like this one, `from_file` streams straight into the C builder in constant memory, so it is the right choice for very large repertoires. For incremental / checkpointed builds over repertoires too large to write to a single file up front, use `FlashBackStream`: same accumulator with `add_sequences()`, `snapshot()`, and `finalize()`. See the class docstring (`help(FlashBackStream)`) for the streaming protocol.
 
+### Command line
+
+Everything above is also available from the terminal under `lzg flashback`. Input is detected by content, so the FASTA below needs no flags; see [Input format](#input-format) for the full list.
+
+```bash
+# Build a FlashBackGraph. Accepts FASTA, FASTQ, AIRR TSV/CSV, plain,
+# seq<TAB>count, optionally gzip/bzip2/xz compressed.
+lzg flashback build repertoire.fa -o rep.fb.lzg
+
+# Inspect it
+lzg flashback info rep.fb.lzg
+
+# Simulate sequences from the Markovian distribution
+lzg flashback simulate rep.fb.lzg -n 10000 --seed 42 > simulated.txt
+
+# Exact generation probability per sequence: TSV of `sequence  pgen`
+# (natural log) on stdout, one row per query.
+lzg flashback score rep.fb.lzg queries.txt
+
+# Exact diversity, and the SCALE anomaly score
+lzg flashback diversity rep.fb.lzg
+lzg flashback scale rep.fb.lzg queries.txt
+```
+
+`lzg flashback build` and `FlashBackGraph.from_file` read through the identical pipeline, so the graph is the same either way. Only presentation goes to stderr; the data on stdout is clean, so `lzg flashback simulate rep.fb.lzg -n 1000 | head -3` behaves as you would expect in a pipeline.
+
+### P-sequence spectrum
+
+`pgen` answers "how probable is *this* sequence". `pseq_analysis()` answers the distributional question: across the whole space of sequences the graph can generate, how is probability spread out? It is computed from the power-sum transform `M(q) = sum_s P(s)^q` as a forward dynamic program over the edges, so the transform, its derivatives, and the surprisal moments that follow are exact rather than estimated from sampled walks.
+
+```python
+from LZGraphs import FlashBackGraph
+
+fb = FlashBackGraph(['CASSLEPSGGTDTQYF', 'CASSDTSGGTDTQYF', 'CASSLEPQTFTDTFFF',
+                     'CASSLGQGSTEAFF', 'CASSLGIRRT'])
+psq = fb.pseq_analysis()
+
+# Exact surprisal moments of the generated distribution
+m = psq.moments()
+print(f"mean surprisal = {m['mean']:.3f} nats, sd = {m['std']:.3f}")
+
+# Where does one sequence sit in that spectrum?
+pos = psq.position('CASSLGIRRT')
+print(f"P(seq) = {pos['pseq']:.3g}, surprisal = {pos['surprisal']:.3f}")
+print(f"{pos['fraction_of_sequences_at_least_as_probable']:.1%} of sequences are at least as probable")
+
+# Expected distinct sequences after sampling n times
+print(psq.expected_richness(10_000)['expected_richness'])
+```
+
+Also available on the returned object: `mellin(q)` / `log_mellin(q)` / `derivatives(q, order)` for the transform itself, `cumulants()`, `length_profile()` and `length_derivatives()` for length-stratified mass and moments, `exact_atoms()` for exhaustive enumeration on small supports, `histogram()` for a deterministic surprisal-grid reconstruction on large ones (reporting its grid spacing and a rounding-error bound), `saddlepoint()` for smooth Lugannani-Rice PDF/CDF inversion, and `expected_frequency_spectrum(n, max_count)`.
+
+This is a Python-only API; there is no `lzg flashback` subcommand for the spectrum. For per-sequence probabilities from the terminal, use `lzg flashback score` above.
+
 ## When to use which
 
 |  | `LZGraph` | `FlashBackGraph` |
@@ -195,7 +249,8 @@ For a clean, uncompressed file like this one, `from_file` streams straight into 
 | Self-calibrated anomaly scoring (SCALE) | No | Yes |
 | V/J gene annotation & gene-conditioned simulation | Yes | No |
 | Encoding variants | `aap`, `ndp`, `naive` | Single representation |
-| CLI tool (`lzg`) | Yes | No |
+| Sampling-free p-sequence spectrum | No | Yes (`pseq_analysis()`) |
+| CLI tool (`lzg`) | Yes (`lzg build`, ...) | Yes (`lzg flashback build`, ...) |
 | Streaming / incremental build | No | Yes (`FlashBackStream`) |
 
 ## Performance
@@ -244,7 +299,7 @@ lz_sample    = LZGraph(seqs, variant='aap')
 ```python
 # Log-probability of a sequence (works on LZGraph and FlashBackGraph alike)
 graph.pgen('CASSLEPSGGTDTQYF')               # single → float
-graph.pgen(['seq1', 'seq2', 'seq3'])          # batch  → np.ndarray
+graph.pgen(seqs[:3])                          # batch  → np.ndarray
 
 # Simulate (both classes)
 result = graph.simulate(1000, seed=42)
@@ -258,17 +313,20 @@ graph.effective_diversity()          # exp(Shannon entropy)
 graph.hill_number(2)                 # inverse Simpson
 graph.hill_numbers([0, 1, 2, 5])     # multiple orders → np.ndarray
 
+# Both classes
+graph.path_count                     # distinct walks (exact int on FlashBackGraph)
+graph.pgen_moments()                 # moments of the log-pgen distribution
+graph.pgen_distribution()            # Gaussian-mixture approximation of log-pgen
+
 # LZGraph-only
-lz_graph.pgen_distribution()         # analytical log-pgen distribution (Gaussian mixture)
 lz_graph.predicted_richness(100_000) # expected unique seqs at depth
 lz_graph.predicted_overlap(10000, 50000)        # expected shared sequences
 lz_graph.predict_sharing([1000]*5, max_k=5)     # sharing spectrum across donors
 
 # FlashBackGraph-only (closed-form)
-fb_graph.path_count                  # exact count of distinct walks
+fb_graph.pseq_analysis()             # sampling-free p-sequence spectrum
 cal = fb_graph.calibrate_scale(seed=0)          # self-calibrate the SCALE anomaly score (once)
 fb_graph.scale_score('CASSLEPSGGTDTQYF', cal)   # SCALE: higher = more anomalous
-fb_graph.pgen_moments()              # exact moments of log-pgen distribution
 ```
 
 ### Graph Algebra
@@ -290,10 +348,10 @@ jsd = jensen_shannon_divergence(graph_a, graph_b)  # natural log (nats): 0.0 ide
 
 ```python
 graph.feature_stats()                 # 15-element summary vector (both classes)
+graph.feature_mass_profile()          # position-based mass distribution (both classes)
 
 # LZGraph-only
 lz_reference.feature_aligned(lz_sample)   # project sample into a fixed reference space
-lz_graph.feature_mass_profile()           # position-based mass distribution
 ```
 
 ### Serialization
@@ -361,7 +419,7 @@ Then:
 git clone https://github.com/MuteJester/LZGraphs.git
 cd LZGraphs
 pip install -e ".[dev]"   # editable install + dev extras (pytest, pytest-cov, ruff, scipy, build)
-pytest                    # run the test suite (~505 tests)
+pytest                    # run the test suite (~1,700 tests)
 ```
 
 ### PR checklist
