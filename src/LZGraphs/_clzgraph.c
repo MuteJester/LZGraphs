@@ -10,6 +10,7 @@
 #include <structmember.h>
 #include <string.h>
 #include <math.h>
+#include <inttypes.h>
 
 #include "lzgraph/common.h"
 #include "lzgraph/graph.h"
@@ -1425,6 +1426,36 @@ static PyObject *py_fb_path_count(PyObject *self, PyObject *arg) {
     return PyFloat_FromDouble(count);
 }
 
+static PyObject *py_fb_path_count_exact(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    uint32_t *limbs = NULL;
+    uint32_t n = 0;
+    LZGError err = lzg_flashback_path_count_exact(g, &limbs, &n);
+    if (err != LZG_OK) return set_lzg_error(err);
+    if (n == 0) {
+        free(limbs);
+        return PyLong_FromLong(0);
+    }
+    /* Render big-endian hex, then let CPython parse it. Base 16 is exempt
+       from the sys.set_int_max_str_digits() limit that applies to base 10. */
+    size_t len = (size_t)n * 8 + 1;
+    char *buf = (char *)malloc(len);
+    if (!buf) {
+        free(limbs);
+        return PyErr_NoMemory();
+    }
+    char *p = buf;
+    p += snprintf(p, len, "%" PRIx32, limbs[n - 1]);
+    for (uint32_t i = n - 1; i > 0; i--)
+        p += snprintf(p, len - (size_t)(p - buf), "%08" PRIx32, limbs[i - 1]);
+    PyObject *res = PyLong_FromString(buf, NULL, 16);
+    free(buf);
+    free(limbs);
+    return res;
+}
+
 static PyObject *py_fb_effective_diversity(PyObject *self, PyObject *arg) {
     (void)self;
     LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
@@ -1981,6 +2012,7 @@ static PyMethodDef module_methods[] = {
     {"fb_simulate",             (PyCFunction)py_fb_simulate,           METH_VARARGS | METH_KEYWORDS, NULL},
     {"fb_pgen",                 py_fb_pgen,                            METH_VARARGS, NULL},
     {"fb_path_count",           py_fb_path_count,                      METH_O, NULL},
+    {"fb_path_count_exact",     py_fb_path_count_exact,                METH_O, NULL},
     {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},
     {"fb_power_sum",            py_fb_power_sum,                       METH_VARARGS, NULL},
     {"fb_hill_number",          py_fb_hill_number,                     METH_VARARGS, NULL},
