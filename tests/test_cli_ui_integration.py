@@ -44,6 +44,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import clean_term_env
 
 from LZGraphs import LZGraph
 from LZGraphs._term import NullRenderer, PlainRenderer, RichRenderer
@@ -70,9 +71,7 @@ _UI_MODES = ('auto', 'rich', 'plain', 'quiet')
 
 def run_lzg(*args, input_text=None, env=None):
     """Run the CLI as a real subprocess; stdout/stderr are pipes (non-tty)."""
-    full_env = dict(os.environ)
-    if env:
-        full_env.update(env)
+    full_env = clean_term_env(env)
     result = subprocess.run(
         LZG + list(args),
         capture_output=True, text=True, input=input_text, timeout=30,
@@ -115,7 +114,7 @@ def _run_lzg_on_pty(args, columns=100, lines=30):
     all, so nothing here needs to tell the two apart.
     """
     master_fd, slave_fd = pty.openpty()
-    env = dict(os.environ)
+    env = clean_term_env()
     env['PYTHONPATH'] = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src'
     env['COLUMNS'] = str(columns)
     env['LINES'] = str(lines)
