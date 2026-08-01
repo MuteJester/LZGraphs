@@ -198,6 +198,19 @@ test-command = "python -c \"from LZGraphs import LZGraph; print('LZGraphs C back
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64", "aarch64"]
+# cibuildwheel's default build image is manylinux2014 (glibc 2.17), and numpy
+# stopped shipping manylinux2014 wheels: from 2.5 it publishes
+# manylinux_2_28 and musllinux_1_2 only. Inside a 2014 container pip
+# therefore falls back to the numpy sdist and tries to compile it, which
+# fails outright because that image ships GCC 10.2.1 and numpy requires
+# >= 10.3. Pinning the images to numpy's own floor is what makes the wheel
+# installable: LZGraphs cannot run without numpy, so being more permissive
+# than numpy buys nothing and only produces a wheel whose dependency will
+# not resolve on the same machine.
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+musllinux-x86_64-image = "musllinux_1_2"
+musllinux-aarch64-image = "musllinux_1_2"
 
 [tool.cibuildwheel.macos]
 archs = ["arm64"]
