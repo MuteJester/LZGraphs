@@ -1,5 +1,27 @@
-name: Build & Publish
+name: Release
 
+# Tag a release (`git tag v3.2.1 && git push origin v3.2.1`) to build ONE
+# authoritative artifact set, test it, then publish those exact artifacts.
+# `workflow_dispatch` is also allowed, so the pipeline can be re-run by hand
+# against an existing tag if a later step needs a retry; the guard job below
+# makes that safe by construction, since a manual run against a branch
+# (rather than a real vX.Y.Z tag) fails immediately.
+#
+# Safety / ordering:
+#  - `guard` refuses to run unless the ref is a tag AND that tag equals the
+#    version LZGraphs itself reports. Nothing else starts until it passes.
+#  - `test` reruns the full platform x Python matrix on the tagged commit,
+#    unchanged from the previous pipeline: the release gate is not weaker
+#    than the everyday CI gate.
+#  - Wheels and the sdist are built once and only ever downloaded, never
+#    rebuilt, by every job after `build_wheels`/`build_sdist`.
+#  - The irreversible step (PyPI, immutable once published) runs LAST:
+#    draft-release, then ghcr (reversible), then the protected pypi
+#    environment, then flip the GitHub Release to published.
+#    Cross-registry publication cannot be atomic; this ordering minimises
+#    what a partial failure leaves behind.
+#  - PyPI uses Trusted Publishing (OIDC) via `id-token: write` and the
+#    protected `pypi` environment. No stored PYPI_API_TOKEN.
 on:
   push:
     tags: ["v*"]
@@ -8,11 +30,50 @@ on:
 permissions:
   contents: read
 
+env:
+  IMAGE: ghcr.io/mutejester/lzgraphs
+
 jobs:
-  # ═══════════════════════════════════════════════════════════
-  # Gate: run tests first
-  # ═══════════════════════════════════════════════════════════
+  # 0. Refuse to publish unless this run is on a real tag AND that tag
+  #    matches the version LZGraphs itself reports. LZGraphs' version is
+  #    dynamic (`pyproject.toml` declares
+  #    `version = {attr = "LZGraphs.__version__"}`), so parsing
+  #    pyproject.toml directly would only ever show the literal word
+  #    "dynamic". This instead resolves the version exactly the way
+  #    setuptools resolves it at build time: static analysis of
+  #    src/LZGraphs/__init__.py via setuptools' own read_attr, which needs
+  #    neither an importable package nor a built C extension.
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tag is a real tag and matches the package version
+        run: |
+          if [ "${GITHUB_REF_TYPE:-}" != "tag" ]; then
+            echo "::error::this workflow must run from a vX.Y.Z tag (got ref_type=$GITHUB_REF_TYPE, ref=$GITHUB_REF)"
+            exit 1
+          fi
+          python -m pip install --upgrade pip setuptools
+          PKGVER=$(python -c "
+          from setuptools.config.expand import read_attr
+          print(read_attr('LZGraphs.__version__', {'': 'src'}))
+          ")
+          TAGVER="${GITHUB_REF_NAME#v}"
+          echo "tag=$GITHUB_REF_NAME  tag_version=$TAGVER  package_version=$PKGVER"
+          if [ "$TAGVER" != "$PKGVER" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match LZGraphs.__version__ ($PKGVER)"
+            exit 1
+          fi
+          echo "guard OK: $GITHUB_REF_NAME matches package version $PKGVER"
+
+  # 0b. Full test matrix on the exact tagged commit, unchanged from the
+  #     pre-existing pipeline: the release gate must never be weaker than
+  #     everyday CI.
   test:
+    needs: guard
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -27,11 +88,10 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest tests/ -v --tb=short
 
-  # ═══════════════════════════════════════════════════════════
-  # Build wheels for all platforms
-  # ═══════════════════════════════════════════════════════════
+  # 1. Build the authoritative artifact set ONCE, only after guard + test
+  #    pass.
   build_wheels:
-    needs: test
+    needs: [guard, test]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -65,11 +125,8 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: ./wheelhouse/*.whl
 
-  # ═══════════════════════════════════════════════════════════
-  # Build source distribution
-  # ═══════════════════════════════════════════════════════════
   build_sdist:
-    needs: test
+    needs: [guard, test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,57 +145,146 @@ jobs:
           name: sdist
           path: dist/*.tar.gz
 
-  # ═══════════════════════════════════════════════════════════
-  # Publish to PyPI (only on tag pushes, not dispatch)
-  # ═══════════════════════════════════════════════════════════
-  publish:
-    needs: [build_wheels, build_sdist]
+  # 2. Smoke-test a real built wheel before any publication: install it into
+  #    a clean venv (never the checkout's own src/) and run the `lzg` CLI
+  #    end to end via scripts/release_smoke.sh, the same script the GHCR
+  #    smoke step below runs inside the container.
+  smoke:
+    needs: [build_wheels]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-
-    permissions:
-      id-token: write  # for trusted publishing
-
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
+          name: wheels-ubuntu-latest
           path: dist
-          merge-multiple: true
-
-      - name: List artifacts
-        run: ls -la dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+      - uses: actions/setup-python@v5
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          python-version: "3.12"
+      - name: Install the built wheel into a clean venv and run the CLI end to end
+        run: |
+          WHEEL=$(ls dist/lzgraphs-*-cp312-cp312-manylinux*x86_64*.whl | head -1)
+          test -n "$WHEEL"
+          python -m venv "$RUNNER_TEMP/lzg-smoke-venv"
+          "$RUNNER_TEMP/lzg-smoke-venv/bin/pip" install --upgrade pip
+          "$RUNNER_TEMP/lzg-smoke-venv/bin/pip" install "$WHEEL"
+          LZG="$RUNNER_TEMP/lzg-smoke-venv/bin/lzg" sh scripts/release_smoke.sh "$RUNNER_TEMP/lzg_release_smoke"
 
-  # ═══════════════════════════════════════════════════════════
-  # Create GitHub release and attach built artifacts
-  # ═══════════════════════════════════════════════════════════
-  create_release:
-    needs: [publish]
+  # 3. Draft GitHub Release with all wheels, the sdist, and a SHA-256
+  #    manifest, created BEFORE any irreversible publish. Rerun-safe: create
+  #    if absent, re-upload with --clobber if a draft already exists, refuse
+  #    if the release is already published.
+  draft-release:
+    needs: [smoke, build_sdist]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-
     permissions:
       contents: write
-
     steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
+          pattern: wheels-*
           path: dist
           merge-multiple: true
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+      - uses: actions/download-artifact@v4
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            dist/*.whl
-            dist/*.tar.gz
+          name: sdist
+          path: dist
+      - name: Checksums
+        run: cd dist && sha256sum *.whl *.tar.gz > SHA256SUMS.txt
+      - name: Create or refresh the draft release (rerun-safe)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$GITHUB_REF_NAME"
+          FILES="dist/*.whl dist/*.tar.gz dist/SHA256SUMS.txt"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = "true" ]; then
+              echo "draft $TAG already exists, re-uploading artifacts with --clobber"
+              gh release upload "$TAG" $FILES --clobber
+            else
+              echo "::error::release $TAG is already published; refusing to modify it"
+              exit 1
+            fi
+          else
+            gh release create "$TAG" --draft --title "LZGraphs $TAG" --generate-notes $FILES
+          fi
+
+  # 4. GHCR (reversible): built once, smoke-tested inside the container,
+  #    then pushed. Runs before the immutable PyPI step, and after the
+  #    draft release exists, so the container image is one more thing that
+  #    can be un-pushed or overwritten without touching PyPI.
+  ghcr:
+    needs: [draft-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image version (strip leading v)
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image (load locally for smoke)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGE }}:${{ steps.v.outputs.version }}
+      - name: Smoke inside the container before pushing
+        run: |
+          mkdir -p "$RUNNER_TEMP/lzg_docker_smoke"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --entrypoint sh \
+            -e HOME=/out \
+            -v "$PWD/scripts:/scripts:ro" \
+            -v "$RUNNER_TEMP/lzg_docker_smoke:/out" \
+            ${{ env.IMAGE }}:${{ steps.v.outputs.version }} /scripts/release_smoke.sh /out
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tag :latest and push both
+        run: |
+          docker tag ${{ env.IMAGE }}:${{ steps.v.outputs.version }} ${{ env.IMAGE }}:latest
+          docker push ${{ env.IMAGE }}:${{ steps.v.outputs.version }}
+          docker push ${{ env.IMAGE }}:latest
+
+  # 5. PyPI (OIDC, protected environment): the irreversible step, LAST. Same
+  #    artifacts built in step 1, never rebuilt.
+  pypi:
+    needs: [ghcr]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc # v1.12.4
+        with:
+          packages-dir: dist
+
+  # 6. Flip the draft Release to published only after GHCR and PyPI both
+  #    succeed.
+  publish-release:
+    needs: [pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
