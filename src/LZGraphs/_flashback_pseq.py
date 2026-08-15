@@ -18,6 +18,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from ._constants import LOG_EPS
+from ._publicness import MASS_TOL as _MASS_TOL
+from ._publicness import TAIL_FLOOR as _TAIL_FLOOR
+from ._publicness import TAIL_SIGMA as _TAIL_SIGMA
+from ._publicness import PublicnessModel
 
 if TYPE_CHECKING:
     from ._flashback_graph import FlashBackGraph
@@ -101,9 +105,11 @@ class PseqAtoms:
 class PseqHistogram:
     """Deterministic surprisal-grid reconstruction of a p-sequence measure.
 
-    ``weights`` are raw masses: they sum to one for ``measure='generated'``
-    and to ``D0`` for ``measure='counting'``. The reconstruction uses linear
-    grid transport, conserves total mass, and has no Monte Carlo variance.
+    ``weights`` are raw masses. Without a length restriction, they sum to one
+    for ``measure='generated'`` and to ``D0`` for ``measure='counting'``;
+    with a restriction, they sum to the selected length's mass. The
+    reconstruction uses linear grid transport, conserves total mass, and has
+    no Monte Carlo variance.
     """
 
     surprisal: np.ndarray
@@ -176,6 +182,100 @@ class PseqHistogram:
         return _as_scalar_or_array(probability, out)
 
 
+@dataclass(frozen=True)
+class PseqAttribution:
+    """Tilted node and edge usage for a FlashBack p-sequence distribution.
+
+    ``node_probability[u]`` and ``edge_probability[e]`` are the probabilities
+    that a path drawn with normalized weight proportional to ``P(s)**q``
+    visits that node or edge. Arrays are read-only, zero-copy views of native
+    storage owned by this result.
+    """
+
+    analysis: FlashBackPseqAnalysis
+    q: float
+    log_mass: float
+    node_probability: np.ndarray
+    edge_probability: np.ndarray
+    _owner: Any = field(repr=False, compare=False)
+
+    @property
+    def edge_sensitivity(self) -> np.ndarray:
+        """Gradient ``d log(M(q)) / d log(edge_weight)`` by edge."""
+        return self.q * self.edge_probability
+
+    @property
+    def edge_surprisal_contribution(self) -> np.ndarray:
+        """Expected surprisal contributed by each edge under the tilt."""
+        return -self.edge_probability * self.analysis._log_weights
+
+    @property
+    def expected_path_edges(self) -> float:
+        """Expected number of transitions in a tilted path."""
+        return float(np.sum(self.edge_probability, dtype=np.longdouble))
+
+    @property
+    def mean_surprisal(self) -> float:
+        """Expected full-path surprisal under the tilted distribution."""
+        return float(np.sum(
+            -self.edge_probability.astype(np.longdouble)
+            * self.analysis._log_weights.astype(np.longdouble),
+            dtype=np.longdouble,
+        ))
+
+    def top_edges(
+        self, k: int = 20, *, by: str = "occupancy"
+    ) -> list[dict[str, float | int | str]]:
+        """Return the highest-attribution edges without copying full arrays.
+
+        Args:
+            k: Maximum number of edges to return.
+            by: Ranking score: ``'occupancy'``, ``'sensitivity'`` (absolute
+                gradient), or ``'surprisal'`` (expected contribution).
+        """
+        if k < 0:
+            raise ValueError("k must be non-negative")
+        if by == "occupancy":
+            score = self.edge_probability
+        elif by == "sensitivity":
+            score = np.abs(self.q * self.edge_probability)
+        elif by == "surprisal":
+            score = self.edge_surprisal_contribution
+        else:
+            raise ValueError("by must be 'occupancy', 'sensitivity', or 'surprisal'")
+        count = min(int(k), int(score.size))
+        if count == 0:
+            return []
+        if count == score.size:
+            indices = np.arange(score.size, dtype=np.int64)
+        else:
+            indices = np.argpartition(score, -count)[-count:]
+        indices = indices[np.lexsort((indices, -score[indices]))]
+        sources = np.searchsorted(
+            self.analysis._row, indices, side="right") - 1
+        targets = self.analysis._col[indices]
+        labels = self.analysis.graph.all_nodes
+        output = []
+        for edge, source, target in zip(indices, sources, targets):
+            edge = int(edge)
+            source = int(source)
+            target = int(target)
+            output.append({
+                "edge": edge,
+                "source": source,
+                "target": target,
+                "source_label": labels[source],
+                "target_label": labels[target],
+                "weight": float(self.analysis._weights[edge]),
+                "occupancy": float(self.edge_probability[edge]),
+                "sensitivity": float(self.q * self.edge_probability[edge]),
+                "surprisal_contribution": float(
+                    -self.edge_probability[edge] * self.analysis._log_weights[edge]
+                ),
+            })
+        return output
+
+
 @dataclass
 class PseqSaddlepoint:
     """Smooth saddlepoint approximation to generated-sequence surprisal.
@@ -187,13 +287,13 @@ class PseqSaddlepoint:
 
     analysis: FlashBackPseqAnalysis
     exact: bool = False
-    method: str = "lugannani_rice_with_discrete_grid_fallback"
+    method: str = "native_safeguarded_newton_with_discrete_grid_fallback"
     discrete_fallback_paths: int = 64
     fallback_bins: int = 4096
     _fallback: PseqHistogram | None = field(default=None, init=False, repr=False)
 
     def _fallback_distribution(self) -> PseqHistogram | None:
-        if self.analysis.log_mellin(0.0) > log(self.discrete_fallback_paths + 0.5):
+        if self.analysis.graph.path_count > self.discrete_fallback_paths:
             return None
         if self._fallback is None:
             self._fallback = self.analysis.histogram(
@@ -210,94 +310,64 @@ class PseqSaddlepoint:
         return 0.5 * (1.0 + erf(z / sqrt(2.0)))
 
     def _saddle(self, x: float) -> tuple[float, tuple[float, ...]]:
+        """Solve one saddlepoint, primarily for diagnostics and tests."""
         lower = self.analysis.true_min_surprisal
         upper = self.analysis.true_max_surprisal
         if x <= lower:
             return float("-inf"), ()
         if x >= upper:
             return float("inf"), ()
-
-        mean0 = self.analysis._cgf_derivatives(0.0, 2)[1]
-        if abs(x - mean0) <= 1e-12 * max(1.0, abs(mean0)):
-            return 0.0, self.analysis._cgf_derivatives(0.0, 4)
-
-        if x < mean0:
-            hi = 0.0
-            lo = -1.0
-            while self.analysis._cgf_derivatives(lo, 1)[1] > x and lo > -64:
-                lo *= 2.0
-        else:
-            lo = 0.0
-            hi = 1.0
-            while self.analysis._cgf_derivatives(hi, 1)[1] < x and hi < 64:
-                hi *= 2.0
-
-        for _ in range(80):
-            mid = 0.5 * (lo + hi)
-            mean = self.analysis._cgf_derivatives(mid, 1)[1]
-            if mean < x:
-                lo = mid
-            else:
-                hi = mid
-        t = 0.5 * (lo + hi)
+        result = self._native_evaluate(np.asarray([x], dtype=np.float64))
+        t = float(result["saddle"][0])
         return t, self.analysis._cgf_derivatives(t, 4)
 
-    def pdf(self, x):
-        """Saddlepoint PDF approximation in surprisal space."""
+    def _native_evaluate(self, values: np.ndarray) -> dict[str, np.ndarray]:
+        """Evaluate a flattened batch with the native safeguarded solver."""
+        if np.any(~np.isfinite(values)):
+            raise ValueError("saddlepoint evaluation points must be finite")
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_saddlepoint_batch(
+            self.analysis.graph._cap, values.reshape(-1).tolist())
+        return {
+            name: np.asarray(result[name], dtype=dtype)
+            for name, dtype in (
+                ("pdf", np.float64),
+                ("cdf", np.float64),
+                ("saddle", np.float64),
+                ("iterations", np.uint32),
+            )
+        }
+
+    def pdf_cdf(self, x):
+        """Return batched saddlepoint PDF and CDF approximations.
+
+        Array inputs are evaluated in one native call. Use this method when
+        both quantities are needed so the saddlepoint roots are solved only
+        once. Small discrete supports retain the deterministic-grid fallback.
+        """
         fallback = self._fallback_distribution()
         if fallback is not None:
-            return fallback.pdf(x)
+            return fallback.pdf(x), fallback.cdf(x)
         values = np.asarray(x, dtype=np.float64)
-        out = np.empty_like(values)
-        for index in np.ndindex(values.shape):
-            point = float(values[index])
-            t, derivatives = self._saddle(point)
-            if not np.isfinite(t) or not derivatives:
-                out[index] = 0.0
-                continue
-            k, _, k2 = derivatives[:3]
-            if k2 <= 0:
-                out[index] = 0.0
-            else:
-                out[index] = exp(k - t * point) / sqrt(2.0 * pi * k2)
-        return _as_scalar_or_array(x, out)
+        result = self._native_evaluate(values)
+        pdf = result["pdf"].reshape(values.shape)
+        cdf = result["cdf"].reshape(values.shape)
+        return _as_scalar_or_array(x, pdf), _as_scalar_or_array(x, cdf)
+
+    def pdf(self, x):
+        """Saddlepoint PDF approximation in surprisal space.
+
+        Scalar and array inputs are accepted; arrays use one native batch.
+        """
+        return self.pdf_cdf(x)[0]
 
     def cdf(self, x):
-        """Lugannani-Rice CDF approximation in surprisal space."""
-        fallback = self._fallback_distribution()
-        if fallback is not None:
-            return fallback.cdf(x)
-        values = np.asarray(x, dtype=np.float64)
-        out = np.empty_like(values)
-        mean = self.analysis._cgf_derivatives(0.0, 4)[1]
-        variance = self.analysis._cgf_derivatives(0.0, 4)[2]
-        for index in np.ndindex(values.shape):
-            point = float(values[index])
-            if point <= self.analysis.true_min_surprisal:
-                out[index] = 0.0
-                continue
-            if point >= self.analysis.true_max_surprisal:
-                out[index] = 1.0
-                continue
-            t, derivatives = self._saddle(point)
-            if abs(t) < 1e-8:
-                z = (point - mean) / sqrt(max(variance, 1e-300))
-                out[index] = self._normal_cdf(z)
-                continue
-            k, _, k2 = derivatives[:3]
-            argument = max(2.0 * (t * point - k), 0.0)
-            w = (1.0 if t > 0 else -1.0) * sqrt(argument)
-            u = t * sqrt(max(k2, 1e-300))
-            if abs(w) < 1e-10 or abs(u) < 1e-10:
-                z = (point - mean) / sqrt(max(variance, 1e-300))
-                approximation = self._normal_cdf(z)
-            else:
-                approximation = (
-                    self._normal_cdf(w)
-                    + self._normal_pdf(w) * (1.0 / w - 1.0 / u)
-                )
-            out[index] = min(max(approximation, 0.0), 1.0)
-        return _as_scalar_or_array(x, out)
+        """Lugannani-Rice CDF approximation in surprisal space.
+
+        Scalar and array inputs are accepted; arrays use one native batch.
+        """
+        return self.pdf_cdf(x)[1]
 
 
 class FlashBackPseqAnalysis:
@@ -305,34 +375,28 @@ class FlashBackPseqAnalysis:
 
     def __init__(self, graph: FlashBackGraph) -> None:
         if not graph.is_dag:
-            raise ValueError("p-sequence analysis requires a FlashBack DAG")
+            raise ValueError(
+                "p-sequence analysis requires a sentinel-bounded DAG")
         self.graph = graph
-        csr = graph.adjacency_csr()
-        self._row = np.asarray(csr["row_offsets"], dtype=np.int64)
-        self._col = np.asarray(csr["col_indices"], dtype=np.int64)
-        self._weights = np.asarray(csr["weights"], dtype=np.float64)
+        from . import _clzgraph as _c
+
+        structure = _c.fb_pseq_structure(graph._cap)
+        self._row = np.frombuffer(structure["row_offsets"], dtype=np.uint32)
+        self._col = np.frombuffer(structure["col_indices"], dtype=np.uint32)
+        self._weights = np.frombuffer(structure["weights"], dtype=np.float64)
         self._log_weights = np.log(self._weights)
-        self._labels = graph.all_nodes
-        self._n = len(self._labels)
-        roots = [i for i, label in enumerate(self._labels) if label.startswith("@")]
-        if len(roots) != 1:
-            raise ValueError(f"expected one FlashBack root, found {len(roots)}")
-        self._root = roots[0]
-        self._sinks = np.flatnonzero(self._row[1:] == self._row[:-1])
-        self._topological_order = self._make_topological_order()
-        self._symbol_lengths = np.array(
-            [len(label.rsplit("_", 1)[0]) for label in self._labels],
-            dtype=np.int64,
-        )
-        # The root contributes the @ and $ sentinels, which reversal removes.
-        self._symbol_lengths[self._root] = max(
-            int(self._symbol_lengths[self._root]) - 2, 0
-        )
-        (
-            self._true_min_surprisal,
-            self._true_max_surprisal,
-            self._max_edges,
-        ) = self._path_bounds()
+        self._n = self._row.size - 1
+        self._root = int(structure["root"])
+        self._sinks = np.flatnonzero(
+            np.frombuffer(structure["sink_mask"], dtype=np.uint8))
+        self._topological_order = np.frombuffer(
+            structure["topological_order"], dtype=np.uint32)
+        self._symbol_lengths = np.frombuffer(
+            structure["symbol_lengths"], dtype=np.uint8)
+        self._true_min_surprisal = float(structure["min_surprisal"])
+        self._true_max_surprisal = float(structure["max_surprisal"])
+        self._max_edges = int(structure["max_edges"])
+        self._log_mellin_cache: dict[float, float] = {}
 
     def _make_topological_order(self) -> np.ndarray:
         indegree = np.zeros(self._n, dtype=np.int64)
@@ -409,7 +473,26 @@ class FlashBackPseqAnalysis:
         return out
 
     def log_mellin(self, q: float) -> float:
-        """Exact-DP ``log(sum_s P(s)**q)`` using log-sum-exp propagation."""
+        """Return the stable log Mellin transform ``log(sum_s P(s)**q)``.
+
+        The native DAG calculation maintains a log normalizer at every node,
+        so it remains finite when the corresponding unnormalized power sum or
+        derivative jet would overflow or underflow.
+        """
+        if not np.isfinite(q):
+            raise ValueError("q must be finite")
+        q = float(q)
+        if q in self._log_mellin_cache:
+            return self._log_mellin_cache[q]
+        from . import _clzgraph as _c
+
+        value = float(
+            _c.fb_pseq_tilted_moments(self.graph._cap, q, 0)["log_mass"])
+        self._log_mellin_cache[q] = value
+        return value
+
+    def _log_mellin_python(self, q: float) -> float:
+        """Python log-sum-exp oracle used to validate the native DP."""
         q = float(q)
         acc = np.full(self._n, -np.inf, dtype=np.float64)
         acc[self._root] = 0.0
@@ -434,7 +517,25 @@ class FlashBackPseqAnalysis:
         return exp(log_value)
 
     def derivatives(self, q: float, order: int = 4) -> np.ndarray:
-        """Return ``[M(q), M'(q), ..., M**(order)(q)]`` by exact DP."""
+        """Return global Mellin derivatives through ``order``.
+
+        Element ``r`` is ``sum_s P(s)**q * log(P(s))**r`` over every
+        generated root-to-sink sequence. The calculation is a sampling-free
+        native DAG dynamic program with long-double internal accumulation;
+        the returned array is float64. Orders zero through eight are
+        supported.
+        """
+        if order < 0 or order > 8:
+            raise ValueError("order must be between 0 and 8")
+        from . import _clzgraph as _c
+
+        return np.asarray(
+            _c.fb_pseq_derivatives(self.graph._cap, float(q), int(order)),
+            dtype=np.float64,
+        )
+
+    def _derivatives_python(self, q: float, order: int = 4) -> np.ndarray:
+        """Python reference implementation used to validate the native DP."""
         if order < 0 or order > 8:
             raise ValueError("order must be between 0 and 8")
         states: list[np.ndarray | None] = [None] * self._n
@@ -466,6 +567,75 @@ class FlashBackPseqAnalysis:
         """Generated-surprisal cumulant-generating function ``log M(1-t)``."""
         return self.log_mellin(1.0 - float(t))
 
+    def tilted_moments(self, q: float, order: int = 4) -> dict[str, Any]:
+        """Return normalized log-probability statistics under tilt ``P**q``.
+
+        The result contains ``log_mass = log(sum_s P(s)**q)`` and arrays of
+        normalized raw moments, central moments, and cumulants of
+        ``log(P(s))`` through ``order``. Central moment zero is one and central
+        moment one is zero. Cumulant zero is ``log_mass``. The native
+        log-domain calculation remains stable when unnormalized derivative
+        jets overflow or underflow. Orders zero through four are supported.
+        """
+        if order < 0 or order > 4:
+            raise ValueError("order must be between 0 and 4")
+        if not np.isfinite(q):
+            raise ValueError("q must be finite")
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_tilted_moments(
+            self.graph._cap, float(q), int(order))
+        raw = np.asarray(result["raw_moments"], dtype=np.float64)
+        central = np.asarray(result["central_moments"], dtype=np.float64)
+        cumulants = np.empty(order + 1, dtype=np.float64)
+        cumulants[0] = float(result["log_mass"])
+        if order >= 1:
+            cumulants[1] = raw[1]
+        if order >= 2:
+            cumulants[2] = central[2]
+        if order >= 3:
+            cumulants[3] = central[3]
+        if order >= 4:
+            cumulants[4] = central[4] - 3.0 * central[2] ** 2
+        return {
+            "q": float(q),
+            "log_mass": float(result["log_mass"]),
+            "raw_log_probability_moments": raw,
+            "central_log_probability_moments": central,
+            "log_probability_cumulants": cumulants,
+        }
+
+    def attribution(self, q: float = 1.0) -> PseqAttribution:
+        """Attribute the tilted p-sequence distribution to nodes and edges.
+
+        A path receives normalized weight proportional to ``P(sequence)**q``.
+        The returned node and edge arrays give the probability that a path
+        drawn from that tilted distribution visits each object. For edge
+        ``e``, ``q * edge_probability[e]`` is the independent-edge
+        sensitivity ``d log(M(q)) / d log(weight[e])``.
+
+        The calculation is a sampling-free native log-domain forward-backward
+        dynamic program. Public arrays are read-only float64 views; native
+        accumulation uses long double.
+        """
+        if not np.isfinite(q):
+            raise ValueError("q must be finite")
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_attribution(self.graph._cap, float(q))
+        node_probability = np.frombuffer(
+            result["node_probability"], dtype=np.float64)
+        edge_probability = np.frombuffer(
+            result["edge_probability"], dtype=np.float64)
+        return PseqAttribution(
+            analysis=self,
+            q=float(result["q"]),
+            log_mass=float(result["log_mass"]),
+            node_probability=node_probability,
+            edge_probability=edge_probability,
+            _owner=result["owner"],
+        )
+
     @staticmethod
     def _merge_raw_moments(
         log_mass_a: float,
@@ -485,7 +655,28 @@ class FlashBackPseqAnalysis:
     def _tilted_log_moments(
         self, q: float, order: int = 4
     ) -> tuple[float, np.ndarray]:
-        """Stable normalized raw moments of log-P under path weights P**q."""
+        """Return stable normalized raw log-P moments under weights ``P**q``.
+
+        The native calculation uses log-sum-exp mass merging and central
+        moments internally. Orders zero through eight are supported.
+        """
+        if order < 0 or order > 8:
+            raise ValueError("order must be between 0 and 8")
+        if not np.isfinite(q):
+            raise ValueError("q must be finite")
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_tilted_moments(
+            self.graph._cap, float(q), int(order))
+        return (
+            float(result["log_mass"]),
+            np.asarray(result["raw_moments"], dtype=np.float64),
+        )
+
+    def _tilted_log_moments_python(
+        self, q: float, order: int = 4
+    ) -> tuple[float, np.ndarray]:
+        """Python normalized-moment oracle used to validate the native DP."""
         log_mass = np.full(self._n, -np.inf, dtype=np.float64)
         moments = np.zeros((self._n, order + 1), dtype=np.float64)
         log_mass[self._root] = 0.0
@@ -521,28 +712,29 @@ class FlashBackPseqAnalysis:
         return sink_log_mass, sink_moments
 
     def _cgf_derivatives(self, t: float, order: int = 4) -> tuple[float, ...]:
-        """Return K(t) and up to four derivatives for surprisal."""
-        log_z, raw_logp = self._tilted_log_moments(1.0 - t, max(order, 1))
-        raw_x = np.array(
-            [((-1) ** r) * raw_logp[r] for r in range(raw_logp.size)]
-        )
+        """Return ``K(t)=log M(1-t)`` and its surprisal derivatives.
+
+        Variance and higher derivatives are formed from native central
+        moments, avoiding subtraction of nearly equal large raw moments.
+        """
+        if order < 0 or order > 4:
+            raise ValueError("order must be between 0 and 4")
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_tilted_moments(
+            self.graph._cap, 1.0 - float(t), max(order, 1))
+        log_z = float(result["log_mass"])
+        raw_logp = np.asarray(result["raw_moments"], dtype=np.float64)
+        central_logp = np.asarray(result["central_moments"], dtype=np.float64)
         output = [log_z]
         if order >= 1:
-            output.append(float(raw_x[1]))
+            output.append(float(-raw_logp[1]))
         if order >= 2:
-            variance = raw_x[2] - raw_x[1] ** 2
-            output.append(float(max(variance, 0.0)))
+            output.append(float(max(central_logp[2], 0.0)))
         if order >= 3:
-            third = raw_x[3] - 3 * raw_x[1] * raw_x[2] + 2 * raw_x[1] ** 3
-            output.append(float(third))
+            output.append(float(-central_logp[3]))
         if order >= 4:
-            central4 = (
-                raw_x[4]
-                - 4 * raw_x[1] * raw_x[3]
-                + 6 * raw_x[1] ** 2 * raw_x[2]
-                - 3 * raw_x[1] ** 4
-            )
-            fourth_cumulant = central4 - 3 * output[2] ** 2
+            fourth_cumulant = central_logp[4] - 3 * output[2] ** 2
             output.append(float(fourth_cumulant))
         return tuple(output)
 
@@ -611,7 +803,35 @@ class FlashBackPseqAnalysis:
         return self._moments_from_derivatives(self.derivatives(1.0, order))
 
     def length_derivatives(self, q: float, order: int = 4) -> dict[int, np.ndarray]:
-        """Exact transform derivatives grouped by reconstructed sequence length."""
+        """Return Mellin derivatives grouped by generated AA length.
+
+        For length ``L``, element ``r`` is
+        ``sum_{s: len(s)=L} P(s)**q * log(P(s))**r``. Length is the literal
+        reconstructed amino-acid string length, excluding ``@``, ``$``, and
+        token metadata; it is not walk depth. The native DAG calculation is
+        sampling-free and uses long-double internal accumulation before
+        returning float64 arrays. Orders zero through eight are supported.
+        """
+        if order < 0 or order > 8:
+            raise ValueError("order must be between 0 and 8")
+        if float(q) == 0.0 and order == 0:
+            return {
+                length: np.asarray([count], dtype=np.float64)
+                for length, count in self.graph.path_count_by_length().items()
+            }
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_length_derivatives(
+            self.graph._cap, float(q), int(order))
+        return {
+            int(length): np.asarray(jet, dtype=np.float64)
+            for length, jet in result.items()
+        }
+
+    def _length_derivatives_python(
+        self, q: float, order: int = 4
+    ) -> dict[int, np.ndarray]:
+        """Python reference implementation used to validate the native DP."""
         if order < 0 or order > 8:
             raise ValueError("order must be between 0 and 8")
         states: list[dict[int, np.ndarray] | None] = [None] * self._n
@@ -726,7 +946,84 @@ class FlashBackPseqAnalysis:
         measure: str = "generated",
         length: int | None = None,
     ) -> PseqHistogram:
-        """Deterministically reconstruct the surprisal spectrum on a grid.
+        """Reconstruct the p-sequence spectrum on a deterministic grid.
+
+        ``measure='generated'`` weights each sequence by ``P(s)`` and, when
+        unrestricted, has total mass one for a proper graph.
+        ``measure='counting'`` gives every supported sequence unit mass and
+        therefore totals to richness. Passing ``length`` restricts the raw
+        mass to sequences with exactly that reconstructed amino-acid length,
+        not to walks with that many edges.
+
+        Each edge's surprisal increment is transported linearly between its
+        two adjacent grid points. This conserves mass and first moment and has
+        no sampling variance. ``grid_spacing`` is the numerical resolution;
+        ``max_rounding_error`` bounds the accumulated placement error along a
+        path. Native accumulation uses long double and the public weights are
+        float64.
+
+        Args:
+            bins: Number of surprisal grid points. Must exceed the maximum
+                root-to-sink edge count plus one.
+            measure: ``'generated'`` or ``'counting'``.
+            length: Optional literal generated amino-acid sequence length.
+        """
+        if measure == "generated":
+            q = 1.0
+        elif measure == "counting":
+            q = 0.0
+        else:
+            raise ValueError("measure must be 'generated' or 'counting'")
+        if length is not None:
+            if not isinstance(length, (int, np.integer)):
+                raise TypeError("length must be an integer or None")
+            length = int(length)
+            if length < 0:
+                raise ValueError("length must be non-negative")
+        if self._true_max_surprisal == 0:
+            mass = self.mellin(q)
+            if length is not None:
+                length_mass = self.length_derivatives(q, 0)
+                mass = float(length_mass.get(length, np.zeros(1))[0])
+            return PseqHistogram(
+                surprisal=np.array([0.0]),
+                weights=np.array([mass], dtype=np.float64),
+                measure=measure,
+                q=q,
+                grid_spacing=0.0,
+                max_rounding_error=0.0,
+                true_max_surprisal=0.0,
+                length=length,
+            )
+        if bins <= self._max_edges + 1:
+            raise ValueError(
+                f"bins must exceed max path edges + 1 ({self._max_edges + 1})"
+            )
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_histogram(
+            self.graph._cap, int(bins), q, -1 if length is None else length)
+        spacing = float(result["spacing"])
+        grid = np.arange(bins, dtype=np.float64) * spacing
+        return PseqHistogram(
+            surprisal=grid,
+            weights=np.asarray(result["weights"], dtype=np.float64),
+            measure=measure,
+            q=q,
+            grid_spacing=spacing,
+            max_rounding_error=float(result["max_edges"] * spacing),
+            true_max_surprisal=float(result["true_max_surprisal"]),
+            length=length,
+        )
+
+    def _histogram_python(
+        self,
+        bins: int = 2048,
+        *,
+        measure: str = "generated",
+        length: int | None = None,
+    ) -> PseqHistogram:
+        """Python reference implementation of deterministic grid transport.
 
         Linear transport splits mass between adjacent grid points. ``bins``
         must leave enough support for the worst-case accumulation of one-grid
@@ -921,6 +1218,67 @@ class FlashBackPseqAnalysis:
             "max_count": int(max_count),
             "method": method,
         }
+
+    def publicness_distribution(
+        self,
+        depths: Any,
+        *,
+        levels: Any = None,
+        depth_bins: int = 64,
+        k_fft: int | None = None,
+        tail_sigma: float = _TAIL_SIGMA,
+        tail_floor: float = _TAIL_FLOOR,
+        mass_tol: float = _MASS_TOL,
+        bins: int = 4096,
+        max_exact_paths: int = 100_000,
+    ) -> dict[str, Any]:
+        """Predicted sequences per publicness level for a cohort of depths.
+
+        Publicness is repertoire occupancy: in how many of a cohort's
+        repertoires a sequence is present. ``depths`` gives one sampling depth
+        per repertoire, in distinct sequences contributed. A sequence of model
+        probability ``p`` is present in a repertoire of depth ``N`` with
+        probability ``1 - (1-p)**N``. Because the depths differ, the occupancy
+        count is Poisson-binomial rather than binomial, and the prediction is
+        the counting spectrum's multiplicity at each probability weighted by
+        that atom's occupancy PMF.
+
+        This differs from :meth:`expected_frequency_spectrum`, which counts how
+        many times a sequence is seen inside *one* pool of ``n`` draws.
+        Publicness counts how many *separate* repertoires contain it at all.
+
+        ``levels`` selects the binning (per level by default; see
+        :meth:`PublicnessModel.expected_counts`). ``bins`` and
+        ``max_exact_paths`` are the usual spectrum-resolution controls: exact
+        atoms are used when the support is small enough, and the deterministic
+        surprisal grid otherwise.
+
+        The occupancy PMF is inverted by DFT, whose roundoff, amplified by
+        spectrum multiplicities that reach 1e29, would otherwise rectify into a
+        spurious floor across every publicness bin. ``tail_sigma`` and
+        ``tail_floor`` truncate each atom to the support its closed-form
+        moments say carries mass, which is what removes that floor. Read the
+        :mod:`LZGraphs._publicness` module docstring before changing them.
+
+        Returns the dict from :meth:`PublicnessModel.expected_counts`, plus
+        the ``method`` used to obtain the spectrum.
+        """
+        model = PublicnessModel(
+            depths,
+            depth_bins=depth_bins,
+            k_fft=k_fft,
+            tail_sigma=tail_sigma,
+            tail_floor=tail_floor,
+            mass_tol=mass_tol,
+        )
+        p, counts, method = self._counting_probabilities(bins, max_exact_paths)
+        result = model.expected_counts(
+            np.asarray(p, dtype=np.float64),
+            np.asarray(counts, dtype=np.float64),
+            levels=levels,
+        )
+        result["method"] = method
+        return result
 
     def __repr__(self) -> str:
         return (

@@ -99,9 +99,11 @@ void lzg_clear_error(void);
 /* ── Graph variant ──────────────────────────────────────────── */
 
 typedef enum {
-    LZG_VARIANT_AAP   = 0,  /* Amino Acid Positional           */
-    LZG_VARIANT_NDP   = 1,  /* Nucleotide Double Positional    */
-    LZG_VARIANT_NAIVE = 2,  /* Naive (no position encoding)    */
+    LZG_VARIANT_AAP       = 0,  /* Amino Acid Positional           */
+    LZG_VARIANT_NDP       = 1,  /* Nucleotide Double Positional    */
+    LZG_VARIANT_NAIVE     = 2,  /* Naive LZ76 (no position)        */
+    LZG_VARIANT_NAIVE_POS = 3,  /* Naive positional: "{AA}_{pos}"  */
+    LZG_VARIANT_FLAT_FB   = 4,  /* Flattened FlashBack: "{a}{b}_{k}" */
 } LZGVariant;
 
 /* ── Compiler hints ─────────────────────────────────────────── */

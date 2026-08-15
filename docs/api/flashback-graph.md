@@ -182,19 +182,70 @@ which connects directly to Hill diversity. The returned
 analysis.mellin(q)                 # exact M(q)
 analysis.log_mellin(q)             # stable exact log M(q)
 analysis.derivatives(q, order=4)   # exact transform derivatives
+analysis.tilted_moments(q, 4)      # normalized moments under P(sequence)**q
+analysis.attribution(q)            # exact tilted node/edge usage and sensitivity
 analysis.moments()                 # exact surprisal moments
 analysis.cumulants()               # exact surprisal cumulants
+graph.path_count_by_length()       # generated richness by literal AA length
+analysis.length_derivatives(q, 4)  # transform derivatives by AA length
 analysis.length_profile()          # exact moments by sequence length
 analysis.exact_atoms()             # exact enumeration for small supports
 analysis.histogram()               # deterministic large-support grid
-analysis.saddlepoint()             # smooth transform-based PDF/CDF
+analysis.saddlepoint().pdf_cdf(x)  # batched smooth PDF/CDF approximation
 analysis.position(sequence)         # individual repertoire position
 analysis.expected_richness(n)       # finite-depth occupancy prediction
+analysis.publicness_distribution(depths)  # predicted repertoire occupancy
 ```
 
 `exact_atoms()` is necessarily support-limited because an explicit PMF can
 contain exponentially many atoms. `histogram()` is deterministic and reports
 its grid spacing and rounding-error bound; it has no Monte Carlo variance.
+
+Here, sequence length is the number of amino-acid characters in the sequence
+reconstructed by a path, excluding the `@` and `$` sentinels and all token
+metadata. It is not the number of nodes or edges in the walk. See
+[FlashBack P-Sequence Analytics](../concepts/flashback-pseq-analytics.md) for
+the transform equations, stable tilted moments, structural attribution,
+saddlepoint inversion, length-conditioned interpretation, histogram measures,
+and guidance on choosing an interface.
+
+### publicness_distribution
+
+```python
+result = analysis.publicness_distribution(depths, levels=None)
+```
+
+Predicted number of sequences at each publicness level, where publicness is
+repertoire occupancy: in how many of a cohort's repertoires a sequence is
+present. `depths` gives one sampling depth per repertoire, in distinct
+sequences contributed. A sequence of probability \(p\) is present in a
+repertoire of depth \(N\) with probability \(1-(1-p)^N\); the depths differ, so
+the occupancy count is Poisson-binomial rather than binomial, and its PMF comes
+from the generating function
+
+\[
+G(z)=\prod_b\left(1-\pi_b+\pi_b z\right)^{m_b}
+\]
+
+sampled at the \(K\)-th roots of unity and inverted by a forward DFT.
+
+This is not the same quantity as `expected_frequency_spectrum(n, max_count)`,
+which counts how many times a sequence appears inside *one* pool of \(n\)
+draws. Publicness counts how many *separate* repertoires contain it at all.
+
+Returns a dict with `edges` (half-open integer bin edges), `expected_counts`,
+`expected_total`, the per-atom `atom_mean` and `atom_variance`, the diagnostic
+`min_retained_mass`, and the cohort description. `levels` selects the binning:
+`None` for one bin per occupancy level, an `int` for that many equal-width
+bins, or an explicit sequence of integer edges.
+
+The inversion's roundoff, amplified by spectrum multiplicities that reach
+\(10^{29}\), would otherwise rectify into a spurious floor in every publicness
+bin. Each atom is truncated to the support its closed-form moments place the
+mass in before negatives are clipped, which is what removes that floor. The
+`tail_sigma` and `tail_floor` arguments control that window; the reasoning is
+in the `LZGraphs._publicness` module docstring and should be read before
+changing them.
 
 ## Anomaly Scoring (SCALE)
 

@@ -108,6 +108,7 @@ class FlashBackGraph(_GraphCommonMixin):
     _length_dist_cache = None
     _nodes_cache = None
     _path_count_cache = None
+    _path_count_by_length_cache = None
 
 
     def __init__(
@@ -216,6 +217,21 @@ class FlashBackGraph(_GraphCommonMixin):
         if self._path_count_cache is None:
             self._path_count_cache = _c.fb_path_count_exact(self._cap)
         return self._path_count_cache
+
+    def path_count_by_length(self) -> dict[int, float]:
+        """Distinct root-to-sink path counts by generated AA length.
+
+        This is a combinatorially exact, sampling-free DAG dynamic program:
+        no paths are sampled or omitted. Counts use ``float64`` accumulation
+        to keep the per-node length state compact, so values above 2^53 retain
+        about 16 significant decimal digits rather than every low-order
+        integer digit. Generated recombinations are included even when their
+        lengths were absent from the training repertoire.
+        """
+        if self._path_count_by_length_cache is None:
+            self._path_count_by_length_cache = _c.fb_path_count_by_length(
+                self._cap)
+        return dict(self._path_count_by_length_cache)
 
     # ── Structural ──────────────────────────────────────────
 

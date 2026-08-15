@@ -3,7 +3,7 @@
 High-performance C backend with full LZ76 dictionary constraint enforcement.
 """
 
-__version__ = "3.2.0"
+__version__ = "3.2.1"
 
 from . import _clzgraph as _c
 from ._errors import ConvergenceError, CorruptFileError, LZGraphError, NoGeneDataError
@@ -11,15 +11,19 @@ from ._flashback_grammar import FlashBackGrammar
 from ._flashback_graph import FlashBackGraph, FlashBackStream, ScaleCalibration
 from ._flashback_pseq import (
     FlashBackPseqAnalysis,
+    PseqAttribution,
     PseqAtoms,
     PseqHistogram,
     PseqSaddlepoint,
 )
 from ._graph import LZGraph
+from ._flat_flashback import FlattenedFlashBackGraph, flat_decompose
+from ._naive_graph import NaiveGraph, naive_decompose
 
 # FoundationScaffold* helpers live in the private ._foundation_scaffold module.
-# They are internal for 3.2.0 and intentionally not part of the public API.
+# They are internal for 3.2.1 and intentionally not part of the public API.
 from ._pgen_dist import PgenDistribution
+from ._publicness import PublicnessModel
 from ._simulation_result import SimulationResult
 
 
@@ -114,10 +118,14 @@ __all__ = [
     'FlashBackStream',
     'ScaleCalibration',
     'FlashBackPseqAnalysis',
+    'PseqAttribution',
     'PseqAtoms',
     'PseqHistogram',
     'PseqSaddlepoint',
+    'PublicnessModel',
     'FlashBackGrammar',
+    'NaiveGraph',
+    'FlattenedFlashBackGraph',
     'PgenDistribution',
     'SimulationResult',
     'LZGraphError',
@@ -130,6 +138,8 @@ __all__ = [
     'lz76_decompose',
     'flashback_decompose',
     'flashback_reverse',
+    'naive_decompose',
+    'flat_decompose',
     'set_log_level',
     'set_log_callback',
 ]

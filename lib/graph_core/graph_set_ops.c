@@ -48,7 +48,10 @@ static uint32_t intern_node_label(const LZGGraph *src, uint32_t node_idx,
     char buf[256];
     int len;
 
-    if (src->variant == LZG_VARIANT_NAIVE) {
+    /* A position of UINT32_MAX means the label already carries the node's
+     * full identity (naive LZ76, FlashBack tokens, naive positional).
+     * Re-appending the position there would corrupt the label. */
+    if (src->variant == LZG_VARIANT_NAIVE || pos == UINT32_MAX) {
         len = snprintf(buf, sizeof(buf), "%s", sp);
     } else {
         len = snprintf(buf, sizeof(buf), "%s_%u", sp, pos);

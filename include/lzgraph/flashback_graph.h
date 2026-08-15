@@ -185,6 +185,133 @@ LZGError lzg_flashback_path_count_exact(const LZGGraph *g,
                                         uint32_t **limbs_out,
                                         uint32_t *n_limbs_out);
 
+/**
+ * Root-to-sink path counts grouped by reconstructed sequence length.
+ *
+ * Counts are accumulated in double precision. This preserves roughly 16
+ * significant decimal digits while keeping the dense length state compact;
+ * unlike the arbitrary-precision scalar counter, low-order integer digits may
+ * therefore be rounded once counts exceed 2^53. On success `*counts_out` is a
+ * calloc'd array indexed from zero through `*max_length_out`, inclusive, and
+ * must be freed by the caller.
+ */
+LZGError lzg_flashback_path_count_by_length(const LZGGraph *g,
+                                            double **counts_out,
+                                            uint32_t *max_length_out);
+
+/**
+ * Structural metadata needed to initialize p-sequence analysis.
+ *
+ * `symbol_lengths_out` must address `g->n_nodes` bytes and receives the
+ * reconstructed amino-acid contribution of each node (sentinels and token
+ * metadata excluded). The remaining outputs describe the exact reachable
+ * root-to-sink surprisal range and maximum number of edges in such a path.
+ */
+LZGError lzg_flashback_pseq_init(const LZGGraph *g,
+                                 uint8_t *symbol_lengths_out,
+                                 double *min_surprisal_out,
+                                 double *max_surprisal_out,
+                                 uint32_t *max_edges_out);
+
+/**
+ * Mellin-transform derivatives grouped by reconstructed sequence length.
+ *
+ * Computes derivatives zero through `order` of
+ * `sum_s P(s)^q` independently for every generated amino-acid length. The
+ * returned row-major array has (`*max_length_out + 1`) rows and
+ * (`order + 1`) columns. `*present_out[length]` distinguishes structurally
+ * reachable lengths from numerical zero after float64 conversion. Both
+ * output arrays are malloc'd and must be freed by the caller.
+ */
+LZGError lzg_flashback_pseq_length_derivatives(
+    const LZGGraph *g, double q, uint32_t order,
+    double **derivatives_out, uint8_t **present_out,
+    uint32_t *max_length_out);
+
+/**
+ * Global Mellin-transform derivatives for the p-sequence distribution.
+ *
+ * Computes derivatives zero through `order` of `sum_s P(s)^q` using
+ * long-double internal accumulation. `derivatives_out` must address
+ * `order + 1` doubles supplied by the caller.
+ */
+LZGError lzg_flashback_pseq_derivatives(const LZGGraph *g, double q,
+                                        uint32_t order,
+                                        double *derivatives_out);
+
+/**
+ * Stable normalized log-probability moments under Mellin tilt `q`.
+ *
+ * For path weights proportional to `P(s)^q`, returns `log(sum_s P(s)^q)`
+ * together with normalized raw and central moments of `log P(s)` through
+ * `order`. Log-sum-exp normalization is maintained at every node, so this
+ * interface remains finite when the unnormalized Mellin derivatives overflow
+ * or underflow. `raw_moments_out` and `central_moments_out` must each address
+ * `order + 1` doubles. Orders zero through eight are supported.
+ */
+LZGError lzg_flashback_pseq_tilted_moments(
+    const LZGGraph *g, double q, uint32_t order,
+    double *log_mass_out, double *raw_moments_out,
+    double *central_moments_out);
+
+/**
+ * Batched saddlepoint approximation for generated-sequence surprisal.
+ *
+ * Solves `K'(t)=x` with safeguarded Newton iterations, where
+ * `K(t)=log(M(1-t)/M(1))`, then evaluates the saddlepoint density and the
+ * Lugannani-Rice CDF. Inputs outside the exact reachable surprisal interval
+ * receive their limiting CDF and zero density. Every output array must address
+ * `n` elements; `iterations_out` may be NULL.
+ */
+LZGError lzg_flashback_pseq_saddlepoint_batch(
+    const LZGGraph *g, const double *x, uint32_t n,
+    double *pdf_out, double *cdf_out, double *saddle_out,
+    uint32_t *iterations_out);
+
+/** Tilted node and edge usage probabilities for a FlashBack DAG. */
+typedef struct {
+    uint32_t n_nodes;
+    uint32_t n_edges;
+    double q;
+    double log_mass;
+    double *node_probability;  /**< `n_nodes` normalized marginals. */
+    double *edge_probability;  /**< `n_edges` normalized marginals. */
+} LZGPseqAttribution;
+
+/**
+ * Compute exact-DP structural attribution under path weights `P(s)^q`.
+ *
+ * If `pi_q(s) = P(s)^q / sum_r P(r)^q`, each node or edge probability is
+ * the probability that a path drawn from `pi_q` visits that object. The
+ * calculation uses log-domain forward and backward dynamic programs. The
+ * returned arrays are owned by `out` and must be released with
+ * `lzg_flashback_pseq_attribution_destroy`.
+ *
+ * For an edge `e`, `q * edge_probability[e]` is
+ * `d log M(q) / d log w_e` when edge weights are treated as independent.
+ */
+LZGError lzg_flashback_pseq_attribution(
+    const LZGGraph *g, double q, LZGPseqAttribution *out);
+
+/** Release arrays owned by a p-sequence attribution result. Safe on NULL. */
+void lzg_flashback_pseq_attribution_destroy(LZGPseqAttribution *result);
+
+/**
+ * Deterministic linear-grid reconstruction of a p-sequence measure.
+ *
+ * `length` is -1 for the global spectrum or a non-negative literal
+ * reconstructed amino-acid length; sentinels and token metadata do not
+ * contribute. On success `*weights_out` contains `bins` float64 grid masses
+ * and must be freed by the caller. The grid coordinate for index `i` is
+ * `i * *spacing_out`.
+ */
+LZGError lzg_flashback_pseq_histogram(const LZGGraph *g, uint32_t bins,
+                                      double q, int64_t length,
+                                      double **weights_out,
+                                      double *spacing_out,
+                                      double *true_max_surprisal_out,
+                                      uint32_t *max_edges_out);
+
 LZGError lzg_flashback_effective_diversity(const LZGGraph *g,
                                            LZGEffectiveDiversity *out);
 

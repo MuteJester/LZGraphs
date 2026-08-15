@@ -37,7 +37,7 @@ LZGError lzg_feature_aligned(const LZGGraph *ref, const LZGGraph *query,
         uint32_t pos = query->node_pos[i];
         char buf[256];
         int len;
-        if (query->variant == LZG_VARIANT_NAIVE)
+        if (query->variant == LZG_VARIANT_NAIVE || pos == UINT32_MAX)
             len = snprintf(buf, sizeof(buf), "%s", sp);
         else
             len = snprintf(buf, sizeof(buf), "%s_%u", sp, pos);
@@ -56,7 +56,7 @@ LZGError lzg_feature_aligned(const LZGGraph *ref, const LZGGraph *query,
         uint32_t pos = ref->node_pos[i];
         char buf[256];
         int len;
-        if (ref->variant == LZG_VARIANT_NAIVE)
+        if (ref->variant == LZG_VARIANT_NAIVE || pos == UINT32_MAX)
             len = snprintf(buf, sizeof(buf), "%s", sp);
         else
             len = snprintf(buf, sizeof(buf), "%s_%u", sp, pos);

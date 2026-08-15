@@ -21,6 +21,24 @@ This project follows [Semantic Versioning](https://semver.org/).
 - New public types `FlashBackPseqAnalysis`, `PseqAtoms`, `PseqHistogram`, and `PseqSaddlepoint`.
 
 ### Changed
+- FlashBack p-sequence analysis now reuses the graph's native topological
+  structure, and global and length-resolved Mellin derivatives run through
+  native, sampling-free dynamic programs. The mathematical API and float64
+  return types are unchanged.
+- Global and exact-length `histogram()` reconstruction now uses native
+  deterministic grid transport. Its generated/counting measures, linear
+  interpolation, grid spacing, and pathwise rounding-error bound are
+  unchanged.
+- `log_mellin()` and normalized tilted moments now use a native log-domain
+  dynamic program. Saddlepoint PDF/CDF arrays use a native batched,
+  safeguarded-Newton solver, with a fused `pdf_cdf()` interface.
+- `FlashBackPseqAnalysis.attribution(q)` computes exact tilted node and edge
+  usage with a native log-domain forward-backward dynamic program. Its
+  read-only zero-copy arrays expose edge sensitivity, per-edge surprisal
+  contribution, expected path size, and ranked transition summaries.
+- `FlashBackGraph.path_count_by_length()` provides deterministic generated
+  richness by literal reconstructed amino-acid length. Counts use float64
+  accumulation; `path_count` remains the arbitrary-precision scalar total.
 - `FlashBackGraph.path_count` is now exact in arbitrary precision and returns a Python `int` instead of a `float`. It is computed natively by the new `lzg_flashback_path_count_exact()` C entry point, which carries the count in base-2^32 limbs over a topological DAG dynamic program. The previous double accumulator saturated at 2^53 and overflowed to infinity past ~1.8e308; on a 71k-node, 11.7M-edge foundation graph the true count is 36 digits, of which a double preserved only 16. Note that `hill_number(0)`, `power_sum(0)`, and the `uniformity` field of `diversity_profile()` still use the double-precision path, so they agree with `path_count` only to double precision on large graphs.
 - `FlashBackGraph.path_count` now raises `RuntimeError` if the graph has no valid topological order.
 - `FlashBackGraph.pgen_distribution()` is documented as the legacy Gaussian-mixture approximation. Its per-component fit still uses sampled walks; `pseq_analysis()` is the sampling-free replacement.

@@ -20,6 +20,7 @@
 #include "lzgraph/pgen_dist.h"
 #include "lzgraph/occupancy.h"
 #include "lzgraph/sharing.h"
+#include "lzgraph/publicness.h"
 #include "lzgraph/diversity.h"
 #include "lzgraph/graph_ops.h"
 #include "lzgraph/features.h"
@@ -30,6 +31,8 @@
 #include "lzgraph/flashback.h"
 #include "lzgraph/flashback_graph.h"
 #include "lzgraph/flashback_grammar.h"
+#include "lzgraph/naive_graph.h"
+#include "lzgraph/flat_flashback.h"
 
 /* ── Custom exception pointers (loaded at module init) ────── */
 
@@ -329,6 +332,8 @@ static PyObject *py_graph_info(PyObject *self, PyObject *arg) {
     const char *vstr = "aap";
     if (g->variant == LZG_VARIANT_NDP) vstr = "ndp";
     else if (g->variant == LZG_VARIANT_NAIVE) vstr = "naive";
+    else if (g->variant == LZG_VARIANT_NAIVE_POS) vstr = "naive_positional";
+    else if (g->variant == LZG_VARIANT_FLAT_FB) vstr = "flattened_flashback";
 
     return Py_BuildValue("{s:I, s:I, s:s, s:O, s:O}",
         "n_nodes", g->n_nodes,
@@ -798,6 +803,218 @@ static PyObject *py_predict_sharing(PyObject *self, PyObject *args) {
     return Py_BuildValue("{s:O, s:d, s:I}",
         "spectrum", spec, "expected_total", ss.expected_total,
         "n_donors", ss.n_donors);
+}
+
+/* ── Buffer helpers for the publicness batch API ───────────── */
+
+/* The publicness entry points move one PMF of up to 65,536 doubles per atom,
+ * which is well past the point where a Python list round-trip makes sense.
+ * They take the buffer protocol instead. Every array is float64 so the format
+ * check stays portable across platforms; a complex128 array is handed over as
+ * its float64 view, and integral quantities (multiplicities, bin edges) as
+ * exact float64 integers. */
+
+static int get_f64_buffer(PyObject *obj, Py_buffer *view, int writable,
+                          const char *what) {
+    int flags = PyBUF_C_CONTIGUOUS | PyBUF_FORMAT;
+    if (writable) flags |= PyBUF_WRITABLE;
+
+    if (PyObject_GetBuffer(obj, view, flags) != 0) {
+        PyErr_Clear();
+        PyErr_Format(PyExc_TypeError,
+                     "%s must be a C-contiguous%s float64 array",
+                     what, writable ? ", writable" : "");
+        return 0;
+    }
+    if (view->itemsize != (Py_ssize_t)sizeof(double) ||
+        !view->format || strcmp(view->format, "d") != 0) {
+        PyBuffer_Release(view);
+        PyErr_Format(PyExc_TypeError, "%s must have dtype float64", what);
+        return 0;
+    }
+    return 1;
+}
+
+static void release_f64_buffers(Py_buffer *views, int n) {
+    for (int i = 0; i < n; i++) PyBuffer_Release(&views[i]);
+}
+
+/* Acquire several float64 buffers at once, releasing what was already taken
+ * if any of them fails. */
+static int get_f64_buffers(PyObject **objs, Py_buffer *views,
+                           const int *writable, const char **names, int n) {
+    for (int i = 0; i < n; i++) {
+        if (!get_f64_buffer(objs[i], &views[i], writable[i], names[i])) {
+            release_f64_buffers(views, i);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static Py_ssize_t f64_buffer_count(const Py_buffer *view) {
+    return view->len / (Py_ssize_t)sizeof(double);
+}
+
+/* ── publicness_moments(p, depths, mult, mean, var) → None ── */
+
+static PyObject *py_publicness_moments(PyObject *self, PyObject *args) {
+    (void)self;
+    static const int writable[5] = {0, 0, 0, 1, 1};
+    static const char *names[5] = {"probabilities", "depths", "multiplicities",
+                                   "mean output", "variance output"};
+    PyObject *objs[5];
+    Py_buffer views[5];
+    Py_ssize_t n_atoms, n_groups;
+    LZGError err;
+
+    if (!PyArg_ParseTuple(args, "OOOOO", &objs[0], &objs[1], &objs[2],
+                          &objs[3], &objs[4])) return NULL;
+    if (!get_f64_buffers(objs, views, writable, names, 5)) return NULL;
+
+    n_atoms = f64_buffer_count(&views[0]);
+    n_groups = f64_buffer_count(&views[1]);
+    if (f64_buffer_count(&views[2]) != n_groups ||
+        f64_buffer_count(&views[3]) != n_atoms ||
+        f64_buffer_count(&views[4]) != n_atoms) {
+        release_f64_buffers(views, 5);
+        PyErr_SetString(PyExc_ValueError,
+            "depths and multiplicities must be the same length, and both "
+            "outputs must match the probability count");
+        return NULL;
+    }
+    if (n_atoms > UINT32_MAX || n_groups > UINT32_MAX) {
+        release_f64_buffers(views, 5);
+        PyErr_SetString(PyExc_OverflowError, "batch exceeds uint32 limit");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_publicness_moments((const double *)views[0].buf,
+                                 (uint32_t)n_atoms,
+                                 (const double *)views[1].buf,
+                                 (const double *)views[2].buf,
+                                 (uint32_t)n_groups,
+                                 (double *)views[3].buf,
+                                 (double *)views[4].buf);
+    Py_END_ALLOW_THREADS
+
+    release_f64_buffers(views, 5);
+    if (err != LZG_OK) return set_lzg_error(err);
+    Py_RETURN_NONE;
+}
+
+/* ── publicness_pgf(p, depths, mult, out) → None ──────────── */
+
+static PyObject *py_publicness_pgf(PyObject *self, PyObject *args) {
+    (void)self;
+    static const int writable[4] = {0, 0, 0, 1};
+    static const char *names[4] = {"probabilities", "depths", "multiplicities",
+                                   "generating-function output"};
+    PyObject *objs[4];
+    Py_buffer views[4];
+    Py_ssize_t n_atoms, n_groups, out_count, k_fft;
+    LZGError err;
+
+    if (!PyArg_ParseTuple(args, "OOOO", &objs[0], &objs[1], &objs[2],
+                          &objs[3])) return NULL;
+    if (!get_f64_buffers(objs, views, writable, names, 4)) return NULL;
+
+    n_atoms = f64_buffer_count(&views[0]);
+    n_groups = f64_buffer_count(&views[1]);
+    out_count = f64_buffer_count(&views[3]);
+    /* The output is the float64 view of an (n_atoms, k_fft) complex array. */
+    k_fft = (n_atoms > 0 && out_count % (2 * n_atoms) == 0)
+                ? out_count / (2 * n_atoms) : -1;
+
+    if (f64_buffer_count(&views[2]) != n_groups || k_fft < 2) {
+        release_f64_buffers(views, 4);
+        PyErr_SetString(PyExc_ValueError,
+            "depths and multiplicities must be the same length, and the "
+            "output must be the float64 view of an (n_atoms, k_fft) "
+            "complex128 array");
+        return NULL;
+    }
+    if (n_atoms > UINT32_MAX || n_groups > UINT32_MAX || k_fft > UINT32_MAX) {
+        release_f64_buffers(views, 4);
+        PyErr_SetString(PyExc_OverflowError, "batch exceeds uint32 limit");
+        return NULL;
+    }
+
+    /* Release the GIL: this is n_atoms * n_groups * k_fft/2 complex powers,
+     * which reaches tens of seconds on a foundation-scale cohort. */
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_publicness_pgf((const double *)views[0].buf, (uint32_t)n_atoms,
+                             (const double *)views[1].buf,
+                             (const double *)views[2].buf,
+                             (uint32_t)n_groups, (uint32_t)k_fft,
+                             (double *)views[3].buf);
+    Py_END_ALLOW_THREADS
+
+    release_f64_buffers(views, 4);
+    if (err != LZG_OK) return set_lzg_error(err);
+    Py_RETURN_NONE;
+}
+
+/* ── publicness_accumulate(pmf, mean, var, weight, edges,
+ *                          counts, retained, sigma, floor, tol) → None ── */
+
+static PyObject *py_publicness_accumulate(PyObject *self, PyObject *args) {
+    (void)self;
+    static const int writable[7] = {0, 0, 0, 0, 0, 1, 1};
+    static const char *names[7] = {"pmf", "mean", "variance", "weight",
+                                   "bin edges", "count output",
+                                   "retained-mass output"};
+    PyObject *objs[7];
+    Py_buffer views[7];
+    Py_ssize_t n_atoms, k_fft, n_bins, pmf_count;
+    double tail_sigma, tail_floor, mass_tol;
+    LZGError err;
+
+    if (!PyArg_ParseTuple(args, "OOOOOOOddd", &objs[0], &objs[1], &objs[2],
+                          &objs[3], &objs[4], &objs[5], &objs[6],
+                          &tail_sigma, &tail_floor, &mass_tol)) return NULL;
+    if (!get_f64_buffers(objs, views, writable, names, 7)) return NULL;
+
+    n_atoms = f64_buffer_count(&views[1]);
+    pmf_count = f64_buffer_count(&views[0]);
+    k_fft = (n_atoms > 0 && pmf_count % n_atoms == 0) ? pmf_count / n_atoms : -1;
+    n_bins = f64_buffer_count(&views[4]) - 1;
+
+    if (k_fft < 1 || n_bins < 1 ||
+        f64_buffer_count(&views[2]) != n_atoms ||
+        f64_buffer_count(&views[3]) != n_atoms ||
+        f64_buffer_count(&views[6]) != n_atoms ||
+        f64_buffer_count(&views[5]) != n_bins) {
+        release_f64_buffers(views, 7);
+        PyErr_SetString(PyExc_ValueError,
+            "pmf must be (n_atoms, k_fft); mean, variance, weight and the "
+            "retained-mass output must each have n_atoms entries; and the "
+            "count output must have one entry fewer than the bin edges");
+        return NULL;
+    }
+    if (n_atoms > UINT32_MAX || k_fft > UINT32_MAX || n_bins > UINT32_MAX) {
+        release_f64_buffers(views, 7);
+        PyErr_SetString(PyExc_OverflowError, "batch exceeds uint32 limit");
+        return NULL;
+    }
+
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_publicness_accumulate((const double *)views[0].buf,
+                                    (uint32_t)n_atoms, (uint32_t)k_fft,
+                                    (const double *)views[1].buf,
+                                    (const double *)views[2].buf,
+                                    (const double *)views[3].buf,
+                                    (const double *)views[4].buf,
+                                    (uint32_t)n_bins,
+                                    tail_sigma, tail_floor, mass_tol,
+                                    (double *)views[5].buf,
+                                    (double *)views[6].buf);
+    Py_END_ALLOW_THREADS
+
+    release_f64_buffers(views, 7);
+    if (err != LZG_OK) return set_lzg_error(err);
+    Py_RETURN_NONE;
 }
 
 /* ── sequence_perplexity(capsule, seq) → float ────────────── */
@@ -1456,6 +1673,463 @@ static PyObject *py_fb_path_count_exact(PyObject *self, PyObject *arg) {
     return res;
 }
 
+static PyObject *py_fb_path_count_by_length(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    double *counts = NULL;
+    uint32_t max_length = 0;
+    LZGError err = lzg_flashback_path_count_by_length(
+        g, &counts, &max_length);
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    PyObject *result = PyDict_New();
+    if (!result) { free(counts); return NULL; }
+    for (uint32_t length = 0; length <= max_length; length++) {
+        if (counts[length] == 0.0) continue;
+        PyObject *key = PyLong_FromUnsignedLong(length);
+        PyObject *value = PyFloat_FromDouble(counts[length]);
+        if (!key || !value || PyDict_SetItem(result, key, value) < 0) {
+            Py_XDECREF(key); Py_XDECREF(value);
+            Py_DECREF(result); free(counts);
+            return NULL;
+        }
+        Py_DECREF(key);
+        Py_DECREF(value);
+    }
+    free(counts);
+    return result;
+}
+
+static PyObject *readonly_memoryview(void *data, size_t n_bytes) {
+    if (n_bytes > (size_t)PY_SSIZE_T_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "graph array is too large");
+        return NULL;
+    }
+    if (n_bytes == 0)
+        return PyMemoryView_FromMemory("", 0, PyBUF_READ);
+    return PyMemoryView_FromMemory((char *)data, (Py_ssize_t)n_bytes, PyBUF_READ);
+}
+
+typedef struct {
+    PyObject_HEAD
+    PyObject *owner;
+    void *data;
+    Py_ssize_t length;
+} OwnedReadonlyBuffer;
+
+static int owned_readonly_buffer_getbuffer(
+    PyObject *exporter, Py_buffer *view, int flags) {
+    OwnedReadonlyBuffer *buffer = (OwnedReadonlyBuffer *)exporter;
+    return PyBuffer_FillInfo(
+        view, exporter, buffer->length ? buffer->data : (void *)"",
+        buffer->length, 1, flags);
+}
+
+static void owned_readonly_buffer_dealloc(PyObject *exporter) {
+    OwnedReadonlyBuffer *buffer = (OwnedReadonlyBuffer *)exporter;
+    Py_XDECREF(buffer->owner);
+    Py_TYPE(exporter)->tp_free(exporter);
+}
+
+static PyBufferProcs owned_readonly_buffer_procs = {
+    .bf_getbuffer = owned_readonly_buffer_getbuffer,
+};
+
+static PyTypeObject OwnedReadonlyBufferType = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "LZGraphs._clzgraph._OwnedReadonlyBuffer",
+    .tp_basicsize = sizeof(OwnedReadonlyBuffer),
+    .tp_dealloc = owned_readonly_buffer_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_as_buffer = &owned_readonly_buffer_procs,
+};
+
+/* Return a read-only view which keeps owner alive for as long as the view.
+ * PyMemoryView_FromMemory has no base object, so it is only suitable for
+ * arrays whose lifetime is already tied to a graph capsule. */
+static PyObject *owned_readonly_memoryview(
+    PyObject *owner, void *data, size_t n_bytes) {
+    if (n_bytes > (size_t)PY_SSIZE_T_MAX) {
+        PyErr_SetString(PyExc_OverflowError, "native array is too large");
+        return NULL;
+    }
+    OwnedReadonlyBuffer *buffer = (OwnedReadonlyBuffer *)
+        OwnedReadonlyBufferType.tp_alloc(&OwnedReadonlyBufferType, 0);
+    if (!buffer) return NULL;
+    Py_INCREF(owner);
+    buffer->owner = owner;
+    buffer->data = data;
+    buffer->length = (Py_ssize_t)n_bytes;
+    PyObject *view = PyMemoryView_FromObject((PyObject *)buffer);
+    Py_DECREF(buffer);
+    return view;
+}
+
+static PyObject *py_fb_pseq_structure(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    PyObject *symbol_lengths = PyBytes_FromStringAndSize(NULL, g->n_nodes);
+    PyObject *sinks = PyBytes_FromStringAndSize(NULL, g->n_nodes);
+    if (!symbol_lengths || !sinks) {
+        Py_XDECREF(symbol_lengths); Py_XDECREF(sinks);
+        return NULL;
+    }
+    uint8_t *sink_data = (uint8_t *)PyBytes_AS_STRING(sinks);
+    for (uint32_t u = 0; u < g->n_nodes; u++)
+        sink_data[u] = g->row_offsets[u] == g->row_offsets[u + 1];
+    double min_surprisal, max_surprisal;
+    uint32_t max_edges;
+    LZGError err = lzg_flashback_pseq_init(
+        g, (uint8_t *)PyBytes_AS_STRING(symbol_lengths),
+        &min_surprisal, &max_surprisal, &max_edges);
+    if (err != LZG_OK) {
+        Py_DECREF(symbol_lengths); Py_DECREF(sinks);
+        return set_lzg_error(err);
+    }
+
+    PyObject *row = readonly_memoryview(
+        g->row_offsets, ((size_t)g->n_nodes + 1) * sizeof(uint32_t));
+    PyObject *col = readonly_memoryview(
+        g->col_indices, (size_t)g->n_edges * sizeof(uint32_t));
+    PyObject *weights = readonly_memoryview(
+        g->edge_weights, (size_t)g->n_edges * sizeof(double));
+    PyObject *topological_order = readonly_memoryview(
+        g->topo_order, (size_t)g->n_nodes * sizeof(uint32_t));
+    if (!row || !col || !weights || !topological_order) {
+        Py_XDECREF(row); Py_XDECREF(col); Py_XDECREF(weights);
+        Py_XDECREF(topological_order);
+        Py_DECREF(symbol_lengths); Py_DECREF(sinks);
+        return NULL;
+    }
+
+    return Py_BuildValue(
+        "{s:N,s:N,s:N,s:N,s:N,s:N,s:I,s:d,s:d,s:I}",
+        "row_offsets", row,
+        "col_indices", col,
+        "weights", weights,
+        "topological_order", topological_order,
+        "sink_mask", sinks,
+        "symbol_lengths", symbol_lengths,
+        "root", g->root_node,
+        "min_surprisal", min_surprisal,
+        "max_surprisal", max_surprisal,
+        "max_edges", max_edges);
+}
+
+static PyObject *py_fb_pseq_length_derivatives(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    double q;
+    unsigned int order;
+    if (!PyArg_ParseTuple(args, "OdI", &cap, &q, &order)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    double *derivatives = NULL;
+    uint8_t *present = NULL;
+    uint32_t max_length = 0;
+    LZGError err = lzg_flashback_pseq_length_derivatives(
+        g, q, order, &derivatives, &present, &max_length);
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    PyObject *result = PyDict_New();
+    if (!result) {
+        free(derivatives); free(present);
+        return NULL;
+    }
+    const size_t dim = (size_t)order + 1;
+    for (uint32_t length = 0; length <= max_length; length++) {
+        if (!present[length]) continue;
+        PyObject *key = PyLong_FromUnsignedLong(length);
+        PyObject *jet = PyList_New((Py_ssize_t)dim);
+        if (!key || !jet) {
+            Py_XDECREF(key); Py_XDECREF(jet); Py_DECREF(result);
+            free(derivatives); free(present);
+            return NULL;
+        }
+        for (size_t r = 0; r < dim; r++) {
+            PyObject *value = PyFloat_FromDouble(
+                derivatives[(size_t)length * dim + r]);
+            if (!value) {
+                Py_DECREF(key); Py_DECREF(jet); Py_DECREF(result);
+                free(derivatives); free(present);
+                return NULL;
+            }
+            PyList_SET_ITEM(jet, (Py_ssize_t)r, value);
+        }
+        if (PyDict_SetItem(result, key, jet) < 0) {
+            Py_DECREF(key); Py_DECREF(jet); Py_DECREF(result);
+            free(derivatives); free(present);
+            return NULL;
+        }
+        Py_DECREF(key);
+        Py_DECREF(jet);
+    }
+    free(derivatives); free(present);
+    return result;
+}
+
+static PyObject *py_fb_pseq_derivatives(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    double q;
+    unsigned int order;
+    if (!PyArg_ParseTuple(args, "OdI", &cap, &q, &order)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    double derivatives[9];
+    LZGError err = lzg_flashback_pseq_derivatives(
+        g, q, order, derivatives);
+    if (err != LZG_OK) return set_lzg_error(err);
+    PyObject *result = PyList_New((Py_ssize_t)order + 1);
+    if (!result) return NULL;
+    for (uint32_t r = 0; r <= order; r++) {
+        PyObject *value = PyFloat_FromDouble(derivatives[r]);
+        if (!value) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        PyList_SET_ITEM(result, (Py_ssize_t)r, value);
+    }
+    return result;
+}
+
+static PyObject *py_fb_pseq_tilted_moments(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    double q;
+    unsigned int order;
+    if (!PyArg_ParseTuple(args, "OdI", &cap, &q, &order)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    if (order > 8) {
+        PyErr_SetString(PyExc_ValueError, "order must be between 0 and 8");
+        return NULL;
+    }
+
+    double log_mass, raw[9], central[9];
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_tilted_moments(
+        g, q, order, &log_mass, raw, central);
+    Py_END_ALLOW_THREADS
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    PyObject *raw_list = PyList_New((Py_ssize_t)order + 1);
+    PyObject *central_list = PyList_New((Py_ssize_t)order + 1);
+    if (!raw_list || !central_list) {
+        Py_XDECREF(raw_list); Py_XDECREF(central_list);
+        return NULL;
+    }
+    for (uint32_t r = 0; r <= order; r++) {
+        PyObject *raw_value = PyFloat_FromDouble(raw[r]);
+        PyObject *central_value = PyFloat_FromDouble(central[r]);
+        if (!raw_value || !central_value) {
+            Py_XDECREF(raw_value); Py_XDECREF(central_value);
+            Py_DECREF(raw_list); Py_DECREF(central_list);
+            return NULL;
+        }
+        PyList_SET_ITEM(raw_list, (Py_ssize_t)r, raw_value);
+        PyList_SET_ITEM(central_list, (Py_ssize_t)r, central_value);
+    }
+    return Py_BuildValue(
+        "{s:d,s:N,s:N}",
+        "log_mass", log_mass,
+        "raw_moments", raw_list,
+        "central_moments", central_list);
+}
+
+static PyObject *py_fb_pseq_saddlepoint_batch(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *values_obj;
+    if (!PyArg_ParseTuple(args, "OO", &cap, &values_obj)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    PyObject *values = PySequence_Fast(values_obj, "x must be a sequence");
+    if (!values) return NULL;
+    Py_ssize_t n_py = PySequence_Fast_GET_SIZE(values);
+    if (n_py < 0 || (uint64_t)n_py > UINT32_MAX) {
+        Py_DECREF(values);
+        PyErr_SetString(PyExc_OverflowError, "too many saddlepoint values");
+        return NULL;
+    }
+    const uint32_t n = (uint32_t)n_py;
+    double *x = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *pdf = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *cdf = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *saddle = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    uint32_t *iterations = n ? (uint32_t *)malloc(
+        (size_t)n * sizeof(uint32_t)) : NULL;
+    if (n && (!x || !pdf || !cdf || !saddle || !iterations)) {
+        free(x); free(pdf); free(cdf); free(saddle); free(iterations);
+        Py_DECREF(values);
+        return PyErr_NoMemory();
+    }
+    PyObject **items = PySequence_Fast_ITEMS(values);
+    for (uint32_t i = 0; i < n; i++) {
+        x[i] = PyFloat_AsDouble(items[i]);
+        if (PyErr_Occurred()) {
+            free(x); free(pdf); free(cdf); free(saddle); free(iterations);
+            Py_DECREF(values);
+            return NULL;
+        }
+    }
+    Py_DECREF(values);
+
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_saddlepoint_batch(
+        g, x, n, pdf, cdf, saddle, iterations);
+    Py_END_ALLOW_THREADS
+    free(x);
+    if (err != LZG_OK) {
+        free(pdf); free(cdf); free(saddle); free(iterations);
+        return set_lzg_error(err);
+    }
+
+    PyObject *pdf_list = PyList_New(n_py);
+    PyObject *cdf_list = PyList_New(n_py);
+    PyObject *saddle_list = PyList_New(n_py);
+    PyObject *iteration_list = PyList_New(n_py);
+    if (!pdf_list || !cdf_list || !saddle_list || !iteration_list) {
+        Py_XDECREF(pdf_list); Py_XDECREF(cdf_list);
+        Py_XDECREF(saddle_list); Py_XDECREF(iteration_list);
+        free(pdf); free(cdf); free(saddle); free(iterations);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        PyObject *pdf_value = PyFloat_FromDouble(pdf[i]);
+        PyObject *cdf_value = PyFloat_FromDouble(cdf[i]);
+        PyObject *saddle_value = PyFloat_FromDouble(saddle[i]);
+        PyObject *iteration_value = PyLong_FromUnsignedLong(iterations[i]);
+        if (!pdf_value || !cdf_value || !saddle_value || !iteration_value) {
+            Py_XDECREF(pdf_value); Py_XDECREF(cdf_value);
+            Py_XDECREF(saddle_value); Py_XDECREF(iteration_value);
+            Py_DECREF(pdf_list); Py_DECREF(cdf_list);
+            Py_DECREF(saddle_list); Py_DECREF(iteration_list);
+            free(pdf); free(cdf); free(saddle); free(iterations);
+            return NULL;
+        }
+        PyList_SET_ITEM(pdf_list, i, pdf_value);
+        PyList_SET_ITEM(cdf_list, i, cdf_value);
+        PyList_SET_ITEM(saddle_list, i, saddle_value);
+        PyList_SET_ITEM(iteration_list, i, iteration_value);
+    }
+    free(pdf); free(cdf); free(saddle); free(iterations);
+    return Py_BuildValue(
+        "{s:N,s:N,s:N,s:N}",
+        "pdf", pdf_list,
+        "cdf", cdf_list,
+        "saddle", saddle_list,
+        "iterations", iteration_list);
+}
+
+#define PSEQ_ATTRIBUTION_CAPSULE_NAME "LZGraphs.PseqAttribution"
+
+static void pseq_attribution_capsule_destructor(PyObject *capsule) {
+    LZGPseqAttribution *result = (LZGPseqAttribution *)PyCapsule_GetPointer(
+        capsule, PSEQ_ATTRIBUTION_CAPSULE_NAME);
+    if (!result) {
+        PyErr_Clear();
+        return;
+    }
+    lzg_flashback_pseq_attribution_destroy(result);
+    free(result);
+}
+
+static PyObject *py_fb_pseq_attribution(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    double q;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &q)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    LZGPseqAttribution *result = (LZGPseqAttribution *)calloc(
+        1, sizeof(LZGPseqAttribution));
+    if (!result) return PyErr_NoMemory();
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_attribution(g, q, result);
+    Py_END_ALLOW_THREADS
+    if (err != LZG_OK) {
+        free(result);
+        return set_lzg_error(err);
+    }
+
+    PyObject *owner = PyCapsule_New(
+        result, PSEQ_ATTRIBUTION_CAPSULE_NAME,
+        pseq_attribution_capsule_destructor);
+    if (!owner) {
+        lzg_flashback_pseq_attribution_destroy(result);
+        free(result);
+        return NULL;
+    }
+    PyObject *node_probability = owned_readonly_memoryview(
+        owner,
+        result->node_probability,
+        (size_t)result->n_nodes * sizeof(double));
+    PyObject *edge_probability = owned_readonly_memoryview(
+        owner,
+        result->edge_probability,
+        (size_t)result->n_edges * sizeof(double));
+    if (!node_probability || !edge_probability) {
+        Py_XDECREF(node_probability); Py_XDECREF(edge_probability);
+        Py_DECREF(owner);
+        return NULL;
+    }
+    return Py_BuildValue(
+        "{s:d,s:d,s:N,s:N,s:N}",
+        "q", result->q,
+        "log_mass", result->log_mass,
+        "node_probability", node_probability,
+        "edge_probability", edge_probability,
+        "owner", owner);
+}
+
+static PyObject *py_fb_pseq_histogram(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    unsigned int bins;
+    double q;
+    long long length;
+    if (!PyArg_ParseTuple(args, "OIdL", &cap, &bins, &q, &length)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    double *weights = NULL;
+    double spacing, true_max_surprisal;
+    uint32_t max_edges;
+    LZGError err = lzg_flashback_pseq_histogram(
+        g, bins, q, (int64_t)length, &weights, &spacing,
+        &true_max_surprisal, &max_edges);
+    if (err != LZG_OK) return set_lzg_error(err);
+    PyObject *values = PyList_New(bins);
+    if (!values) {
+        free(weights);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < bins; i++) {
+        PyObject *value = PyFloat_FromDouble(weights[i]);
+        if (!value) {
+            Py_DECREF(values); free(weights);
+            return NULL;
+        }
+        PyList_SET_ITEM(values, i, value);
+    }
+    free(weights);
+    return Py_BuildValue(
+        "{s:N,s:d,s:d,s:I}",
+        "weights", values,
+        "spacing", spacing,
+        "true_max_surprisal", true_max_surprisal,
+        "max_edges", max_edges);
+}
+
 static PyObject *py_fb_effective_diversity(PyObject *self, PyObject *arg) {
     (void)self;
     LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
@@ -1623,6 +2297,560 @@ static PyObject *py_fb_fix_special_nodes(PyObject *self, PyObject *arg) {
     LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
     if (!g) return NULL;
     lzg_flashback_fix_special_nodes(g);
+    Py_RETURN_NONE;
+}
+
+/* ══════════════════════════════════════════════════════════════ */
+/* NaiveGraph — positional "{AA}_{pos}" encoding                   */
+/* ══════════════════════════════════════════════════════════════ */
+
+static PyObject *py_naive_decompose(PyObject *self, PyObject *arg) {
+    (void)self;
+    const char *seq = PyUnicode_AsUTF8(arg);
+    if (!seq) return NULL;
+    uint32_t len = (uint32_t)strlen(seq);
+
+    LZGStringPool *pool = lzg_sp_create(len + 8u);
+    if (!pool) return PyErr_NoMemory();
+
+    uint32_t ids[LZG_NAIVE_MAX_WALK];
+    uint32_t count = 0;
+    LZGError err = lzg_naive_encode(seq, len, pool, ids, &count);
+    if (err != LZG_OK) { lzg_sp_destroy(pool); return set_lzg_error(err); }
+
+    PyObject *list = PyList_New(count);
+    if (!list) { lzg_sp_destroy(pool); return NULL; }
+    for (uint32_t i = 0; i < count; i++) {
+        PyObject *s = PyUnicode_FromString(lzg_sp_get(pool, ids[i]));
+        if (!s) { Py_DECREF(list); lzg_sp_destroy(pool); return NULL; }
+        PyList_SET_ITEM(list, i, s);
+    }
+    lzg_sp_destroy(pool);
+    return list;
+}
+
+static PyObject *py_naive_graph_build(PyObject *self, PyObject *args,
+                                      PyObject *kw) {
+    (void)self;
+    PyObject *seq_list, *abund_obj = Py_None;
+    unsigned int max_length = 0;
+    double smoothing = 0.0;
+    static char *kwlist[] = {"sequences", "abundances", "max_length",
+                             "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "O!|OId", kwlist,
+            &PyList_Type, &seq_list, &abund_obj, &max_length, &smoothing))
+        return NULL;
+
+    Py_ssize_t n_seqs;
+    uint32_t n_seqs_u32 = 0;
+    if (!pyssize_to_u32(PyList_GET_SIZE(seq_list), "sequences", &n_seqs_u32))
+        return NULL;
+    const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_NAIVE_POS);
+    if (!g) { free(seqs); free(abundances); return PyErr_NoMemory(); }
+
+    LZGError err = lzg_naive_graph_build(g, seqs, n_seqs_u32, abundances,
+                                         (uint32_t)max_length, smoothing);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) { lzg_graph_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_naive_graph_build_file(PyObject *self, PyObject *args,
+                                           PyObject *kw) {
+    (void)self;
+    const char *path = NULL;
+    unsigned int max_length = 0;
+    double smoothing = 0.0;
+    static char *kwlist[] = {"path", "max_length", "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|Id", kwlist, &path,
+                                     &max_length, &smoothing))
+        return NULL;
+
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_NAIVE_POS);
+    if (!g) return PyErr_NoMemory();
+    LZGError err = lzg_naive_graph_build_file(g, path, (uint32_t)max_length,
+                                              smoothing);
+    if (err != LZG_OK) { lzg_graph_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_naive_pgen(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *seq_arg;
+    if (!PyArg_ParseTuple(args, "OO", &cap, &seq_arg)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    if (PyUnicode_Check(seq_arg)) {
+        const char *seq = PyUnicode_AsUTF8(seq_arg);
+        if (!seq) return NULL;
+        return PyFloat_FromDouble(
+            lzg_naive_pgen(g, seq, (uint32_t)strlen(seq)));
+    }
+    if (PyList_Check(seq_arg)) {
+        Py_ssize_t n = PyList_GET_SIZE(seq_arg);
+        PyObject *result = PyList_New(n);
+        if (!result) return NULL;
+        for (Py_ssize_t i = 0; i < n; i++) {
+            const char *seq = PyUnicode_AsUTF8(PyList_GET_ITEM(seq_arg, i));
+            if (!seq) { Py_DECREF(result); return NULL; }
+            double lp = lzg_naive_pgen(g, seq, (uint32_t)strlen(seq));
+            PyList_SET_ITEM(result, i, PyFloat_FromDouble(lp));
+        }
+        return result;
+    }
+    PyErr_SetString(PyExc_TypeError, "sequence must be str or list[str]");
+    return NULL;
+}
+
+static PyObject *py_naive_simulate(PyObject *self, PyObject *args,
+                                   PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    unsigned int n;
+    long long seed = -1;
+    static char *kwlist[] = {"graph", "n", "seed", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OI|L", kwlist, &cap, &n, &seed))
+        return NULL;
+
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    LZGRng rng;
+    if (seed >= 0) lzg_rng_seed(&rng, (uint64_t)seed);
+    else lzg_rng_seed(&rng, (uint64_t)((size_t)cap ^ 0x0A11ECAFEULL));
+
+    LZGSimResult *results = calloc(n, sizeof(LZGSimResult));
+    if (!results) return PyErr_NoMemory();
+
+    LZGError err = lzg_naive_simulate(g, n, &rng, results);
+    if (err != LZG_OK) { free(results); return set_lzg_error(err); }
+
+    PyObject *sl = PyList_New(n), *lp = PyList_New(n), *nt = PyList_New(n);
+    if (!sl || !lp || !nt) {
+        Py_XDECREF(sl); Py_XDECREF(lp); Py_XDECREF(nt);
+        for (unsigned int i = 0; i < n; i++) lzg_sim_result_free(&results[i]);
+        free(results);
+        return NULL;
+    }
+    for (unsigned int i = 0; i < n; i++) {
+        PyList_SET_ITEM(sl, i, PyUnicode_FromString(
+            results[i].sequence ? results[i].sequence : ""));
+        PyList_SET_ITEM(lp, i, PyFloat_FromDouble(results[i].log_prob));
+        PyList_SET_ITEM(nt, i, PyLong_FromUnsignedLong(results[i].n_tokens));
+        lzg_sim_result_free(&results[i]);
+    }
+    free(results);
+    return Py_BuildValue("(NNN)", sl, lp, nt);
+}
+
+static PyObject *py_naive_path_count(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    double count;
+    LZGError err = lzg_naive_path_count(g, &count);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(count);
+}
+
+static PyObject *py_naive_path_count_exact(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    uint32_t *limbs = NULL;
+    uint32_t n = 0;
+    LZGError err = lzg_naive_path_count_exact(g, &limbs, &n);
+    if (err != LZG_OK) return set_lzg_error(err);
+    if (n == 0) { free(limbs); return PyLong_FromLong(0); }
+    /* Render big-endian hex, then let CPython parse it. Base 16 is exempt
+       from the sys.set_int_max_str_digits() limit that applies to base 10. */
+    size_t len = (size_t)n * 8 + 1;
+    char *buf = (char *)malloc(len);
+    if (!buf) { free(limbs); return PyErr_NoMemory(); }
+    char *p = buf;
+    p += snprintf(p, len, "%" PRIx32, limbs[n - 1]);
+    for (uint32_t i = n - 1; i > 0; i--)
+        p += snprintf(p, len - (size_t)(p - buf), "%08" PRIx32, limbs[i - 1]);
+    PyObject *res = PyLong_FromString(buf, NULL, 16);
+    free(buf);
+    free(limbs);
+    return res;
+}
+
+static PyObject *py_naive_effective_diversity(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGEffectiveDiversity ed;
+    LZGError err = lzg_naive_effective_diversity(g, &ed);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:d}",
+        "entropy_nats", ed.entropy_nats, "entropy_bits", ed.entropy_bits,
+        "effective_diversity", ed.effective_diversity,
+        "uniformity", ed.uniformity);
+}
+
+static PyObject *py_naive_power_sum(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    double m;
+    LZGError err = lzg_naive_power_sum(g, alpha, &m);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(m);
+}
+
+static PyObject *py_naive_hill_number(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    double d;
+    LZGError err = lzg_naive_hill_number(g, alpha, &d);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(d);
+}
+
+static PyObject *py_naive_hill_numbers(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *orders_list;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &orders_list))
+        return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    Py_ssize_t n = PyList_GET_SIZE(orders_list);
+    double *orders = malloc((size_t)n * sizeof(double));
+    double *out = malloc((size_t)n * sizeof(double));
+    if (!orders || !out) { free(orders); free(out); return PyErr_NoMemory(); }
+    for (Py_ssize_t i = 0; i < n; i++)
+        orders[i] = PyFloat_AsDouble(PyList_GET_ITEM(orders_list, i));
+    LZGError err = lzg_naive_hill_numbers(g, orders, (uint32_t)n, out);
+    free(orders);
+    if (err != LZG_OK) { free(out); return set_lzg_error(err); }
+    PyObject *result = PyList_New(n);
+    if (!result) { free(out); return NULL; }
+    for (Py_ssize_t i = 0; i < n; i++)
+        PyList_SET_ITEM(result, i, PyFloat_FromDouble(out[i]));
+    free(out);
+    return result;
+}
+
+static PyObject *py_naive_dynamic_range(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGDynamicRange dr;
+    LZGError err = lzg_naive_dynamic_range(g, &dr);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:d}",
+        "max_log_prob", dr.max_log_prob, "min_log_prob", dr.min_log_prob,
+        "dynamic_range_nats", dr.dynamic_range_nats,
+        "dynamic_range_orders", dr.dynamic_range_orders);
+}
+
+static PyObject *py_naive_pgen_diagnostics(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double atol;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &atol)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGPgenDiagnostics diag;
+    LZGError err = lzg_naive_pgen_diagnostics(g, atol, &diag);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:O,s:I}",
+        "total_absorbed", diag.total_absorbed,
+        "total_leaked", diag.total_leaked,
+        "initial_prob_sum", diag.initial_prob_sum,
+        "is_proper", diag.is_proper ? Py_True : Py_False,
+        "mc_samples", diag.mc_samples);
+}
+
+
+/* ══════════════════════════════════════════════════════════════ */
+/* FlattenedFlashBack — bilateral scan without run compression     */
+/* ══════════════════════════════════════════════════════════════ */
+
+static PyObject *py_flat_decompose(PyObject *self, PyObject *arg) {
+    (void)self;
+    const char *seq = PyUnicode_AsUTF8(arg);
+    if (!seq) return NULL;
+    uint32_t len = (uint32_t)strlen(seq);
+
+    LZGStringPool *pool = lzg_sp_create(len + 8u);
+    if (!pool) return PyErr_NoMemory();
+
+    uint32_t ids[LZG_FLAT_MAX_WALK];
+    uint32_t count = 0;
+    LZGError err = lzg_flat_encode(seq, len, pool, ids, &count);
+    if (err != LZG_OK) { lzg_sp_destroy(pool); return set_lzg_error(err); }
+
+    PyObject *list = PyList_New(count);
+    if (!list) { lzg_sp_destroy(pool); return NULL; }
+    for (uint32_t i = 0; i < count; i++) {
+        PyObject *s = PyUnicode_FromString(lzg_sp_get(pool, ids[i]));
+        if (!s) { Py_DECREF(list); lzg_sp_destroy(pool); return NULL; }
+        PyList_SET_ITEM(list, i, s);
+    }
+    lzg_sp_destroy(pool);
+    return list;
+}
+
+static PyObject *py_flat_graph_build(PyObject *self, PyObject *args,
+                                     PyObject *kw) {
+    (void)self;
+    PyObject *seq_list, *abund_obj = Py_None;
+    unsigned int max_length = 0;
+    double smoothing = 0.0;
+    static char *kwlist[] = {"sequences", "abundances", "max_length",
+                             "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "O!|OId", kwlist,
+            &PyList_Type, &seq_list, &abund_obj, &max_length, &smoothing))
+        return NULL;
+
+    Py_ssize_t n_seqs;
+    uint32_t n_u32 = 0;
+    if (!pyssize_to_u32(PyList_GET_SIZE(seq_list), "sequences", &n_u32))
+        return NULL;
+    const char **seqs = pylist_to_cstrings(seq_list, &n_seqs);
+    if (!seqs) return NULL;
+
+    uint64_t *abundances = NULL;
+    if (abund_obj != Py_None) {
+        abundances = pylist_to_u64_array(abund_obj, n_seqs, "abundances");
+        if (!abundances) { free(seqs); return NULL; }
+    }
+
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_FLAT_FB);
+    if (!g) { free(seqs); free(abundances); return PyErr_NoMemory(); }
+    LZGError err = lzg_flat_graph_build(g, seqs, n_u32, abundances,
+                                        (uint32_t)max_length, smoothing);
+    free(seqs); free(abundances);
+    if (err != LZG_OK) { lzg_graph_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_flat_graph_build_file(PyObject *self, PyObject *args,
+                                          PyObject *kw) {
+    (void)self;
+    const char *path = NULL;
+    unsigned int max_length = 0;
+    double smoothing = 0.0;
+    static char *kwlist[] = {"path", "max_length", "smoothing", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "s|Id", kwlist, &path,
+                                     &max_length, &smoothing))
+        return NULL;
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_FLAT_FB);
+    if (!g) return PyErr_NoMemory();
+    LZGError err = lzg_flat_graph_build_file(g, path, (uint32_t)max_length,
+                                             smoothing);
+    if (err != LZG_OK) { lzg_graph_destroy(g); return set_lzg_error(err); }
+    return PyCapsule_New(g, CAPSULE_NAME, capsule_destructor);
+}
+
+static PyObject *py_flat_pseq(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *seq_arg;
+    if (!PyArg_ParseTuple(args, "OO", &cap, &seq_arg)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    if (PyUnicode_Check(seq_arg)) {
+        const char *seq = PyUnicode_AsUTF8(seq_arg);
+        if (!seq) return NULL;
+        return PyFloat_FromDouble(lzg_flat_pseq(g, seq, (uint32_t)strlen(seq)));
+    }
+    if (PyList_Check(seq_arg)) {
+        Py_ssize_t n = PyList_GET_SIZE(seq_arg);
+        PyObject *result = PyList_New(n);
+        if (!result) return NULL;
+        for (Py_ssize_t i = 0; i < n; i++) {
+            const char *seq = PyUnicode_AsUTF8(PyList_GET_ITEM(seq_arg, i));
+            if (!seq) { Py_DECREF(result); return NULL; }
+            PyList_SET_ITEM(result, i, PyFloat_FromDouble(
+                lzg_flat_pseq(g, seq, (uint32_t)strlen(seq))));
+        }
+        return result;
+    }
+    PyErr_SetString(PyExc_TypeError, "sequence must be str or list[str]");
+    return NULL;
+}
+
+static PyObject *py_flat_simulate(PyObject *self, PyObject *args,
+                                  PyObject *kw) {
+    (void)self;
+    PyObject *cap;
+    unsigned int n;
+    long long seed = -1;
+    static char *kwlist[] = {"graph", "n", "seed", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kw, "OI|L", kwlist, &cap, &n, &seed))
+        return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    LZGRng rng;
+    if (seed >= 0) lzg_rng_seed(&rng, (uint64_t)seed);
+    else lzg_rng_seed(&rng, (uint64_t)((size_t)cap ^ 0x0F1A7CAFEULL));
+
+    LZGSimResult *results = calloc(n, sizeof(LZGSimResult));
+    if (!results) return PyErr_NoMemory();
+    LZGError err = lzg_flat_simulate(g, n, &rng, results);
+    if (err != LZG_OK) { free(results); return set_lzg_error(err); }
+
+    PyObject *sl = PyList_New(n), *lp = PyList_New(n), *nt = PyList_New(n);
+    if (!sl || !lp || !nt) {
+        Py_XDECREF(sl); Py_XDECREF(lp); Py_XDECREF(nt);
+        for (unsigned int i = 0; i < n; i++) lzg_sim_result_free(&results[i]);
+        free(results);
+        return NULL;
+    }
+    for (unsigned int i = 0; i < n; i++) {
+        PyList_SET_ITEM(sl, i, PyUnicode_FromString(
+            results[i].sequence ? results[i].sequence : ""));
+        PyList_SET_ITEM(lp, i, PyFloat_FromDouble(results[i].log_prob));
+        PyList_SET_ITEM(nt, i, PyLong_FromUnsignedLong(results[i].n_tokens));
+        lzg_sim_result_free(&results[i]);
+    }
+    free(results);
+    return Py_BuildValue("(NNN)", sl, lp, nt);
+}
+
+static PyObject *py_flat_path_count_exact(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    uint32_t *limbs = NULL, n = 0;
+    LZGError err = lzg_flat_path_count_exact(g, &limbs, &n);
+    if (err != LZG_OK) return set_lzg_error(err);
+    if (n == 0) { free(limbs); return PyLong_FromLong(0); }
+    size_t len = (size_t)n * 8 + 1;
+    char *buf = (char *)malloc(len);
+    if (!buf) { free(limbs); return PyErr_NoMemory(); }
+    char *p = buf;
+    p += snprintf(p, len, "%" PRIx32, limbs[n - 1]);
+    for (uint32_t i = n - 1; i > 0; i--)
+        p += snprintf(p, len - (size_t)(p - buf), "%08" PRIx32, limbs[i - 1]);
+    PyObject *res = PyLong_FromString(buf, NULL, 16);
+    free(buf); free(limbs);
+    return res;
+}
+
+static PyObject *py_flat_effective_diversity(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGEffectiveDiversity ed;
+    LZGError err = lzg_flat_effective_diversity(g, &ed);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:d}",
+        "entropy_nats", ed.entropy_nats, "entropy_bits", ed.entropy_bits,
+        "effective_diversity", ed.effective_diversity,
+        "uniformity", ed.uniformity);
+}
+
+static PyObject *py_flat_power_sum(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    double m;
+    LZGError err = lzg_flat_power_sum(g, alpha, &m);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(m);
+}
+
+static PyObject *py_flat_hill_number(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double alpha;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &alpha)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    double d;
+    LZGError err = lzg_flat_hill_number(g, alpha, &d);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return PyFloat_FromDouble(d);
+}
+
+static PyObject *py_flat_hill_numbers(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *orders_list;
+    if (!PyArg_ParseTuple(args, "OO!", &cap, &PyList_Type, &orders_list))
+        return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    Py_ssize_t n = PyList_GET_SIZE(orders_list);
+    double *orders = malloc((size_t)n * sizeof(double));
+    double *out = malloc((size_t)n * sizeof(double));
+    if (!orders || !out) { free(orders); free(out); return PyErr_NoMemory(); }
+    for (Py_ssize_t i = 0; i < n; i++)
+        orders[i] = PyFloat_AsDouble(PyList_GET_ITEM(orders_list, i));
+    LZGError err = lzg_flat_hill_numbers(g, orders, (uint32_t)n, out);
+    free(orders);
+    if (err != LZG_OK) { free(out); return set_lzg_error(err); }
+    PyObject *result = PyList_New(n);
+    if (!result) { free(out); return NULL; }
+    for (Py_ssize_t i = 0; i < n; i++)
+        PyList_SET_ITEM(result, i, PyFloat_FromDouble(out[i]));
+    free(out);
+    return result;
+}
+
+static PyObject *py_flat_dynamic_range(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGDynamicRange dr;
+    LZGError err = lzg_flat_dynamic_range(g, &dr);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:d}",
+        "max_log_prob", dr.max_log_prob, "min_log_prob", dr.min_log_prob,
+        "dynamic_range_nats", dr.dynamic_range_nats,
+        "dynamic_range_orders", dr.dynamic_range_orders);
+}
+
+static PyObject *py_flat_pseq_diagnostics(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap; double atol;
+    if (!PyArg_ParseTuple(args, "Od", &cap, &atol)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    LZGPgenDiagnostics diag;
+    LZGError err = lzg_flat_pseq_diagnostics(g, atol, &diag);
+    if (err != LZG_OK) return set_lzg_error(err);
+    return Py_BuildValue("{s:d,s:d,s:d,s:O,s:I}",
+        "total_absorbed", diag.total_absorbed,
+        "total_leaked", diag.total_leaked,
+        "initial_prob_sum", diag.initial_prob_sum,
+        "is_proper", diag.is_proper ? Py_True : Py_False,
+        "mc_samples", diag.mc_samples);
+}
+
+static PyObject *py_flat_fix_special_nodes(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    lzg_flat_fix_special_nodes(g);
+    Py_RETURN_NONE;
+}
+
+static PyObject *py_naive_fix_special_nodes(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+    lzg_naive_fix_special_nodes(g);
     Py_RETURN_NONE;
 }
 
@@ -1981,6 +3209,9 @@ static PyMethodDef module_methods[] = {
     {"predicted_overlap",       py_predicted_overlap,                  METH_VARARGS, NULL},
     {"richness_curve",          py_richness_curve,                     METH_VARARGS, NULL},
     {"predict_sharing",         py_predict_sharing,                    METH_VARARGS, NULL},
+    {"publicness_moments",      py_publicness_moments,                 METH_VARARGS, NULL},
+    {"publicness_pgf",          py_publicness_pgf,                     METH_VARARGS, NULL},
+    {"publicness_accumulate",   py_publicness_accumulate,              METH_VARARGS, NULL},
     {"sequence_perplexity",     py_sequence_perplexity,                METH_VARARGS, NULL},
     {"repertoire_perplexity",   py_repertoire_perplexity,              METH_VARARGS, NULL},
     {"path_entropy_rate",       py_path_entropy_rate,                  METH_VARARGS, NULL},
@@ -2013,6 +3244,14 @@ static PyMethodDef module_methods[] = {
     {"fb_pgen",                 py_fb_pgen,                            METH_VARARGS, NULL},
     {"fb_path_count",           py_fb_path_count,                      METH_O, NULL},
     {"fb_path_count_exact",     py_fb_path_count_exact,                METH_O, NULL},
+    {"fb_path_count_by_length", py_fb_path_count_by_length,            METH_O, NULL},
+    {"fb_pseq_structure",       py_fb_pseq_structure,                  METH_O, NULL},
+    {"fb_pseq_length_derivatives", py_fb_pseq_length_derivatives,      METH_VARARGS, NULL},
+    {"fb_pseq_derivatives",     py_fb_pseq_derivatives,                METH_VARARGS, NULL},
+    {"fb_pseq_tilted_moments", py_fb_pseq_tilted_moments,             METH_VARARGS, NULL},
+    {"fb_pseq_saddlepoint_batch", py_fb_pseq_saddlepoint_batch,        METH_VARARGS, NULL},
+    {"fb_pseq_attribution",    py_fb_pseq_attribution,                 METH_VARARGS, NULL},
+    {"fb_pseq_histogram",       py_fb_pseq_histogram,                  METH_VARARGS, NULL},
     {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},
     {"fb_power_sum",            py_fb_power_sum,                       METH_VARARGS, NULL},
     {"fb_hill_number",          py_fb_hill_number,                     METH_VARARGS, NULL},
@@ -2023,6 +3262,35 @@ static PyMethodDef module_methods[] = {
     {"fb_fix_special_nodes",    py_fb_fix_special_nodes,               METH_O, NULL},
     {"fb_posterior",            (PyCFunction)py_fb_posterior,          METH_VARARGS | METH_KEYWORDS, NULL},
     {"fb_subtract",             (PyCFunction)py_fb_subtract,           METH_VARARGS | METH_KEYWORDS, NULL},
+
+    {"naive_decompose",            py_naive_decompose,                    METH_O, NULL},
+    {"naive_graph_build",          (PyCFunction)py_naive_graph_build,     METH_VARARGS | METH_KEYWORDS, NULL},
+    {"naive_graph_build_file",     (PyCFunction)py_naive_graph_build_file, METH_VARARGS | METH_KEYWORDS, NULL},
+    {"naive_simulate",             (PyCFunction)py_naive_simulate,        METH_VARARGS | METH_KEYWORDS, NULL},
+    {"naive_pgen",                 py_naive_pgen,                         METH_VARARGS, NULL},
+    {"naive_path_count",           py_naive_path_count,                   METH_O, NULL},
+    {"naive_path_count_exact",     py_naive_path_count_exact,             METH_O, NULL},
+    {"naive_effective_diversity",  py_naive_effective_diversity,          METH_O, NULL},
+    {"naive_power_sum",            py_naive_power_sum,                    METH_VARARGS, NULL},
+    {"naive_hill_number",          py_naive_hill_number,                  METH_VARARGS, NULL},
+    {"naive_hill_numbers",         py_naive_hill_numbers,                 METH_VARARGS, NULL},
+    {"naive_dynamic_range",        py_naive_dynamic_range,                METH_O, NULL},
+    {"naive_pgen_diagnostics",     py_naive_pgen_diagnostics,             METH_VARARGS, NULL},
+    {"naive_fix_special_nodes",    py_naive_fix_special_nodes,            METH_O, NULL},
+
+    {"flat_decompose",             py_flat_decompose,                     METH_O, NULL},
+    {"flat_graph_build",           (PyCFunction)py_flat_graph_build,      METH_VARARGS | METH_KEYWORDS, NULL},
+    {"flat_graph_build_file",      (PyCFunction)py_flat_graph_build_file, METH_VARARGS | METH_KEYWORDS, NULL},
+    {"flat_simulate",              (PyCFunction)py_flat_simulate,         METH_VARARGS | METH_KEYWORDS, NULL},
+    {"flat_pseq",                  py_flat_pseq,                          METH_VARARGS, NULL},
+    {"flat_path_count_exact",      py_flat_path_count_exact,              METH_O, NULL},
+    {"flat_effective_diversity",   py_flat_effective_diversity,           METH_O, NULL},
+    {"flat_power_sum",             py_flat_power_sum,                     METH_VARARGS, NULL},
+    {"flat_hill_number",           py_flat_hill_number,                   METH_VARARGS, NULL},
+    {"flat_hill_numbers",          py_flat_hill_numbers,                  METH_VARARGS, NULL},
+    {"flat_dynamic_range",         py_flat_dynamic_range,                 METH_O, NULL},
+    {"flat_pseq_diagnostics",      py_flat_pseq_diagnostics,              METH_VARARGS, NULL},
+    {"flat_fix_special_nodes",     py_flat_fix_special_nodes,             METH_O, NULL},
     {"k_diversity",             (PyCFunction)py_k_diversity,            METH_VARARGS | METH_KEYWORDS, NULL},
     {"saturation_curve",        (PyCFunction)py_saturation_curve,      METH_VARARGS | METH_KEYWORDS, NULL},
     {"set_log_level",           py_set_log_level,                      METH_O, NULL},
@@ -2865,6 +4133,7 @@ static struct PyModuleDef clzgraph_module = {
 };
 
 PyMODINIT_FUNC PyInit__clzgraph(void) {
+    if (PyType_Ready(&OwnedReadonlyBufferType) < 0) return NULL;
     PyObject *m = PyModule_Create(&clzgraph_module);
     if (!m) return NULL;
 

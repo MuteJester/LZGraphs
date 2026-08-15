@@ -5,6 +5,41 @@ All notable changes to LZGraphs will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `FlashBackPseqAnalysis.attribution(q)` for exact, sampling-free node and edge
+  marginals under path weights proportional to `P(sequence)**q`, including
+  edge sensitivities, surprisal contributions, and ranked edge summaries. The
+  native implementation uses stable log-domain forward-backward passes and
+  exposes lifetime-safe, read-only zero-copy arrays.
+
+- **Analytical publicness prediction** (C implementation in `lib/lzgraph/occupancy/publicness.c`, Python API in `LZGraphs._publicness`): the Poisson-binomial repertoire-occupancy PMF. Publicness is in how many of a cohort's repertoires a sequence is present. Detection in a repertoire of depth `N` has probability `1 - (1-p)^N`, and depths differ, so the occupancy count is Poisson-binomial, not binomial; its PMF is recovered from the probability generating function `G(z) = prod_b (1 - pi_b + pi_b z)^{m_b}` sampled at the K-th roots of unity and inverted by a forward DFT. New public entry points:
+  - `FlashBackPseqAnalysis.publicness_distribution(depths, levels=...)`: predicted sequences per publicness bin, aggregated over the graph's counting spectrum. Also available on `NaiveGraph` and `FlattenedFlashBackGraph`, which share the same analysis object.
+  - New public type `PublicnessModel`, the cohort model on its own: `pmf(p)`, `moments(p)`, `bin_mass(p, edges)` and `expected_counts(probabilities, multiplicities)` for any explicit probability spectrum, with no graph involved.
+  - C entry points `lzg_publicness_moments()`, `lzg_publicness_pgf()` and `lzg_publicness_accumulate()` in the new `include/lzgraph/publicness.h`. The generating-function product uses complex exponentiation by squaring rather than an accumulated argument, which holds the relative error near `2*log2(m)*eps` instead of the 1e-11 an angle of 1e5 radians would carry. The DFT itself stays in numpy: the library has no C FFT and adding one is not worth a third-party dependency, and the transform is not the expensive part.
+
+  This is not `expected_frequency_spectrum(n, max_count)`, which counts how many times a sequence appears inside *one* pool of `n` draws, nor `predict_sharing()`, which integrates the Gaussian-mixture PGEN approximation against a Poisson detection model. Publicness counts how many *separate* repertoires contain a sequence at all, and is driven by the exact p-sequence spectrum.
+
+  **The truncation in `lzg_publicness_accumulate()` is load-bearing and must not be simplified away.** Every atom's PMF is scaled by its multiplicity in the counting spectrum, which on a foundation-scale graph reaches 1.2e29 and sums to a D0 of 1.9e32. Atoms deep in the tail have `p` around 1e-80, so their true PMF is a delta at zero, but the DFT returns that delta with relative roundoff of order 1e-16 smeared across all 65,536 output bins, and 1e-16 times 1e32 is 1e16. Clipping at zero, the natural response to the tiny negatives that appear, keeps the positive half of that noise and rectifies it into a floor: in the case that prompted this work it produced roughly 2,000 spurious sequences in *every* publicness bin, predicting 2,114 in the top bin where 0 were observed and where only 135 atoms, carrying 108 sequences between them, could physically reach at all. Both moments of a Poisson-binomial are available in closed form without touching the PMF, so each atom is truncated to `[mu - 40*sigma, mu + 40*sigma]`, widened by an absolute floor of 256 levels for the degenerate `mu ~ 0` case, and zeroed outside that window *before* negatives are clipped. At 40 sigma the Chernoff bound on the discarded mass is below 1e-300. Each atom's retained mass is checked against 1 so that a truncation mistake raises instead of quietly reshaping a tail.
+- **`NaiveGraph`** (C implementation in `lib/naive/`, variant string `naive_positional`): a positional-encoding graph where each node is one residue plus its 1-based index, so `CASS` walks `@ -> C_1 -> A_2 -> S_3 -> S_4 -> $`. It shares the CSR engine, MLE edge weights, and exact forward-DP analytics with `FlashBackGraph` and differs only in what a node is, which makes it the controlled baseline for measuring what the FlashBack decomposition itself contributes. Supports `pgen`, `simulate`, `path_count` (exact, arbitrary precision), `entropy`, `hill_number(s)`, `power_sum`, `pgen_dynamic_range`, `pgen_diagnostics`, set operations, and `save`/`load`. `max_length` (default 27) bounds the node set and, more importantly, fixes what a comparison against another model is trained on. Intentionally lightly documented: it exists as a control, not as a recommended analysis tool. `top_k_sequences`, `posterior`, `without`, and streaming construction are not implemented for this variant.
+- **`FlattenedFlashBackGraph`** (C implementation in `lib/flashback/flat_flashback.c`, variant string `flattened_flashback`): FlashBack's bilateral scan with run compression removed. It walks inward from both ends like FlashBack but takes exactly one residue from each end per step, so `CASSAYFF` becomes `@ -> CF_1 -> AF_2 -> SY_3 -> SA_4 -> $`. A token is `{front}{back}_{step}`; an odd-length sequence leaves one residue unpaired in the middle, written `{residue}$_{step}`. It exists to isolate one variable at a time: against `FlashBackGraph` it holds the bilateral scan constant and removes only run compression, and against `NaiveGraph` it holds "no compression" constant and adds only the bilateral scan. Same API surface as `NaiveGraph`, including `pseq`, `pseq_analysis`, exact `path_count`, and the `pgen*` compatibility aliases.
+- `flat_decompose(sequence)` module-level function.
+- New `LZGVariant` value `LZG_VARIANT_FLAT_FB = 4`.
+- `naive_decompose(sequence)` module-level function, the counterpart of `flashback_decompose`.
+- `NaiveGraph.pseq_analysis()`, returning the same `FlashBackPseqAnalysis` that `FlashBackGraph.pseq_analysis()` does. The Mellin transform and everything derived from it are forward dynamic programs over edges, so they are generic over any sentinel-bounded DAG.
+- New `LZGVariant` value `LZG_VARIANT_NAIVE_POS = 3`. Old readers reject `.lzg` files carrying it with `LZG_ERR_INVALID_VARIANT`.
+
+### Naming
+
+- On `NaiveGraph` the probability methods are spelled **`pseq`**, not `pgen`: `pseq`, `pseq_moments`, `pseq_diagnostics`, `pseq_dynamic_range`, `pseq_dynamic_range_detail`. The quantity is the probability of *observing* a sequence under a model fitted to observed repertoires, which is not the probability of the VDJ machinery *generating* it — the `Pgen` that OLGA and the LZ graphs report. The `pgen*` spellings remain as aliases to the same functions so code that accepts either graph class (the shared spectrum and scoring pipelines call `.pgen()` and `.pgen_moments()` on whichever graph they are handed) keeps working. The C symbols keep the library-wide `lzg_*_pgen` spelling; only the Python API renames. `FlashBackGraph` is unchanged.
+
+### Fixed
+
+- Set operations (`union`, `intersection`, `difference`, `weighted_merge`) and `feature_aligned` re-derived node labels by appending `node_pos` whenever the variant was not `LZG_VARIANT_NAIVE`, which corrupted labels for any variant whose label already carries its own identity (`A_2` became `A_2_4294967295`). The check is now on the actual invariant, `node_pos == UINT32_MAX`.
+- `FlashBackPseqAnalysis` computed each node's character contribution as `len(label.rsplit("_", 1)[0])`, counting sentinel characters as residues. Every reconstructed sequence length was therefore too long for any encoding whose labels carry a sentinel: one too long for a bare `"$"` sink, and one too long again for a `"{residue}$_{k}"` middle token. The rule is now "count the characters of the token base that are not `@` or `$`", which is correct for every variant at once. FlashBack graphs are unaffected, verified two ways: no node label on the foundation graph is a bare sentinel, and its `length_spectra.csv` and `length_summary.csv` regenerate byte-identically after the change.
+
 ## [3.2.0] - 2026
 
 ### Added

@@ -258,6 +258,7 @@ const char *lzg_build_variant_name(LZGVariant variant) {
         case LZG_VARIANT_AAP: return "aap";
         case LZG_VARIANT_NDP: return "ndp";
         case LZG_VARIANT_NAIVE: return "naive";
+        case LZG_VARIANT_NAIVE_POS: return "naive_positional";
         default: return "unknown";
     }
 }

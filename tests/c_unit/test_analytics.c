@@ -9,6 +9,7 @@
 #include "lzgraph/common.h"
 #include "lzgraph/graph.h"
 #include "lzgraph/analytics.h"
+#include "lzgraph/flashback_graph.h"
 #include "lzgraph/simulate.h"
 #include "lzgraph/rng.h"
 
@@ -43,6 +44,19 @@ static LZGGraph *build_coinflip_graph(uint32_t a_count, uint32_t b_count) {
 
     lzg_graph_build(g, seqs, n, NULL, NULL, NULL, 0.0, 0);
     free(seqs);
+    return g;
+}
+
+static LZGGraph *build_flashback_graph(void) {
+    const char *seqs[] = {
+        "CASS", "CASST", "CAT", "CATS", "CASSLG", "CASSLG"
+    };
+    LZGGraph *g = lzg_graph_create(LZG_VARIANT_NAIVE);
+    if (!g) return NULL;
+    if (lzg_flashback_graph_build(g, seqs, 6, NULL, 0.0) != LZG_OK) {
+        lzg_graph_destroy(g);
+        return NULL;
+    }
     return g;
 }
 
@@ -312,6 +326,219 @@ static void test_pgen_dynamic_range(void) {
     PASS();
 }
 
+static void test_flashback_pseq_length_derivatives_partition(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    double global[5];
+    LZGError err = lzg_flashback_pseq_derivatives(g, 1.0, 4, global);
+    ASSERT_MSG(err == LZG_OK, "global derivatives");
+
+    double *by_length = NULL;
+    uint8_t *present = NULL;
+    uint32_t max_length = 0;
+    err = lzg_flashback_pseq_length_derivatives(
+        g, 1.0, 4, &by_length, &present, &max_length);
+    ASSERT_MSG(err == LZG_OK, "length derivatives");
+    ASSERT_MSG(by_length != NULL && present != NULL, "length outputs");
+
+    double sums[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    uint32_t lengths_present = 0;
+    for (uint32_t length = 0; length <= max_length; length++) {
+        if (!present[length]) continue;
+        lengths_present++;
+        for (uint32_t k = 0; k <= 4; k++)
+            sums[k] += by_length[(size_t)length * 5 + k];
+    }
+    ASSERT_MSG(lengths_present >= 3, "multiple generated lengths");
+    for (uint32_t k = 0; k <= 4; k++) {
+        double scale = fmax(1.0, fabs(global[k]));
+        ASSERT_MSG(fabs(sums[k] - global[k]) / scale < 1e-13,
+                   "length derivatives partition global derivative");
+    }
+
+    free(by_length);
+    free(present);
+    lzg_graph_destroy(g);
+    PASS();
+}
+
+static void test_flashback_pseq_attribution_conservation(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    LZGPseqAttribution attribution = {0};
+    LZGError err = lzg_flashback_pseq_attribution(g, 1.0, &attribution);
+    ASSERT_MSG(err == LZG_OK, "attribution");
+    ASSERT_MSG(attribution.n_nodes == g->n_nodes, "node count");
+    ASSERT_MSG(attribution.n_edges == g->n_edges, "edge count");
+    ASSERT_MSG(fabs(attribution.log_mass) < 1e-14, "generated mass is one");
+    ASSERT_MSG(fabs(attribution.node_probability[g->root_node] - 1.0) < 1e-14,
+               "root marginal is one");
+
+    double *incoming = calloc(g->n_nodes, sizeof(double));
+    double *outgoing = calloc(g->n_nodes, sizeof(double));
+    ASSERT_MSG(incoming != NULL && outgoing != NULL, "flow arrays");
+    double entropy = 0.0;
+    for (uint32_t u = 0; u < g->n_nodes; u++) {
+        ASSERT_MSG(attribution.node_probability[u] >= 0.0 &&
+                   attribution.node_probability[u] <= 1.0,
+                   "bounded node marginal");
+        for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+            const double flow = attribution.edge_probability[e];
+            ASSERT_MSG(flow >= 0.0 && flow <= 1.0, "bounded edge marginal");
+            outgoing[u] += flow;
+            incoming[g->col_indices[e]] += flow;
+            entropy -= flow * log(g->edge_weights[e]);
+        }
+    }
+    double sink_mass = 0.0;
+    for (uint32_t u = 0; u < g->n_nodes; u++) {
+        const bool sink = g->row_offsets[u] == g->row_offsets[u + 1];
+        if (sink) sink_mass += attribution.node_probability[u];
+        if (u != g->root_node)
+            ASSERT_MSG(fabs(incoming[u] - attribution.node_probability[u]) < 2e-14,
+                       "incoming flow equals node marginal");
+        if (!sink)
+            ASSERT_MSG(fabs(outgoing[u] - attribution.node_probability[u]) < 2e-14,
+                       "outgoing flow equals node marginal");
+    }
+    ASSERT_MSG(fabs(sink_mass - 1.0) < 2e-14, "sink marginals sum to one");
+
+    double log_mass, raw[2], central[2];
+    err = lzg_flashback_pseq_tilted_moments(
+        g, 1.0, 1, &log_mass, raw, central);
+    ASSERT_MSG(err == LZG_OK, "tilted moment");
+    ASSERT_MSG(fabs(entropy + raw[1]) < 2e-14,
+               "edge surprisal contributions sum to entropy");
+
+    free(incoming);
+    free(outgoing);
+    lzg_flashback_pseq_attribution_destroy(&attribution);
+    ASSERT_MSG(attribution.node_probability == NULL &&
+               attribution.edge_probability == NULL,
+               "destroy clears result");
+    lzg_flashback_pseq_attribution_destroy(&attribution);
+    lzg_graph_destroy(g);
+    PASS();
+}
+
+static void test_flashback_pseq_histogram_conservation(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    const uint32_t bins = 257;
+    double *weights = NULL;
+    double spacing = 0.0, true_max = 0.0;
+    uint32_t max_edges = 0;
+    LZGError err = lzg_flashback_pseq_histogram(
+        g, bins, 1.0, -1, &weights, &spacing, &true_max, &max_edges);
+    ASSERT_MSG(err == LZG_OK && weights != NULL, "global histogram");
+    ASSERT_MSG(spacing > 0.0 && true_max > 0.0 && max_edges > 0,
+               "histogram metadata");
+
+    double mass = 0.0, mean = 0.0;
+    for (uint32_t i = 0; i < bins; i++) {
+        ASSERT_MSG(weights[i] >= 0.0, "non-negative histogram mass");
+        mass += weights[i];
+        mean += (double)i * spacing * weights[i];
+    }
+
+    double derivatives[2];
+    err = lzg_flashback_pseq_derivatives(g, 1.0, 1, derivatives);
+    ASSERT_MSG(err == LZG_OK, "derivatives");
+    ASSERT_MSG(fabs(mass - derivatives[0]) < 1e-13,
+               "histogram conserves generated probability mass");
+    ASSERT_MSG(fabs(mean + derivatives[1]) < 1e-12,
+               "linear transport preserves mean surprisal");
+
+    double length_mass = 0.0;
+    for (int64_t length = 0; length <= 16; length++) {
+        double *length_weights = NULL;
+        err = lzg_flashback_pseq_histogram(
+            g, bins, 1.0, length, &length_weights, &spacing,
+            &true_max, &max_edges);
+        ASSERT_MSG(err == LZG_OK && length_weights != NULL,
+                   "length histogram");
+        for (uint32_t i = 0; i < bins; i++) length_mass += length_weights[i];
+        free(length_weights);
+    }
+    ASSERT_MSG(fabs(length_mass - mass) < 1e-13,
+               "length histograms partition global histogram mass");
+
+    free(weights);
+    lzg_graph_destroy(g);
+    PASS();
+}
+
+static void test_flashback_pseq_tilted_moments(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    double log_mass, raw[5], central[5], derivatives[5];
+    LZGError err = lzg_flashback_pseq_tilted_moments(
+        g, 1.0, 4, &log_mass, raw, central);
+    ASSERT_MSG(err == LZG_OK, "tilted moments");
+    err = lzg_flashback_pseq_derivatives(g, 1.0, 4, derivatives);
+    ASSERT_MSG(err == LZG_OK, "derivatives");
+    ASSERT_MSG(fabs(log_mass - log(derivatives[0])) < 1e-14,
+               "log mass matches unnormalized derivative");
+    for (uint32_t r = 0; r <= 4; r++) {
+        double expected = derivatives[r] / derivatives[0];
+        ASSERT_MSG(fabs(raw[r] - expected) < 2e-13 * fmax(1.0, fabs(expected)),
+                   "normalized raw moment matches derivative ratio");
+    }
+    ASSERT_MSG(fabs(central[0] - 1.0) < 1e-15 && central[1] == 0.0,
+               "central moment conventions");
+    ASSERT_MSG(fabs(central[2] - (raw[2] - raw[1] * raw[1])) < 2e-13,
+               "central variance matches raw identity");
+
+    double extreme_log_mass, extreme_raw[3], extreme_central[3];
+    err = lzg_flashback_pseq_tilted_moments(
+        g, -1000.0, 2, &extreme_log_mass, extreme_raw, extreme_central);
+    ASSERT_MSG(err == LZG_OK && isfinite(extreme_log_mass),
+               "extreme negative tilt remains finite");
+    ASSERT_MSG(isfinite(extreme_raw[1]) && extreme_central[2] >= 0.0,
+               "extreme tilted moments remain valid");
+
+    lzg_graph_destroy(g);
+    PASS();
+}
+
+static void test_flashback_pseq_saddlepoint_roots(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    double log_mass, raw[3], central[3];
+    LZGError err = lzg_flashback_pseq_tilted_moments(
+        g, 1.0, 2, &log_mass, raw, central);
+    ASSERT_MSG(err == LZG_OK && central[2] > 0.0, "base tilted moments");
+    const double mean = -raw[1];
+    const double delta = 0.25 * sqrt(central[2]);
+    double x[3] = {mean - delta, mean, mean + delta};
+    double pdf[3], cdf[3], saddle[3];
+    uint32_t iterations[3];
+    err = lzg_flashback_pseq_saddlepoint_batch(
+        g, x, 3, pdf, cdf, saddle, iterations);
+    ASSERT_MSG(err == LZG_OK, "saddlepoint batch");
+    ASSERT_MSG(cdf[0] <= cdf[1] && cdf[1] <= cdf[2], "monotone CDF");
+    for (uint32_t i = 0; i < 3; i++) {
+        ASSERT_MSG(pdf[i] >= 0.0 && cdf[i] >= 0.0 && cdf[i] <= 1.0,
+                   "valid saddlepoint outputs");
+        ASSERT_MSG(iterations[i] <= 20, "safeguarded Newton converges quickly");
+        double tilted_log_mass, tilted_raw[3], tilted_central[3];
+        err = lzg_flashback_pseq_tilted_moments(
+            g, 1.0 - saddle[i], 2, &tilted_log_mass,
+            tilted_raw, tilted_central);
+        ASSERT_MSG(err == LZG_OK, "root tilted moments");
+        ASSERT_MSG(fabs(-tilted_raw[1] - x[i]) < 2e-12,
+                   "saddlepoint satisfies K'(t)=x");
+    }
+
+    lzg_graph_destroy(g);
+    PASS();
+}
+
 /* ═══════════════════════════════════════════════════════════════ */
 
 int main(void) {
@@ -331,6 +558,11 @@ int main(void) {
     RUN_TEST(test_hill_numbers_batch);
     RUN_TEST(test_hill_numbers_mc_match_direct_formula);
     RUN_TEST(test_pgen_dynamic_range);
+    RUN_TEST(test_flashback_pseq_length_derivatives_partition);
+    RUN_TEST(test_flashback_pseq_attribution_conservation);
+    RUN_TEST(test_flashback_pseq_histogram_conservation);
+    RUN_TEST(test_flashback_pseq_tilted_moments);
+    RUN_TEST(test_flashback_pseq_saddlepoint_roots);
 
     printf("\n==========================================\n");
     printf("Results: %d passed, %d failed\n", pass_count, fail_count);

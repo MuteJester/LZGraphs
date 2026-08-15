@@ -202,6 +202,7 @@ nav:
     - FlashBack Exact Model: concepts/flashback-model.md
     - Probability Model: concepts/probability-model.md
     - Distribution Analytics: concepts/distribution-analytics.md
+    - FlashBack P-Sequence Analytics: concepts/flashback-pseq-analytics.md
     - vs. IGoR, OLGA, SONIA: concepts/comparison.md
   - Reference:
     - api/index.md

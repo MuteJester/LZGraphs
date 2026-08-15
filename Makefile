@@ -30,7 +30,7 @@ build_dirs:
 	@mkdir -p $(sort $(dir $(OBJS)))
 
 # Test runners
-test: test_core test_graph test_forward test_simulate test_analytics test_occupancy test_io test_posterior test_pgen_dist test_ndp test_gene_data test_sharing test_graph_ops test_diversity test_features test_genomic_simulate test_walk_dict
+test: test_core test_graph test_forward test_simulate test_analytics test_occupancy test_io test_posterior test_pgen_dist test_ndp test_gene_data test_sharing test_publicness test_graph_ops test_diversity test_features test_genomic_simulate test_walk_dict
 
 test_core: build/test_core
 	./build/test_core
@@ -102,6 +102,12 @@ test_sharing: build/test_sharing
 	./build/test_sharing
 
 build/test_sharing: tests/c_unit/test_sharing.c build/liblzgraph.a | build_dirs
+	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
+
+test_publicness: build/test_publicness
+	./build/test_publicness
+
+build/test_publicness: tests/c_unit/test_publicness.c build/liblzgraph.a | build_dirs
 	$(CC) $(CFLAGS) $< -Lbuild -llzgraph $(LDFLAGS) -o $@
 
 test_graph_ops: build/test_graph_ops

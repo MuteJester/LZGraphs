@@ -134,6 +134,52 @@ for k, count in enumerate(spectrum[:5]):
     print(f"Shared by {k+1} donors: {count:,.0f} sequences")
 ```
 
+## Predict Publicness
+
+Publicness is repertoire occupancy: in how many of a cohort's repertoires a
+sequence appears at all. For a `FlashBackGraph`, `pseq_analysis()` predicts it
+from the exact p-sequence spectrum, given one sampling depth per repertoire
+(distinct sequences contributed):
+
+```python
+analysis = graph.pseq_analysis()
+
+depths = [12_000, 45_000, 51_000, 88_000, 120_000]
+result = analysis.publicness_distribution(depths)
+
+for level, count in enumerate(result['expected_counts']):
+    print(f"present in {level} of {result['n_repertoires']} repertoires: "
+          f"{count:,.3g} sequences")
+```
+
+Detection in a repertoire of depth \(N\) has probability \(1-(1-p)^N\), and the
+depths differ, so the occupancy count is Poisson-binomial. Pass `levels` to bin
+coarsely, either an `int` for equal-width bins or explicit integer edges:
+
+```python
+result = analysis.publicness_distribution(depths, levels=[0, 1, 2, 6])
+# bins are half-open: private, shared by one other, shared by 2 to 5
+```
+
+`min_retained_mass` in the result should read as 1 to within 1e-9. It is the
+guard on the truncation that keeps DFT roundoff, amplified by spectrum
+multiplicities of up to \(10^{29}\), out of the predicted tail.
+
+The cohort model is also usable on its own, without a graph:
+
+```python
+from LZGraphs import PublicnessModel
+
+model = PublicnessModel(depths)
+model.pmf(1e-9)          # occupancy PMF of one sequence probability
+model.moments(1e-9)      # closed-form mean and variance, no inversion
+```
+
+Note that this is a different question from `predict_sharing`, which
+integrates a Gaussian-mixture approximation of the PGEN density against a
+Poisson detection model, and from `expected_frequency_spectrum`, which counts
+repeat observations inside a single pool of draws.
+
 ## Next Steps
 
 - [Concepts: Distribution Analytics](../concepts/distribution-analytics.md): Mathematical foundations
