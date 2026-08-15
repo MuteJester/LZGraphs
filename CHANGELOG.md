@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `FlashBackPseqAnalysis.histograms_by_length()` for reconstructing all
+  requested length-conditioned counting or generated spectra in one native
+  joint length/grid dynamic program. Tight node-length grid bounds and reverse
+  sink-reachability pruning replace one complete graph traversal per length.
+
 - `FlashBackPseqAnalysis.length_marginals()` for exact per-amino-acid-length
   counting richness and generated probability mass in one native DAG
   traversal. It is the fused zeroth-order `q=0`/`q=1` interface for analyses

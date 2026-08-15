@@ -369,6 +369,23 @@ LZGError lzg_flashback_pseq_histogram_pair(
     double *spacing_out, double *true_max_surprisal_out,
     uint32_t *max_edges_out);
 
+/**
+ * Length-resolved deterministic p-sequence histograms in one DAG traversal.
+ *
+ * Computes every structurally reachable amino-acid length from zero through
+ * `max_length` on the same surprisal grid used by
+ * `lzg_flashback_pseq_histogram()`. The returned row-major float64 array has
+ * (`max_length + 1`) rows of `bins` weights. `present_out[length]` identifies
+ * reachable root-to-sink lengths. Both arrays are malloc'd and must be freed
+ * by the caller. Internal node-length states use float64 and sink reduction
+ * uses long double. `q` must be exactly zero (counting) or one (generated).
+ */
+LZGError lzg_flashback_pseq_histograms_by_length(
+    const LZGGraph *g, uint32_t bins, double q, uint32_t max_length,
+    double **weights_out, uint8_t **present_out,
+    double *spacing_out, double *true_max_surprisal_out,
+    uint32_t *max_edges_out);
+
 LZGError lzg_flashback_effective_diversity(const LZGGraph *g,
                                            LZGEffectiveDiversity *out);
 

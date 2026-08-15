@@ -312,6 +312,36 @@ of `1e-12` with the independent extended-precision calculations. Use
 `histogram()` for an exact-length restriction, which the fused global API does
 not accept.
 
+When spectra are needed for many sequence lengths, do not call
+`histogram(length=L)` in a Python loop. Reconstruct them jointly:
+
+```python
+by_length = analysis.histograms_by_length(
+    bins=8192,
+    measure="generated",
+    max_length=27,
+)
+
+length_14 = by_length[14]
+```
+
+`histograms_by_length()` carries literal amino-acid length and surprisal-grid
+position together through one topological DAG traversal. A structural pass
+first determines which remaining lengths can reach a sink and the tight grid
+interval occupied by every node-length pair. States that cannot terminate at
+or below `max_length` are omitted. This makes the method suitable for a block
+of length-conditioned spectra without changing the deterministic linear
+transport or its error bound.
+
+The joint transient states use float64 and final sink reductions use extended
+precision. Results have a relative agreement target of `1e-12` against
+independent `histogram(length=L)` calls, whose transient states use extended
+precision throughout. `measure="generated"` gives probability mass and
+`measure="counting"` gives supported sequence counts. Every returned
+`PseqHistogram` shares the same global surprisal grid, so summing its weights
+over all generated lengths reproduces the corresponding global histogram up
+to floating-point rounding.
+
 ## Discovery and novelty curves
 
 For independent draws from the generated sequence distribution, the expected
@@ -373,6 +403,7 @@ value as `spectrum_mass_before_normalization` and whether rescaling occurred as
 | What are those quantities at each AA length? | `length_derivatives()`, `length_profile()` |
 | Can I enumerate every probability atom? | `exact_atoms()` for small supports |
 | What does a large probability spectrum look like? | `histogram()`, or `histogram_pair()` for both global measures |
+| What do spectra look like at many AA lengths? | `histograms_by_length()` |
 | What smooth PDF/CDF approximates the generated spectrum? | `saddlepoint().pdf_cdf()` |
 | Where does one sequence lie in the spectrum? | `position()` |
 | How quickly are sequences discovered, and how much novelty remains? | `discovery_curve()` |
@@ -387,4 +418,5 @@ moments = analysis.moments()
 by_length = analysis.length_profile()
 histogram = analysis.histogram(4096)
 both_histograms = analysis.histogram_pair(4096)
+length_histograms = analysis.histograms_by_length(4096, max_length=27)
 ```

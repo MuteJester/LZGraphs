@@ -594,6 +594,53 @@ static void test_flashback_pseq_histogram_pair(void) {
     PASS();
 }
 
+static void test_flashback_pseq_histograms_by_length(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+    const uint32_t bins = 257;
+    const uint32_t max_length = 32;
+    for (uint32_t q = 0; q <= 1; q++) {
+        double *joint = NULL;
+        uint8_t *present = NULL;
+        double spacing, true_max;
+        uint32_t max_edges;
+        LZGError err = lzg_flashback_pseq_histograms_by_length(
+            g, bins, (double)q, max_length, &joint, &present,
+            &spacing, &true_max, &max_edges);
+        ASSERT_MSG(err == LZG_OK && joint && present,
+                   "joint length histograms");
+        uint32_t lengths = 0;
+        for (uint32_t length = 0; length <= max_length; length++) {
+            if (!present[length]) continue;
+            lengths++;
+            double *reference = NULL;
+            double reference_spacing, reference_max;
+            uint32_t reference_edges;
+            err = lzg_flashback_pseq_histogram(
+                g, bins, (double)q, length, &reference,
+                &reference_spacing, &reference_max, &reference_edges);
+            ASSERT_MSG(err == LZG_OK && reference,
+                       "independent length histogram");
+            ASSERT_MSG(spacing == reference_spacing &&
+                       true_max == reference_max &&
+                       max_edges == reference_edges,
+                       "joint histogram metadata");
+            for (uint32_t i = 0; i < bins; i++) {
+                const double actual = joint[(size_t)length * bins + i];
+                ASSERT_MSG(fabs(actual - reference[i]) <
+                               1e-12 * fmax(1.0, fabs(reference[i])),
+                           "joint length bin matches independent kernel");
+            }
+            free(reference);
+        }
+        ASSERT_MSG(lengths >= 3, "multiple joint histogram lengths");
+        free(joint);
+        free(present);
+    }
+    lzg_graph_destroy(g);
+    PASS();
+}
+
 static void test_flashback_pseq_tilted_moments(void) {
     LZGGraph *g = build_flashback_graph();
     ASSERT_MSG(g != NULL, "flashback graph");
@@ -687,6 +734,7 @@ int main(void) {
     RUN_TEST(test_flashback_edge_threshold_diversity);
     RUN_TEST(test_flashback_pseq_histogram_conservation);
     RUN_TEST(test_flashback_pseq_histogram_pair);
+    RUN_TEST(test_flashback_pseq_histograms_by_length);
     RUN_TEST(test_flashback_pseq_tilted_moments);
     RUN_TEST(test_flashback_pseq_saddlepoint_roots);
 

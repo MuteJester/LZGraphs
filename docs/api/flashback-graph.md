@@ -194,6 +194,7 @@ analysis.length_profile()          # exact moments by sequence length
 analysis.exact_atoms()             # exact enumeration for small supports
 analysis.histogram()               # deterministic large-support grid
 analysis.histogram_pair()          # fused global counting/generated grids
+analysis.histograms_by_length()    # joint length-conditioned grids
 analysis.saddlepoint().pdf_cdf(x)  # batched smooth PDF/CDF approximation
 analysis.position(sequence)         # individual repertoire position
 analysis.expected_richness(n)       # finite-depth occupancy prediction
@@ -208,6 +209,9 @@ When both global measures are needed, `histogram_pair()` returns a dictionary
 containing `counting` and `generated` histograms after one native graph
 traversal. Exact-length reconstruction remains available through
 `histogram(length=...)`.
+When several lengths are needed for one measure,
+`histograms_by_length(max_length=...)` transports the length and grid states
+together and returns one `PseqHistogram` per reachable amino-acid length.
 
 Here, sequence length is the number of amino-acid characters in the sequence
 reconstructed by a path, excluding the `@` and `$` sentinels and all token

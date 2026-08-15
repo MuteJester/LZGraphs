@@ -1631,6 +1631,17 @@ static bool pseq_bitset_get(const uint64_t *bits, uint32_t bit) {
     return (bits[bit / 64] >> (bit % 64)) & UINT64_C(1);
 }
 
+static bool pseq_bitset_any_leq(const uint64_t *bits, uint32_t limit) {
+    const size_t full_words = limit / 64;
+    for (size_t i = 0; i < full_words; i++)
+        if (bits[i]) return true;
+    const uint32_t used = limit % 64 + 1;
+    const uint64_t mask = used == 64
+        ? UINT64_MAX
+        : (UINT64_C(1) << used) - 1;
+    return (bits[full_words] & mask) != 0;
+}
+
 static LZGError pseq_histogram_length(
     const LZGGraph *g, uint32_t bins, double q, double spacing,
     uint32_t target_length, const uint8_t *symbol_length,
@@ -1918,6 +1929,245 @@ LZGError lzg_flashback_pseq_histogram_pair(
 
 histogram_pair_wrapper_done:
     free(symbol_length); free(grid_lo); free(grid_hi);
+    return err;
+}
+
+LZGError lzg_flashback_pseq_histograms_by_length(
+    const LZGGraph *g, uint32_t bins, double q, uint32_t max_length,
+    double **weights_out, uint8_t **present_out,
+    double *spacing_out, double *true_max_surprisal_out,
+    uint32_t *max_edges_out) {
+    if (!g || !weights_out || !present_out || !spacing_out ||
+        !true_max_surprisal_out || !max_edges_out ||
+        (q != 0.0 && q != 1.0))
+        return LZG_ERR_INVALID_ARG;
+    *weights_out = NULL;
+    *present_out = NULL;
+    if (!g->topo_valid || g->n_nodes == 0 || g->root_node >= g->n_nodes)
+        return LZG_ERR_NOT_BUILT;
+
+    const uint32_t nn = g->n_nodes;
+    uint8_t *symbol_length = (uint8_t *)malloc(nn);
+    if (!symbol_length) return LZG_ERR_ALLOC;
+    double true_min, true_max;
+    uint32_t max_edges;
+    LZGError err = lzg_flashback_pseq_init(
+        g, symbol_length, &true_min, &true_max, &max_edges);
+    (void)true_min;
+    if (err != LZG_OK) {
+        free(symbol_length);
+        return err;
+    }
+    if (true_max <= 0.0 || bins <= max_edges + 1) {
+        free(symbol_length);
+        return LZG_ERR_INVALID_ARG;
+    }
+    const double spacing = true_max / (double)(bins - 1 - max_edges);
+    const size_t length_dim = (size_t)max_length + 1;
+    if ((size_t)nn > SIZE_MAX / length_dim) {
+        free(symbol_length);
+        return LZG_ERR_ALLOC;
+    }
+    const size_t states_count = (size_t)nn * length_dim;
+    const size_t words = (size_t)max_length / 64 + 1;
+    if ((size_t)nn > SIZE_MAX / words / sizeof(uint64_t) ||
+        states_count > SIZE_MAX / sizeof(uint32_t) ||
+        states_count > SIZE_MAX / sizeof(double *)) {
+        free(symbol_length);
+        return LZG_ERR_ALLOC;
+    }
+
+    uint64_t *can_finish = (uint64_t *)calloc(
+        (size_t)nn * words, sizeof(uint64_t));
+    uint32_t *joint_lo = (uint32_t *)malloc(
+        states_count * sizeof(uint32_t));
+    uint32_t *joint_hi = (uint32_t *)calloc(
+        states_count, sizeof(uint32_t));
+    double **state = (double **)calloc(states_count, sizeof(double *));
+    if (!can_finish || !joint_lo || !joint_hi || !state) {
+        free(can_finish); free(joint_lo); free(joint_hi); free(state);
+        free(symbol_length);
+        return LZG_ERR_ALLOC;
+    }
+    for (size_t i = 0; i < states_count; i++) joint_lo[i] = UINT32_MAX;
+
+    for (uint32_t t = nn; t > 0; t--) {
+        const uint32_t u = g->topo_order[t - 1];
+        uint64_t *destination = can_finish + (size_t)u * words;
+        if (g->row_offsets[u] == g->row_offsets[u + 1]) destination[0] |= 1;
+        for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+            const uint32_t v = g->col_indices[e];
+            pseq_bitset_shift_or(
+                destination, can_finish + (size_t)v * words,
+                words, symbol_length[v], max_length);
+        }
+    }
+
+    const uint32_t root_length = symbol_length[g->root_node];
+    bool root_reaches_sink = root_length <= max_length &&
+        pseq_bitset_any_leq(
+            can_finish + (size_t)g->root_node * words,
+            max_length - root_length);
+    if (root_reaches_sink) {
+        const size_t root_index =
+            (size_t)g->root_node * length_dim + root_length;
+        joint_lo[root_index] = joint_hi[root_index] = 0;
+    }
+
+    /* Establish tight grid bounds for each reachable node-length pair. */
+    for (uint32_t t = 0; t < nn; t++) {
+        const uint32_t u = g->topo_order[t];
+        const size_t node_base = (size_t)u * length_dim;
+        for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+            const uint32_t v = g->col_indices[e];
+            const uint32_t increment = symbol_length[v];
+            if (increment > max_length) continue;
+            const double shift = -log(g->edge_weights[e]) / spacing;
+            if (!isfinite(shift) || shift < 0.0 || shift > UINT32_MAX) {
+                err = LZG_ERR_INVALID_ARG;
+                goto histograms_by_length_done;
+            }
+            const uint32_t lower = (uint32_t)floor(shift);
+            const bool has_upper = shift - (double)lower > 0.0;
+            for (uint32_t length = 0; length + increment <= max_length; length++) {
+                const size_t source_index = node_base + length;
+                if (joint_lo[source_index] == UINT32_MAX) continue;
+                const uint32_t new_length = length + increment;
+                if (!pseq_bitset_any_leq(
+                    can_finish + (size_t)v * words,
+                    max_length - new_length))
+                    continue;
+                const size_t destination_index =
+                    (size_t)v * length_dim + new_length;
+                uint64_t candidate_lo =
+                    (uint64_t)joint_lo[source_index] + lower;
+                uint64_t candidate_hi =
+                    (uint64_t)joint_hi[source_index] + lower + has_upper;
+                if (candidate_lo >= bins) candidate_lo = bins - 1;
+                if (candidate_hi >= bins) candidate_hi = bins - 1;
+                if ((uint32_t)candidate_lo < joint_lo[destination_index])
+                    joint_lo[destination_index] = (uint32_t)candidate_lo;
+                if ((uint32_t)candidate_hi > joint_hi[destination_index])
+                    joint_hi[destination_index] = (uint32_t)candidate_hi;
+            }
+        }
+    }
+
+    if (length_dim > SIZE_MAX / bins ||
+        length_dim * bins > SIZE_MAX / sizeof(long double) ||
+        length_dim * bins > SIZE_MAX / sizeof(double)) {
+        err = LZG_ERR_ALLOC;
+        goto histograms_by_length_done;
+    }
+    const size_t output_size = length_dim * bins;
+    long double *total = (long double *)calloc(
+        output_size, sizeof(long double));
+    double *weights = (double *)malloc(output_size * sizeof(double));
+    uint8_t *present = (uint8_t *)calloc(length_dim, sizeof(uint8_t));
+    if (!total || !weights || !present) {
+        free(total); free(weights); free(present);
+        err = LZG_ERR_ALLOC;
+        goto histograms_by_length_done;
+    }
+
+    if (root_reaches_sink) {
+        const size_t root_index =
+            (size_t)g->root_node * length_dim + root_length;
+        state[root_index] = (double *)calloc(1, sizeof(double));
+        if (!state[root_index]) {
+            free(total); free(weights); free(present);
+            err = LZG_ERR_ALLOC;
+            goto histograms_by_length_done;
+        }
+        state[root_index][0] = 1.0;
+    }
+
+    for (uint32_t t = 0; t < nn; t++) {
+        const uint32_t u = g->topo_order[t];
+        const size_t node_base = (size_t)u * length_dim;
+        if (g->row_offsets[u] == g->row_offsets[u + 1]) {
+            for (uint32_t length = 0; length <= max_length; length++) {
+                const size_t source_index = node_base + length;
+                double *source = state[source_index];
+                if (!source) continue;
+                const size_t width =
+                    (size_t)(joint_hi[source_index] - joint_lo[source_index]) + 1;
+                long double *destination =
+                    total + (size_t)length * bins + joint_lo[source_index];
+                for (size_t i = 0; i < width; i++) destination[i] += source[i];
+                present[length] = 1;
+            }
+        } else {
+            for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+                const uint32_t v = g->col_indices[e];
+                const uint32_t increment = symbol_length[v];
+                if (increment > max_length) continue;
+                const double edge_weight = g->edge_weights[e];
+                const double shift = -log(edge_weight) / spacing;
+                const uint32_t lower = (uint32_t)floor(shift);
+                const double fraction = shift - (double)lower;
+                const double lower_weight = 1.0 - fraction;
+                const double factor = q == 0.0 ? 1.0 : edge_weight;
+                for (uint32_t length = 0;
+                     length + increment <= max_length; length++) {
+                    const size_t source_index = node_base + length;
+                    double *source = state[source_index];
+                    if (!source) continue;
+                    const uint32_t new_length = length + increment;
+                    const size_t destination_index =
+                        (size_t)v * length_dim + new_length;
+                    if (joint_lo[destination_index] == UINT32_MAX) continue;
+                    if (!state[destination_index]) {
+                        const size_t width =
+                            (size_t)(joint_hi[destination_index] -
+                                     joint_lo[destination_index]) + 1;
+                        state[destination_index] = (double *)calloc(
+                            width, sizeof(double));
+                        if (!state[destination_index]) {
+                            free(total); free(weights); free(present);
+                            err = LZG_ERR_ALLOC;
+                            goto histograms_by_length_done;
+                        }
+                    }
+                    const size_t source_width =
+                        (size_t)(joint_hi[source_index] -
+                                 joint_lo[source_index]) + 1;
+                    double *destination = state[destination_index];
+                    for (size_t offset = 0; offset < source_width; offset++) {
+                        const double value = source[offset] * factor;
+                        if (value == 0.0) continue;
+                        const uint64_t base =
+                            (uint64_t)joint_lo[source_index] + offset + lower;
+                        if (base < bins && lower_weight != 0.0)
+                            destination[(size_t)base -
+                                        joint_lo[destination_index]] +=
+                                value * lower_weight;
+                        if (fraction != 0.0 && base + 1 < bins)
+                            destination[(size_t)(base + 1) -
+                                        joint_lo[destination_index]] +=
+                                value * fraction;
+                    }
+                }
+            }
+        }
+        for (uint32_t length = 0; length <= max_length; length++) {
+            free(state[node_base + length]);
+            state[node_base + length] = NULL;
+        }
+    }
+
+    for (size_t i = 0; i < output_size; i++) weights[i] = (double)total[i];
+    free(total);
+    *weights_out = weights;
+    *present_out = present;
+    *spacing_out = spacing;
+    *true_max_surprisal_out = true_max;
+    *max_edges_out = max_edges;
+
+histograms_by_length_done:
+    for (size_t i = 0; i < states_count; i++) free(state[i]);
+    free(state); free(joint_lo); free(joint_hi); free(can_finish);
+    free(symbol_length);
     return err;
 }
 

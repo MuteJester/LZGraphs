@@ -1142,6 +1142,101 @@ class FlashBackPseqAnalysis:
             "generated": make_histogram("generated", 1.0, "generated_weights"),
         }
 
+    def histograms_by_length(
+        self,
+        bins: int = 2048,
+        *,
+        measure: str = "generated",
+        max_length: int | None = None,
+    ) -> dict[int, PseqHistogram]:
+        """Reconstruct every length-conditioned spectrum together.
+
+        This native joint dynamic program is equivalent to calling
+        ``histogram(bins, measure=measure, length=L)`` independently for each
+        reachable amino-acid length ``L`` through ``max_length``. It carries
+        literal reconstructed sequence length and surprisal-grid position in
+        one topological traversal. Tight node-length grid bounds and reverse
+        reachability pruning keep only states that can terminate within the
+        requested length range.
+
+        Length excludes ``@``, ``$``, and token metadata; it is not graph walk
+        depth. All returned histograms share the global deterministic grid and
+        its pathwise rounding-error bound. Internal joint states use float64
+        to keep the two-dimensional state affordable, while sink totals use
+        long-double accumulation. The numerical agreement target with the
+        independent long-double calculations is relative error below
+        ``1e-12``.
+
+        Args:
+            bins: Number of surprisal grid points. Must exceed the maximum
+                root-to-sink edge count plus one.
+            measure: ``'generated'`` or ``'counting'``.
+            max_length: Largest amino-acid length to return. The default is
+                the graph's largest reachable generated length.
+
+        Returns:
+            A dictionary mapping every reachable length at or below
+            ``max_length`` to its :class:`PseqHistogram`.
+        """
+        if measure == "generated":
+            q = 1.0
+        elif measure == "counting":
+            q = 0.0
+        else:
+            raise ValueError("measure must be 'generated' or 'counting'")
+        if max_length is None:
+            max_length = max(self.length_marginals(), default=0)
+        elif not isinstance(max_length, (int, np.integer)):
+            raise TypeError("max_length must be an integer or None")
+        max_length = int(max_length)
+        if max_length < 0:
+            raise ValueError("max_length must be non-negative")
+
+        if self._true_max_surprisal == 0:
+            marginals = self.length_marginals()
+            return {
+                length: PseqHistogram(
+                    surprisal=np.array([0.0]),
+                    weights=np.array([values[measure]], dtype=np.float64),
+                    measure=measure,
+                    q=q,
+                    grid_spacing=0.0,
+                    max_rounding_error=0.0,
+                    true_max_surprisal=0.0,
+                    length=length,
+                )
+                for length, values in marginals.items()
+                if length <= max_length
+            }
+        if bins <= self._max_edges + 1:
+            raise ValueError(f"bins must exceed max path edges + 1 ({self._max_edges + 1})")
+
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_histograms_by_length(
+            self.graph._cap,
+            int(bins),
+            q,
+            max_length,
+        )
+        spacing = float(result["spacing"])
+        true_max = float(result["true_max_surprisal"])
+        max_error = float(result["max_edges"] * spacing)
+        grid = np.arange(bins, dtype=np.float64) * spacing
+        return {
+            int(length): PseqHistogram(
+                surprisal=grid.copy(),
+                weights=np.asarray(weights, dtype=np.float64),
+                measure=measure,
+                q=q,
+                grid_spacing=spacing,
+                max_rounding_error=max_error,
+                true_max_surprisal=true_max,
+                length=int(length),
+            )
+            for length, weights in result["weights"].items()
+        }
+
     def _histogram_python(
         self,
         bins: int = 2048,

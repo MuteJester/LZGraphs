@@ -2430,6 +2430,70 @@ static PyObject *py_fb_pseq_histogram_pair(PyObject *self, PyObject *args) {
         "max_edges", max_edges);
 }
 
+static PyObject *py_fb_pseq_histograms_by_length(
+    PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    unsigned int bins, max_length;
+    double q;
+    if (!PyArg_ParseTuple(args, "OIdI", &cap, &bins, &q, &max_length))
+        return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    double *weights = NULL;
+    uint8_t *present = NULL;
+    double spacing, true_max_surprisal;
+    uint32_t max_edges;
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_histograms_by_length(
+        g, bins, q, max_length, &weights, &present,
+        &spacing, &true_max_surprisal, &max_edges);
+    Py_END_ALLOW_THREADS
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    PyObject *by_length = PyDict_New();
+    if (!by_length) {
+        free(weights); free(present);
+        return NULL;
+    }
+    for (uint32_t length = 0; length <= max_length; length++) {
+        if (!present[length]) continue;
+        PyObject *key = PyLong_FromUnsignedLong(length);
+        PyObject *values = PyList_New(bins);
+        if (!key || !values) {
+            Py_XDECREF(key); Py_XDECREF(values); Py_DECREF(by_length);
+            free(weights); free(present);
+            return NULL;
+        }
+        for (uint32_t i = 0; i < bins; i++) {
+            PyObject *value = PyFloat_FromDouble(
+                weights[(size_t)length * bins + i]);
+            if (!value) {
+                Py_DECREF(key); Py_DECREF(values); Py_DECREF(by_length);
+                free(weights); free(present);
+                return NULL;
+            }
+            PyList_SET_ITEM(values, i, value);
+        }
+        if (PyDict_SetItem(by_length, key, values) < 0) {
+            Py_DECREF(key); Py_DECREF(values); Py_DECREF(by_length);
+            free(weights); free(present);
+            return NULL;
+        }
+        Py_DECREF(key);
+        Py_DECREF(values);
+    }
+    free(weights); free(present);
+    return Py_BuildValue(
+        "{s:N,s:d,s:d,s:I}",
+        "weights", by_length,
+        "spacing", spacing,
+        "true_max_surprisal", true_max_surprisal,
+        "max_edges", max_edges);
+}
+
 static PyObject *py_fb_effective_diversity(PyObject *self, PyObject *arg) {
     (void)self;
     LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
@@ -3556,6 +3620,7 @@ static PyMethodDef module_methods[] = {
     {"fb_pseq_attribution",    py_fb_pseq_attribution,                 METH_VARARGS, NULL},
     {"fb_pseq_histogram",       py_fb_pseq_histogram,                  METH_VARARGS, NULL},
     {"fb_pseq_histogram_pair",  py_fb_pseq_histogram_pair,             METH_VARARGS, NULL},
+    {"fb_pseq_histograms_by_length", py_fb_pseq_histograms_by_length,  METH_VARARGS, NULL},
     {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},
     {"fb_power_sum",            py_fb_power_sum,                       METH_VARARGS, NULL},
     {"fb_hill_number",          py_fb_hill_number,                     METH_VARARGS, NULL},

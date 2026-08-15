@@ -777,6 +777,104 @@ class TestEdgeThresholdDiversity:
 
 
 class TestDeterministicReconstruction:
+    @pytest.mark.parametrize(
+        "sequences",
+        [
+            [flashback_reverse(PATH_A), flashback_reverse(PATH_B)],
+            ["CASS", "CASST", "CAT", "CATS"],
+        ],
+    )
+    @pytest.mark.parametrize("measure", ["generated", "counting"])
+    def test_histograms_by_length_match_brute_force_masses_and_means(
+        self, sequences, measure
+    ):
+        analysis = FlashBackGraph(sequences).pseq_analysis()
+        atoms = analysis.exact_atoms()
+        joint = analysis.histograms_by_length(4096, measure=measure)
+        for length, histogram in joint.items():
+            selected = atoms.lengths == length
+            if measure == "generated":
+                expected_mass = float(np.sum(atoms.probabilities[selected]))
+                expected_mean = float(
+                    np.sum(
+                        atoms.probabilities[selected] * atoms.surprisal[selected]
+                    )
+                    / expected_mass
+                )
+            else:
+                expected_mass = float(np.count_nonzero(selected))
+                expected_mean = float(np.mean(atoms.surprisal[selected]))
+            assert histogram.total_mass == pytest.approx(
+                expected_mass, rel=2e-14, abs=2e-15
+            )
+            assert histogram.mean == pytest.approx(
+                expected_mean, rel=2e-13, abs=2e-13
+            )
+
+    @pytest.mark.parametrize("bins", [32, 127, 512])
+    @pytest.mark.parametrize("measure", ["generated", "counting"])
+    def test_histograms_by_length_match_independent_calls(
+        self, analysis, bins, measure
+    ):
+        joint = analysis.histograms_by_length(bins, measure=measure)
+        expected_lengths = analysis.length_marginals().keys()
+        assert joint.keys() == expected_lengths
+        for length, histogram in joint.items():
+            reference = analysis.histogram(
+                bins, measure=measure, length=length
+            )
+            np.testing.assert_array_equal(histogram.surprisal, reference.surprisal)
+            np.testing.assert_allclose(
+                histogram.weights,
+                reference.weights,
+                rtol=1e-12,
+                atol=2e-15,
+            )
+            assert histogram.length == reference.length == length
+            assert histogram.grid_spacing == reference.grid_spacing
+            assert histogram.max_rounding_error == reference.max_rounding_error
+
+    @pytest.mark.parametrize("measure", ["generated", "counting"])
+    def test_histograms_by_length_partition_global_histogram(self, analysis, measure):
+        joint = analysis.histograms_by_length(512, measure=measure)
+        global_histogram = analysis.histogram(512, measure=measure)
+        summed = np.sum([histogram.weights for histogram in joint.values()], axis=0)
+        np.testing.assert_allclose(
+            summed,
+            global_histogram.weights,
+            rtol=1e-12,
+            atol=2e-15,
+        )
+
+    def test_histograms_by_length_respect_maximum_and_marginals(self, analysis):
+        marginals = analysis.length_marginals()
+        joint = analysis.histograms_by_length(256, max_length=7)
+        assert joint.keys() == {7}
+        assert joint[7].total_mass == pytest.approx(
+            marginals[7]["generated"], rel=1e-13
+        )
+        assert analysis.histograms_by_length(256, max_length=6) == {}
+
+    def test_histograms_by_length_validation_and_degenerate_graph(self):
+        graph = FlashBackGraph(["CASS"]).without(["CASS"])
+        joint = graph.pseq_analysis().histograms_by_length()
+        assert joint.keys() == {0}
+        np.testing.assert_array_equal(joint[0].weights, [1.0])
+        with pytest.raises(ValueError, match="measure must be"):
+            FlashBackGraph(["CASS", "CATS"]).pseq_analysis().histograms_by_length(
+                measure="collision"
+            )
+        with pytest.raises(TypeError, match="max_length must be"):
+            FlashBackGraph(["CASS", "CATS"]).pseq_analysis().histograms_by_length(
+                max_length=4.5
+            )
+        with pytest.raises(ValueError, match="max_length must be"):
+            FlashBackGraph(["CASS", "CATS"]).pseq_analysis().histograms_by_length(
+                max_length=-1
+            )
+        with pytest.raises(ValueError, match="bins must exceed"):
+            FlashBackGraph(["CASS", "CATS"]).pseq_analysis().histograms_by_length(2)
+
     @pytest.mark.parametrize("bins", [32, 127, 512])
     def test_paired_histograms_match_independent_native_calls(self, analysis, bins):
         paired = analysis.histogram_pair(bins)

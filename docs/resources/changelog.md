@@ -10,6 +10,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `FlashBackPseqAnalysis.histograms_by_length()` reconstructs a block of
+  length-conditioned counting or generated spectra in one native DAG
+  traversal, with the same deterministic grid and reported rounding-error
+  bound as independent `histogram(length=...)` calls.
+
 - `FlashBackPseqAnalysis.length_marginals()` computes per-amino-acid-length
   counting richness and generated probability mass together in one native
   graph traversal. Sequence length excludes the `@` and `$` sentinels.
