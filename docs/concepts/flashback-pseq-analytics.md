@@ -230,9 +230,28 @@ not occur in the training repertoire.
 For probability mass and log-probability moments by length, use:
 
 ```python
+marginals = analysis.length_marginals()
 jets = analysis.length_derivatives(q=1.0, order=4)
 profile = analysis.length_profile()
 ```
+
+`length_marginals()` is the efficient interface when both supported richness
+and generated probability mass are needed. It returns one entry per reachable
+amino-acid length:
+
+```python
+{
+    14: {"counting": 1.23e31, "generated": 0.18},
+    # ...
+}
+```
+
+The native dynamic program transports both measures in one topological DAG
+walk. `counting` is the zeroth-order transform at (q=0), and `generated` is
+the zeroth-order transform at (q=1). Counting uses float64, consistent with
+`path_count_by_length()`; generated probability mass is accumulated in
+extended precision before conversion to a Python float. Use
+`length_derivatives()` when derivatives or another tilt are required.
 
 For each length \(L\), `length_derivatives()` returns
 
@@ -347,6 +366,7 @@ value as `spectrum_mass_before_normalization` and whether rescaling occurred as
 |---|---|
 | How many sequences can be generated at each AA length? | `path_count_by_length()` |
 | What are global probability or surprisal moments? | `derivatives()`, `moments()`, `cumulants()` |
+| How many sequences and how much probability occur at each AA length? | `length_marginals()` |
 | What happens under a strong probability tilt? | `log_mellin()`, `tilted_moments()` |
 | Which nodes and edges carry a tilted distribution? | `attribution()` |
 | How does diversity change as low-weight edges are pruned? | `diversity_under_edge_thresholds()` |

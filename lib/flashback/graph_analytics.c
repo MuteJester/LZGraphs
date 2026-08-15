@@ -538,6 +538,157 @@ length_derivatives_done:
     return LZG_OK;
 }
 
+typedef struct {
+    double *counting;
+    long double *generated;
+} LZGPseqLengthMarginalState;
+
+LZGError lzg_flashback_pseq_length_marginals(
+    const LZGGraph *g, double **counting_out, double **generated_out,
+    uint8_t **present_out, uint32_t *max_length_out) {
+    if (!g || !counting_out || !generated_out || !present_out ||
+        !max_length_out || counting_out == generated_out)
+        return LZG_ERR_INVALID_ARG;
+    *counting_out = NULL;
+    *generated_out = NULL;
+    *present_out = NULL;
+    *max_length_out = 0;
+    if (!g->topo_valid || g->n_nodes == 0 || g->root_node >= g->n_nodes)
+        return LZG_ERR_NOT_BUILT;
+
+    const uint32_t nn = g->n_nodes;
+    uint32_t *symbol_length = (uint32_t *)malloc((size_t)nn * sizeof(uint32_t));
+    uint32_t *min_length = (uint32_t *)malloc((size_t)nn * sizeof(uint32_t));
+    uint32_t *max_length = (uint32_t *)calloc(nn, sizeof(uint32_t));
+    LZGPseqLengthMarginalState *state =
+        (LZGPseqLengthMarginalState *)calloc(
+            nn, sizeof(LZGPseqLengthMarginalState));
+    if (!symbol_length || !min_length || !max_length || !state) {
+        free(symbol_length); free(min_length); free(max_length); free(state);
+        return LZG_ERR_ALLOC;
+    }
+    for (uint32_t u = 0; u < nn; u++) {
+        symbol_length[u] = pc_symbol_length(g, u);
+        min_length[u] = UINT32_MAX;
+    }
+
+    const uint32_t root_length = symbol_length[g->root_node];
+    min_length[g->root_node] = root_length;
+    max_length[g->root_node] = root_length;
+    uint32_t generated_max = 0;
+    for (uint32_t t = 0; t < nn; t++) {
+        const uint32_t u = g->topo_order[t];
+        if (min_length[u] == UINT32_MAX) continue;
+        if (g->row_offsets[u] == g->row_offsets[u + 1] &&
+            max_length[u] > generated_max)
+            generated_max = max_length[u];
+        for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+            const uint32_t v = g->col_indices[e];
+            const uint32_t candidate_min = min_length[u] + symbol_length[v];
+            const uint32_t candidate_max = max_length[u] + symbol_length[v];
+            if (candidate_min < min_length[v]) min_length[v] = candidate_min;
+            if (candidate_max > max_length[v]) max_length[v] = candidate_max;
+        }
+    }
+
+    const size_t output_width = (size_t)generated_max + 1;
+    double *counting = (double *)calloc(output_width, sizeof(double));
+    long double *generated_total = (long double *)calloc(
+        output_width, sizeof(long double));
+    double *generated = (double *)malloc(output_width * sizeof(double));
+    uint8_t *present = (uint8_t *)calloc(output_width, sizeof(uint8_t));
+    if (!counting || !generated_total || !generated || !present) {
+        free(counting); free(generated_total); free(generated); free(present);
+        free(symbol_length); free(min_length); free(max_length); free(state);
+        return LZG_ERR_ALLOC;
+    }
+
+    state[g->root_node].counting = (double *)calloc(1, sizeof(double));
+    state[g->root_node].generated =
+        (long double *)calloc(1, sizeof(long double));
+    if (!state[g->root_node].counting || !state[g->root_node].generated) {
+        free(state[g->root_node].counting);
+        free(state[g->root_node].generated);
+        free(counting); free(generated_total); free(generated); free(present);
+        free(symbol_length); free(min_length); free(max_length); free(state);
+        return LZG_ERR_ALLOC;
+    }
+    state[g->root_node].counting[0] = 1.0;
+    state[g->root_node].generated[0] = 1.0L;
+
+    LZGError err = LZG_OK;
+    for (uint32_t t = 0; t < nn; t++) {
+        const uint32_t u = g->topo_order[t];
+        LZGPseqLengthMarginalState *source = &state[u];
+        if (!source->counting) continue;
+        const uint32_t source_min = min_length[u];
+        const size_t source_width =
+            (size_t)(max_length[u] - source_min) + 1;
+
+        if (g->row_offsets[u] == g->row_offsets[u + 1]) {
+            for (size_t offset = 0; offset < source_width; offset++) {
+                const uint32_t length = source_min + (uint32_t)offset;
+                counting[length] += source->counting[offset];
+                generated_total[length] += source->generated[offset];
+                if (source->counting[offset] != 0.0) present[length] = 1;
+            }
+        } else {
+            for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+                const uint32_t v = g->col_indices[e];
+                LZGPseqLengthMarginalState *destination = &state[v];
+                const size_t destination_width =
+                    (size_t)(max_length[v] - min_length[v]) + 1;
+                if (!destination->counting) {
+                    if (destination_width > SIZE_MAX / sizeof(long double)) {
+                        err = LZG_ERR_ALLOC;
+                        goto length_marginals_done;
+                    }
+                    destination->counting = (double *)calloc(
+                        destination_width, sizeof(double));
+                    destination->generated = (long double *)calloc(
+                        destination_width, sizeof(long double));
+                    if (!destination->counting || !destination->generated) {
+                        err = LZG_ERR_ALLOC;
+                        goto length_marginals_done;
+                    }
+                }
+                const size_t destination_start =
+                    (size_t)(source_min + symbol_length[v] - min_length[v]);
+                const long double weight = (long double)g->edge_weights[e];
+                for (size_t offset = 0; offset < source_width; offset++) {
+                    destination->counting[destination_start + offset] +=
+                        source->counting[offset];
+                    destination->generated[destination_start + offset] +=
+                        source->generated[offset] * weight;
+                }
+            }
+        }
+        free(source->counting); free(source->generated);
+        source->counting = NULL;
+        source->generated = NULL;
+    }
+
+    for (size_t length = 0; length < output_width; length++)
+        generated[length] = (double)generated_total[length];
+
+length_marginals_done:
+    for (uint32_t u = 0; u < nn; u++) {
+        free(state[u].counting);
+        free(state[u].generated);
+    }
+    free(state); free(generated_total);
+    free(symbol_length); free(min_length); free(max_length);
+    if (err != LZG_OK) {
+        free(counting); free(generated); free(present);
+        return err;
+    }
+    *counting_out = counting;
+    *generated_out = generated;
+    *present_out = present;
+    *max_length_out = generated_max;
+    return LZG_OK;
+}
+
 LZGError lzg_flashback_pseq_derivatives(const LZGGraph *g, double q,
                                         uint32_t order,
                                         double *derivatives_out) {

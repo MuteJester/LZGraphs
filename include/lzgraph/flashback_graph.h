@@ -229,6 +229,21 @@ LZGError lzg_flashback_pseq_length_derivatives(
     uint32_t *max_length_out);
 
 /**
+ * Paired counting and generated mass grouped by amino-acid length.
+ *
+ * This is the zeroth-order result of
+ * `lzg_flashback_pseq_length_derivatives()` at `q=0` and `q=1`, computed in
+ * one traversal. Counting states use double precision; generated-mass states
+ * use long-double accumulation. The two returned arrays are indexed from zero
+ * through `*max_length_out`, inclusive. `*present_out[length]` identifies
+ * structurally reachable root-to-sink lengths. All three arrays are malloc'd
+ * and must be freed by the caller.
+ */
+LZGError lzg_flashback_pseq_length_marginals(
+    const LZGGraph *g, double **counting_out, double **generated_out,
+    uint8_t **present_out, uint32_t *max_length_out);
+
+/**
  * Global Mellin-transform derivatives for the p-sequence distribution.
  *
  * Computes derivatives zero through `order` of `sum_s P(s)^q` using

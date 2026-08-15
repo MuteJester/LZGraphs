@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `FlashBackPseqAnalysis.length_marginals()` for exact per-amino-acid-length
+  counting richness and generated probability mass in one native DAG
+  traversal. It is the fused zeroth-order `q=0`/`q=1` interface for analyses
+  that need both length marginals.
+
 - `FlashBackPseqAnalysis.histogram_pair(bins)` for reconstructing the global
   counting and generated p-sequence spectra in one native DAG traversal. The
   two `PseqHistogram` results share one deterministic surprisal grid and the

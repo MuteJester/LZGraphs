@@ -1947,8 +1947,11 @@ static PyObject *py_fb_pseq_length_derivatives(PyObject *self, PyObject *args) {
     double *derivatives = NULL;
     uint8_t *present = NULL;
     uint32_t max_length = 0;
-    LZGError err = lzg_flashback_pseq_length_derivatives(
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_length_derivatives(
         g, q, order, &derivatives, &present, &max_length);
+    Py_END_ALLOW_THREADS
     if (err != LZG_OK) return set_lzg_error(err);
 
     PyObject *result = PyDict_New();
@@ -1985,6 +1988,44 @@ static PyObject *py_fb_pseq_length_derivatives(PyObject *self, PyObject *args) {
         Py_DECREF(jet);
     }
     free(derivatives); free(present);
+    return result;
+}
+
+static PyObject *py_fb_pseq_length_marginals(PyObject *self, PyObject *arg) {
+    (void)self;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(arg, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    double *counting = NULL, *generated = NULL;
+    uint8_t *present = NULL;
+    uint32_t max_length = 0;
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_length_marginals(
+        g, &counting, &generated, &present, &max_length);
+    Py_END_ALLOW_THREADS
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    PyObject *result = PyDict_New();
+    if (!result) {
+        free(counting); free(generated); free(present);
+        return NULL;
+    }
+    for (uint32_t length = 0; length <= max_length; length++) {
+        if (!present[length]) continue;
+        PyObject *key = PyLong_FromUnsignedLong(length);
+        PyObject *value = Py_BuildValue(
+            "{s:d,s:d}", "counting", counting[length],
+            "generated", generated[length]);
+        if (!key || !value || PyDict_SetItem(result, key, value) < 0) {
+            Py_XDECREF(key); Py_XDECREF(value); Py_DECREF(result);
+            free(counting); free(generated); free(present);
+            return NULL;
+        }
+        Py_DECREF(key);
+        Py_DECREF(value);
+    }
+    free(counting); free(generated); free(present);
     return result;
 }
 
@@ -3507,6 +3548,7 @@ static PyMethodDef module_methods[] = {
     {"fb_path_count_by_length", py_fb_path_count_by_length,            METH_O, NULL},
     {"fb_pseq_structure",       py_fb_pseq_structure,                  METH_O, NULL},
     {"fb_pseq_length_derivatives", py_fb_pseq_length_derivatives,      METH_VARARGS, NULL},
+    {"fb_pseq_length_marginals", py_fb_pseq_length_marginals,            METH_O, NULL},
     {"fb_pseq_derivatives",     py_fb_pseq_derivatives,                METH_VARARGS, NULL},
     {"fb_pseq_tilted_moments", py_fb_pseq_tilted_moments,             METH_VARARGS, NULL},
     {"fb_pseq_saddlepoint_batch", py_fb_pseq_saddlepoint_batch,        METH_VARARGS, NULL},

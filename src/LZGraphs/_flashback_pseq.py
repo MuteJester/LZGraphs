@@ -907,6 +907,35 @@ class FlashBackPseqAnalysis:
         derivatives = self.length_derivatives(1.0, 4)
         return {length: self._moments_from_derivatives(jet) for length, jet in derivatives.items()}
 
+    def length_marginals(self) -> dict[int, dict[str, float]]:
+        """Return counting richness and generated mass by AA length.
+
+        For each structurally reachable length, ``counting`` is the number of
+        distinct root-to-sink paths and ``generated`` is their total
+        p-sequence probability. Length is the literal reconstructed amino-acid
+        string length, excluding ``@``, ``$``, and token metadata; it is not
+        the number of edges in the walk.
+
+        The native fused dynamic program computes the zeroth-order
+        length-resolved Mellin transform at ``q=0`` and ``q=1`` in one graph
+        traversal. Counting uses float64 accumulation, while generated mass
+        uses long-double accumulation before returning Python floats.
+
+        Returns:
+            A dictionary keyed by amino-acid length. Each value contains the
+            ``counting`` and ``generated`` marginals for that length.
+        """
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_length_marginals(self.graph._cap)
+        return {
+            int(length): {
+                "counting": float(marginals["counting"]),
+                "generated": float(marginals["generated"]),
+            }
+            for length, marginals in result.items()
+        }
+
     def exact_atoms(self, max_paths: int = 100_000) -> PseqAtoms:
         """Enumerate exact atoms when support size does not exceed ``max_paths``."""
         if max_paths < 1:

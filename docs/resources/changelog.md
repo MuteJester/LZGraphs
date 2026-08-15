@@ -10,6 +10,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `FlashBackPseqAnalysis.length_marginals()` computes per-amino-acid-length
+  counting richness and generated probability mass together in one native
+  graph traversal. Sequence length excludes the `@` and `$` sentinels.
+
 - `FlashBackPseqAnalysis.histogram_pair(bins)` reconstructs global counting
   and generated p-sequence spectra together, sharing the surprisal grid and a
   single native graph traversal. Use `histogram()` when an exact sequence

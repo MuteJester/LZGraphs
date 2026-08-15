@@ -326,6 +326,46 @@ class TestExactTransform:
 
 
 class TestExactMomentsAndLengths:
+    @pytest.mark.parametrize(
+        "sequences",
+        [
+            [flashback_reverse(PATH_A), flashback_reverse(PATH_B)],
+            ["CASS", "CASST", "CAT", "CATS"],
+        ],
+    )
+    def test_length_marginals_match_brute_force_atoms(self, sequences):
+        graph = FlashBackGraph(sequences)
+        analysis = graph.pseq_analysis()
+        atoms = analysis.exact_atoms()
+        marginals = analysis.length_marginals()
+        for length in np.unique(atoms.lengths):
+            selected = atoms.lengths == length
+            assert marginals[int(length)]["counting"] == pytest.approx(
+                float(np.count_nonzero(selected)), rel=0, abs=0
+            )
+            assert marginals[int(length)]["generated"] == pytest.approx(
+                float(np.sum(atoms.probabilities[selected], dtype=np.longdouble)),
+                rel=2e-15,
+                abs=2e-15,
+            )
+
+    def test_length_marginals_match_independent_native_calls(self, analysis):
+        marginals = analysis.length_marginals()
+        counting = analysis.length_derivatives(0.0, 0)
+        generated = analysis.length_derivatives(1.0, 0)
+        assert marginals.keys() == counting.keys() == generated.keys()
+        for length, values in marginals.items():
+            assert values["counting"] == counting[length][0]
+            assert values["generated"] == pytest.approx(
+                generated[length][0], rel=2e-15, abs=2e-15
+            )
+
+    def test_length_marginals_handle_graph_with_no_edges(self):
+        graph = FlashBackGraph(["CASS"]).without(["CASS"])
+        assert graph.pseq_analysis().length_marginals() == {
+            0: {"counting": 1.0, "generated": 1.0}
+        }
+
     def test_path_count_by_length_matches_recombining_atoms(self, recombining_graph, analysis):
         atoms = analysis.exact_atoms()
         expected = {

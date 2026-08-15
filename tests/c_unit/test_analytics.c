@@ -363,6 +363,43 @@ static void test_flashback_pseq_length_derivatives_partition(void) {
     PASS();
 }
 
+static void test_flashback_pseq_length_marginals(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    double *counting = NULL, *generated = NULL;
+    uint8_t *present = NULL;
+    uint32_t max_length = 0;
+    LZGError err = lzg_flashback_pseq_length_marginals(
+        g, &counting, &generated, &present, &max_length);
+    ASSERT_MSG(err == LZG_OK && counting && generated && present,
+               "paired length marginals");
+
+    for (uint32_t q = 0; q <= 1; q++) {
+        double *reference = NULL;
+        uint8_t *reference_present = NULL;
+        uint32_t reference_max = 0;
+        err = lzg_flashback_pseq_length_derivatives(
+            g, (double)q, 0, &reference, &reference_present, &reference_max);
+        ASSERT_MSG(err == LZG_OK && reference_max == max_length,
+                   "reference length marginals");
+        for (uint32_t length = 0; length <= max_length; length++) {
+            ASSERT_MSG(present[length] == reference_present[length],
+                       "paired lengths match reference support");
+            const double actual = q == 0 ? counting[length] : generated[length];
+            ASSERT_MSG(fabs(actual - reference[length]) <
+                           1e-13 * fmax(1.0, fabs(reference[length])),
+                       "paired length marginal matches reference");
+        }
+        free(reference);
+        free(reference_present);
+    }
+
+    free(counting); free(generated); free(present);
+    lzg_graph_destroy(g);
+    PASS();
+}
+
 static void test_flashback_pseq_attribution_conservation(void) {
     LZGGraph *g = build_flashback_graph();
     ASSERT_MSG(g != NULL, "flashback graph");
@@ -645,6 +682,7 @@ int main(void) {
     RUN_TEST(test_hill_numbers_mc_match_direct_formula);
     RUN_TEST(test_pgen_dynamic_range);
     RUN_TEST(test_flashback_pseq_length_derivatives_partition);
+    RUN_TEST(test_flashback_pseq_length_marginals);
     RUN_TEST(test_flashback_pseq_attribution_conservation);
     RUN_TEST(test_flashback_edge_threshold_diversity);
     RUN_TEST(test_flashback_pseq_histogram_conservation);

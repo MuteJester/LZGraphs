@@ -188,6 +188,7 @@ analysis.diversity_under_edge_thresholds(thresholds)  # conditioned D0/D1/D2
 analysis.moments()                 # exact surprisal moments
 analysis.cumulants()               # exact surprisal cumulants
 graph.path_count_by_length()       # generated richness by literal AA length
+analysis.length_marginals()        # fused richness/probability by AA length
 analysis.length_derivatives(q, 4)  # transform derivatives by AA length
 analysis.length_profile()          # exact moments by sequence length
 analysis.exact_atoms()             # exact enumeration for small supports
