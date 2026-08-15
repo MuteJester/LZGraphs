@@ -2312,9 +2312,12 @@ static PyObject *py_fb_pseq_histogram(PyObject *self, PyObject *args) {
     double *weights = NULL;
     double spacing, true_max_surprisal;
     uint32_t max_edges;
-    LZGError err = lzg_flashback_pseq_histogram(
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_histogram(
         g, bins, q, (int64_t)length, &weights, &spacing,
         &true_max_surprisal, &max_edges);
+    Py_END_ALLOW_THREADS
     if (err != LZG_OK) return set_lzg_error(err);
     PyObject *values = PyList_New(bins);
     if (!values) {
@@ -2333,6 +2336,54 @@ static PyObject *py_fb_pseq_histogram(PyObject *self, PyObject *args) {
     return Py_BuildValue(
         "{s:N,s:d,s:d,s:I}",
         "weights", values,
+        "spacing", spacing,
+        "true_max_surprisal", true_max_surprisal,
+        "max_edges", max_edges);
+}
+
+static PyObject *py_fb_pseq_histogram_pair(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap;
+    unsigned int bins;
+    if (!PyArg_ParseTuple(args, "OI", &cap, &bins)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+
+    double *counting = NULL, *generated = NULL;
+    double spacing, true_max_surprisal;
+    uint32_t max_edges;
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_pseq_histogram_pair(
+        g, bins, &counting, &generated, &spacing,
+        &true_max_surprisal, &max_edges);
+    Py_END_ALLOW_THREADS
+    if (err != LZG_OK) return set_lzg_error(err);
+
+    PyObject *counting_values = PyList_New(bins);
+    PyObject *generated_values = PyList_New(bins);
+    if (!counting_values || !generated_values) {
+        Py_XDECREF(counting_values); Py_XDECREF(generated_values);
+        free(counting); free(generated);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < bins; i++) {
+        PyObject *counting_value = PyFloat_FromDouble(counting[i]);
+        PyObject *generated_value = PyFloat_FromDouble(generated[i]);
+        if (!counting_value || !generated_value) {
+            Py_XDECREF(counting_value); Py_XDECREF(generated_value);
+            Py_DECREF(counting_values); Py_DECREF(generated_values);
+            free(counting); free(generated);
+            return NULL;
+        }
+        PyList_SET_ITEM(counting_values, i, counting_value);
+        PyList_SET_ITEM(generated_values, i, generated_value);
+    }
+    free(counting); free(generated);
+    return Py_BuildValue(
+        "{s:N,s:N,s:d,s:d,s:I}",
+        "counting_weights", counting_values,
+        "generated_weights", generated_values,
         "spacing", spacing,
         "true_max_surprisal", true_max_surprisal,
         "max_edges", max_edges);
@@ -3462,6 +3513,7 @@ static PyMethodDef module_methods[] = {
     {"fb_edge_threshold_diversity", py_fb_edge_threshold_diversity,    METH_VARARGS, NULL},
     {"fb_pseq_attribution",    py_fb_pseq_attribution,                 METH_VARARGS, NULL},
     {"fb_pseq_histogram",       py_fb_pseq_histogram,                  METH_VARARGS, NULL},
+    {"fb_pseq_histogram_pair",  py_fb_pseq_histogram_pair,             METH_VARARGS, NULL},
     {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},
     {"fb_power_sum",            py_fb_power_sum,                       METH_VARARGS, NULL},
     {"fb_hill_number",          py_fb_hill_number,                     METH_VARARGS, NULL},

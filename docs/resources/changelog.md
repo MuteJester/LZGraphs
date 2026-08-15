@@ -10,6 +10,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `FlashBackPseqAnalysis.histogram_pair(bins)` reconstructs global counting
+  and generated p-sequence spectra together, sharing the surprisal grid and a
+  single native graph traversal. Use `histogram()` when an exact sequence
+  length is required.
+
 - `FlashBackPseqAnalysis.diversity_under_edge_thresholds(thresholds)` computes
   conditioned D0, D1, D2, surviving probability mass, and retained-edge counts
   for an edge-pruning curve in a native batched dynamic program. Retention is

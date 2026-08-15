@@ -1042,6 +1042,77 @@ class FlashBackPseqAnalysis:
             length=length,
         )
 
+    def histogram_pair(self, bins: int = 2048) -> dict[str, PseqHistogram]:
+        """Reconstruct global counting and generated spectra together.
+
+        This fused native calculation is equivalent to calling
+        ``histogram(bins, measure="counting")`` and
+        ``histogram(bins, measure="generated")`` separately. It traverses the
+        graph once, reusing the topological order, grid bounds, and edge
+        shifts. Both returned histograms therefore share exactly the same
+        surprisal grid and numerical error bound.
+
+        Use this interface when an analysis needs both measures, as spectrum,
+        discovery, and publicness workflows commonly do. Exact-length
+        restrictions remain available through the single-measure
+        :meth:`histogram` method.
+
+        Args:
+            bins: Number of surprisal grid points. Must exceed the maximum
+                root-to-sink edge count plus one.
+
+        Returns:
+            A dictionary with ``counting`` and ``generated``
+            :class:`PseqHistogram` values.
+        """
+        if self._true_max_surprisal == 0:
+            grid = np.array([0.0])
+            return {
+                "counting": PseqHistogram(
+                    surprisal=grid.copy(),
+                    weights=np.array([self.mellin(0.0)], dtype=np.float64),
+                    measure="counting",
+                    q=0.0,
+                    grid_spacing=0.0,
+                    max_rounding_error=0.0,
+                    true_max_surprisal=0.0,
+                ),
+                "generated": PseqHistogram(
+                    surprisal=grid.copy(),
+                    weights=np.array([self.mellin(1.0)], dtype=np.float64),
+                    measure="generated",
+                    q=1.0,
+                    grid_spacing=0.0,
+                    max_rounding_error=0.0,
+                    true_max_surprisal=0.0,
+                ),
+            }
+        if bins <= self._max_edges + 1:
+            raise ValueError(f"bins must exceed max path edges + 1 ({self._max_edges + 1})")
+        from . import _clzgraph as _c
+
+        result = _c.fb_pseq_histogram_pair(self.graph._cap, int(bins))
+        spacing = float(result["spacing"])
+        true_max = float(result["true_max_surprisal"])
+        max_error = float(result["max_edges"] * spacing)
+        grid = np.arange(bins, dtype=np.float64) * spacing
+
+        def make_histogram(measure: str, q: float, key: str) -> PseqHistogram:
+            return PseqHistogram(
+                surprisal=grid.copy(),
+                weights=np.asarray(result[key], dtype=np.float64),
+                measure=measure,
+                q=q,
+                grid_spacing=spacing,
+                max_rounding_error=max_error,
+                true_max_surprisal=true_max,
+            )
+
+        return {
+            "counting": make_histogram("counting", 0.0, "counting_weights"),
+            "generated": make_histogram("generated", 1.0, "generated_weights"),
+        }
+
     def _histogram_python(
         self,
         bins: int = 2048,

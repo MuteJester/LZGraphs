@@ -192,6 +192,7 @@ analysis.length_derivatives(q, 4)  # transform derivatives by AA length
 analysis.length_profile()          # exact moments by sequence length
 analysis.exact_atoms()             # exact enumeration for small supports
 analysis.histogram()               # deterministic large-support grid
+analysis.histogram_pair()          # fused global counting/generated grids
 analysis.saddlepoint().pdf_cdf(x)  # batched smooth PDF/CDF approximation
 analysis.position(sequence)         # individual repertoire position
 analysis.expected_richness(n)       # finite-depth occupancy prediction
@@ -202,6 +203,10 @@ analysis.publicness_distribution(depths)  # predicted repertoire occupancy
 `exact_atoms()` is necessarily support-limited because an explicit PMF can
 contain exponentially many atoms. `histogram()` is deterministic and reports
 its grid spacing and rounding-error bound; it has no Monte Carlo variance.
+When both global measures are needed, `histogram_pair()` returns a dictionary
+containing `counting` and `generated` histograms after one native graph
+traversal. Exact-length reconstruction remains available through
+`histogram(length=...)`.
 
 Here, sequence length is the number of amino-acid characters in the sequence
 reconstructed by a path, excluding the `@` and `$` sentinels and all token
@@ -209,7 +214,8 @@ metadata. It is not the number of nodes or edges in the walk. See
 [FlashBack P-Sequence Analytics](../concepts/flashback-pseq-analytics.md) for
 the transform equations, stable tilted moments, structural attribution,
 edge-pruning curves, saddlepoint inversion, length-conditioned interpretation,
-histogram measures, batched discovery/novelty curves, and guidance on choosing
+histogram measures, fused global reconstruction, batched discovery/novelty
+curves, and guidance on choosing
 an interface.
 
 ### publicness_distribution

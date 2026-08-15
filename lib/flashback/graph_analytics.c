@@ -1358,6 +1358,108 @@ histogram_global_done:
     return err;
 }
 
+typedef struct {
+    double *counting;
+    double *generated;
+    uint32_t lo;
+    uint32_t hi;
+} LZGPseqGridPairState;
+
+static LZGError pseq_histogram_global_pair(
+    const LZGGraph *g, uint32_t bins, double spacing,
+    const uint32_t *grid_lo, const uint32_t *grid_hi,
+    long double *counting_total, long double *generated_total) {
+    LZGPseqGridPairState *state = (LZGPseqGridPairState *)calloc(
+        g->n_nodes, sizeof(LZGPseqGridPairState));
+    if (!state) return LZG_ERR_ALLOC;
+    LZGPseqGridPairState *root = &state[g->root_node];
+    root->counting = (double *)calloc(1, sizeof(double));
+    root->generated = (double *)calloc(1, sizeof(double));
+    if (!root->counting || !root->generated) {
+        free(root->counting); free(root->generated); free(state);
+        return LZG_ERR_ALLOC;
+    }
+    root->counting[0] = 1.0L;
+    root->generated[0] = 1.0L;
+    root->lo = root->hi = 0;
+    LZGError err = LZG_OK;
+
+    for (uint32_t t = 0; t < g->n_nodes; t++) {
+        const uint32_t u = g->topo_order[t];
+        LZGPseqGridPairState *source = &state[u];
+        if (!source->counting) continue;
+        const size_t source_width = (size_t)(source->hi - source->lo) + 1;
+        if (g->row_offsets[u] == g->row_offsets[u + 1]) {
+            for (size_t i = 0; i < source_width; i++) {
+                counting_total[(size_t)source->lo + i] += source->counting[i];
+                generated_total[(size_t)source->lo + i] += source->generated[i];
+            }
+        } else {
+            for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+                const uint32_t v = g->col_indices[e];
+                LZGPseqGridPairState *destination = &state[v];
+                if (!destination->counting) {
+                    destination->lo = grid_lo[v];
+                    destination->hi = grid_hi[v];
+                    const size_t width =
+                        (size_t)(destination->hi - destination->lo) + 1;
+                    if (width > SIZE_MAX / sizeof(double)) {
+                        err = LZG_ERR_ALLOC;
+                        goto histogram_pair_done;
+                    }
+                    destination->counting = (double *)calloc(
+                        width, sizeof(double));
+                    destination->generated = (double *)calloc(
+                        width, sizeof(double));
+                    if (!destination->counting || !destination->generated) {
+                        err = LZG_ERR_ALLOC;
+                        goto histogram_pair_done;
+                    }
+                }
+                const double weight = g->edge_weights[e];
+                const double shift = -log(weight) / spacing;
+                const uint32_t lower = (uint32_t)floor(shift);
+                const long double fraction =
+                    (long double)(shift - (double)lower);
+                const long double lower_weight = 1.0L - fraction;
+                for (size_t offset = 0; offset < source_width; offset++) {
+                    if (source->counting[offset] == 0.0L &&
+                        source->generated[offset] == 0.0L)
+                        continue;
+                    const uint64_t base =
+                        (uint64_t)source->lo + offset + lower;
+                    const size_t destination_offset =
+                        (size_t)base - destination->lo;
+                    if (base < bins && lower_weight != 0.0L) {
+                        destination->counting[destination_offset] +=
+                            source->counting[offset] * (double)lower_weight;
+                        destination->generated[destination_offset] +=
+                            source->generated[offset] *
+                            (double)lower_weight * weight;
+                    }
+                    if (fraction != 0.0L && base + 1 < bins) {
+                        destination->counting[destination_offset + 1] +=
+                            source->counting[offset] * (double)fraction;
+                        destination->generated[destination_offset + 1] +=
+                            source->generated[offset] *
+                            (double)fraction * weight;
+                    }
+                }
+            }
+        }
+        free(source->counting); free(source->generated);
+        source->counting = NULL;
+        source->generated = NULL;
+    }
+
+histogram_pair_done:
+    for (uint32_t u = 0; u < g->n_nodes; u++) {
+        free(state[u].counting); free(state[u].generated);
+    }
+    free(state);
+    return err;
+}
+
 static void pseq_bitset_shift_or(uint64_t *destination, const uint64_t *source,
                                  size_t words, uint32_t shift,
                                  uint32_t max_bit) {
@@ -1589,6 +1691,81 @@ LZGError lzg_flashback_pseq_histogram(const LZGGraph *g, uint32_t bins,
     *max_edges_out = max_edges;
 
 histogram_done:
+    free(symbol_length); free(grid_lo); free(grid_hi);
+    return err;
+}
+
+LZGError lzg_flashback_pseq_histogram_pair(
+    const LZGGraph *g, uint32_t bins,
+    double **counting_weights_out, double **generated_weights_out,
+    double *spacing_out, double *true_max_surprisal_out,
+    uint32_t *max_edges_out) {
+    if (!g || !counting_weights_out || !generated_weights_out ||
+        !spacing_out || !true_max_surprisal_out || !max_edges_out)
+        return LZG_ERR_INVALID_ARG;
+    *counting_weights_out = NULL;
+    *generated_weights_out = NULL;
+    if (!g->topo_valid || g->n_nodes == 0 || g->root_node >= g->n_nodes)
+        return LZG_ERR_NOT_BUILT;
+
+    uint8_t *symbol_length = (uint8_t *)malloc(g->n_nodes);
+    uint32_t *grid_lo = (uint32_t *)malloc(
+        (size_t)g->n_nodes * sizeof(uint32_t));
+    uint32_t *grid_hi = (uint32_t *)calloc(g->n_nodes, sizeof(uint32_t));
+    if (!symbol_length || !grid_lo || !grid_hi) {
+        free(symbol_length); free(grid_lo); free(grid_hi);
+        return LZG_ERR_ALLOC;
+    }
+    double true_min, true_max;
+    uint32_t max_edges;
+    LZGError err = lzg_flashback_pseq_init(
+        g, symbol_length, &true_min, &true_max, &max_edges);
+    (void)true_min;
+    if (err != LZG_OK) goto histogram_pair_wrapper_done;
+    if (true_max <= 0.0 || bins <= max_edges + 1) {
+        err = LZG_ERR_INVALID_ARG;
+        goto histogram_pair_wrapper_done;
+    }
+    const double spacing = true_max / (double)(bins - 1 - max_edges);
+    err = pseq_histogram_grid_bounds(
+        g, bins, spacing, grid_lo, grid_hi);
+    if (err != LZG_OK) goto histogram_pair_wrapper_done;
+
+    long double *counting_total = (long double *)calloc(
+        bins, sizeof(long double));
+    long double *generated_total = (long double *)calloc(
+        bins, sizeof(long double));
+    double *counting_weights = (double *)malloc(
+        (size_t)bins * sizeof(double));
+    double *generated_weights = (double *)malloc(
+        (size_t)bins * sizeof(double));
+    if (!counting_total || !generated_total ||
+        !counting_weights || !generated_weights) {
+        free(counting_total); free(generated_total);
+        free(counting_weights); free(generated_weights);
+        err = LZG_ERR_ALLOC;
+        goto histogram_pair_wrapper_done;
+    }
+    err = pseq_histogram_global_pair(
+        g, bins, spacing, grid_lo, grid_hi,
+        counting_total, generated_total);
+    if (err != LZG_OK) {
+        free(counting_total); free(generated_total);
+        free(counting_weights); free(generated_weights);
+        goto histogram_pair_wrapper_done;
+    }
+    for (uint32_t i = 0; i < bins; i++) {
+        counting_weights[i] = (double)counting_total[i];
+        generated_weights[i] = (double)generated_total[i];
+    }
+    free(counting_total); free(generated_total);
+    *counting_weights_out = counting_weights;
+    *generated_weights_out = generated_weights;
+    *spacing_out = spacing;
+    *true_max_surprisal_out = true_max;
+    *max_edges_out = max_edges;
+
+histogram_pair_wrapper_done:
     free(symbol_length); free(grid_lo); free(grid_hi);
     return err;
 }

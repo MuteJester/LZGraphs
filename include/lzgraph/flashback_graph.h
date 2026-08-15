@@ -339,6 +339,21 @@ LZGError lzg_flashback_pseq_histogram(const LZGGraph *g, uint32_t bins,
                                       double *true_max_surprisal_out,
                                       uint32_t *max_edges_out);
 
+/**
+ * Fused global counting and generated p-sequence histograms.
+ *
+ * This is mathematically equivalent to two global calls to
+ * `lzg_flashback_pseq_histogram()` with `q=0` and `q=1`, respectively, but
+ * computes grid bounds, edge shifts, and graph traversal once. Both measures
+ * use the same surprisal grid and linear transport rule. On success the two
+ * `bins`-element float64 arrays are owned by the caller and must be freed.
+ */
+LZGError lzg_flashback_pseq_histogram_pair(
+    const LZGGraph *g, uint32_t bins,
+    double **counting_weights_out, double **generated_weights_out,
+    double *spacing_out, double *true_max_surprisal_out,
+    uint32_t *max_edges_out);
+
 LZGError lzg_flashback_effective_diversity(const LZGGraph *g,
                                            LZGEffectiveDiversity *out);
 

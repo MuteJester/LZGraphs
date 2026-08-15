@@ -262,6 +262,11 @@ counting_at_length_15 = analysis.histogram(
     measure="counting",
     length=15,
 )
+
+# When both global measures are needed, construct them in one traversal.
+spectra = analysis.histogram_pair(bins=4096)
+counting = spectra["counting"]
+generated = spectra["generated"]
 ```
 
 The generated measure gives each sequence its probability \(P(s)\); without a
@@ -276,6 +281,17 @@ surprisal moment. The reconstruction is deterministic and has no Monte Carlo
 variance, but it is still a grid approximation: `grid_spacing` reports its
 resolution and `max_rounding_error` bounds the worst accumulated placement
 error along a path.
+
+`histogram_pair()` is the efficient global interface when both counting and
+generated spectra are required. It computes the common grid bounds and walks
+the DAG once, carrying both measures through the same linear transport. Its
+results have the same `PseqHistogram` interpretation and rounding-error bound
+as two independent `histogram()` calls. The transient states use float64 and
+the sink reduction uses extended precision; this keeps memory proportional to
+two active grid states while retaining a relative numerical agreement target
+of `1e-12` with the independent extended-precision calculations. Use
+`histogram()` for an exact-length restriction, which the fused global API does
+not accept.
 
 ## Discovery and novelty curves
 
@@ -336,7 +352,7 @@ value as `spectrum_mass_before_normalization` and whether rescaling occurred as
 | How does diversity change as low-weight edges are pruned? | `diversity_under_edge_thresholds()` |
 | What are those quantities at each AA length? | `length_derivatives()`, `length_profile()` |
 | Can I enumerate every probability atom? | `exact_atoms()` for small supports |
-| What does a large probability spectrum look like? | `histogram()` |
+| What does a large probability spectrum look like? | `histogram()`, or `histogram_pair()` for both global measures |
 | What smooth PDF/CDF approximates the generated spectrum? | `saddlepoint().pdf_cdf()` |
 | Where does one sequence lie in the spectrum? | `position()` |
 | How quickly are sequences discovered, and how much novelty remains? | `discovery_curve()` |
@@ -350,4 +366,5 @@ analysis = graph.pseq_analysis()
 moments = analysis.moments()
 by_length = analysis.length_profile()
 histogram = analysis.histogram(4096)
+both_histograms = analysis.histogram_pair(4096)
 ```

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `FlashBackPseqAnalysis.histogram_pair(bins)` for reconstructing the global
+  counting and generated p-sequence spectra in one native DAG traversal. The
+  two `PseqHistogram` results share one deterministic surprisal grid and the
+  same reported pathwise rounding-error bound as independent `histogram()`
+  calls.
+
 - `FlashBackPseqAnalysis.diversity_under_edge_thresholds(thresholds)` for
   exact conditioned D0, D1, D2, surviving mass, and retained-edge counts over
   an edge-pruning curve. The native batched dynamic program uses strict

@@ -738,6 +738,36 @@ class TestEdgeThresholdDiversity:
 
 class TestDeterministicReconstruction:
     @pytest.mark.parametrize("bins", [32, 127, 512])
+    def test_paired_histograms_match_independent_native_calls(self, analysis, bins):
+        paired = analysis.histogram_pair(bins)
+        counting = analysis.histogram(bins, measure="counting")
+        generated = analysis.histogram(bins, measure="generated")
+        np.testing.assert_array_equal(paired["counting"].surprisal, counting.surprisal)
+        np.testing.assert_array_equal(paired["generated"].surprisal, generated.surprisal)
+        np.testing.assert_allclose(
+            paired["counting"].weights,
+            counting.weights,
+            rtol=1e-12,
+            atol=0.0,
+        )
+        np.testing.assert_allclose(
+            paired["generated"].weights,
+            generated.weights,
+            rtol=1e-12,
+            atol=1e-15,
+        )
+        assert paired["counting"].grid_spacing == counting.grid_spacing
+        assert paired["generated"].max_rounding_error == generated.max_rounding_error
+
+    def test_paired_histogram_validation_and_degenerate_graph(self):
+        graph = FlashBackGraph(["CASS"]).without(["CASS"])
+        paired = graph.pseq_analysis().histogram_pair()
+        np.testing.assert_array_equal(paired["counting"].weights, [1.0])
+        np.testing.assert_array_equal(paired["generated"].weights, [1.0])
+        with pytest.raises(ValueError, match="bins must exceed"):
+            FlashBackGraph(["CASS", "CATS"]).pseq_analysis().histogram_pair(2)
+
+    @pytest.mark.parametrize("bins", [32, 127, 512])
     @pytest.mark.parametrize("measure", ["generated", "counting"])
     @pytest.mark.parametrize("length", [None, 7, 8, 99])
     def test_native_histogram_matches_python_reference(self, analysis, bins, measure, length):
