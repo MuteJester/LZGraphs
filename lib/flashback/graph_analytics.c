@@ -938,6 +938,141 @@ LZGError lzg_flashback_pseq_attribution(
     return LZG_OK;
 }
 
+/* Threshold lanes are processed in cache-sized batches. This bounds working
+ * memory independently of a sweep's resolution while retaining contiguous
+ * per-node lanes and scanning each CSR edge only once per batch. */
+#define PSEQ_THRESHOLD_BATCH 8U
+
+static uint32_t pseq_thresholds_below(
+    const double *thresholds, uint32_t n, double weight) {
+    uint32_t lo = 0, hi = n;
+    while (lo < hi) {
+        const uint32_t mid = lo + (hi - lo) / 2;
+        if (thresholds[mid] < weight)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    return lo;
+}
+
+LZGError lzg_flashback_edge_threshold_diversity(
+    const LZGGraph *g, const double *thresholds, uint32_t n_thresholds,
+    double *log_d0_out, double *log_d1_out, double *log_d2_out,
+    double *surviving_mass_out, uint64_t *kept_edges_out) {
+    if (!g) return LZG_ERR_INVALID_ARG;
+    if (n_thresholds == 0) return LZG_OK;
+    if (!thresholds || !log_d0_out || !log_d1_out || !log_d2_out ||
+        !surviving_mass_out || !kept_edges_out)
+        return LZG_ERR_INVALID_ARG;
+    if (!g->topo_valid || g->n_nodes == 0 || g->root_node >= g->n_nodes)
+        return LZG_ERR_NOT_BUILT;
+    for (uint32_t j = 0; j < n_thresholds; j++) {
+        if (isnan(thresholds[j]) ||
+            (j > 0 && thresholds[j] < thresholds[j - 1]))
+            return LZG_ERR_INVALID_ARG;
+        log_d0_out[j] = -INFINITY;
+        log_d1_out[j] = -INFINITY;
+        log_d2_out[j] = -INFINITY;
+        surviving_mass_out[j] = 0.0;
+        kept_edges_out[j] = 0;
+    }
+    for (uint32_t e = 0; e < g->n_edges; e++) {
+        const double weight = g->edge_weights[e];
+        if (!(weight > 0.0) || !isfinite(weight))
+            return LZG_ERR_PARAM_OUT_OF_RANGE;
+    }
+
+    const uint32_t nn = g->n_nodes;
+    for (uint32_t first = 0; first < n_thresholds;
+         first += PSEQ_THRESHOLD_BATCH) {
+        const uint32_t lanes = n_thresholds - first < PSEQ_THRESHOLD_BATCH
+            ? n_thresholds - first : PSEQ_THRESHOLD_BATCH;
+        if ((size_t)nn > SIZE_MAX / lanes / sizeof(long double))
+            return LZG_ERR_ALLOC;
+        const size_t state_size = (size_t)nn * lanes;
+        long double *count = (long double *)calloc(
+            state_size, sizeof(long double));
+        long double *mass = (long double *)calloc(
+            state_size, sizeof(long double));
+        long double *square_mass = (long double *)calloc(
+            state_size, sizeof(long double));
+        long double *surprisal = (long double *)calloc(
+            state_size, sizeof(long double));
+        if (!count || !mass || !square_mass || !surprisal) {
+            free(count); free(mass); free(square_mass); free(surprisal);
+            return LZG_ERR_ALLOC;
+        }
+        const size_t root = (size_t)g->root_node * lanes;
+        for (uint32_t j = 0; j < lanes; j++) {
+            count[root + j] = 1.0L;
+            mass[root + j] = 1.0L;
+            square_mass[root + j] = 1.0L;
+        }
+
+        long double total_count[PSEQ_THRESHOLD_BATCH] = {0};
+        long double total_mass[PSEQ_THRESHOLD_BATCH] = {0};
+        long double total_square[PSEQ_THRESHOLD_BATCH] = {0};
+        long double total_surprisal[PSEQ_THRESHOLD_BATCH] = {0};
+        const double *batch_thresholds = thresholds + first;
+
+        for (uint32_t t = 0; t < nn; t++) {
+            const uint32_t u = g->topo_order[t];
+            const size_t source = (size_t)u * lanes;
+            if (g->row_offsets[u] == g->row_offsets[u + 1]) {
+                for (uint32_t j = 0; j < lanes; j++) {
+                    total_count[j] += count[source + j];
+                    total_mass[j] += mass[source + j];
+                    total_square[j] += square_mass[source + j];
+                    total_surprisal[j] += surprisal[source + j];
+                }
+                continue;
+            }
+            for (uint32_t e = g->row_offsets[u]; e < g->row_offsets[u + 1]; e++) {
+                const double weight = g->edge_weights[e];
+                const uint32_t active = pseq_thresholds_below(
+                    batch_thresholds, lanes, weight);
+                for (uint32_t j = 0; j < active; j++)
+                    kept_edges_out[first + j]++;
+                if (active == 0) continue;
+                const uint32_t v = g->col_indices[e];
+                const size_t destination = (size_t)v * lanes;
+                const long double w = (long double)weight;
+                const long double w2 = w * w;
+                const long double negative_log_w = -logl(w);
+                for (uint32_t j = 0; j < active; j++) {
+                    const long double source_count = count[source + j];
+                    if (source_count == 0.0L) continue;
+                    const long double source_mass = mass[source + j];
+                    count[destination + j] += source_count;
+                    mass[destination + j] += source_mass * w;
+                    square_mass[destination + j] +=
+                        square_mass[source + j] * w2;
+                    surprisal[destination + j] +=
+                        w * surprisal[source + j] +
+                        negative_log_w * w * source_mass;
+                }
+            }
+        }
+
+        for (uint32_t j = 0; j < lanes; j++) {
+            const uint32_t output = first + j;
+            if (total_count[j] > 0.0L && total_mass[j] > 0.0L &&
+                total_square[j] > 0.0L) {
+                const long double log_z = logl(total_mass[j]);
+                log_d0_out[output] = (double)logl(total_count[j]);
+                log_d1_out[output] = (double)(
+                    log_z + total_surprisal[j] / total_mass[j]);
+                log_d2_out[output] = (double)(
+                    2.0L * log_z - logl(total_square[j]));
+                surviving_mass_out[output] = (double)total_mass[j];
+            }
+        }
+        free(count); free(mass); free(square_mass); free(surprisal);
+    }
+    return LZG_OK;
+}
+
 static LZGError pseq_saddle_eval(const LZGGraph *g, long double t,
                                  uint32_t order, long double *k,
                                  long double *mean, long double *variance,

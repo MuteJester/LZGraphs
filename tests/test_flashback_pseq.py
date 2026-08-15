@@ -49,6 +49,7 @@ def reference_path_count(graph):
     assert len(order) == n_nodes, "graph is not a DAG"
     return sum(counts[u] for u in range(n_nodes) if row[u] == row[u + 1])
 
+
 PATH_A = [
     "@$_1{0}",
     "AE_1{1}",
@@ -127,12 +128,14 @@ def enumerate_edge_paths(graph):
             continue
         for edge in range(start, end):
             target = int(col[edge])
-            stack.append((
-                target,
-                probability * float(weights[edge]),
-                nodes + (target,),
-                edges + (edge,),
-            ))
+            stack.append(
+                (
+                    target,
+                    probability * float(weights[edge]),
+                    nodes + (target,),
+                    edges + (edge,),
+                )
+            )
     return paths
 
 
@@ -146,7 +149,8 @@ class TestExactTransform:
 
     def test_native_initialization_matches_python_reference(self, analysis):
         np.testing.assert_array_equal(
-            analysis._topological_order, analysis._make_topological_order())
+            analysis._topological_order, analysis._make_topological_order()
+        )
         native_bounds = (
             analysis.true_min_surprisal,
             analysis.true_max_surprisal,
@@ -155,8 +159,7 @@ class TestExactTransform:
         np.testing.assert_allclose(native_bounds, analysis._path_bounds(), rtol=0, atol=0)
 
     def test_native_graph_views_are_read_only_and_zero_copy(self, analysis):
-        for array in (analysis._row, analysis._col, analysis._weights,
-                      analysis._topological_order):
+        for array in (analysis._row, analysis._col, analysis._weights, analysis._topological_order):
             assert not array.flags.writeable
             assert not array.flags.owndata
 
@@ -173,8 +176,7 @@ class TestExactTransform:
         # represented exactly by a double.
         random.seed(20240730)
         sequences = [
-            "C" + "".join(random.choice("ACGT") for _ in range(40)) + "F"
-            for _ in range(3000)
+            "C" + "".join(random.choice("ACGT") for _ in range(40)) + "F" for _ in range(3000)
         ]
         graph = FlashBackGraph(sequences)
 
@@ -192,9 +194,7 @@ class TestExactTransform:
 
     @pytest.mark.parametrize("q", [-0.5, 0.0, 0.25, 0.5, 1.0, 2.0, 3.0])
     def test_mellin_matches_all_enumerated_paths(self, recombining_graph, analysis, q):
-        probabilities = np.array(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)]
-        )
+        probabilities = np.array([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         expected = np.sum(probabilities**q)
         assert analysis.mellin(q) == pytest.approx(expected, rel=2e-14)
         assert analysis.log_mellin(q) == pytest.approx(np.log(expected), abs=2e-14)
@@ -202,7 +202,8 @@ class TestExactTransform:
     @pytest.mark.parametrize("q", [-50.0, -10.0, -1.0, 0.0, 1.0, 10.0, 50.0])
     def test_native_log_mellin_matches_python_logsumexp(self, analysis, q):
         assert analysis.log_mellin(q) == pytest.approx(
-            analysis._log_mellin_python(q), rel=0, abs=2e-13)
+            analysis._log_mellin_python(q), rel=0, abs=2e-13
+        )
 
     @pytest.mark.parametrize("q", [-10.0, -1.0, 0.0, 0.5, 1.0, 3.0, 10.0])
     @pytest.mark.parametrize("order", [0, 1, 2, 4, 8])
@@ -210,13 +211,10 @@ class TestExactTransform:
         native_log_mass, native_raw = analysis._tilted_log_moments(q, order)
         python_log_mass, python_raw = analysis._tilted_log_moments_python(q, order)
         assert native_log_mass == pytest.approx(python_log_mass, abs=3e-13)
-        np.testing.assert_allclose(
-            native_raw, python_raw, rtol=3e-13, atol=3e-11)
+        np.testing.assert_allclose(native_raw, python_raw, rtol=3e-13, atol=3e-11)
 
     @pytest.mark.parametrize("q", [-1000.0, -100.0, 100.0, 1000.0])
-    def test_log_domain_transform_remains_finite_at_extreme_tilts(
-        self, analysis, q
-    ):
+    def test_log_domain_transform_remains_finite_at_extreme_tilts(self, analysis, q):
         atoms = analysis.exact_atoms()
         terms = q * np.log(atoms.probabilities)
         expected = float(np.logaddexp.reduce(terms))
@@ -238,16 +236,21 @@ class TestExactTransform:
         central2 = np.sum(weights * centered**2, dtype=np.longdouble)
         central3 = np.sum(weights * centered**3, dtype=np.longdouble)
         central4 = np.sum(weights * centered**4, dtype=np.longdouble)
-        expected = np.array([
-            maximum + np.log(np.sum(np.exp(log_weights - maximum))),
-            mean,
-            central2,
-            central3,
-            central4 - 3 * central2**2,
-        ], dtype=np.float64)
+        expected = np.array(
+            [
+                maximum + np.log(np.sum(np.exp(log_weights - maximum))),
+                mean,
+                central2,
+                central3,
+                central4 - 3 * central2**2,
+            ],
+            dtype=np.float64,
+        )
         np.testing.assert_allclose(
-            analysis._cgf_derivatives(t, 4), expected,
-            rtol=2e-13, atol=2e-13,
+            analysis._cgf_derivatives(t, 4),
+            expected,
+            rtol=2e-13,
+            atol=2e-13,
         )
 
     def test_public_tilted_moments_reports_normalized_statistics(self, analysis):
@@ -264,8 +267,7 @@ class TestExactTransform:
         assert cumulants[1] == raw[1]
         assert cumulants[2] == central[2]
         assert cumulants[3] == central[3]
-        assert cumulants[4] == pytest.approx(
-            central[4] - 3 * central[2] ** 2)
+        assert cumulants[4] == pytest.approx(central[4] - 3 * central[2] ** 2)
 
     @pytest.mark.parametrize("q", [float("nan"), float("inf"), -float("inf")])
     def test_log_domain_transform_rejects_nonfinite_tilt(self, analysis, q):
@@ -274,19 +276,12 @@ class TestExactTransform:
 
     @pytest.mark.parametrize("q", [0.0, 0.5, 1.0, 2.0])
     def test_derivatives_match_direct_sums(self, recombining_graph, analysis, q):
-        probabilities = np.array(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)]
-        )
+        probabilities = np.array([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         log_probabilities = np.log(probabilities)
         expected = np.array(
-            [
-                np.sum(probabilities**q * log_probabilities**order)
-                for order in range(5)
-            ]
+            [np.sum(probabilities**q * log_probabilities**order) for order in range(5)]
         )
-        np.testing.assert_allclose(
-            analysis.derivatives(q, 4), expected, rtol=2e-13, atol=2e-13
-        )
+        np.testing.assert_allclose(analysis.derivatives(q, 4), expected, rtol=2e-13, atol=2e-13)
 
     @pytest.mark.parametrize("q", [-0.5, 0.0, 0.5, 1.0, 2.0])
     @pytest.mark.parametrize("order", range(9))
@@ -298,18 +293,13 @@ class TestExactTransform:
             atol=2e-13,
         )
 
-    def test_native_eighth_order_derivatives_match_atoms(
-        self, recombining_graph, analysis
-    ):
-        probabilities = np.asarray(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)])
+    def test_native_eighth_order_derivatives_match_atoms(self, recombining_graph, analysis):
+        probabilities = np.asarray([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         q = 0.5
-        expected = np.asarray([
-            np.sum(probabilities**q * np.log(probabilities) ** order)
-            for order in range(9)
-        ])
-        np.testing.assert_allclose(
-            analysis.derivatives(q, 8), expected, rtol=2e-13, atol=2e-13)
+        expected = np.asarray(
+            [np.sum(probabilities**q * np.log(probabilities) ** order) for order in range(9)]
+        )
+        np.testing.assert_allclose(analysis.derivatives(q, 8), expected, rtol=2e-13, atol=2e-13)
 
     def test_native_derivatives_handle_graph_with_no_edges(self):
         graph = FlashBackGraph(["CASS"]).without(["CASS"])
@@ -319,9 +309,7 @@ class TestExactTransform:
         )
 
     def test_hill_identites(self, recombining_graph, analysis):
-        probabilities = np.array(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)]
-        )
+        probabilities = np.array([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         d0 = len(probabilities)
         entropy = -np.sum(probabilities * np.log(probabilities))
         d1 = np.exp(entropy)
@@ -334,15 +322,11 @@ class TestExactTransform:
 
     def test_cgf_is_shifted_mellin_transform(self, analysis):
         for t in [-0.5, 0.0, 0.25, 0.75]:
-            assert analysis.cgf(t) == pytest.approx(
-                analysis.log_mellin(1 - t), abs=1e-15
-            )
+            assert analysis.cgf(t) == pytest.approx(analysis.log_mellin(1 - t), abs=1e-15)
 
 
 class TestExactMomentsAndLengths:
-    def test_path_count_by_length_matches_recombining_atoms(
-        self, recombining_graph, analysis
-    ):
+    def test_path_count_by_length_matches_recombining_atoms(self, recombining_graph, analysis):
         atoms = analysis.exact_atoms()
         expected = {
             int(length): float(np.count_nonzero(atoms.lengths == length))
@@ -351,9 +335,7 @@ class TestExactMomentsAndLengths:
         assert recombining_graph.path_count_by_length() == expected
         assert recombining_graph.path_count_by_length() is not expected
         by_derivative = analysis.length_derivatives(0.0, 0)
-        assert {
-            length: float(jet[0]) for length, jet in by_derivative.items()
-        } == expected
+        assert {length: float(jet[0]) for length, jet in by_derivative.items()} == expected
 
     def test_path_count_by_length_matches_second_brute_force_graph(self):
         graph = FlashBackGraph(["CASS", "CASST", "CAT", "CATS"])
@@ -412,53 +394,37 @@ class TestExactMomentsAndLengths:
         assert cumulants["kappa3"] == pytest.approx(third, rel=1e-13)
         assert cumulants["kappa4"] == pytest.approx(fourth_cumulant, rel=1e-12)
 
-    def test_length_derivatives_partition_global_transform(
-        self, recombining_graph, analysis
-    ):
+    def test_length_derivatives_partition_global_transform(self, recombining_graph, analysis):
         direct = enumerate_public_graph(recombining_graph)
         for q in [0.0, 0.5, 1.0, 2.0]:
             by_length = analysis.length_derivatives(q, 4)
             summed = np.sum(list(by_length.values()), axis=0)
-            np.testing.assert_allclose(
-                summed, analysis.derivatives(q, 4), rtol=2e-14, atol=2e-14
-            )
+            np.testing.assert_allclose(summed, analysis.derivatives(q, 4), rtol=2e-14, atol=2e-14)
             for length, jet in by_length.items():
-                selected = np.array(
-                    [p for p, path_length, _ in direct if path_length == length]
-                )
+                selected = np.array([p for p, path_length, _ in direct if path_length == length])
                 expected = np.array(
-                    [
-                        np.sum(selected**q * np.log(selected) ** order)
-                        for order in range(5)
-                    ]
+                    [np.sum(selected**q * np.log(selected) ** order) for order in range(5)]
                 )
                 np.testing.assert_allclose(jet, expected, rtol=2e-13, atol=2e-13)
 
     @pytest.mark.parametrize("q", [-0.5, 0.0, 0.5, 1.0, 2.0])
     @pytest.mark.parametrize("order", range(9))
-    def test_native_length_derivatives_match_python_reference(
-        self, analysis, q, order
-    ):
+    def test_native_length_derivatives_match_python_reference(self, analysis, q, order):
         native = analysis.length_derivatives(q, order)
         reference = analysis._length_derivatives_python(q, order)
         assert native.keys() == reference.keys()
         for length in native:
-            np.testing.assert_allclose(
-                native[length], reference[length], rtol=2e-13, atol=2e-13)
+            np.testing.assert_allclose(native[length], reference[length], rtol=2e-13, atol=2e-13)
 
-    def test_native_eighth_order_length_derivatives_match_atoms(
-        self, recombining_graph, analysis
-    ):
+    def test_native_eighth_order_length_derivatives_match_atoms(self, recombining_graph, analysis):
         direct = enumerate_public_graph(recombining_graph)
         q = 0.5
         native = analysis.length_derivatives(q, 8)
         for length, jet in native.items():
-            selected = np.asarray(
-                [p for p, path_length, _ in direct if path_length == length])
-            expected = np.asarray([
-                np.sum(selected**q * np.log(selected) ** order)
-                for order in range(9)
-            ])
+            selected = np.asarray([p for p, path_length, _ in direct if path_length == length])
+            expected = np.asarray(
+                [np.sum(selected**q * np.log(selected) ** order) for order in range(9)]
+            )
             np.testing.assert_allclose(jet, expected, rtol=2e-13, atol=2e-13)
 
     def test_native_length_derivatives_handle_graph_with_no_edges(self):
@@ -466,19 +432,13 @@ class TestExactMomentsAndLengths:
         result = graph.pseq_analysis().length_derivatives(1.0, 4)
         np.testing.assert_array_equal(result[0], [1.0, 0.0, 0.0, 0.0, 0.0])
 
-    def test_length_profile_matches_direct_conditional_moments(
-        self, recombining_graph, analysis
-    ):
+    def test_length_profile_matches_direct_conditional_moments(self, recombining_graph, analysis):
         direct = enumerate_public_graph(recombining_graph)
         profile = analysis.length_profile()
         assert set(profile) == {7, 8}
         assert sum(item["mass"] for item in profile.values()) == pytest.approx(1.0)
         for length, item in profile.items():
-            selected = [
-                (p, -np.log(p))
-                for p, path_length, _ in direct
-                if path_length == length
-            ]
+            selected = [(p, -np.log(p)) for p, path_length, _ in direct if path_length == length]
             mass = sum(p for p, _ in selected)
             mean = sum(p * x for p, x in selected) / mass
             variance = sum(p * (x - mean) ** 2 for p, x in selected) / mass
@@ -498,9 +458,7 @@ class TestExactMomentsAndLengths:
 
 class TestTiltedAttribution:
     @pytest.mark.parametrize("q", [-3.0, 0.0, 0.5, 1.0, 2.0, 5.0])
-    def test_matches_exhaustive_path_attribution(
-        self, recombining_graph, analysis, q
-    ):
+    def test_matches_exhaustive_path_attribution(self, recombining_graph, analysis, q):
         paths = enumerate_edge_paths(recombining_graph)
         log_weight = np.asarray([q * np.log(path[0]) for path in paths])
         maximum = float(np.max(log_weight))
@@ -516,23 +474,21 @@ class TestTiltedAttribution:
         result = analysis.attribution(q)
         expected_log_mass = maximum + np.log(np.sum(np.exp(log_weight - maximum)))
         assert result.log_mass == pytest.approx(expected_log_mass, abs=2e-14)
-        np.testing.assert_allclose(
-            result.node_probability, expected_nodes, rtol=2e-14, atol=2e-14)
-        np.testing.assert_allclose(
-            result.edge_probability, expected_edges, rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result.node_probability, expected_nodes, rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result.edge_probability, expected_edges, rtol=2e-14, atol=2e-14)
 
-    def test_flow_conservation_and_transform_invariants(
-        self, recombining_graph, analysis
-    ):
+    def test_flow_conservation_and_transform_invariants(self, recombining_graph, analysis):
         result = analysis.attribution(0.37)
         row, col = analysis._row, analysis._col
         incoming = np.bincount(
-            col, weights=result.edge_probability,
-            minlength=recombining_graph.n_nodes)
-        outgoing = np.asarray([
-            np.sum(result.edge_probability[row[u]:row[u + 1]])
-            for u in range(recombining_graph.n_nodes)
-        ])
+            col, weights=result.edge_probability, minlength=recombining_graph.n_nodes
+        )
+        outgoing = np.asarray(
+            [
+                np.sum(result.edge_probability[row[u] : row[u + 1]])
+                for u in range(recombining_graph.n_nodes)
+            ]
+        )
         root = analysis._root
         sinks = analysis._sinks
         internal = np.ones(recombining_graph.n_nodes, dtype=bool)
@@ -541,44 +497,33 @@ class TestTiltedAttribution:
 
         assert result.node_probability[root] == pytest.approx(1.0, abs=2e-15)
         assert outgoing[root] == pytest.approx(1.0, abs=2e-15)
-        assert np.sum(result.node_probability[sinks]) == pytest.approx(
-            1.0, abs=2e-15)
+        assert np.sum(result.node_probability[sinks]) == pytest.approx(1.0, abs=2e-15)
         np.testing.assert_allclose(
-            incoming[internal], result.node_probability[internal],
-            rtol=2e-14, atol=2e-14)
+            incoming[internal], result.node_probability[internal], rtol=2e-14, atol=2e-14
+        )
         np.testing.assert_allclose(
-            outgoing[internal], result.node_probability[internal],
-            rtol=2e-14, atol=2e-14)
-        assert result.log_mass == pytest.approx(
-            analysis.log_mellin(result.q), abs=2e-14)
+            outgoing[internal], result.node_probability[internal], rtol=2e-14, atol=2e-14
+        )
+        assert result.log_mass == pytest.approx(analysis.log_mellin(result.q), abs=2e-14)
 
     @pytest.mark.parametrize("q", [-2.0, 0.0, 0.5, 1.0, 3.0])
-    def test_surprisal_and_path_size_match_exact_paths(
-        self, recombining_graph, analysis, q
-    ):
+    def test_surprisal_and_path_size_match_exact_paths(self, recombining_graph, analysis, q):
         paths = enumerate_edge_paths(recombining_graph)
         unnormalized = np.asarray([p**q for p, _, _ in paths])
         normalized = unnormalized / np.sum(unnormalized)
         expected_surprisal = sum(
-            weight * -np.log(path[0])
-            for weight, path in zip(normalized, paths)
+            weight * -np.log(path[0]) for weight, path in zip(normalized, paths)
         )
-        expected_edges = sum(
-            weight * len(path[2])
-            for weight, path in zip(normalized, paths)
-        )
+        expected_edges = sum(weight * len(path[2]) for weight, path in zip(normalized, paths))
         result = analysis.attribution(q)
-        assert result.mean_surprisal == pytest.approx(
-            expected_surprisal, rel=2e-14, abs=2e-14)
+        assert result.mean_surprisal == pytest.approx(expected_surprisal, rel=2e-14, abs=2e-14)
         assert np.sum(result.edge_surprisal_contribution) == pytest.approx(
-            expected_surprisal, rel=2e-14, abs=2e-14)
-        assert result.expected_path_edges == pytest.approx(
-            expected_edges, rel=2e-14, abs=2e-14)
+            expected_surprisal, rel=2e-14, abs=2e-14
+        )
+        assert result.expected_path_edges == pytest.approx(expected_edges, rel=2e-14, abs=2e-14)
 
     @pytest.mark.parametrize("q", [-1.5, 0.0, 0.7, 2.0])
-    def test_independent_edge_log_weight_gradient(
-        self, recombining_graph, analysis, q
-    ):
+    def test_independent_edge_log_weight_gradient(self, recombining_graph, analysis, q):
         paths = enumerate_edge_paths(recombining_graph)
         probabilities = np.asarray([p for p, _, _ in paths])
         result = analysis.attribution(q)
@@ -591,11 +536,8 @@ class TestTiltedAttribution:
                 maximum = np.max(terms)
                 return maximum + np.log(np.sum(np.exp(terms - maximum)))
 
-            numerical = (
-                perturbed_log_mass(epsilon) - perturbed_log_mass(-epsilon)
-            ) / (2 * epsilon)
-            assert result.edge_sensitivity[edge] == pytest.approx(
-                numerical, rel=2e-8, abs=2e-10)
+            numerical = (perturbed_log_mass(epsilon) - perturbed_log_mass(-epsilon)) / (2 * epsilon)
+            assert result.edge_sensitivity[edge] == pytest.approx(numerical, rel=2e-8, abs=2e-10)
 
     def test_q_zero_is_supported_path_fraction(self, recombining_graph, analysis):
         paths = enumerate_edge_paths(recombining_graph)
@@ -613,7 +555,8 @@ class TestTiltedAttribution:
         result = analysis.attribution(1.0)
         assert result.log_mass == pytest.approx(0.0, abs=2e-15)
         assert result.mean_surprisal == pytest.approx(
-            analysis.moments()["mean"], rel=2e-14, abs=2e-14)
+            analysis.moments()["mean"], rel=2e-14, abs=2e-14
+        )
 
     @pytest.mark.parametrize("q", [-1000.0, 1000.0])
     def test_extreme_tilts_remain_finite_and_normalized(self, analysis, q):
@@ -659,8 +602,7 @@ class TestTiltedAttribution:
         result = analysis.attribution(0.5)
         top = result.top_edges(3, by="occupancy")
         assert len(top) == 3
-        assert all(top[i]["occupancy"] >= top[i + 1]["occupancy"]
-                   for i in range(len(top) - 1))
+        assert all(top[i]["occupancy"] >= top[i + 1]["occupancy"] for i in range(len(top) - 1))
         assert top == result.top_edges(3, by="sensitivity")
         assert len(result.top_edges(2, by="surprisal")) == 2
         assert result.top_edges(0) == []
@@ -672,31 +614,151 @@ class TestTiltedAttribution:
             analysis.attribution(np.inf)
 
 
+class TestEdgeThresholdDiversity:
+    @staticmethod
+    def brute_force(graph, thresholds):
+        paths = enumerate_edge_paths(graph)
+        weights = np.asarray(graph.adjacency_csr()["weights"])
+        output = []
+        for threshold in thresholds:
+            probabilities = np.asarray(
+                [
+                    probability
+                    for probability, _, edges in paths
+                    if all(weights[edge] > threshold for edge in edges)
+                ]
+            )
+            if probabilities.size == 0:
+                d0 = d1 = d2 = mass = 0.0
+            else:
+                mass = float(np.sum(probabilities))
+                conditioned = probabilities / mass
+                d0 = float(probabilities.size)
+                d1 = float(np.exp(-np.sum(conditioned * np.log(conditioned))))
+                d2 = float(1.0 / np.sum(conditioned**2))
+            output.append(
+                (
+                    d0,
+                    d1,
+                    d2,
+                    mass,
+                    int(np.count_nonzero(weights > threshold)),
+                )
+            )
+        return np.asarray(output)
+
+    def test_matches_exhaustive_paths_with_strict_unsorted_thresholds(
+        self, recombining_graph, analysis
+    ):
+        weights = np.asarray(recombining_graph.adjacency_csr()["weights"])
+        thresholds = np.asarray(
+            [
+                np.inf,
+                weights[0],
+                -np.inf,
+                np.median(weights),
+                0.0,
+                weights[0],
+            ]
+        )
+        expected = self.brute_force(recombining_graph, thresholds)
+        result = analysis.diversity_under_edge_thresholds(thresholds)
+        np.testing.assert_array_equal(result["thresholds"], thresholds)
+        np.testing.assert_allclose(result["D0"], expected[:, 0], rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result["D1"], expected[:, 1], rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result["D2"], expected[:, 2], rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result["surviving_mass"], expected[:, 3], rtol=2e-14, atol=2e-14)
+        np.testing.assert_array_equal(result["kept_edges"], expected[:, 4])
+        np.testing.assert_allclose(
+            result["edge_fraction"],
+            expected[:, 4] / recombining_graph.n_edges,
+            rtol=0,
+            atol=0,
+        )
+
+    def test_unpruned_endpoint_matches_public_diversity(self, analysis):
+        result = analysis.diversity_under_edge_thresholds([-np.inf])
+        assert result["D0"][0] == pytest.approx(analysis.graph.path_count, rel=2e-14)
+        assert result["D1"][0] == pytest.approx(analysis.graph.hill_number(1), rel=2e-14)
+        assert result["D2"][0] == pytest.approx(analysis.graph.hill_number(2), rel=2e-14)
+        assert result["surviving_mass"][0] == pytest.approx(1.0, abs=2e-14)
+        assert result["kept_edges"][0] == analysis.graph.n_edges
+
+    def test_multiple_native_batches_match_second_enumerated_graph(self):
+        graph = FlashBackGraph(
+            ["CASS", "CASST", "CAT", "CATS"],
+            abundances=[7, 3, 2, 1],
+        )
+        weights = np.asarray(graph.adjacency_csr()["weights"])
+        # Nineteen cutoffs exercise two complete eight-lane native batches
+        # and a partial final batch. Reversing them also tests restoration of
+        # the caller's arbitrary input order.
+        thresholds = np.linspace(-0.01, float(np.max(weights)) + 0.01, 19)[::-1]
+        expected = self.brute_force(graph, thresholds)
+        result = graph.pseq_analysis().diversity_under_edge_thresholds(thresholds)
+        np.testing.assert_allclose(result["D0"], expected[:, 0], rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result["D1"], expected[:, 1], rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(result["D2"], expected[:, 2], rtol=2e-14, atol=2e-14)
+        np.testing.assert_allclose(
+            result["surviving_mass"],
+            expected[:, 3],
+            rtol=2e-14,
+            atol=2e-14,
+        )
+        np.testing.assert_array_equal(result["kept_edges"], expected[:, 4])
+
+    def test_log_outputs_and_empty_support(self, analysis):
+        result = analysis.diversity_under_edge_thresholds([-np.inf, np.inf])
+        for order in range(3):
+            diversity = result[f"D{order}"]
+            log_diversity = result[f"log_D{order}"]
+            assert log_diversity[0] == pytest.approx(np.log(diversity[0]))
+            assert diversity[1] == 0.0
+            assert log_diversity[1] == -np.inf
+        assert result["surviving_mass"][1] == 0.0
+        assert result["kept_edges"][1] == 0
+
+    def test_empty_thresholds_and_validation(self, analysis):
+        result = analysis.diversity_under_edge_thresholds([])
+        assert all(values.size == 0 for values in result.values())
+        with pytest.raises(ValueError, match="one-dimensional"):
+            analysis.diversity_under_edge_thresholds([[0.1]])
+        with pytest.raises(ValueError, match="NaN"):
+            analysis.diversity_under_edge_thresholds([np.nan])
+
+    def test_degenerate_no_edge_graph(self):
+        graph = FlashBackGraph(["CASS"]).without(["CASS"])
+        result = graph.pseq_analysis().diversity_under_edge_thresholds([-np.inf, 0.0, np.inf])
+        np.testing.assert_array_equal(result["D0"], [1.0, 1.0, 1.0])
+        np.testing.assert_array_equal(result["D1"], [1.0, 1.0, 1.0])
+        np.testing.assert_array_equal(result["D2"], [1.0, 1.0, 1.0])
+        np.testing.assert_array_equal(result["surviving_mass"], [1.0, 1.0, 1.0])
+        np.testing.assert_array_equal(result["kept_edges"], [0, 0, 0])
+
+
 class TestDeterministicReconstruction:
     @pytest.mark.parametrize("bins", [32, 127, 512])
     @pytest.mark.parametrize("measure", ["generated", "counting"])
     @pytest.mark.parametrize("length", [None, 7, 8, 99])
-    def test_native_histogram_matches_python_reference(
-        self, analysis, bins, measure, length
-    ):
+    def test_native_histogram_matches_python_reference(self, analysis, bins, measure, length):
         native = analysis.histogram(bins, measure=measure, length=length)
-        reference = analysis._histogram_python(
-            bins, measure=measure, length=length)
+        reference = analysis._histogram_python(bins, measure=measure, length=length)
         np.testing.assert_array_equal(native.surprisal, reference.surprisal)
-        np.testing.assert_allclose(
-            native.weights, reference.weights, rtol=2e-14, atol=2e-15)
+        np.testing.assert_allclose(native.weights, reference.weights, rtol=2e-14, atol=2e-15)
         assert native.grid_spacing == reference.grid_spacing
         assert native.max_rounding_error == reference.max_rounding_error
 
     @pytest.mark.parametrize("measure", ["generated", "counting"])
     def test_length_histograms_partition_global_grid(self, analysis, measure):
         global_histogram = analysis.histogram(512, measure=measure)
-        by_length = np.sum([
-            analysis.histogram(512, measure=measure, length=length).weights
-            for length in analysis.length_derivatives(0.0, 0)
-        ], axis=0)
-        np.testing.assert_allclose(
-            by_length, global_histogram.weights, rtol=2e-14, atol=2e-15)
+        by_length = np.sum(
+            [
+                analysis.histogram(512, measure=measure, length=length).weights
+                for length in analysis.length_derivatives(0.0, 0)
+            ],
+            axis=0,
+        )
+        np.testing.assert_allclose(by_length, global_histogram.weights, rtol=2e-14, atol=2e-15)
 
     @pytest.mark.parametrize(
         ("measure", "expected_mass"),
@@ -722,9 +784,7 @@ class TestDeterministicReconstruction:
         fine = analysis.histogram(4096)
         # Linear grid transport preserves the first moment.
         assert fine.mean == pytest.approx(exact["mean"], abs=2e-13)
-        assert abs(fine.variance - exact["variance"]) < abs(
-            coarse.variance - exact["variance"]
-        )
+        assert abs(fine.variance - exact["variance"]) < abs(coarse.variance - exact["variance"])
         assert abs(fine.variance - exact["variance"]) < 1e-5
 
     def test_histogram_cdf_pdf_and_quantiles(self, analysis):
@@ -760,10 +820,9 @@ class TestDeterministicReconstruction:
 
     def test_native_saddlepoint_batch_solves_exact_tilt_equation(self):
         random.seed(91827)
-        graph = FlashBackGraph([
-            "C" + "".join(random.choice("ACGT") for _ in range(12)) + "F"
-            for _ in range(80)
-        ])
+        graph = FlashBackGraph(
+            ["C" + "".join(random.choice("ACGT") for _ in range(12)) + "F" for _ in range(80)]
+        )
         analysis = graph.pseq_analysis()
         assert 64 < graph.path_count < 100_000
         saddlepoint = analysis.saddlepoint()
@@ -774,10 +833,12 @@ class TestDeterministicReconstruction:
             21,
         )
         result = saddlepoint._native_evaluate(x)
-        residuals = np.array([
-            analysis._cgf_derivatives(float(t), 2)[1] - point
-            for point, t in zip(x, result["saddle"])
-        ])
+        residuals = np.array(
+            [
+                analysis._cgf_derivatives(float(t), 2)[1] - point
+                for point, t in zip(x, result["saddle"])
+            ]
+        )
         np.testing.assert_allclose(residuals, 0.0, rtol=0, atol=2e-12)
         assert np.all(result["iterations"] <= 20)
         assert np.all(result["pdf"] >= 0)
@@ -785,10 +846,8 @@ class TestDeterministicReconstruction:
 
         atoms = analysis.exact_atoms()
         histogram = analysis.histogram(8192)
-        np.testing.assert_allclose(
-            result["cdf"], atoms.cdf(x), rtol=0, atol=0.03)
-        np.testing.assert_allclose(
-            result["cdf"], histogram.cdf(x), rtol=0, atol=0.03)
+        np.testing.assert_allclose(result["cdf"], atoms.cdf(x), rtol=0, atol=0.03)
+        np.testing.assert_allclose(result["cdf"], histogram.cdf(x), rtol=0, atol=0.03)
 
         # Independently reconstruct the saddlepoint and Lugannani-Rice
         # formulas from the explicitly enumerated probability atoms.
@@ -811,8 +870,7 @@ class TestDeterministicReconstruction:
                 dtype=np.longdouble,
             )
             k = maximum + np.log(z) - base_log_mass
-            expected_pdf.append(
-                exp(float(k - t * point)) / sqrt(2 * pi * float(variance)))
+            expected_pdf.append(exp(float(k - t * point)) / sqrt(2 * pi * float(variance)))
             if abs(t) < 1e-8:
                 normal_z = (point - float(base_mean)) / sqrt(float(base_variance))
                 expected_cdf.append(0.5 * (1 + erf(normal_z / sqrt(2))))
@@ -827,10 +885,9 @@ class TestDeterministicReconstruction:
 
     def test_saddlepoint_pdf_cdf_is_fused_and_shape_preserving(self):
         random.seed(87231)
-        graph = FlashBackGraph([
-            "C" + "".join(random.choice("ACGT") for _ in range(10)) + "F"
-            for _ in range(60)
-        ])
+        graph = FlashBackGraph(
+            ["C" + "".join(random.choice("ACGT") for _ in range(10)) + "F" for _ in range(60)]
+        )
         saddlepoint = graph.pseq_analysis().saddlepoint()
         saddlepoint.discrete_fallback_paths = 0
         x = np.linspace(
@@ -849,9 +906,7 @@ class TestDeterministicReconstruction:
 
 
 class TestInterpretationAndSamplingDepth:
-    def test_individual_position_is_exact_for_small_graph(
-        self, recombining_graph, analysis
-    ):
+    def test_individual_position_is_exact_for_small_graph(self, recombining_graph, analysis):
         direct = enumerate_public_graph(recombining_graph)
         sequence = max(direct, key=lambda item: item[0])[2]
         probability = max(item[0] for item in direct)
@@ -868,50 +923,34 @@ class TestInterpretationAndSamplingDepth:
             analysis.position("ZZZZZZ")
 
     @pytest.mark.parametrize("n", [0, 1, 2, 10, 100])
-    def test_expected_richness_matches_direct_atom_sum(
-        self, recombining_graph, analysis, n
-    ):
-        probabilities = np.array(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)]
-        )
+    def test_expected_richness_matches_direct_atom_sum(self, recombining_graph, analysis, n):
+        probabilities = np.array([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         expected = np.sum(1 - (1 - probabilities) ** n)
         result = analysis.expected_richness(n)
         assert result["method"] == "exact_atoms"
         assert result["expected_richness"] == pytest.approx(expected, rel=2e-14)
 
-    def test_expected_frequency_spectrum_matches_binomial_sum(
-        self, recombining_graph, analysis
-    ):
+    def test_expected_frequency_spectrum_matches_binomial_sum(self, recombining_graph, analysis):
         n = 12
         max_count = 6
-        probabilities = np.array(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)]
-        )
+        probabilities = np.array([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         expected = []
         for r in range(max_count + 1):
             coefficient = comb(n, r)
-            expected.append(
-                np.sum(coefficient * probabilities**r * (1 - probabilities) ** (n - r))
-            )
+            expected.append(np.sum(coefficient * probabilities**r * (1 - probabilities) ** (n - r)))
         result = analysis.expected_frequency_spectrum(n, max_count)
         assert result["method"] == "exact_atoms"
-        np.testing.assert_allclose(
-            result["expected_counts"], expected, rtol=2e-14, atol=2e-14
-        )
+        np.testing.assert_allclose(result["expected_counts"], expected, rtol=2e-14, atol=2e-14)
 
     def test_grid_occupancy_converges_to_exact(self, analysis):
         exact = analysis.expected_richness(100)["expected_richness"]
-        grid = analysis.expected_richness(
-            100, bins=8192, max_exact_paths=1
-        )
+        grid = analysis.expected_richness(100, bins=8192, max_exact_paths=1)
         assert grid["method"] == "deterministic_grid"
         assert grid["expected_richness"] == pytest.approx(exact, rel=2e-5)
 
     def test_pair_collision_identity(self, recombining_graph, analysis):
         n = 20
-        probabilities = np.array(
-            [p for p, _, _ in enumerate_public_graph(recombining_graph)]
-        )
+        probabilities = np.array([p for p, _, _ in enumerate_public_graph(recombining_graph)])
         expected_collisions = comb(n, 2) * np.sum(probabilities**2)
         d2 = recombining_graph.hill_number(2)
         assert expected_collisions == pytest.approx(comb(n, 2) / d2)
@@ -958,17 +997,10 @@ def test_exact_dp_on_multiple_flashback_topologies(graph):
     assert len(direct) == graph.path_count
     for q in [0.0, 0.3, 1.0, 1.7, 3.0]:
         expected = np.array(
-            [
-                np.sum(probabilities**q * np.log(probabilities) ** order)
-                for order in range(3)
-            ]
+            [np.sum(probabilities**q * np.log(probabilities) ** order) for order in range(3)]
         )
-        np.testing.assert_allclose(
-            analysis.derivatives(q, 2), expected, rtol=3e-13, atol=3e-13
-        )
-        assert analysis.log_mellin(q) == pytest.approx(
-            np.log(expected[0]), abs=3e-13
-        )
+        np.testing.assert_allclose(analysis.derivatives(q, 2), expected, rtol=3e-13, atol=3e-13)
+        assert analysis.log_mellin(q) == pytest.approx(np.log(expected[0]), abs=3e-13)
     assert sum(item["mass"] for item in analysis.length_profile().values()) == (
         pytest.approx(1.0, abs=2e-14)
     )

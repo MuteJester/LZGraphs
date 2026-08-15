@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `FlashBackPseqAnalysis.diversity_under_edge_thresholds(thresholds)` for
+  exact conditioned D0, D1, D2, surviving mass, and retained-edge counts over
+  an edge-pruning curve. The native batched dynamic program uses strict
+  `weight > threshold` retention and preserves the graph's original sinks.
+
 - `FlashBackPseqAnalysis.attribution(q)` for exact, sampling-free node and edge
   marginals under path weights proportional to `P(sequence)**q`, including
   edge sensitivities, surprisal contributions, and ranked edge summaries. The

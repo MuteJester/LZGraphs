@@ -423,6 +423,53 @@ static void test_flashback_pseq_attribution_conservation(void) {
     PASS();
 }
 
+static void test_flashback_edge_threshold_diversity(void) {
+    LZGGraph *g = build_flashback_graph();
+    ASSERT_MSG(g != NULL, "flashback graph");
+
+    const double thresholds[] = {-INFINITY, 0.1, INFINITY};
+    double log_d0[3], log_d1[3], log_d2[3], mass[3];
+    uint64_t kept[3];
+    LZGError err = lzg_flashback_edge_threshold_diversity(
+        g, thresholds, 3, log_d0, log_d1, log_d2, mass, kept);
+    ASSERT_MSG(err == LZG_OK, "threshold diversity");
+
+    double path_count, d1, d2;
+    err = lzg_flashback_path_count(g, &path_count);
+    ASSERT_MSG(err == LZG_OK, "path count");
+    err = lzg_flashback_hill_number(g, 1.0, &d1);
+    ASSERT_MSG(err == LZG_OK, "D1");
+    err = lzg_flashback_hill_number(g, 2.0, &d2);
+    ASSERT_MSG(err == LZG_OK, "D2");
+    ASSERT_MSG(fabs(log_d0[0] - log(path_count)) < 2e-14,
+               "unpruned D0");
+    ASSERT_MSG(fabs(log_d1[0] - log(d1)) < 2e-14, "unpruned D1");
+    ASSERT_MSG(fabs(log_d2[0] - log(d2)) < 2e-14, "unpruned D2");
+    ASSERT_MSG(fabs(mass[0] - 1.0) < 2e-14, "unpruned mass");
+    ASSERT_MSG(kept[0] == g->n_edges, "all edges retained");
+
+    uint64_t expected_kept = 0;
+    for (uint32_t e = 0; e < g->n_edges; e++)
+        if (g->edge_weights[e] > thresholds[1]) expected_kept++;
+    ASSERT_MSG(kept[1] == expected_kept, "strict threshold edge count");
+    ASSERT_MSG(kept[2] == 0, "infinite threshold removes every edge");
+    ASSERT_MSG(isinf(log_d0[2]) && log_d0[2] < 0.0,
+               "empty D0 is negative infinity");
+    ASSERT_MSG(isinf(log_d1[2]) && log_d1[2] < 0.0,
+               "empty D1 is negative infinity");
+    ASSERT_MSG(isinf(log_d2[2]) && log_d2[2] < 0.0,
+               "empty D2 is negative infinity");
+    ASSERT_MSG(mass[2] == 0.0, "empty mass is zero");
+
+    const double unsorted[] = {0.2, 0.1};
+    err = lzg_flashback_edge_threshold_diversity(
+        g, unsorted, 2, log_d0, log_d1, log_d2, mass, kept);
+    ASSERT_MSG(err == LZG_ERR_INVALID_ARG, "C API requires sorted thresholds");
+
+    lzg_graph_destroy(g);
+    PASS();
+}
+
 static void test_flashback_pseq_histogram_conservation(void) {
     LZGGraph *g = build_flashback_graph();
     ASSERT_MSG(g != NULL, "flashback graph");
@@ -560,6 +607,7 @@ int main(void) {
     RUN_TEST(test_pgen_dynamic_range);
     RUN_TEST(test_flashback_pseq_length_derivatives_partition);
     RUN_TEST(test_flashback_pseq_attribution_conservation);
+    RUN_TEST(test_flashback_edge_threshold_diversity);
     RUN_TEST(test_flashback_pseq_histogram_conservation);
     RUN_TEST(test_flashback_pseq_tilted_moments);
     RUN_TEST(test_flashback_pseq_saddlepoint_roots);

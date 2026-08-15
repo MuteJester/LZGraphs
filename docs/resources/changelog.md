@@ -6,6 +6,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [3.2.1] - 2026
+
+### Added
+
+- `FlashBackPseqAnalysis.diversity_under_edge_thresholds(thresholds)` computes
+  conditioned D0, D1, D2, surviving probability mass, and retained-edge counts
+  for an edge-pruning curve in a native batched dynamic program. Retention is
+  strictly `weight > threshold`, and only sinks of the original graph remain
+  valid endpoints.
+
 ## [3.2.0] - 2026
 
 ### Added

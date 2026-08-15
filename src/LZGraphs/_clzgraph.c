@@ -2028,6 +2028,98 @@ static PyObject *py_fb_pseq_saddlepoint_batch(PyObject *self, PyObject *args) {
         "iterations", iteration_list);
 }
 
+static PyObject *py_fb_edge_threshold_diversity(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *cap, *thresholds_obj;
+    if (!PyArg_ParseTuple(args, "OO", &cap, &thresholds_obj)) return NULL;
+    LZGGraph *g = (LZGGraph *)PyCapsule_GetPointer(cap, CAPSULE_NAME);
+    if (!g) return NULL;
+    PyObject *values = PySequence_Fast(
+        thresholds_obj, "thresholds must be a sequence");
+    if (!values) return NULL;
+    const Py_ssize_t n_py = PySequence_Fast_GET_SIZE(values);
+    if (n_py < 0 || (uint64_t)n_py > UINT32_MAX) {
+        Py_DECREF(values);
+        PyErr_SetString(PyExc_OverflowError, "too many edge thresholds");
+        return NULL;
+    }
+    const uint32_t n = (uint32_t)n_py;
+    double *thresholds = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *log_d0 = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *log_d1 = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *log_d2 = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    double *mass = n ? (double *)malloc((size_t)n * sizeof(double)) : NULL;
+    uint64_t *kept = n ? (uint64_t *)malloc((size_t)n * sizeof(uint64_t)) : NULL;
+    if (n && (!thresholds || !log_d0 || !log_d1 || !log_d2 || !mass || !kept)) {
+        free(thresholds); free(log_d0); free(log_d1);
+        free(log_d2); free(mass); free(kept);
+        Py_DECREF(values);
+        return PyErr_NoMemory();
+    }
+    PyObject **items = PySequence_Fast_ITEMS(values);
+    for (uint32_t i = 0; i < n; i++) {
+        thresholds[i] = PyFloat_AsDouble(items[i]);
+        if (PyErr_Occurred()) {
+            free(thresholds); free(log_d0); free(log_d1);
+            free(log_d2); free(mass); free(kept);
+            Py_DECREF(values);
+            return NULL;
+        }
+    }
+    Py_DECREF(values);
+
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_flashback_edge_threshold_diversity(
+        g, thresholds, n, log_d0, log_d1, log_d2, mass, kept);
+    Py_END_ALLOW_THREADS
+    free(thresholds);
+    if (err != LZG_OK) {
+        free(log_d0); free(log_d1); free(log_d2); free(mass); free(kept);
+        return set_lzg_error(err);
+    }
+
+    PyObject *d0_list = PyList_New(n_py);
+    PyObject *d1_list = PyList_New(n_py);
+    PyObject *d2_list = PyList_New(n_py);
+    PyObject *mass_list = PyList_New(n_py);
+    PyObject *kept_list = PyList_New(n_py);
+    if (!d0_list || !d1_list || !d2_list || !mass_list || !kept_list) {
+        Py_XDECREF(d0_list); Py_XDECREF(d1_list); Py_XDECREF(d2_list);
+        Py_XDECREF(mass_list); Py_XDECREF(kept_list);
+        free(log_d0); free(log_d1); free(log_d2); free(mass); free(kept);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        PyObject *d0_value = PyFloat_FromDouble(log_d0[i]);
+        PyObject *d1_value = PyFloat_FromDouble(log_d1[i]);
+        PyObject *d2_value = PyFloat_FromDouble(log_d2[i]);
+        PyObject *mass_value = PyFloat_FromDouble(mass[i]);
+        PyObject *kept_value = PyLong_FromUnsignedLongLong(kept[i]);
+        if (!d0_value || !d1_value || !d2_value || !mass_value || !kept_value) {
+            Py_XDECREF(d0_value); Py_XDECREF(d1_value); Py_XDECREF(d2_value);
+            Py_XDECREF(mass_value); Py_XDECREF(kept_value);
+            Py_DECREF(d0_list); Py_DECREF(d1_list); Py_DECREF(d2_list);
+            Py_DECREF(mass_list); Py_DECREF(kept_list);
+            free(log_d0); free(log_d1); free(log_d2); free(mass); free(kept);
+            return NULL;
+        }
+        PyList_SET_ITEM(d0_list, i, d0_value);
+        PyList_SET_ITEM(d1_list, i, d1_value);
+        PyList_SET_ITEM(d2_list, i, d2_value);
+        PyList_SET_ITEM(mass_list, i, mass_value);
+        PyList_SET_ITEM(kept_list, i, kept_value);
+    }
+    free(log_d0); free(log_d1); free(log_d2); free(mass); free(kept);
+    return Py_BuildValue(
+        "{s:N,s:N,s:N,s:N,s:N}",
+        "log_d0", d0_list,
+        "log_d1", d1_list,
+        "log_d2", d2_list,
+        "surviving_mass", mass_list,
+        "kept_edges", kept_list);
+}
+
 #define PSEQ_ATTRIBUTION_CAPSULE_NAME "LZGraphs.PseqAttribution"
 
 static void pseq_attribution_capsule_destructor(PyObject *capsule) {
@@ -3250,6 +3342,7 @@ static PyMethodDef module_methods[] = {
     {"fb_pseq_derivatives",     py_fb_pseq_derivatives,                METH_VARARGS, NULL},
     {"fb_pseq_tilted_moments", py_fb_pseq_tilted_moments,             METH_VARARGS, NULL},
     {"fb_pseq_saddlepoint_batch", py_fb_pseq_saddlepoint_batch,        METH_VARARGS, NULL},
+    {"fb_edge_threshold_diversity", py_fb_edge_threshold_diversity,    METH_VARARGS, NULL},
     {"fb_pseq_attribution",    py_fb_pseq_attribution,                 METH_VARARGS, NULL},
     {"fb_pseq_histogram",       py_fb_pseq_histogram,                  METH_VARARGS, NULL},
     {"fb_effective_diversity",  py_fb_effective_diversity,              METH_O, NULL},

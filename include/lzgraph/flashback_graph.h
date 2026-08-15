@@ -297,6 +297,33 @@ LZGError lzg_flashback_pseq_attribution(
 void lzg_flashback_pseq_attribution_destroy(LZGPseqAttribution *result);
 
 /**
+ * Diversity conditioned on retaining edges whose weight exceeds a threshold.
+ *
+ * For every non-decreasing value `thresholds[j]`, paths may traverse exactly
+ * those original graph edges with `weight > thresholds[j]`. Terminal states
+ * remain the sinks of the unmodified graph: an internal node stranded by the
+ * threshold is a dead end, not a newly invented sequence termination.
+ *
+ * If the surviving paths have their original probabilities `P(s)`, the
+ * kernel computes `N = sum 1`, `Z = sum P`, `A = sum P log(P)`, and
+ * `Q = sum P^2`, then returns natural logarithms of the conditioned Hill
+ * diversities
+ *
+ *     log D0 = log N
+ *     log D1 = log Z - A/Z
+ *     log D2 = 2 log Z - log Q.
+ *
+ * Empty surviving supports receive `-INFINITY` for all three logarithms and
+ * zero mass. `kept_edges_out` counts all retained CSR edges, including edges
+ * not reachable from the root. All output arrays must address `n_thresholds`
+ * elements. `n_thresholds == 0` is a no-op and permits NULL array pointers.
+ */
+LZGError lzg_flashback_edge_threshold_diversity(
+    const LZGGraph *g, const double *thresholds, uint32_t n_thresholds,
+    double *log_d0_out, double *log_d1_out, double *log_d2_out,
+    double *surviving_mass_out, uint64_t *kept_edges_out);
+
+/**
  * Deterministic linear-grid reconstruction of a p-sequence measure.
  *
  * `length` is -1 for the global spectrum or a non-negative literal

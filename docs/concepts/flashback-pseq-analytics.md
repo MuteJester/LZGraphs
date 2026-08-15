@@ -131,6 +131,47 @@ read-only float64 views of native storage; the dynamic program accumulates in
 `long double`, and the views keep their storage alive even when retained on
 their own.
 
+## Diversity after edge-threshold pruning
+
+`diversity_under_edge_thresholds()` evaluates an entire edge-pruning curve in
+one native call:
+
+```python
+thresholds = np.percentile(graph.adjacency_csr()["weights"], [0, 25, 50, 75])
+curve = analysis.diversity_under_edge_thresholds(thresholds)
+
+d0 = curve["D0"]
+d1 = curve["D1"]
+d2 = curve["D2"]
+surviving_mass = curve["surviving_mass"]
+edge_fraction = curve["edge_fraction"]
+```
+
+At threshold \(\tau\), an edge is retained strictly when \(w_e>\tau\).
+Only paths that still reach a sink of the original graph count as generated
+sequences. An internal node whose outgoing edges were removed is a dead end;
+it does not become a new sequence endpoint.
+
+Let \(S_\tau\) be the surviving sequences and
+\(Z_\tau=\sum_{s\in S_\tau}P(s)\). The reported diversities describe the
+conditional distribution \(P(s)/Z_\tau\):
+
+\[
+D_0=|S_\tau|,\qquad
+D_1=\exp\left(-\sum_{s\in S_\tau}\frac{P(s)}{Z_\tau}
+\log\frac{P(s)}{Z_\tau}\right),\qquad
+D_2=\left(\sum_{s\in S_\tau}
+\left(\frac{P(s)}{Z_\tau}\right)^2\right)^{-1}.
+\]
+
+The result also includes natural-log versions (`log_D0`, `log_D1`, and
+`log_D2`) so very large richness values can be plotted without exponentiating.
+If no complete path survives, ordinary diversities and mass are zero and the
+log diversities are negative infinity. `kept_edges` and `edge_fraction` count
+all CSR edges satisfying the cutoff, even if pruning makes an edge unreachable
+from the root. Inputs may be unsorted or repeated; outputs preserve their
+order.
+
 ## Saddlepoint PDF and CDF
 
 For generated-sequence surprisal \(X=-\log P(s)\), the normalized
@@ -244,6 +285,7 @@ error along a path.
 | What are global probability or surprisal moments? | `derivatives()`, `moments()`, `cumulants()` |
 | What happens under a strong probability tilt? | `log_mellin()`, `tilted_moments()` |
 | Which nodes and edges carry a tilted distribution? | `attribution()` |
+| How does diversity change as low-weight edges are pruned? | `diversity_under_edge_thresholds()` |
 | What are those quantities at each AA length? | `length_derivatives()`, `length_profile()` |
 | Can I enumerate every probability atom? | `exact_atoms()` for small supports |
 | What does a large probability spectrum look like? | `histogram()` |

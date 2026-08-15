@@ -9,6 +9,7 @@ dynamic programs over graph edges.  Explicit probability atoms are available
 for small supports; large-support distributions are reconstructed on a
 deterministic surprisal grid with reported resolution.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -217,11 +218,13 @@ class PseqAttribution:
     @property
     def mean_surprisal(self) -> float:
         """Expected full-path surprisal under the tilted distribution."""
-        return float(np.sum(
-            -self.edge_probability.astype(np.longdouble)
-            * self.analysis._log_weights.astype(np.longdouble),
-            dtype=np.longdouble,
-        ))
+        return float(
+            np.sum(
+                -self.edge_probability.astype(np.longdouble)
+                * self.analysis._log_weights.astype(np.longdouble),
+                dtype=np.longdouble,
+            )
+        )
 
     def top_edges(
         self, k: int = 20, *, by: str = "occupancy"
@@ -251,8 +254,7 @@ class PseqAttribution:
         else:
             indices = np.argpartition(score, -count)[-count:]
         indices = indices[np.lexsort((indices, -score[indices]))]
-        sources = np.searchsorted(
-            self.analysis._row, indices, side="right") - 1
+        sources = np.searchsorted(self.analysis._row, indices, side="right") - 1
         targets = self.analysis._col[indices]
         labels = self.analysis.graph.all_nodes
         output = []
@@ -260,19 +262,21 @@ class PseqAttribution:
             edge = int(edge)
             source = int(source)
             target = int(target)
-            output.append({
-                "edge": edge,
-                "source": source,
-                "target": target,
-                "source_label": labels[source],
-                "target_label": labels[target],
-                "weight": float(self.analysis._weights[edge]),
-                "occupancy": float(self.edge_probability[edge]),
-                "sensitivity": float(self.q * self.edge_probability[edge]),
-                "surprisal_contribution": float(
-                    -self.edge_probability[edge] * self.analysis._log_weights[edge]
-                ),
-            })
+            output.append(
+                {
+                    "edge": edge,
+                    "source": source,
+                    "target": target,
+                    "source_label": labels[source],
+                    "target_label": labels[target],
+                    "weight": float(self.analysis._weights[edge]),
+                    "occupancy": float(self.edge_probability[edge]),
+                    "sensitivity": float(self.q * self.edge_probability[edge]),
+                    "surprisal_contribution": float(
+                        -self.edge_probability[edge] * self.analysis._log_weights[edge]
+                    ),
+                }
+            )
         return output
 
 
@@ -296,9 +300,7 @@ class PseqSaddlepoint:
         if self.analysis.graph.path_count > self.discrete_fallback_paths:
             return None
         if self._fallback is None:
-            self._fallback = self.analysis.histogram(
-                self.fallback_bins, measure="generated"
-            )
+            self._fallback = self.analysis.histogram(self.fallback_bins, measure="generated")
         return self._fallback
 
     @staticmethod
@@ -327,8 +329,7 @@ class PseqSaddlepoint:
             raise ValueError("saddlepoint evaluation points must be finite")
         from . import _clzgraph as _c
 
-        result = _c.fb_pseq_saddlepoint_batch(
-            self.analysis.graph._cap, values.reshape(-1).tolist())
+        result = _c.fb_pseq_saddlepoint_batch(self.analysis.graph._cap, values.reshape(-1).tolist())
         return {
             name: np.asarray(result[name], dtype=dtype)
             for name, dtype in (
@@ -375,8 +376,7 @@ class FlashBackPseqAnalysis:
 
     def __init__(self, graph: FlashBackGraph) -> None:
         if not graph.is_dag:
-            raise ValueError(
-                "p-sequence analysis requires a sentinel-bounded DAG")
+            raise ValueError("p-sequence analysis requires a sentinel-bounded DAG")
         self.graph = graph
         from . import _clzgraph as _c
 
@@ -387,12 +387,9 @@ class FlashBackPseqAnalysis:
         self._log_weights = np.log(self._weights)
         self._n = self._row.size - 1
         self._root = int(structure["root"])
-        self._sinks = np.flatnonzero(
-            np.frombuffer(structure["sink_mask"], dtype=np.uint8))
-        self._topological_order = np.frombuffer(
-            structure["topological_order"], dtype=np.uint32)
-        self._symbol_lengths = np.frombuffer(
-            structure["symbol_lengths"], dtype=np.uint8)
+        self._sinks = np.flatnonzero(np.frombuffer(structure["sink_mask"], dtype=np.uint8))
+        self._topological_order = np.frombuffer(structure["topological_order"], dtype=np.uint32)
+        self._symbol_lengths = np.frombuffer(structure["symbol_lengths"], dtype=np.uint8)
         self._true_min_surprisal = float(structure["min_surprisal"])
         self._true_max_surprisal = float(structure["max_surprisal"])
         self._max_edges = int(structure["max_edges"])
@@ -486,8 +483,7 @@ class FlashBackPseqAnalysis:
             return self._log_mellin_cache[q]
         from . import _clzgraph as _c
 
-        value = float(
-            _c.fb_pseq_tilted_moments(self.graph._cap, q, 0)["log_mass"])
+        value = float(_c.fb_pseq_tilted_moments(self.graph._cap, q, 0)["log_mass"])
         self._log_mellin_cache[q] = value
         return value
 
@@ -553,9 +549,7 @@ class FlashBackPseqAnalysis:
                 total += source
             for e in range(int(self._row[u]), int(self._row[u + 1])):
                 v = int(self._col[e])
-                transported = self._transport_jet(
-                    source, np.longdouble(self._log_weights[e]), q
-                )
+                transported = self._transport_jet(source, np.longdouble(self._log_weights[e]), q)
                 if states[v] is None:
                     states[v] = transported
                 else:
@@ -583,8 +577,7 @@ class FlashBackPseqAnalysis:
             raise ValueError("q must be finite")
         from . import _clzgraph as _c
 
-        result = _c.fb_pseq_tilted_moments(
-            self.graph._cap, float(q), int(order))
+        result = _c.fb_pseq_tilted_moments(self.graph._cap, float(q), int(order))
         raw = np.asarray(result["raw_moments"], dtype=np.float64)
         central = np.asarray(result["central_moments"], dtype=np.float64)
         cumulants = np.empty(order + 1, dtype=np.float64)
@@ -623,10 +616,8 @@ class FlashBackPseqAnalysis:
         from . import _clzgraph as _c
 
         result = _c.fb_pseq_attribution(self.graph._cap, float(q))
-        node_probability = np.frombuffer(
-            result["node_probability"], dtype=np.float64)
-        edge_probability = np.frombuffer(
-            result["edge_probability"], dtype=np.float64)
+        node_probability = np.frombuffer(result["node_probability"], dtype=np.float64)
+        edge_probability = np.frombuffer(result["edge_probability"], dtype=np.float64)
         return PseqAttribution(
             analysis=self,
             q=float(result["q"]),
@@ -635,6 +626,72 @@ class FlashBackPseqAnalysis:
             edge_probability=edge_probability,
             _owner=result["owner"],
         )
+
+    def diversity_under_edge_thresholds(self, thresholds: Any) -> dict[str, np.ndarray]:
+        """Compute conditioned Hill diversity after thresholding edge weights.
+
+        For each threshold ``tau``, only original graph edges satisfying
+        ``weight > tau`` may be traversed. A node stranded by thresholding is
+        a dead end, not a new sink: only root-to-sink paths of the unmodified
+        graph remain valid sequences. Their original probabilities are
+        renormalized by the surviving mass before D1 and D2 are calculated.
+
+        The native fused dynamic program returns natural-log diversities as
+        well as their ordinary values, surviving probability mass, retained
+        edge counts, and retained edge fractions. It accepts thresholds in any
+        order and returns every array in that same order. ``NaN`` thresholds
+        are rejected; infinities are useful exact endpoints.
+
+        Args:
+            thresholds: One-dimensional sequence of edge-weight cutoffs.
+
+        Returns:
+            A dictionary of float64 arrays ``thresholds``, ``D0``, ``D1``,
+            ``D2``, ``log_D0``, ``log_D1``, ``log_D2``,
+            ``surviving_mass``, ``kept_edges``, and ``edge_fraction``.
+        """
+        values = np.asarray(thresholds, dtype=np.float64)
+        if values.ndim != 1:
+            raise ValueError("thresholds must be one-dimensional")
+        if np.any(np.isnan(values)):
+            raise ValueError("thresholds must not contain NaN")
+        order = np.argsort(values, kind="stable")
+        sorted_values = np.ascontiguousarray(values[order])
+
+        from . import _clzgraph as _c
+
+        native = _c.fb_edge_threshold_diversity(self.graph._cap, sorted_values.tolist())
+        inverse = np.empty(order.size, dtype=np.intp)
+        inverse[order] = np.arange(order.size, dtype=np.intp)
+
+        def restored(name: str, dtype=np.float64) -> np.ndarray:
+            return np.asarray(native[name], dtype=dtype)[inverse]
+
+        log_d0 = restored("log_d0")
+        log_d1 = restored("log_d1")
+        log_d2 = restored("log_d2")
+        kept_edges = restored("kept_edges", np.int64)
+        with np.errstate(over="ignore", invalid="ignore"):
+            d0 = np.exp(log_d0)
+            d1 = np.exp(log_d1)
+            d2 = np.exp(log_d2)
+        edge_fraction = (
+            kept_edges.astype(np.float64) / self.graph.n_edges
+            if self.graph.n_edges
+            else np.zeros(kept_edges.size, dtype=np.float64)
+        )
+        return {
+            "thresholds": values.copy(),
+            "D0": d0,
+            "D1": d1,
+            "D2": d2,
+            "log_D0": log_d0,
+            "log_D1": log_d1,
+            "log_D2": log_d2,
+            "surviving_mass": restored("surviving_mass"),
+            "kept_edges": kept_edges,
+            "edge_fraction": edge_fraction,
+        }
 
     @staticmethod
     def _merge_raw_moments(
@@ -652,9 +709,7 @@ class FlashBackPseqAnalysis:
         weight_b = exp(log_mass_b - merged)
         return merged, weight_a * moments_a + weight_b * moments_b
 
-    def _tilted_log_moments(
-        self, q: float, order: int = 4
-    ) -> tuple[float, np.ndarray]:
+    def _tilted_log_moments(self, q: float, order: int = 4) -> tuple[float, np.ndarray]:
         """Return stable normalized raw log-P moments under weights ``P**q``.
 
         The native calculation uses log-sum-exp mass merging and central
@@ -666,16 +721,13 @@ class FlashBackPseqAnalysis:
             raise ValueError("q must be finite")
         from . import _clzgraph as _c
 
-        result = _c.fb_pseq_tilted_moments(
-            self.graph._cap, float(q), int(order))
+        result = _c.fb_pseq_tilted_moments(self.graph._cap, float(q), int(order))
         return (
             float(result["log_mass"]),
             np.asarray(result["raw_moments"], dtype=np.float64),
         )
 
-    def _tilted_log_moments_python(
-        self, q: float, order: int = 4
-    ) -> tuple[float, np.ndarray]:
+    def _tilted_log_moments_python(self, q: float, order: int = 4) -> tuple[float, np.ndarray]:
         """Python normalized-moment oracle used to validate the native DP."""
         log_mass = np.full(self._n, -np.inf, dtype=np.float64)
         moments = np.zeros((self._n, order + 1), dtype=np.float64)
@@ -702,8 +754,7 @@ class FlashBackPseqAnalysis:
                     powers[k] = powers[k - 1] * lp
                 for r in range(1, order + 1):
                     shifted[r] = sum(
-                        comb(r, j) * moments[u, j] * powers[r - j]
-                        for j in range(r + 1)
+                        comb(r, j) * moments[u, j] * powers[r - j] for j in range(r + 1)
                     )
                 candidate_mass = log_mass[u] + q * lp
                 log_mass[v], moments[v] = self._merge_raw_moments(
@@ -721,8 +772,7 @@ class FlashBackPseqAnalysis:
             raise ValueError("order must be between 0 and 4")
         from . import _clzgraph as _c
 
-        result = _c.fb_pseq_tilted_moments(
-            self.graph._cap, 1.0 - float(t), max(order, 1))
+        result = _c.fb_pseq_tilted_moments(self.graph._cap, 1.0 - float(t), max(order, 1))
         log_z = float(result["log_mass"])
         raw_logp = np.asarray(result["raw_moments"], dtype=np.float64)
         central_logp = np.asarray(result["central_moments"], dtype=np.float64)
@@ -763,15 +813,12 @@ class FlashBackPseqAnalysis:
                 "kurtosis": 0.0,
             }
         raw = [
-            ((-1) ** r) * np.longdouble(derivatives[r]) / z
-            for r in range(min(5, len(derivatives)))
+            ((-1) ** r) * np.longdouble(derivatives[r]) / z for r in range(min(5, len(derivatives)))
         ]
         mean = raw[1] if len(raw) > 1 else np.longdouble(0)
         variance = raw[2] - mean * mean if len(raw) > 2 else np.longdouble(0)
         variance = max(variance, np.longdouble(0))
-        if variance <= np.longdouble(1e-14) * max(
-            np.longdouble(1), mean * mean
-        ):
+        if variance <= np.longdouble(1e-14) * max(np.longdouble(1), mean * mean):
             variance = np.longdouble(0)
         std = np.sqrt(variance)
         skewness = np.longdouble(0)
@@ -780,12 +827,7 @@ class FlashBackPseqAnalysis:
             central3 = raw[3] - 3 * mean * raw[2] + 2 * mean**3
             skewness = central3 / std**3
         if variance > 0 and len(raw) > 4:
-            central4 = (
-                raw[4]
-                - 4 * mean * raw[3]
-                + 6 * mean * mean * raw[2]
-                - 3 * mean**4
-            )
+            central4 = raw[4] - 4 * mean * raw[3] + 6 * mean * mean * raw[2] - 3 * mean**4
             kurtosis = central4 / variance**2 - 3
         return {
             "mass": float(z),
@@ -821,16 +863,10 @@ class FlashBackPseqAnalysis:
             }
         from . import _clzgraph as _c
 
-        result = _c.fb_pseq_length_derivatives(
-            self.graph._cap, float(q), int(order))
-        return {
-            int(length): np.asarray(jet, dtype=np.float64)
-            for length, jet in result.items()
-        }
+        result = _c.fb_pseq_length_derivatives(self.graph._cap, float(q), int(order))
+        return {int(length): np.asarray(jet, dtype=np.float64) for length, jet in result.items()}
 
-    def _length_derivatives_python(
-        self, q: float, order: int = 4
-    ) -> dict[int, np.ndarray]:
+    def _length_derivatives_python(self, q: float, order: int = 4) -> dict[int, np.ndarray]:
         """Python reference implementation used to validate the native DP."""
         if order < 0 or order > 8:
             raise ValueError("order must be between 0 and 8")
@@ -858,26 +894,18 @@ class FlashBackPseqAnalysis:
                 increment = int(self._symbol_lengths[v])
                 for length, jet in source_by_length.items():
                     new_length = length + increment
-                    transported = self._transport_jet(
-                        jet, np.longdouble(self._log_weights[e]), q
-                    )
+                    transported = self._transport_jet(jet, np.longdouble(self._log_weights[e]), q)
                     if new_length in destination:
                         destination[new_length] += transported
                     else:
                         destination[new_length] = transported
             states[u] = None
-        return {
-            length: np.asarray(totals[length], dtype=np.float64)
-            for length in sorted(totals)
-        }
+        return {length: np.asarray(totals[length], dtype=np.float64) for length in sorted(totals)}
 
     def length_profile(self) -> dict[int, dict[str, float]]:
         """Exact generated mass and surprisal moments for every AA length."""
         derivatives = self.length_derivatives(1.0, 4)
-        return {
-            length: self._moments_from_derivatives(jet)
-            for length, jet in derivatives.items()
-        }
+        return {length: self._moments_from_derivatives(jet) for length, jet in derivatives.items()}
 
     def exact_atoms(self, max_paths: int = 100_000) -> PseqAtoms:
         """Enumerate exact atoms when support size does not exceed ``max_paths``."""
@@ -886,8 +914,7 @@ class FlashBackPseqAnalysis:
         log_count = self.log_mellin(0.0)
         if log_count > log(max_paths + 0.5):
             raise ValueError(
-                f"graph has about exp({log_count:.3f}) paths, exceeding "
-                f"max_paths={max_paths}"
+                f"graph has about exp({log_count:.3f}) paths, exceeding max_paths={max_paths}"
             )
         surprisals: list[float] = []
         lengths: list[int] = []
@@ -996,13 +1023,12 @@ class FlashBackPseqAnalysis:
                 length=length,
             )
         if bins <= self._max_edges + 1:
-            raise ValueError(
-                f"bins must exceed max path edges + 1 ({self._max_edges + 1})"
-            )
+            raise ValueError(f"bins must exceed max path edges + 1 ({self._max_edges + 1})")
         from . import _clzgraph as _c
 
         result = _c.fb_pseq_histogram(
-            self.graph._cap, int(bins), q, -1 if length is None else length)
+            self.graph._cap, int(bins), q, -1 if length is None else length
+        )
         spacing = float(result["spacing"])
         grid = np.arange(bins, dtype=np.float64) * spacing
         return PseqHistogram(
@@ -1054,9 +1080,7 @@ class FlashBackPseqAnalysis:
                 length=length,
             )
         if bins <= self._max_edges + 1:
-            raise ValueError(
-                f"bins must exceed max path edges + 1 ({self._max_edges + 1})"
-            )
+            raise ValueError(f"bins must exceed max path edges + 1 ({self._max_edges + 1})")
         spacing = self._true_max_surprisal / (bins - 1 - self._max_edges)
         grid = np.arange(bins, dtype=np.float64) * spacing
         if length is None:
@@ -1086,9 +1110,7 @@ class FlashBackPseqAnalysis:
                     total += source[length]
             for e in range(int(self._row[u]), int(self._row[u + 1])):
                 v = int(self._col[e])
-                shifted = self._shift_grid(
-                    source, -float(self._log_weights[e]) / spacing
-                )
+                shifted = self._shift_grid(source, -float(self._log_weights[e]) / spacing)
                 if length is not None:
                     increment = int(self._symbol_lengths[v])
                     length_shifted = np.zeros_like(shifted)
@@ -1281,7 +1303,4 @@ class FlashBackPseqAnalysis:
         return result
 
     def __repr__(self) -> str:
-        return (
-            f"FlashBackPseqAnalysis(nodes={self._n}, "
-            f"log_D0={self.log_mellin(0.0):.4f})"
-        )
+        return f"FlashBackPseqAnalysis(nodes={self._n}, log_D0={self.log_mellin(0.0):.4f})"

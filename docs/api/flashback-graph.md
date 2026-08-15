@@ -184,6 +184,7 @@ analysis.log_mellin(q)             # stable exact log M(q)
 analysis.derivatives(q, order=4)   # exact transform derivatives
 analysis.tilted_moments(q, 4)      # normalized moments under P(sequence)**q
 analysis.attribution(q)            # exact tilted node/edge usage and sensitivity
+analysis.diversity_under_edge_thresholds(thresholds)  # conditioned D0/D1/D2
 analysis.moments()                 # exact surprisal moments
 analysis.cumulants()               # exact surprisal cumulants
 graph.path_count_by_length()       # generated richness by literal AA length
@@ -206,8 +207,8 @@ reconstructed by a path, excluding the `@` and `$` sentinels and all token
 metadata. It is not the number of nodes or edges in the walk. See
 [FlashBack P-Sequence Analytics](../concepts/flashback-pseq-analytics.md) for
 the transform equations, stable tilted moments, structural attribution,
-saddlepoint inversion, length-conditioned interpretation, histogram measures,
-and guidance on choosing an interface.
+edge-pruning curves, saddlepoint inversion, length-conditioned interpretation,
+histogram measures, and guidance on choosing an interface.
 
 ### publicness_distribution
 
