@@ -53,4 +53,31 @@ LZGError lzg_predicted_overlap(const LZGGraph *g, double d_i, double d_j,
 LZGError lzg_richness_curve(const LZGGraph *g, const double *d_values,
                              uint32_t n, double *out);
 
+/**
+ * Binomial discovery and novelty curves over an explicit P-sequence spectrum.
+ *
+ * Atom `a` represents `multiplicities[a]` distinct sequences, each having
+ * probability `probabilities[a]`. For every effective draw count `n >= 1`,
+ * this evaluates
+ *
+ *     R(n) = sum_a c_a [1 - (1 - p_a)^n]
+ *     U(n) = sum_a c_a p_a (1 - p_a)^(n - 1).
+ *
+ * `R(n)` is the expected number of distinct sequences observed by draw `n`;
+ * `U(n)` is the probability that draw `n` has not appeared previously.
+ * Non-integer draw counts are accepted for smooth analytical curves. The
+ * implementation uses `log1p`, `expm1`, long-double accumulation, and
+ * compensated summation so probabilities far below float64 epsilon remain
+ * effective when multiplied by very large draw counts.
+ *
+ * Probabilities must be finite in [0, 1], multiplicities finite and
+ * non-negative, and draw counts finite and at least one. Empty atom and draw
+ * arrays are valid no-ops; corresponding pointers may be NULL when their
+ * length is zero.
+ */
+LZGError lzg_pseq_discovery_curve(
+    const double *probabilities, const double *multiplicities,
+    uint32_t n_atoms, const double *draw_counts, uint32_t n_draw_counts,
+    double *richness_out, double *novelty_out);
+
 #endif /* LZGRAPH_OCCUPANCY_H */

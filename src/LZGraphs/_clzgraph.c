@@ -766,6 +766,122 @@ static PyObject *py_richness_curve(PyObject *self, PyObject *args) {
     return result;
 }
 
+/* ── pseq_discovery_curve(probabilities, counts, draws) → dict ─ */
+
+static PyObject *py_pseq_discovery_curve(PyObject *self, PyObject *args) {
+    (void)self;
+    PyObject *probability_obj, *multiplicity_obj, *draw_obj;
+    if (!PyArg_ParseTuple(args, "OOO", &probability_obj,
+                          &multiplicity_obj, &draw_obj))
+        return NULL;
+    PyObject *probability_values = PySequence_Fast(
+        probability_obj, "probabilities must be a sequence");
+    PyObject *multiplicity_values = PySequence_Fast(
+        multiplicity_obj, "multiplicities must be a sequence");
+    PyObject *draw_values = PySequence_Fast(
+        draw_obj, "draw_counts must be a sequence");
+    if (!probability_values || !multiplicity_values || !draw_values) {
+        Py_XDECREF(probability_values); Py_XDECREF(multiplicity_values);
+        Py_XDECREF(draw_values);
+        return NULL;
+    }
+    const Py_ssize_t n_atoms_py = PySequence_Fast_GET_SIZE(probability_values);
+    const Py_ssize_t n_multiplicities_py =
+        PySequence_Fast_GET_SIZE(multiplicity_values);
+    const Py_ssize_t n_draws_py = PySequence_Fast_GET_SIZE(draw_values);
+    uint32_t n_atoms, n_draws;
+    if (n_atoms_py != n_multiplicities_py) {
+        PyErr_SetString(PyExc_ValueError,
+                        "probabilities and multiplicities must have equal length");
+        goto discovery_input_error;
+    }
+    if (!pyssize_to_u32(n_atoms_py, "probabilities", &n_atoms) ||
+        !pyssize_to_u32(n_draws_py, "draw_counts", &n_draws))
+        goto discovery_input_error;
+
+    double *probabilities = n_atoms ? (double *)malloc(
+        (size_t)n_atoms * sizeof(double)) : NULL;
+    double *multiplicities = n_atoms ? (double *)malloc(
+        (size_t)n_atoms * sizeof(double)) : NULL;
+    double *draws = n_draws ? (double *)malloc(
+        (size_t)n_draws * sizeof(double)) : NULL;
+    double *richness = n_draws ? (double *)malloc(
+        (size_t)n_draws * sizeof(double)) : NULL;
+    double *novelty = n_draws ? (double *)malloc(
+        (size_t)n_draws * sizeof(double)) : NULL;
+    if ((n_atoms && (!probabilities || !multiplicities)) ||
+        (n_draws && (!draws || !richness || !novelty))) {
+        free(probabilities); free(multiplicities); free(draws);
+        free(richness); free(novelty);
+        Py_DECREF(probability_values); Py_DECREF(multiplicity_values);
+        Py_DECREF(draw_values);
+        return PyErr_NoMemory();
+    }
+    PyObject **probability_items = PySequence_Fast_ITEMS(probability_values);
+    PyObject **multiplicity_items = PySequence_Fast_ITEMS(multiplicity_values);
+    PyObject **draw_items = PySequence_Fast_ITEMS(draw_values);
+    for (uint32_t i = 0; i < n_atoms; i++) {
+        probabilities[i] = PyFloat_AsDouble(probability_items[i]);
+        multiplicities[i] = PyFloat_AsDouble(multiplicity_items[i]);
+        if (PyErr_Occurred()) goto discovery_conversion_error;
+    }
+    for (uint32_t i = 0; i < n_draws; i++) {
+        draws[i] = PyFloat_AsDouble(draw_items[i]);
+        if (PyErr_Occurred()) goto discovery_conversion_error;
+    }
+    Py_DECREF(probability_values); Py_DECREF(multiplicity_values);
+    Py_DECREF(draw_values);
+
+    LZGError err;
+    Py_BEGIN_ALLOW_THREADS
+    err = lzg_pseq_discovery_curve(
+        probabilities, multiplicities, n_atoms, draws, n_draws,
+        richness, novelty);
+    Py_END_ALLOW_THREADS
+    free(probabilities); free(multiplicities); free(draws);
+    if (err != LZG_OK) {
+        free(richness); free(novelty);
+        return set_lzg_error(err);
+    }
+
+    PyObject *richness_list = PyList_New(n_draws_py);
+    PyObject *novelty_list = PyList_New(n_draws_py);
+    if (!richness_list || !novelty_list) {
+        Py_XDECREF(richness_list); Py_XDECREF(novelty_list);
+        free(richness); free(novelty);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < n_draws; i++) {
+        PyObject *richness_value = PyFloat_FromDouble(richness[i]);
+        PyObject *novelty_value = PyFloat_FromDouble(novelty[i]);
+        if (!richness_value || !novelty_value) {
+            Py_XDECREF(richness_value); Py_XDECREF(novelty_value);
+            Py_DECREF(richness_list); Py_DECREF(novelty_list);
+            free(richness); free(novelty);
+            return NULL;
+        }
+        PyList_SET_ITEM(richness_list, i, richness_value);
+        PyList_SET_ITEM(novelty_list, i, novelty_value);
+    }
+    free(richness); free(novelty);
+    return Py_BuildValue(
+        "{s:N,s:N}",
+        "expected_richness", richness_list,
+        "novelty_probability", novelty_list);
+
+discovery_conversion_error:
+    free(probabilities); free(multiplicities); free(draws);
+    free(richness); free(novelty);
+    Py_DECREF(probability_values); Py_DECREF(multiplicity_values);
+    Py_DECREF(draw_values);
+    return NULL;
+
+discovery_input_error:
+    Py_DECREF(probability_values); Py_DECREF(multiplicity_values);
+    Py_DECREF(draw_values);
+    return NULL;
+}
+
 /* ── predict_sharing(capsule, draws_list, max_k) → dict ───── */
 
 static PyObject *py_predict_sharing(PyObject *self, PyObject *args) {
@@ -3300,6 +3416,7 @@ static PyMethodDef module_methods[] = {
     {"predicted_richness",      py_predicted_richness,                 METH_VARARGS, NULL},
     {"predicted_overlap",       py_predicted_overlap,                  METH_VARARGS, NULL},
     {"richness_curve",          py_richness_curve,                     METH_VARARGS, NULL},
+    {"pseq_discovery_curve",    py_pseq_discovery_curve,               METH_VARARGS, NULL},
     {"predict_sharing",         py_predict_sharing,                    METH_VARARGS, NULL},
     {"publicness_moments",      py_publicness_moments,                 METH_VARARGS, NULL},
     {"publicness_pgf",          py_publicness_pgf,                     METH_VARARGS, NULL},

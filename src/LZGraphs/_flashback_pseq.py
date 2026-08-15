@@ -1175,19 +1175,29 @@ class FlashBackPseqAnalysis:
 
     def _counting_probabilities(
         self, bins: int, max_exact_paths: int
-    ) -> tuple[np.ndarray, np.ndarray, str]:
+    ) -> tuple[np.ndarray, np.ndarray, str, float, bool]:
         if self.log_mellin(0.0) <= log(max_exact_paths + 0.5):
             atoms = self.exact_atoms(max_exact_paths)
-            return (
-                atoms.probabilities.astype(np.longdouble),
-                np.ones(atoms.n_sequences, dtype=np.longdouble),
-                "exact_atoms",
-            )
-        histogram = self.histogram(bins, measure="counting")
+            probabilities = atoms.probabilities.astype(np.longdouble)
+            multiplicities = np.ones(atoms.n_sequences, dtype=np.longdouble)
+            method = "exact_atoms"
+        else:
+            histogram = self.histogram(bins, measure="counting")
+            probabilities = np.exp(-histogram.surprisal.astype(np.longdouble))
+            multiplicities = histogram.weights.astype(np.longdouble)
+            method = "deterministic_grid"
+        spectrum_mass = np.sum(probabilities * multiplicities, dtype=np.longdouble)
+        if not np.isfinite(spectrum_mass) or spectrum_mass <= 0:
+            raise RuntimeError("reconstructed p-sequence spectrum has no mass")
+        normalized = method == "deterministic_grid"
+        if normalized:
+            probabilities = probabilities / spectrum_mass
         return (
-            np.exp(-histogram.surprisal.astype(np.longdouble)),
-            histogram.weights.astype(np.longdouble),
-            "deterministic_grid",
+            probabilities,
+            multiplicities,
+            method,
+            float(spectrum_mass),
+            normalized,
         )
 
     def expected_richness(
@@ -1200,12 +1210,98 @@ class FlashBackPseqAnalysis:
         """Expected distinct sequences after ``n`` draws."""
         if n < 0:
             raise ValueError("n must be non-negative")
-        p, counts, method = self._counting_probabilities(bins, max_exact_paths)
+        p, counts, method, spectrum_mass, normalized = self._counting_probabilities(
+            bins, max_exact_paths
+        )
         with np.errstate(divide="ignore", invalid="ignore"):
             terms = -np.expm1(np.longdouble(n) * np.log1p(-p))
         terms[p >= 1] = 1.0 if n > 0 else 0.0
         value = np.sum(counts * terms, dtype=np.longdouble)
-        return {"expected_richness": float(value), "n": int(n), "method": method}
+        return {
+            "expected_richness": float(value),
+            "n": int(n),
+            "method": method,
+            "spectrum_mass_before_normalization": spectrum_mass,
+            "spectrum_normalized": normalized,
+        }
+
+    def discovery_curve(
+        self,
+        draw_counts: Any,
+        *,
+        bins: int = 4096,
+        max_exact_paths: int = 100_000,
+    ) -> dict[str, Any]:
+        """Expected richness and novelty over many sampling depths.
+
+        For sequence probabilities ``P(s)`` and every effective draw count
+        ``n >= 1``, this evaluates
+
+        ``R(n) = sum_s (1 - (1 - P(s))**n)``
+
+        and
+
+        ``U(n) = sum_s P(s) * (1 - P(s))**(n - 1)``.
+
+        ``R(n)`` is the expected number of distinct sequences seen by draw
+        ``n``. ``U(n)`` is the probability that draw ``n`` is novel relative
+        to the preceding draws. Non-integer depths are accepted for smooth
+        analytical curves.
+
+        The probability spectrum is constructed once and every requested
+        depth is then evaluated in one stable native batch. Small supports use
+        exact atoms; larger supports use the deterministic counting histogram
+        with its usual controllable grid approximation. Grid probabilities
+        are rescaled by their reconstructed total mass so they form a proper
+        distribution; the unscaled mass is returned as a numerical diagnostic.
+        Inputs may have any shape, which every numerical output preserves.
+
+        Args:
+            draw_counts: Finite effective sampling depths, all at least one.
+            bins: Grid size when deterministic reconstruction is required.
+            max_exact_paths: Largest support enumerated as exact atoms.
+
+        Returns:
+            A dictionary containing ``draw_counts``, ``expected_richness``,
+            ``novelty_probability``, ``method``,
+            ``spectrum_mass_before_normalization``, and
+            ``spectrum_normalized``.
+        """
+        values = np.asarray(draw_counts, dtype=np.float64)
+        if np.any(~np.isfinite(values)) or np.any(values < 1):
+            raise ValueError("draw_counts must be finite and at least one")
+        flat = np.ascontiguousarray(values.reshape(-1))
+        if flat.size == 0:
+            return {
+                "draw_counts": values.copy(),
+                "expected_richness": values.copy(),
+                "novelty_probability": values.copy(),
+                "method": "empty",
+                "spectrum_mass_before_normalization": 0.0,
+                "spectrum_normalized": False,
+            }
+        (
+            probabilities,
+            multiplicities,
+            method,
+            spectrum_mass,
+            normalized,
+        ) = self._counting_probabilities(bins, max_exact_paths)
+        from . import _clzgraph as _c
+
+        native = _c.pseq_discovery_curve(
+            probabilities.tolist(), multiplicities.tolist(), flat.tolist()
+        )
+        richness = np.asarray(native["expected_richness"], dtype=np.float64).reshape(values.shape)
+        novelty = np.asarray(native["novelty_probability"], dtype=np.float64).reshape(values.shape)
+        return {
+            "draw_counts": values.copy(),
+            "expected_richness": _as_scalar_or_array(draw_counts, richness),
+            "novelty_probability": _as_scalar_or_array(draw_counts, novelty),
+            "method": method,
+            "spectrum_mass_before_normalization": float(spectrum_mass),
+            "spectrum_normalized": normalized,
+        }
 
     def expected_frequency_spectrum(
         self,
@@ -1218,7 +1314,9 @@ class FlashBackPseqAnalysis:
         """Expected number of species observed 0..``max_count`` times."""
         if n < 0 or max_count < 0 or max_count > n:
             raise ValueError("require n >= 0 and 0 <= max_count <= n")
-        p, counts, method = self._counting_probabilities(bins, max_exact_paths)
+        p, counts, method, spectrum_mass, normalized = self._counting_probabilities(
+            bins, max_exact_paths
+        )
         spectrum = np.zeros(max_count + 1, dtype=np.float64)
         interior = (p > 0) & (p < 1)
         for r in range(max_count + 1):
@@ -1239,6 +1337,8 @@ class FlashBackPseqAnalysis:
             "n": int(n),
             "max_count": int(max_count),
             "method": method,
+            "spectrum_mass_before_normalization": spectrum_mass,
+            "spectrum_normalized": normalized,
         }
 
     def publicness_distribution(
@@ -1293,13 +1393,17 @@ class FlashBackPseqAnalysis:
             tail_floor=tail_floor,
             mass_tol=mass_tol,
         )
-        p, counts, method = self._counting_probabilities(bins, max_exact_paths)
+        p, counts, method, spectrum_mass, normalized = self._counting_probabilities(
+            bins, max_exact_paths
+        )
         result = model.expected_counts(
             np.asarray(p, dtype=np.float64),
             np.asarray(counts, dtype=np.float64),
             levels=levels,
         )
         result["method"] = method
+        result["spectrum_mass_before_normalization"] = spectrum_mass
+        result["spectrum_normalized"] = normalized
         return result
 
     def __repr__(self) -> str:

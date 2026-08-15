@@ -184,6 +184,67 @@ static void test_richness_curve_efficiency(void) {
     PASS();
 }
 
+static void test_pseq_discovery_curve(void) {
+    const double probabilities[] = {0.5, 0.25, 0.0, 1.0};
+    const double multiplicities[] = {2.0, 3.0, 100.0, 1.0};
+    const double draws[] = {1.0, 1.5, 2.0, 10.0, 1.0e6};
+    double richness[5], novelty[5];
+    LZGError err = lzg_pseq_discovery_curve(
+        probabilities, multiplicities, 4, draws, 5, richness, novelty);
+    ASSERT_MSG(err == LZG_OK, "discovery curve succeeds");
+    for (uint32_t j = 0; j < 5; j++) {
+        long double expected_richness = 1.0L;
+        long double expected_novelty = draws[j] == 1.0 ? 1.0L : 0.0L;
+        for (uint32_t a = 0; a < 2; a++) {
+            const long double p = probabilities[a];
+            const long double c = multiplicities[a];
+            expected_richness += c * (
+                -expm1l((long double)draws[j] * log1pl(-p)));
+            expected_novelty += c * p * expl(
+                ((long double)draws[j] - 1.0L) * log1pl(-p));
+        }
+        ASSERT_MSG(fabs(richness[j] - (double)expected_richness) < 2e-14,
+                   "richness matches direct formula");
+        ASSERT_MSG(fabs(novelty[j] - (double)expected_novelty) < 2e-14,
+                   "novelty matches direct formula");
+    }
+    ASSERT_MSG(richness[4] == 6.0, "richness saturates to positive atoms");
+    ASSERT_MSG(novelty[4] == 0.0, "novelty vanishes at extreme depth");
+
+    {
+        const double invalid_draw[] = {0.5};
+        err = lzg_pseq_discovery_curve(
+            probabilities, multiplicities, 4, invalid_draw, 1,
+            richness, novelty);
+        ASSERT_MSG(err == LZG_ERR_PARAM_OUT_OF_RANGE,
+                   "draw counts below one are rejected");
+    }
+    {
+        const double invalid_probability[] = {1.1};
+        const double one[] = {1.0};
+        err = lzg_pseq_discovery_curve(
+            invalid_probability, one, 1, one, 1, richness, novelty);
+        ASSERT_MSG(err == LZG_ERR_PARAM_OUT_OF_RANGE,
+                   "invalid probabilities are rejected");
+    }
+    err = lzg_pseq_discovery_curve(NULL, NULL, 0, NULL, 0, NULL, NULL);
+    ASSERT_MSG(err == LZG_OK, "empty curve is a no-op");
+    {
+        const double tiny_probability[] = {1.0e-80};
+        const double huge_multiplicity[] = {1.0e80};
+        const double one_draw[] = {1.0};
+        err = lzg_pseq_discovery_curve(
+            tiny_probability, huge_multiplicity, 1, one_draw, 1,
+            richness, novelty);
+        ASSERT_MSG(err == LZG_OK, "tiny-probability calculation succeeds");
+        ASSERT_MSG(fabs(richness[0] - 1.0) < 2e-15,
+                   "expm1 preserves tiny probabilities in richness");
+        ASSERT_MSG(fabs(novelty[0] - 1.0) < 2e-15,
+                   "first-draw novelty equals total probability mass");
+    }
+    PASS();
+}
+
 /* ═══════════════════════════════════════════════════════════════ */
 
 int main(void) {
@@ -198,6 +259,7 @@ int main(void) {
     RUN_TEST(test_overlap_identity);
     RUN_TEST(test_richness_curve);
     RUN_TEST(test_richness_curve_efficiency);
+    RUN_TEST(test_pseq_discovery_curve);
 
     printf("\n=================================================\n");
     printf("Results: %d passed, %d failed\n", pass_count, fail_count);

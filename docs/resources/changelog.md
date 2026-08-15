@@ -15,6 +15,12 @@ This project follows [Semantic Versioning](https://semver.org/).
   for an edge-pruning curve in a native batched dynamic program. Retention is
   strictly `weight > threshold`, and only sinks of the original graph remain
   valid endpoints.
+- `FlashBackPseqAnalysis.discovery_curve(draw_counts)` computes batched
+  expected richness and novelty curves after constructing the p-sequence
+  spectrum once. Stable native evaluation retains contributions from
+  probabilities far below ordinary float64 subtraction precision. Grid-based
+  spectra are normalized before evaluation and expose their original mass as
+  a diagnostic.
 
 ## [3.2.0] - 2026
 

@@ -277,6 +277,54 @@ variance, but it is still a grid approximation: `grid_spacing` reports its
 resolution and `max_rounding_error` bounds the worst accumulated placement
 error along a path.
 
+## Discovery and novelty curves
+
+For independent draws from the generated sequence distribution, the expected
+number of distinct sequences observed by depth \(n\) is
+
+\[
+R(n)=\sum_s\left[1-(1-P(s))^n\right].
+\]
+
+The probability that draw \(n\) is a sequence absent from the preceding
+draws is
+
+\[
+U(n)=\sum_sP(s)(1-P(s))^{n-1}.
+\]
+
+Evaluate both curves together by passing every desired depth at once:
+
+```python
+draws = np.logspace(0, 20, 121)
+curve = analysis.discovery_curve(draws, bins=16384)
+
+richness = curve["expected_richness"]
+novelty = curve["novelty_probability"]
+```
+
+The counting spectrum is constructed once for the whole batch. Calling
+`expected_richness()` repeatedly would reconstruct that spectrum on every
+call, so `discovery_curve()` is the appropriate interface for a sweep.
+Non-integer depths are allowed for smooth analytical curves, while values must
+be finite and at least one.
+
+Small supports use explicitly enumerated exact atoms. Large supports use the
+deterministic counting histogram, so `bins` controls the same grid
+approximation and pathwise rounding-error bound described above. After the
+spectrum exists, the native kernel uses `log1p` and `expm1`; this matters when
+\(P(s)\) is far below machine epsilon, where directly subtracting
+\(1-(1-P(s))^n\) would incorrectly erase the contribution.
+
+Linear transport on a surprisal grid conserves counting mass and mean
+surprisal, but exponentiating the grid locations can make the reconstructed
+probabilities sum to slightly more or less than one. Before evaluating a
+large-support discovery curve, the API therefore divides those probabilities
+by their reconstructed mass. This guarantees the probability identities
+`R(1) == U(1) == 1` and keeps novelty in `[0, 1]`. The result reports the raw
+value as `spectrum_mass_before_normalization` and whether rescaling occurred as
+`spectrum_normalized`, so grid drift remains visible rather than being hidden.
+
 ## Choosing an interface
 
 | Question | Interface |
@@ -291,6 +339,7 @@ error along a path.
 | What does a large probability spectrum look like? | `histogram()` |
 | What smooth PDF/CDF approximates the generated spectrum? | `saddlepoint().pdf_cdf()` |
 | Where does one sequence lie in the spectrum? | `position()` |
+| How quickly are sequences discovered, and how much novelty remains? | `discovery_curve()` |
 
 Creating the analysis object reads the graph's existing topological structure;
 it does not alter the graph. Reuse one analysis object when making several

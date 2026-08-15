@@ -195,6 +195,7 @@ analysis.histogram()               # deterministic large-support grid
 analysis.saddlepoint().pdf_cdf(x)  # batched smooth PDF/CDF approximation
 analysis.position(sequence)         # individual repertoire position
 analysis.expected_richness(n)       # finite-depth occupancy prediction
+analysis.discovery_curve(draws)     # batched richness and novelty curves
 analysis.publicness_distribution(depths)  # predicted repertoire occupancy
 ```
 
@@ -208,7 +209,8 @@ metadata. It is not the number of nodes or edges in the walk. See
 [FlashBack P-Sequence Analytics](../concepts/flashback-pseq-analytics.md) for
 the transform equations, stable tilted moments, structural attribution,
 edge-pruning curves, saddlepoint inversion, length-conditioned interpretation,
-histogram measures, and guidance on choosing an interface.
+histogram measures, batched discovery/novelty curves, and guidance on choosing
+an interface.
 
 ### publicness_distribution
 

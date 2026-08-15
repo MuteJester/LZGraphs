@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   an edge-pruning curve. The native batched dynamic program uses strict
   `weight > threshold` retention and preserves the graph's original sinks.
 
+- `FlashBackPseqAnalysis.discovery_curve(draw_counts)` for batched expected
+  richness and remaining-novelty curves over one reusable p-sequence spectrum.
+  Its native kernel uses stable `log1p`/`expm1`, long-double accumulation, and
+  compensated summation across the full requested depth grid. Deterministic
+  grid probabilities are normalized before evaluation, with the original
+  reconstructed mass returned as a diagnostic.
+
 - `FlashBackPseqAnalysis.attribution(q)` for exact, sampling-free node and edge
   marginals under path weights proportional to `P(sequence)**q`, including
   edge sensitivities, surprisal contributions, and ranked edge summaries. The

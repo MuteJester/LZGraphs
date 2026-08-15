@@ -930,6 +930,66 @@ class TestInterpretationAndSamplingDepth:
         assert result["method"] == "exact_atoms"
         assert result["expected_richness"] == pytest.approx(expected, rel=2e-14)
 
+    def test_native_discovery_curve_matches_exhaustive_atoms(self, recombining_graph, analysis):
+        probabilities = np.asarray(
+            [p for p, _, _ in enumerate_public_graph(recombining_graph)],
+            dtype=np.longdouble,
+        )
+        draws = np.asarray([1.0, 1.5, 2.0, 10.0, 1e6])
+        expected_richness = []
+        expected_novelty = []
+        for n in draws.astype(np.longdouble):
+            log_survival = np.log1p(-probabilities)
+            expected_richness.append(np.sum(-np.expm1(n * log_survival), dtype=np.longdouble))
+            expected_novelty.append(
+                np.sum(
+                    probabilities * np.exp((n - 1) * log_survival),
+                    dtype=np.longdouble,
+                )
+            )
+        result = analysis.discovery_curve(draws)
+        assert result["method"] == "exact_atoms"
+        assert result["spectrum_normalized"] is False
+        assert result["spectrum_mass_before_normalization"] == pytest.approx(1.0)
+        np.testing.assert_allclose(
+            result["expected_richness"],
+            expected_richness,
+            rtol=2e-14,
+            atol=2e-14,
+        )
+        np.testing.assert_allclose(
+            result["novelty_probability"],
+            expected_novelty,
+            rtol=2e-14,
+            atol=2e-14,
+        )
+        assert np.all(np.diff(result["expected_richness"]) >= 0)
+        assert np.all(np.diff(result["novelty_probability"]) <= 0)
+
+    def test_discovery_curve_shape_scalar_grid_and_validation(self, analysis):
+        draws = np.asarray([[1.0, 2.0], [10.0, 100.0]])
+        exact = analysis.discovery_curve(draws)
+        assert exact["expected_richness"].shape == draws.shape
+        assert exact["novelty_probability"].shape == draws.shape
+        scalar = analysis.discovery_curve(10.0)
+        assert isinstance(scalar["expected_richness"], float)
+        assert isinstance(scalar["novelty_probability"], float)
+        grid = analysis.discovery_curve(draws, bins=8192, max_exact_paths=1)
+        assert grid["method"] == "deterministic_grid"
+        assert grid["spectrum_normalized"] is True
+        assert grid["spectrum_mass_before_normalization"] > 0
+        assert grid["expected_richness"][0, 0] == pytest.approx(1.0, rel=2e-14)
+        assert grid["novelty_probability"][0, 0] == pytest.approx(1.0, rel=2e-14)
+        assert np.all(grid["novelty_probability"] <= 1.0 + 2e-14)
+        np.testing.assert_allclose(grid["expected_richness"], exact["expected_richness"], rtol=2e-5)
+        empty = analysis.discovery_curve(np.empty((0, 2)))
+        assert empty["method"] == "empty"
+        assert empty["spectrum_normalized"] is False
+        assert empty["expected_richness"].shape == (0, 2)
+        for bad in (0.0, -1.0, np.inf, np.nan):
+            with pytest.raises(ValueError, match="at least one"):
+                analysis.discovery_curve([bad])
+
     def test_expected_frequency_spectrum_matches_binomial_sum(self, recombining_graph, analysis):
         n = 12
         max_count = 6
@@ -946,7 +1006,12 @@ class TestInterpretationAndSamplingDepth:
         exact = analysis.expected_richness(100)["expected_richness"]
         grid = analysis.expected_richness(100, bins=8192, max_exact_paths=1)
         assert grid["method"] == "deterministic_grid"
+        assert grid["spectrum_normalized"] is True
         assert grid["expected_richness"] == pytest.approx(exact, rel=2e-5)
+
+        first_draw = analysis.expected_richness(1, bins=8192, max_exact_paths=1)
+        assert first_draw["expected_richness"] == pytest.approx(1.0, rel=2e-14)
+        assert first_draw["spectrum_mass_before_normalization"] > 0
 
     def test_pair_collision_identity(self, recombining_graph, analysis):
         n = 20
